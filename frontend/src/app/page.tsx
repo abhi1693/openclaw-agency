@@ -1,146 +1,68 @@
 "use client";
 
-import { useEffect, useState } from "react";
-import styles from "./_components/Shell.module.css";
-import { apiGet } from "../lib/api";
+import { Button } from "@/components/ui/button";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 
-type Activity = {
-  id: number;
-  actor_employee_id: number | null;
-  entity_type: string;
-  entity_id: number | null;
-  verb: string;
-  payload: any;
-  created_at: string;
-};
+import { useListProjectsProjectsGet } from "@/api/generated/projects/projects";
 
-type Project = { id: number; name: string; status: string };
-
-type Department = { id: number; name: string; head_employee_id: number | null };
-
-type Employee = {
-  id: number;
-  name: string;
-  employee_type: string;
-  department_id: number | null;
-  manager_id: number | null;
-  title: string | null;
-  status: string;
-};
-
-type Task = {
-  id: number;
-  project_id: number;
-  title: string;
-  status: string;
-  assignee_employee_id: number | null;
-  reviewer_employee_id: number | null;
-  created_at: string;
-  updated_at: string;
-};
-
-export default function MissionControlHome() {
-  const [activities, setActivities] = useState<Activity[]>([]);
-  const [projects, setProjects] = useState<Project[]>([]);
-  const [departments, setDepartments] = useState<Department[]>([]);
-  const [employees, setEmployees] = useState<Employee[]>([]);
-  const [tasks, setTasks] = useState<Task[]>([]);
-  const [error, setError] = useState<string | null>(null);
-
-  async function load() {
-    setError(null);
-    try {
-      const [a, p, d, e, t] = await Promise.all([
-        apiGet<Activity[]>("/activities?limit=20"),
-        apiGet<Project[]>("/projects"),
-        apiGet<Department[]>("/departments"),
-        apiGet<Employee[]>("/employees"),
-        apiGet<Task[]>("/tasks"),
-      ]);
-      setActivities(a);
-      setProjects(p);
-      setDepartments(d);
-      setEmployees(e);
-      setTasks(t);
-    } catch (err: unknown) {
-      setError(err instanceof Error ? err.message : "Unknown error");
-    }
-  }
-
-  useEffect(() => {
-    load();
-  }, []);
-
-  const activeProjects = projects.filter((x) => x.status === "active").length;
-  const activeEmployees = employees.filter((x) => x.status === "active").length;
-  const blockedTasks = tasks.filter((t) => t.status === "blocked").length;
-  const reviewQueue = tasks.filter((t) => t.status === "review").length;
+export default function Home() {
+  const projects = useListProjectsProjectsGet();
 
   return (
-    <main>
-      <div className={styles.topbar}>
+    <main className="mx-auto max-w-5xl p-6">
+      <div className="flex items-start justify-between gap-4">
         <div>
-          <h1 className={styles.h1}>Mission Control</h1>
-          <p className={styles.p}>
-            Company dashboard: departments, employees/agents, projects, and work — designed to run like a real org.
+          <h1 className="text-3xl font-semibold tracking-tight">Company Mission Control</h1>
+          <p className="mt-2 text-sm text-muted-foreground">
+            Orval-generated client + React Query + shadcn-style components.
           </p>
         </div>
-        <button className={styles.btn} onClick={load}>
+        <Button variant="outline" onClick={() => projects.refetch()} disabled={projects.isFetching}>
           Refresh
-        </button>
+        </Button>
       </div>
 
-      {error ? (
-        <div className={styles.card} style={{ borderColor: "rgba(176,0,32,0.25)" }}>
-          <div className={styles.cardTitle}>Error</div>
-          <div style={{ color: "#b00020" }}>{error}</div>
-        </div>
-      ) : null}
+      <div className="mt-6 grid gap-4 sm:grid-cols-2">
+        <Card>
+          <CardHeader>
+            <CardTitle>Projects</CardTitle>
+            <CardDescription>GET /projects</CardDescription>
+          </CardHeader>
+          <CardContent>
+            {projects.isLoading ? <div className="text-sm text-muted-foreground">Loading…</div> : null}
+            {projects.error ? (
+              <div className="text-sm text-destructive">{(projects.error as Error).message}</div>
+            ) : null}
+            {!projects.isLoading && !projects.error ? (
+              <ul className="space-y-2">
+                {projects.data?.map((p) => (
+                  <li key={p.id ?? p.name} className="flex items-center justify-between rounded-md border p-3">
+                    <div className="font-medium">{p.name}</div>
+                    <div className="text-xs text-muted-foreground">{p.status}</div>
+                  </li>
+                ))}
+                {(projects.data?.length ?? 0) === 0 ? (
+                  <li className="text-sm text-muted-foreground">No projects yet.</li>
+                ) : null}
+              </ul>
+            ) : null}
+          </CardContent>
+        </Card>
 
-      <div className={styles.grid2} style={{ marginTop: 16 }}>
-        <section className={styles.card}>
-          <div className={styles.cardTitle}>Company Snapshot</div>
-          <div style={{ display: "flex", gap: 10, flexWrap: "wrap" }}>
-            <span className={styles.badge}>Projects: {activeProjects}</span>
-            <span className={styles.badge}>Departments: {departments.length}</span>
-            <span className={styles.badge}>Active people: {activeEmployees}</span>
-            <span className={styles.badge}>In review: {reviewQueue}</span>
-            <span className={styles.badge}>Blocked: {blockedTasks}</span>
-          </div>
-          <div className={styles.list} style={{ marginTop: 12 }}>
-            {projects.slice(0, 6).map((p) => (
-              <div key={p.id} className={styles.item}>
-                <div style={{ display: "flex", justifyContent: "space-between", gap: 12 }}>
-                  <div style={{ fontWeight: 650 }}>{p.name}</div>
-                  <span className={styles.badge}>{p.status}</span>
-                </div>
-                <div className={styles.mono} style={{ marginTop: 6 }}>
-                  Project ID: {p.id}
-                </div>
-              </div>
-            ))}
-            {projects.length === 0 ? <div className={styles.mono}>No projects yet. Create one in Projects.</div> : null}
-          </div>
-        </section>
-
-        <section className={styles.card}>
-          <div className={styles.cardTitle}>Activity Feed</div>
-          <div className={styles.list}>
-            {activities.map((a) => (
-              <div key={a.id} className={styles.item}>
-                <div style={{ display: "flex", justifyContent: "space-between", gap: 12 }}>
-                  <div>
-                    <span style={{ fontWeight: 650 }}>{a.entity_type}</span> · {a.verb}
-                    {a.entity_id != null ? ` #${a.entity_id}` : ""}
-                  </div>
-                  <span className={styles.mono}>{new Date(a.created_at).toLocaleString()}</span>
-                </div>
-                {a.payload ? <div className={styles.mono} style={{ marginTop: 6 }}>{JSON.stringify(a.payload)}</div> : null}
-              </div>
-            ))}
-            {activities.length === 0 ? <div className={styles.mono}>No activity yet.</div> : null}
-          </div>
-        </section>
+        <Card>
+          <CardHeader>
+            <CardTitle>API</CardTitle>
+            <CardDescription>Docs & health</CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-2 text-sm">
+            <div>
+              <span className="text-muted-foreground">Docs:</span> <code className="ml-2">/docs</code>
+            </div>
+            <div className="text-muted-foreground">
+              Set <code>NEXT_PUBLIC_API_URL</code> in <code>.env.local</code> (example: http://192.168.1.101:8000).
+            </div>
+          </CardContent>
+        </Card>
       </div>
     </main>
   );
