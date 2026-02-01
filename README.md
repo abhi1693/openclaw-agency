@@ -17,30 +17,46 @@ Uses local Postgres:
 - password: `REDACTED`
 - db: `openclaw_agency`
 
-Backend config is in `backend/.env`.
+## Environment
 
-## Run backend
+Do **not** commit real `.env` files.
+
+- Backend: copy `backend/.env.example` → `backend/.env`
+- Frontend: copy `frontend/.env.example` → `frontend/.env.local`
+
+If you want to test from another device (phone/laptop), make sure:
+
+- both servers bind to `0.0.0.0`
+- `NEXT_PUBLIC_API_URL` is set to `http://<YOUR_MACHINE_IP>:8000` (not `127.0.0.1`)
+- backend `CORS_ORIGINS` includes `http://<YOUR_MACHINE_IP>:3000`
+
+## Run backend (LAN-accessible)
 
 ```bash
 cd backend
 source .venv/bin/activate
-uvicorn app.main:app --reload --port 8000
+uvicorn app.main:app --reload --host 0.0.0.0 --port 8000
 ```
 
 Health check:
 
 ```bash
 curl http://127.0.0.1:8000/health
+# or from another machine:
+# curl http://<YOUR_MACHINE_IP>:8000/health
 ```
 
-## Run frontend
+## Run frontend (LAN-accessible)
 
 ```bash
 cd frontend
-npm run dev
+npm run dev:lan
 ```
 
-Open: http://localhost:3000
+Open:
+
+- local: http://localhost:3000
+- LAN: `http://<YOUR_MACHINE_IP>:3000`
 
 ## API
 
