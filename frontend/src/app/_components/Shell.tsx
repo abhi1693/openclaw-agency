@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import styles from "./Shell.module.css";
 
 const NAV = [
@@ -15,16 +15,14 @@ const NAV = [
 
 export function Shell({ children }: { children: React.ReactNode }) {
   const path = usePathname();
-  const [actorId, setActorId] = useState("");
-
-  useEffect(() => {
+  const [actorId, setActorId] = useState(() => {
+    if (typeof window === "undefined") return "";
     try {
-      const stored = window.localStorage.getItem("actor_employee_id");
-      if (stored) setActorId(stored);
+      return window.localStorage.getItem("actor_employee_id") ?? "";
     } catch {
-      // ignore
+      return "";
     }
-  }, []);
+  });
   return (
     <div className={styles.shell}>
       <aside className={styles.sidebar}>

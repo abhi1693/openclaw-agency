@@ -5,6 +5,7 @@ import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
+import { normalizeAgentOnboardings, normalizeDepartments, normalizeEmployees, normalizeEmploymentActions, normalizeHeadcountRequests } from "@/lib/normalize";
 import { Select } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
 
@@ -21,11 +22,16 @@ import { useListDepartmentsDepartmentsGet, useListEmployeesEmployeesGet } from "
 
 export default function HRPage() {
   const departments = useListDepartmentsDepartmentsGet();
+  const departmentList = normalizeDepartments(departments.data);
   const employees = useListEmployeesEmployeesGet();
+  const employeeList = normalizeEmployees(employees.data);
 
   const headcount = useListHeadcountRequestsHrHeadcountGet();
   const actions = useListEmploymentActionsHrActionsGet();
   const onboarding = useListAgentOnboardingHrOnboardingGet();
+  const headcountList = normalizeHeadcountRequests(headcount.data);
+  const actionList = normalizeEmploymentActions(actions.data);
+  const onboardingList = normalizeAgentOnboardings(onboarding.data);
 
   const [hcDeptId, setHcDeptId] = useState<string>("");
   const [hcManagerId, setHcManagerId] = useState<string>("");
@@ -88,14 +94,6 @@ export default function HRPage() {
     },
   });
 
-    mutation: {
-      onSuccess: () => {
-        setActNotes("");
-        actions.refetch();
-      },
-    },
-  });
-
   return (
     <main className="mx-auto max-w-5xl p-6">
       <div className="flex items-start justify-between gap-4">
@@ -117,13 +115,13 @@ export default function HRPage() {
           <CardContent className="space-y-3">
             <Select value={hcDeptId} onChange={(e) => setHcDeptId(e.target.value)}>
               <option value="">Select department</option>
-              {(departments.data ?? []).map((d) => (
+              {departmentList.map((d) => (
                 <option key={d.id ?? d.name} value={d.id ?? ""}>{d.name}</option>
               ))}
             </Select>
             <Select value={hcManagerId} onChange={(e) => setHcManagerId(e.target.value)}>
               <option value="">Requesting manager</option>
-              {(employees.data ?? []).map((e) => (
+              {employeeList.map((e) => (
                 <option key={e.id ?? e.name} value={e.id ?? ""}>{e.name}</option>
               ))}
             </Select>
@@ -167,13 +165,13 @@ export default function HRPage() {
           <CardContent className="space-y-3">
             <Select value={actEmployeeId} onChange={(e) => setActEmployeeId(e.target.value)}>
               <option value="">Employee</option>
-              {(employees.data ?? []).map((e) => (
+              {employeeList.map((e) => (
                 <option key={e.id ?? e.name} value={e.id ?? ""}>{e.name}</option>
               ))}
             </Select>
             <Select value={actIssuerId} onChange={(e) => setActIssuerId(e.target.value)}>
               <option value="">Issued by</option>
-              {(employees.data ?? []).map((e) => (
+              {employeeList.map((e) => (
                 <option key={e.id ?? e.name} value={e.id ?? ""}>{e.name}</option>
               ))}
             </Select>
@@ -214,13 +212,13 @@ export default function HRPage() {
             <div>
               <div className="mb-2 text-sm font-medium">Headcount requests</div>
               <ul className="space-y-2">
-                {(headcount.data ?? []).slice(0, 10).map((r) => (
+                {headcountList.slice(0, 10).map((r) => (
                   <li key={String(r.id)} className="rounded-md border p-3 text-sm">
                     <div className="font-medium">{r.role_title} × {r.quantity} ({r.employee_type})</div>
                     <div className="text-xs text-muted-foreground">dept #{r.department_id} · status: {r.status}</div>
                   </li>
                 ))}
-                {(headcount.data ?? []).length === 0 ? (
+                {headcountList.length === 0 ? (
                   <li className="text-sm text-muted-foreground">None yet.</li>
                 ) : null}
               </ul>
@@ -228,13 +226,13 @@ export default function HRPage() {
             <div>
               <div className="mb-2 text-sm font-medium">Employment actions</div>
               <ul className="space-y-2">
-                {(actions.data ?? []).slice(0, 10).map((a) => (
+                {actionList.slice(0, 10).map((a) => (
                   <li key={String(a.id)} className="rounded-md border p-3 text-sm">
                     <div className="font-medium">{a.action_type} → employee #{a.employee_id}</div>
                     <div className="text-xs text-muted-foreground">issued by #{a.issued_by_employee_id}</div>
                   </li>
                 ))}
-                {(actions.data ?? []).length === 0 ? (
+                {actionList.length === 0 ? (
                   <li className="text-sm text-muted-foreground">None yet.</li>
                 ) : null}
               </ul>
@@ -258,7 +256,7 @@ export default function HRPage() {
               <Textarea placeholder="Tools/permissions (JSON or text)" value={onboardTools} onChange={(e) => setOnboardTools(e.target.value)} />
               <Select value={onboardOwnerId} onChange={(e) => setOnboardOwnerId(e.target.value)}>
                 <option value="">Owner (HR)</option>
-                {(employees.data ?? []).map((e) => (
+                {employeeList.map((e) => (
                   <option key={e.id ?? e.name} value={e.id ?? ""}>{e.name}</option>
                 ))}
               </Select>
@@ -286,7 +284,7 @@ export default function HRPage() {
             <div>
               <div className="mb-2 text-sm font-medium">Current onboardings</div>
               <ul className="space-y-2">
-                {(onboarding.data ?? []).map((o) => (
+                {onboardingList.map((o) => (
                   <li key={String(o.id)} className="rounded-md border p-3 text-sm">
                     <div className="font-medium">{o.agent_name} · {o.role_title}</div>
                     <div className="text-xs text-muted-foreground">status: {o.status} · cron: {o.cron_interval_ms ?? "—"}</div>
@@ -327,7 +325,7 @@ export default function HRPage() {
                     </div>
                   </li>
                 ))}
-                {(onboarding.data ?? []).length === 0 ? (
+                {onboardingList.length === 0 ? (
                   <li className="text-sm text-muted-foreground">No onboarding records yet.</li>
                 ) : null}
               </ul>

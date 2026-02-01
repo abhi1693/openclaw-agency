@@ -1,10 +1,11 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useState } from "react";
 
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
+import { normalizeDepartments, normalizeEmployees } from "@/lib/normalize";
 import { Select } from "@/components/ui/select";
 
 import {
@@ -19,7 +20,10 @@ export default function DepartmentsPage() {
   const [headId, setHeadId] = useState<string>("");
 
   const departments = useListDepartmentsDepartmentsGet();
+  const departmentList = normalizeDepartments(departments.data);
   const employees = useListEmployeesEmployeesGet();
+
+  const employeeList = normalizeEmployees(employees.data);
 
   const createDepartment = useCreateDepartmentDepartmentsPost({
     mutation: {
@@ -37,9 +41,7 @@ export default function DepartmentsPage() {
     },
   });
 
-  const sortedEmployees = useMemo(() => {
-    return (employees.data ?? []).slice().sort((a, b) => (a.name ?? "").localeCompare(b.name ?? ""));
-  }, [employees.data]);
+  const sortedEmployees = employeeList.slice().sort((a, b) => (a.name ?? "").localeCompare(b.name ?? ""));
 
   return (
     <main className="mx-auto max-w-5xl p-6">
@@ -91,7 +93,7 @@ export default function DepartmentsPage() {
         <Card>
           <CardHeader>
             <CardTitle>All departments</CardTitle>
-            <CardDescription>{(departments.data ?? []).length} total</CardDescription>
+            <CardDescription>{departmentList.length} total</CardDescription>
           </CardHeader>
           <CardContent>
             {departments.isLoading ? <div className="text-sm text-muted-foreground">Loading…</div> : null}
@@ -100,7 +102,7 @@ export default function DepartmentsPage() {
             ) : null}
             {!departments.isLoading && !departments.error ? (
               <ul className="space-y-2">
-                {(departments.data ?? []).map((d) => (
+                {departmentList.map((d) => (
                   <li key={d.id ?? d.name} className="rounded-md border p-3">
                     <div className="flex items-center justify-between gap-3">
                       <div className="font-medium">{d.name}</div>
@@ -127,7 +129,7 @@ export default function DepartmentsPage() {
                     </div>
                   </li>
                 ))}
-                {(departments.data ?? []).length === 0 ? (
+                {departmentList.length === 0 ? (
                   <li className="text-sm text-muted-foreground">No departments yet.</li>
                 ) : null}
               </ul>

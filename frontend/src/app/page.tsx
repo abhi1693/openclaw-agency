@@ -6,6 +6,7 @@ import styles from "@/app/_components/Shell.module.css";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
+import { normalizeActivities, normalizeDepartments, normalizeEmployees, normalizeProjects } from "@/lib/normalize";
 import { Select } from "@/components/ui/select";
 
 import { useCreateProjectProjectsPost, useListProjectsProjectsGet } from "@/api/generated/projects/projects";
@@ -15,9 +16,13 @@ import { useListActivitiesActivitiesGet } from "@/api/generated/activities/activ
 
 export default function Home() {
   const projects = useListProjectsProjectsGet();
+  const projectList = normalizeProjects(projects.data);
   const departments = useListDepartmentsDepartmentsGet();
+  const departmentList = normalizeDepartments(departments.data);
   const employees = useListEmployeesEmployeesGet();
   const activities = useListActivitiesActivitiesGet({ limit: 20 });
+  const employeeList = normalizeEmployees(employees.data);
+  const activityList = normalizeActivities(activities.data);
 
   const [projectName, setProjectName] = useState("");
   const [deptName, setDeptName] = useState("");
@@ -81,13 +86,13 @@ export default function Home() {
         <div className={styles.card}>
           <div className={styles.cardTitle}>Live activity</div>
           <div className={styles.list}>
-            {(activities.data ?? []).map((a) => (
+            {activityList.map((a) => (
               <div key={String(a.id)} className={styles.item}>
                 <div style={{ fontWeight: 600 }}>{a.entity_type} · {a.verb}</div>
                 <div className={styles.mono}>id {a.entity_id ?? "—"}</div>
               </div>
             ))}
-            {(activities.data ?? []).length === 0 ? (
+            {activityList.length === 0 ? (
               <div className={styles.mono}>No activity yet.</div>
             ) : null}
           </div>
@@ -98,17 +103,17 @@ export default function Home() {
         <Card>
           <CardHeader>
             <CardTitle>Projects</CardTitle>
-            <CardDescription>{(projects.data ?? []).length} total</CardDescription>
+            <CardDescription>{projectList.length} total</CardDescription>
           </CardHeader>
           <CardContent>
             <div className={styles.list}>
-              {(projects.data ?? []).slice(0, 8).map((p) => (
+              {projectList.slice(0, 8).map((p) => (
                 <div key={p.id ?? p.name} className={styles.item}>
                   <div style={{ fontWeight: 600 }}>{p.name}</div>
                   <div className={styles.mono}>{p.status}</div>
                 </div>
               ))}
-              {(projects.data ?? []).length === 0 ? <div className={styles.mono}>No projects yet.</div> : null}
+              {projectList.length === 0 ? <div className={styles.mono}>No projects yet.</div> : null}
             </div>
           </CardContent>
         </Card>
@@ -116,17 +121,17 @@ export default function Home() {
         <Card>
           <CardHeader>
             <CardTitle>Departments</CardTitle>
-            <CardDescription>{(departments.data ?? []).length} total</CardDescription>
+            <CardDescription>{departmentList.length} total</CardDescription>
           </CardHeader>
           <CardContent>
             <div className={styles.list}>
-              {(departments.data ?? []).slice(0, 8).map((d) => (
+              {departmentList.slice(0, 8).map((d) => (
                 <div key={d.id ?? d.name} className={styles.item}>
                   <div style={{ fontWeight: 600 }}>{d.name}</div>
                   <div className={styles.mono}>id {d.id}</div>
                 </div>
               ))}
-              {(departments.data ?? []).length === 0 ? <div className={styles.mono}>No departments yet.</div> : null}
+              {departmentList.length === 0 ? <div className={styles.mono}>No departments yet.</div> : null}
             </div>
           </CardContent>
         </Card>
@@ -134,17 +139,17 @@ export default function Home() {
         <Card>
           <CardHeader>
             <CardTitle>People</CardTitle>
-            <CardDescription>{(employees.data ?? []).length} total</CardDescription>
+            <CardDescription>{employeeList.length} total</CardDescription>
           </CardHeader>
           <CardContent>
             <div className={styles.list}>
-              {(employees.data ?? []).slice(0, 8).map((e) => (
+              {employeeList.slice(0, 8).map((e) => (
                 <div key={e.id ?? e.name} className={styles.item}>
                   <div style={{ fontWeight: 600 }}>{e.name}</div>
                   <div className={styles.mono}>{e.employee_type}</div>
                 </div>
               ))}
-              {(employees.data ?? []).length === 0 ? <div className={styles.mono}>No people yet.</div> : null}
+              {employeeList.length === 0 ? <div className={styles.mono}>No people yet.</div> : null}
             </div>
           </CardContent>
         </Card>

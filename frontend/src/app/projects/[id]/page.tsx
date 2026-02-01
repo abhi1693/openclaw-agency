@@ -6,6 +6,7 @@ import { useParams } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
+import { normalizeEmployees, normalizeProjectMembers, normalizeProjects, normalizeTaskComments, normalizeTasks } from "@/lib/normalize";
 import { Select } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
 
@@ -33,11 +34,14 @@ export default function ProjectDetailPage() {
   const projectId = Number(params?.id);
 
   const projects = useListProjectsProjectsGet();
-  const project = (projects.data ?? []).find((p) => p.id === projectId);
+  const projectList = normalizeProjects(projects.data);
+  const project = projectList.find((p) => p.id === projectId);
 
   const employees = useListEmployeesEmployeesGet();
+  const employeeList = normalizeEmployees(employees.data);
 
   const members = useListProjectMembersProjectsProjectIdMembersGet(projectId);
+  const memberList = normalizeProjectMembers(members.data);
   const addMember = useAddProjectMemberProjectsProjectIdMembersPost({
     mutation: { onSuccess: () => members.refetch() },
   });
@@ -48,7 +52,8 @@ export default function ProjectDetailPage() {
     mutation: { onSuccess: () => members.refetch() },
   });
 
-  const tasks = useListTasksTasksGet({ projectId });
+  const tasks = useListTasksTasksGet({ project_id: projectId });
+  const taskList = normalizeTasks(tasks.data);
   const createTask = useCreateTaskTasksPost({
     mutation: { onSuccess: () => tasks.refetch() },
   });
@@ -68,9 +73,10 @@ export default function ProjectDetailPage() {
   const [commentBody, setCommentBody] = useState("");
 
   const comments = useListTaskCommentsTaskCommentsGet(
-    { taskId: commentTaskId ?? 0 },
+    { task_id: commentTaskId ?? 0 },
     { query: { enabled: Boolean(commentTaskId) } },
   );
+  const commentList = normalizeTaskComments(comments.data);
   const addComment = useCreateTaskCommentTaskCommentsPost({
     mutation: {
       onSuccess: () => {
@@ -81,18 +87,19 @@ export default function ProjectDetailPage() {
   });
 
   const tasksByStatus = (() => {
-    const map = new Map<string, typeof tasks.data>();
+    const map = new Map<string, typeof taskList>();
     for (const s of STATUSES) map.set(s, []);
-    for (const t of tasks.data ?? []) {
-      map.get(t.status)?.push(t);
+    for (const t of taskList) {
+      const status = t.status ?? "backlog";
+      map.get(status)?.push(t);
     }
     return map;
   })();
 
   const employeeName = (id: number | null | undefined) =>
-    employees.data?.find((e) => e.id === id)?.name ?? "—";
+    employeeList.find((e) => e.id === id)?.name ?? "—";
 
-  const projectMembers = members.data ?? [];
+  const projectMembers = memberList;
 
   return (
     <main className="mx-auto max-w-6xl p-6">
@@ -118,13 +125,13 @@ export default function ProjectDetailPage() {
             <div className="grid grid-cols-2 gap-2">
               <Select value={assigneeId} onChange={(e) => setAssigneeId(e.target.value)}>
                 <option value="">Assignee</option>
-                {(employees.data ?? []).map((e) => (
+                {employeeList.map((e) => (
                   <option key={e.id ?? e.name} value={e.id ?? ""}>{e.name}</option>
                 ))}
               </Select>
               <Select value={reviewerId} onChange={(e) => setReviewerId(e.target.value)}>
                 <option value="">Reviewer</option>
-                {(employees.data ?? []).map((e) => (
+                {employeeList.map((e) => (
                   <option key={e.id ?? e.name} value={e.id ?? ""}>{e.name}</option>
                 ))}
               </Select>
@@ -162,7 +169,7 @@ export default function ProjectDetailPage() {
               e.currentTarget.value = "";
             }}>
               <option value="">Add member…</option>
-              {(employees.data ?? []).map((e) => (
+              {employeeList.map((e) => (
                 <option key={e.id ?? e.name} value={e.id ?? ""}>{e.name}</option>
               ))}
             </Select>
@@ -274,14 +281,14 @@ export default function ProjectDetailPage() {
               Add comment
             </Button>
             <ul className="space-y-2">
-              {(comments.data ?? []).map((c) => (
+              {commentList.map((c) => (
                 <li key={String(c.id)} className="rounded-md border p-2 text-sm">
                   <div className="font-medium">{employeeName(c.author_employee_id)}</div>
-                  <div className="text-xs text-muted-foreground">{new Date(c.created_at).toLocaleString()}</div>
+                  <div className="text-xs text-muted-foreground">{(c.created_at ? new Date(c.created_at).toLocaleString() : "—")}</div>
                   <div className="mt-1">{c.body}</div>
                 </li>
               ))}
-              {(comments.data ?? []).length === 0 ? (
+              {commentList.length === 0 ? (
                 <li className="text-sm text-muted-foreground">No comments yet.</li>
               ) : null}
             </ul>

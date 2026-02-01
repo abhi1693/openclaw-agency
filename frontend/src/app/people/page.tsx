@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
+import { normalizeDepartments, normalizeEmployees } from "@/lib/normalize";
 import { Select } from "@/components/ui/select";
 
 import {
@@ -23,6 +24,8 @@ export default function PeoplePage() {
 
   const employees = useListEmployeesEmployeesGet();
   const departments = useListDepartmentsDepartmentsGet();
+  const departmentList = normalizeDepartments(departments.data);
+  const employeeList = normalizeEmployees(employees.data);
 
   const createEmployee = useCreateEmployeeEmployeesPost({
     mutation: {
@@ -38,19 +41,19 @@ export default function PeoplePage() {
 
   const deptNameById = useMemo(() => {
     const m = new Map<number, string>();
-    for (const d of departments.data ?? []) {
+    for (const d of departmentList) {
       if (d.id != null) m.set(d.id, d.name);
     }
     return m;
-  }, [departments.data]);
+  }, [departmentList]);
 
   const empNameById = useMemo(() => {
     const m = new Map<number, string>();
-    for (const e of employees.data ?? []) {
+    for (const e of employeeList) {
       if (e.id != null) m.set(e.id, e.name);
     }
     return m;
-  }, [employees.data]);
+  }, [employeeList]);
 
   return (
     <main className="mx-auto max-w-5xl p-6">
@@ -79,7 +82,7 @@ export default function PeoplePage() {
             <Input placeholder="Title (optional)" value={title} onChange={(e) => setTitle(e.target.value)} />
             <Select value={departmentId} onChange={(e) => setDepartmentId(e.target.value)}>
               <option value="">(no department)</option>
-              {(departments.data ?? []).map((d) => (
+              {departmentList.map((d) => (
                 <option key={d.id ?? d.name} value={d.id ?? ""}>
                   {d.name}
                 </option>
@@ -87,7 +90,7 @@ export default function PeoplePage() {
             </Select>
             <Select value={managerId} onChange={(e) => setManagerId(e.target.value)}>
               <option value="">(no manager)</option>
-              {(employees.data ?? []).map((e) => (
+              {employeeList.map((e) => (
                 <option key={e.id ?? e.name} value={e.id ?? ""}>
                   {e.name}
                 </option>
@@ -119,7 +122,7 @@ export default function PeoplePage() {
         <Card>
           <CardHeader>
             <CardTitle>Directory</CardTitle>
-            <CardDescription>{(employees.data ?? []).length} total</CardDescription>
+            <CardDescription>{employeeList.length} total</CardDescription>
           </CardHeader>
           <CardContent>
             {employees.isLoading ? <div className="text-sm text-muted-foreground">Loading…</div> : null}
@@ -128,7 +131,7 @@ export default function PeoplePage() {
             ) : null}
             {!employees.isLoading && !employees.error ? (
               <ul className="space-y-2">
-                {(employees.data ?? []).map((e) => (
+                {employeeList.map((e) => (
                   <li key={e.id ?? e.name} className="rounded-md border p-3">
                     <div className="flex items-center justify-between gap-3">
                       <div className="font-medium">{e.name}</div>
@@ -143,7 +146,7 @@ export default function PeoplePage() {
                     </div>
                   </li>
                 ))}
-                {(employees.data ?? []).length === 0 ? (
+                {employeeList.length === 0 ? (
                   <li className="text-sm text-muted-foreground">No people yet.</li>
                 ) : null}
               </ul>

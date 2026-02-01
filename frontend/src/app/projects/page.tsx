@@ -1,12 +1,13 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useState } from "react";
 import Link from "next/link";
 import styles from "@/app/_components/Shell.module.css";
 
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
+import { normalizeProjects } from "@/lib/normalize";
 
 import {
   useCreateProjectProjectsPost,
@@ -17,6 +18,7 @@ export default function ProjectsPage() {
   const [name, setName] = useState("");
 
   const projects = useListProjectsProjectsGet();
+  const projectList = normalizeProjects(projects.data);
   const createProject = useCreateProjectProjectsPost({
     mutation: {
       onSuccess: () => {
@@ -26,9 +28,7 @@ export default function ProjectsPage() {
     },
   });
 
-  const sorted = useMemo(() => {
-    return (projects.data ?? []).slice().sort((a, b) => a.name.localeCompare(b.name));
-  }, [projects.data]);
+  const sorted = projectList.slice().sort((a, b) => a.name.localeCompare(b.name));
 
   return (
     <main>
