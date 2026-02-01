@@ -25,6 +25,7 @@ export default function HRPage() {
 
   const headcount = useListHeadcountRequestsHrHeadcountGet();
   const actions = useListEmploymentActionsHrActionsGet();
+  const onboarding = useListAgentOnboardingHrOnboardingGet();
 
   const [hcDeptId, setHcDeptId] = useState<string>("");
   const [hcManagerId, setHcManagerId] = useState<string>("");
@@ -58,6 +59,35 @@ export default function HRPage() {
   });
 
   const createAction = useCreateEmploymentActionHrActionsPost({
+    mutation: {
+      onSuccess: () => {
+        setActNotes("");
+        actions.refetch();
+      },
+    },
+  });
+
+  const createOnboarding = useCreateAgentOnboardingHrOnboardingPost({
+    mutation: {
+      onSuccess: () => {
+        setOnboardAgentName("");
+        setOnboardRole("");
+        setOnboardPrompt("");
+        setOnboardCronMs("");
+        setOnboardTools("");
+        setOnboardOwnerId("");
+        setOnboardNotes("");
+        onboarding.refetch();
+      },
+    },
+  });
+
+  const updateOnboarding = useUpdateAgentOnboardingHrOnboardingOnboardingIdPatch({
+    mutation: {
+      onSuccess: () => onboarding.refetch(),
+    },
+  });
+
     mutation: {
       onSuccess: () => {
         setActNotes("");
