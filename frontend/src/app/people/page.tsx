@@ -14,9 +14,19 @@ import {
   useListDepartmentsDepartmentsGet,
   useListEmployeesEmployeesGet,
   useListTeamsTeamsGet,
+  useProvisionEmployeeAgentEmployeesEmployeeIdProvisionPost,
+  useDeprovisionEmployeeAgentEmployeesEmployeeIdDeprovisionPost,
 } from "@/api/generated/org/org";
 
 export default function PeoplePage() {
+  const [actorId] = useState(() => {
+    if (typeof window === "undefined") return "";
+    try {
+      return window.localStorage.getItem("actor_employee_id") ?? "";
+    } catch {
+      return "";
+    }
+  });
   const [name, setName] = useState("");
   const [employeeType, setEmployeeType] = useState<"human" | "agent">("human");
   const [title, setTitle] = useState("");
@@ -31,15 +41,30 @@ export default function PeoplePage() {
   const employeeList = useMemo(() => (employees.data?.status === 200 ? employees.data.data : []), [employees.data]);
   const teamList = useMemo(() => (teams.data?.status === 200 ? teams.data.data : []), [teams.data]);
 
+  const provisionEmployee = useProvisionEmployeeAgentEmployeesEmployeeIdProvisionPost();
+  const deprovisionEmployee = useDeprovisionEmployeeAgentEmployeesEmployeeIdDeprovisionPost();
+
   const createEmployee = useCreateEmployeeEmployeesPost({
     mutation: {
-      onSuccess: () => {
+      onSuccess: async (res) => {
         setName("");
         setTitle("");
         setDepartmentId("");
         setTeamId("");
         setManagerId("");
+
+        // If an agent was created but not yet provisioned, provision immediately so it can receive tasks.
+        try {
+          const e = (res as any)?.data?.data ?? (res as any)?.data ?? null;
+          if (e?.employee_type === "agent" && !e.openclaw_session_key) {
+            await provisionEmployee.mutateAsync({ employeeId: e.id! });
+          }
+        } catch {
+          // ignore; UI will show unprovisioned state
+        }
+
         employees.refetch();
+        teams.refetch();
       },
     },
   });

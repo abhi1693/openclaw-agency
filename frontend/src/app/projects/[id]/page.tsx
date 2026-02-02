@@ -51,6 +51,7 @@ export default function ProjectDetailPage() {
 
   const employees = useListEmployeesEmployeesGet();
   const employeeList = employees.data?.status === 200 ? employees.data.data : [];
+  const eligibleAssignees = employeeList.filter((e) => e.employee_type !== "agent" || !!e.openclaw_session_key);
 
   const members = useListProjectMembersProjectsProjectIdMembersGet(projectId);
   const memberList = members.data?.status === 200 ? members.data.data : [];
@@ -154,7 +155,7 @@ export default function ProjectDetailPage() {
             <div className="grid grid-cols-1 gap-2">
               <Select value={assigneeId} onChange={(e) => setAssigneeId(e.target.value)}>
                 <option value="">Assignee</option>
-                {employeeList.map((e) => (
+                {eligibleAssignees.map((e) => (
                   <option key={e.id ?? e.name} value={e.id ?? ""}>{e.name}</option>
                 ))}
               </Select>
@@ -191,7 +192,7 @@ export default function ProjectDetailPage() {
               e.currentTarget.value = "";
             }}>
               <option value="">Add member…</option>
-              {employeeList.map((e) => (
+              {eligibleAssignees.map((e) => (
                 <option key={e.id ?? e.name} value={e.id ?? ""}>{e.name}</option>
               ))}
             </Select>

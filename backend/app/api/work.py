@@ -18,6 +18,26 @@ router = APIRouter(tags=["work"])
 ALLOWED_STATUSES = {"backlog", "ready", "in_progress", "review", "done", "blocked"}
 
 
+def _validate_task_assignee(session: Session, assignee_employee_id: int) -> None:
+    """Enforce that only provisioned agents can be assigned tasks.
+
+    Humans can be assigned regardless.
+    Agents must be active, notify_enabled, and have openclaw_session_key.
+    """
+
+    emp = session.get(Employee, assignee_employee_id)
+    if emp is None:
+        raise HTTPException(status_code=400, detail="Assignee employee not found")
+
+    if emp.employee_type == "agent":
+        if emp.status != "active":
+            raise HTTPException(status_code=400, detail="Cannot assign task to inactive agent")
+        if not emp.notify_enabled:
+            raise HTTPException(status_code=400, detail="Cannot assign task to agent with notifications disabled")
+        if not emp.openclaw_session_key:
+            raise HTTPException(status_code=400, detail="Cannot assign task to unprovisioned agent")
+
+
 @router.get("/tasks", response_model=list[Task])
 def list_tasks(project_id: int | None = None, session: Session = Depends(get_session)):
     stmt = select(Task).order_by(Task.id.asc())
@@ -30,6 +50,9 @@ def list_tasks(project_id: int | None = None, session: Session = Depends(get_ses
 def create_task(payload: TaskCreate, background: BackgroundTasks, session: Session = Depends(get_session), actor_employee_id: int = Depends(get_actor_employee_id)):
     if payload.created_by_employee_id is None:
         payload = TaskCreate(**{**payload.model_dump(), "created_by_employee_id": actor_employee_id})
+
+    if payload.assignee_employee_id is not None:
+        _validate_task_assignee(session, payload.assignee_employee_id)
 
     # Default reviewer to the manager of the assignee (if not explicitly provided).
     if payload.reviewer_employee_id is None and payload.assignee_employee_id is not None:
@@ -73,6 +96,8 @@ def update_task(task_id: int, payload: TaskUpdate, background: BackgroundTasks, 
     before = {"assignee_employee_id": task.assignee_employee_id, "reviewer_employee_id": task.reviewer_employee_id, "status": task.status}
 
     data = payload.model_dump(exclude_unset=True)
+    if "assignee_employee_id" in data and data["assignee_employee_id"] is not None:
+        _validate_task_assignee(session, data["assignee_employee_id"])
     if "status" in data and data["status"] not in ALLOWED_STATUSES:
         raise HTTPException(status_code=400, detail="Invalid status")
 
