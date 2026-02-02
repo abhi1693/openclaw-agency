@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from datetime import datetime
 
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, BackgroundTasks
 from sqlmodel import Session, select
 from sqlalchemy.exc import IntegrityError
 
@@ -10,6 +10,7 @@ from app.api.utils import log_activity, get_actor_employee_id
 from app.db.session import get_session
 from app.models.work import Task, TaskComment
 from app.schemas.work import TaskCommentCreate, TaskCreate, TaskUpdate
+from app.integrations.notify import NotifyContext, notify_openclaw
 
 router = APIRouter(tags=["work"])
 
@@ -25,7 +26,7 @@ def list_tasks(project_id: int | None = None, session: Session = Depends(get_ses
 
 
 @router.post("/tasks", response_model=Task)
-def create_task(payload: TaskCreate, session: Session = Depends(get_session), actor_employee_id: int = Depends(get_actor_employee_id)):
+def create_task(payload: TaskCreate, background: BackgroundTasks, session: Session = Depends(get_session), actor_employee_id: int = Depends(get_actor_employee_id)):
     if payload.created_by_employee_id is None:
         payload = TaskCreate(**{**payload.model_dump(), "created_by_employee_id": actor_employee_id})
 
@@ -51,15 +52,18 @@ def create_task(payload: TaskCreate, session: Session = Depends(get_session), ac
         raise HTTPException(status_code=409, detail="Task create violates constraints")
 
     session.refresh(task)
+    background.add_task(notify_openclaw, session, NotifyContext(event="task.created", actor_employee_id=actor_employee_id, task=task))
     # Explicitly return a serializable payload (guards against empty {} responses)
     return Task.model_validate(task)
 
 
 @router.patch("/tasks/{task_id}", response_model=Task)
-def update_task(task_id: int, payload: TaskUpdate, session: Session = Depends(get_session), actor_employee_id: int = Depends(get_actor_employee_id)):
+def update_task(task_id: int, payload: TaskUpdate, background: BackgroundTasks, session: Session = Depends(get_session), actor_employee_id: int = Depends(get_actor_employee_id)):
     task = session.get(Task, task_id)
     if not task:
         raise HTTPException(status_code=404, detail="Task not found")
+
+    before = {"assignee_employee_id": task.assignee_employee_id, "reviewer_employee_id": task.reviewer_employee_id, "status": task.status}
 
     data = payload.model_dump(exclude_unset=True)
     if "status" in data and data["status"] not in ALLOWED_STATUSES:
@@ -79,6 +83,18 @@ def update_task(task_id: int, payload: TaskUpdate, session: Session = Depends(ge
         raise HTTPException(status_code=409, detail="Task update violates constraints")
 
     session.refresh(task)
+
+    # notify based on meaningful changes
+    changed = {}
+    if before.get("assignee_employee_id") != task.assignee_employee_id:
+        changed["assignee_employee_id"] = {"from": before.get("assignee_employee_id"), "to": task.assignee_employee_id}
+        background.add_task(notify_openclaw, session, NotifyContext(event="task.assigned", actor_employee_id=actor_employee_id, task=task, changed_fields=changed))
+    if before.get("status") != task.status:
+        changed["status"] = {"from": before.get("status"), "to": task.status}
+        background.add_task(notify_openclaw, session, NotifyContext(event="status.changed", actor_employee_id=actor_employee_id, task=task, changed_fields=changed))
+    if not changed and data:
+        background.add_task(notify_openclaw, session, NotifyContext(event="task.updated", actor_employee_id=actor_employee_id, task=task, changed_fields=data))
+
     return Task.model_validate(task)
 
 
@@ -106,7 +122,7 @@ def list_task_comments(task_id: int, session: Session = Depends(get_session)):
 
 
 @router.post("/task-comments", response_model=TaskComment)
-def create_task_comment(payload: TaskCommentCreate, session: Session = Depends(get_session), actor_employee_id: int = Depends(get_actor_employee_id)):
+def create_task_comment(payload: TaskCommentCreate, background: BackgroundTasks, session: Session = Depends(get_session), actor_employee_id: int = Depends(get_actor_employee_id)):
     if payload.author_employee_id is None:
         payload = TaskCommentCreate(**{**payload.model_dump(), "author_employee_id": actor_employee_id})
 
@@ -122,4 +138,7 @@ def create_task_comment(payload: TaskCommentCreate, session: Session = Depends(g
         raise HTTPException(status_code=409, detail="Comment create violates constraints")
 
     session.refresh(c)
+    task = session.get(Task, c.task_id)
+    if task is not None:
+        background.add_task(notify_openclaw, session, NotifyContext(event="comment.created", actor_employee_id=actor_employee_id, task=task, comment=c))
     return TaskComment.model_validate(c)

@@ -79,11 +79,17 @@ def list_employees(session: Session = Depends(get_session)):
 def create_employee(payload: EmployeeCreate, session: Session = Depends(get_session), actor_employee_id: int = Depends(get_actor_employee_id)):
     emp = Employee(**payload.model_dump())
     session.add(emp)
-    session.commit()
+
+    try:
+        session.flush()
+        log_activity(session, actor_employee_id=actor_employee_id, entity_type="employee", entity_id=emp.id, verb="created", payload={"name": emp.name, "type": emp.employee_type})
+        session.commit()
+    except IntegrityError:
+        session.rollback()
+        raise HTTPException(status_code=409, detail="Employee create violates constraints")
+
     session.refresh(emp)
-    log_activity(session, actor_employee_id=actor_employee_id, entity_type="employee", entity_id=emp.id, verb="created", payload={"name": emp.name, "type": emp.employee_type})
-    session.commit()
-    return emp
+    return Employee.model_validate(emp)
 
 
 @router.patch("/employees/{employee_id}", response_model=Employee)
@@ -97,8 +103,13 @@ def update_employee(employee_id: int, payload: EmployeeUpdate, session: Session 
         setattr(emp, k, v)
 
     session.add(emp)
-    session.commit()
+    try:
+        session.flush()
+        log_activity(session, actor_employee_id=actor_employee_id, entity_type="employee", entity_id=emp.id, verb="updated", payload=data)
+        session.commit()
+    except IntegrityError:
+        session.rollback()
+        raise HTTPException(status_code=409, detail="Employee update violates constraints")
+
     session.refresh(emp)
-    log_activity(session, actor_employee_id=actor_employee_id, entity_type="employee", entity_id=emp.id, verb="updated", payload=data)
-    session.commit()
-    return emp
+    return Employee.model_validate(emp)

@@ -25,3 +25,7 @@ class Employee(SQLModel, table=True):
 
     title: str | None = None
     status: str = Field(default="active")
+
+    # OpenClaw integration
+    openclaw_session_key: str | None = None
+    notify_enabled: bool = Field(default=True)
