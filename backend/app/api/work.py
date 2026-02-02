@@ -8,6 +8,7 @@ from sqlalchemy.exc import IntegrityError
 
 from app.api.utils import log_activity, get_actor_employee_id
 from app.db.session import get_session
+from app.models.org import Employee
 from app.models.work import Task, TaskComment
 from app.schemas.work import TaskCommentCreate, TaskCreate, TaskUpdate
 from app.integrations.notify import NotifyContext, notify_openclaw
@@ -29,6 +30,12 @@ def list_tasks(project_id: int | None = None, session: Session = Depends(get_ses
 def create_task(payload: TaskCreate, background: BackgroundTasks, session: Session = Depends(get_session), actor_employee_id: int = Depends(get_actor_employee_id)):
     if payload.created_by_employee_id is None:
         payload = TaskCreate(**{**payload.model_dump(), "created_by_employee_id": actor_employee_id})
+
+    # Default reviewer to the manager of the assignee (if not explicitly provided).
+    if payload.reviewer_employee_id is None and payload.assignee_employee_id is not None:
+        assignee = session.get(Employee, payload.assignee_employee_id)
+        if assignee is not None and assignee.manager_id is not None:
+            payload = TaskCreate(**{**payload.model_dump(), "reviewer_employee_id": assignee.manager_id})
 
     task = Task(**payload.model_dump())
     if task.status not in ALLOWED_STATUSES:

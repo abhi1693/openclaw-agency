@@ -79,7 +79,6 @@ export default function ProjectDetailPage() {
   const [title, setTitle] = useState("");
   const [description, setDescription] = useState("");
   const [assigneeId, setAssigneeId] = useState<string>("");
-  const [reviewerId, setReviewerId] = useState<string>("");
 
   const [commentTaskId, setCommentTaskId] = useState<number | null>(null);
   const [replyToCommentId, setReplyToCommentId] = useState<number | null>(null);
@@ -152,15 +151,9 @@ export default function ProjectDetailPage() {
             {createTask.error ? <div className="text-sm text-destructive">{(createTask.error as Error).message}</div> : null}
             <Input placeholder="Title" value={title} onChange={(e) => setTitle(e.target.value)} />
             <Textarea placeholder="Description" value={description} onChange={(e) => setDescription(e.target.value)} />
-            <div className="grid grid-cols-2 gap-2">
+            <div className="grid grid-cols-1 gap-2">
               <Select value={assigneeId} onChange={(e) => setAssigneeId(e.target.value)}>
                 <option value="">Assignee</option>
-                {employeeList.map((e) => (
-                  <option key={e.id ?? e.name} value={e.id ?? ""}>{e.name}</option>
-                ))}
-              </Select>
-              <Select value={reviewerId} onChange={(e) => setReviewerId(e.target.value)}>
-                <option value="">Reviewer</option>
                 {employeeList.map((e) => (
                   <option key={e.id ?? e.name} value={e.id ?? ""}>{e.name}</option>
                 ))}
@@ -175,7 +168,6 @@ export default function ProjectDetailPage() {
                     description: description.trim() ? description : null,
                     status: "backlog",
                     assignee_employee_id: assigneeId ? Number(assigneeId) : null,
-                    reviewer_employee_id: reviewerId ? Number(reviewerId) : null,
                   },
                 })
               }
