@@ -21,6 +21,10 @@ class EmployeeCreate(SQLModel):
     title: str | None = None
     status: str = "active"
 
+    # OpenClaw integration
+    openclaw_session_key: str | None = None
+    notify_enabled: bool = True
+
 
 class EmployeeUpdate(SQLModel):
     name: str | None = None
@@ -29,3 +33,7 @@ class EmployeeUpdate(SQLModel):
     manager_id: int | None = None
     title: str | None = None
     status: str | None = None
+
+    # OpenClaw integration
+    openclaw_session_key: str | None = None
+    notify_enabled: bool | None = None
