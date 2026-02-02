@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import Link from "next/link";
 import styles from "@/app/_components/Shell.module.css";
 
 import { Button } from "@/components/ui/button";
@@ -46,7 +47,7 @@ export default function Home() {
           <h1 className={styles.h1}>Company Mission Control</h1>
           <p className={styles.p}>Command center for projects, people, and operations. No‑auth v1.</p>
         </div>
-        <Button variant="outline" onClick={() => { projects.refetch(); departments.refetch(); employees.refetch(); activities.refetch(); }}>
+        <Button variant="outline" onClick={() => { projects.refetch(); departments.refetch(); employees.refetch(); activities.refetch(); }} disabled={projects.isFetching || departments.isFetching || employees.isFetching || activities.isFetching}>
           Refresh
         </Button>
       </div>
@@ -60,6 +61,7 @@ export default function Home() {
               <div style={{ display: "grid", gap: 8 }}>
                 <Input placeholder="Project name" value={projectName} onChange={(e) => setProjectName(e.target.value)} />
                 <Button onClick={() => createProject.mutate({ data: { name: projectName, status: "active" } })} disabled={!projectName.trim() || createProject.isPending}>Create</Button>
+                {createProject.error ? <div className={styles.mono}>{(createProject.error as Error).message}</div> : null}
               </div>
             </div>
             <div className={styles.item}>
@@ -67,6 +69,7 @@ export default function Home() {
               <div style={{ display: "grid", gap: 8 }}>
                 <Input placeholder="Department name" value={deptName} onChange={(e) => setDeptName(e.target.value)} />
                 <Button onClick={() => createDepartment.mutate({ data: { name: deptName } })} disabled={!deptName.trim() || createDepartment.isPending}>Create</Button>
+                {createDepartment.error ? <div className={styles.mono}>{(createDepartment.error as Error).message}</div> : null}
               </div>
             </div>
             <div className={styles.item}>
@@ -78,6 +81,7 @@ export default function Home() {
                   <option value="agent">agent</option>
                 </Select>
                 <Button onClick={() => createEmployee.mutate({ data: { name: personName, employee_type: personType, status: "active" } })} disabled={!personName.trim() || createEmployee.isPending}>Create</Button>
+                {createEmployee.error ? <div className={styles.mono}>{(createEmployee.error as Error).message}</div> : null}
               </div>
             </div>
           </div>
@@ -110,7 +114,14 @@ export default function Home() {
               {projectList.slice(0, 8).map((p) => (
                 <div key={p.id ?? p.name} className={styles.item}>
                   <div style={{ fontWeight: 600 }}>{p.name}</div>
-                  <div className={styles.mono}>{p.status}</div>
+                  <div className={styles.mono} style={{ display: "flex", gap: 10, alignItems: "center" }}>
+                    <span>{p.status}</span>
+                    {p.id ? (
+                      <Link href={
+                        "/projects/" + p.id
+                      } className={styles.badge}>Open</Link>
+                    ) : null}
+                  </div>
                 </div>
               ))}
               {projectList.length === 0 ? <div className={styles.mono}>No projects yet.</div> : null}
