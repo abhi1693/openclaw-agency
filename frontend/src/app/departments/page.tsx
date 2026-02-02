@@ -62,6 +62,8 @@ export default function DepartmentsPage() {
             <CardDescription>Optional head</CardDescription>
           </CardHeader>
           <CardContent className="space-y-3">
+            {employees.isLoading ? <div className="text-sm text-muted-foreground">Loading employees…</div> : null}
+            {employees.error ? <div className="text-sm text-destructive">{(employees.error as Error).message}</div> : null}
             <Input placeholder="Department name" value={name} onChange={(e) => setName(e.target.value)} />
             <Select value={headId} onChange={(e) => setHeadId(e.target.value)}>
               <option value="">(no head)</option>
@@ -80,7 +82,7 @@ export default function DepartmentsPage() {
                   },
                 })
               }
-              disabled={!name.trim() || createDepartment.isPending}
+              disabled={!name.trim() || createDepartment.isPending || employees.isFetching}
             >
               Create
             </Button>
@@ -111,13 +113,9 @@ export default function DepartmentsPage() {
                     <div className="mt-3 flex items-center gap-2">
                       <span className="text-xs text-muted-foreground">Head:</span>
                       <Select
+                        disabled={d.id == null}
                         value={d.head_employee_id ? String(d.head_employee_id) : ""}
-                        onChange={(e) =>
-                          updateDepartment.mutate({
-                            departmentId: Number(d.id),
-                            data: { head_employee_id: e.target.value ? Number(e.target.value) : null },
-                          })
-                        }
+                        onBlur={(e) => { if (d.id == null) return; updateDepartment.mutate({ departmentId: Number(d.id), data: { head_employee_id: e.target.value ? Number(e.target.value) : null } }); }}
                       >
                         <option value="">(none)</option>
                         {sortedEmployees.map((e) => (
