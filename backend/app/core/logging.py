@@ -38,11 +38,17 @@ def configure_logging() -> None:
         "uvicorn",
         "uvicorn.error",
         "uvicorn.access",
-        "sqlalchemy.engine",
         "httpx",
         "requests",
     ]:
         logging.getLogger(name).setLevel(level)
+
+    # Hide SQLAlchemy engine chatter unless explicitly debugging.
+    # (You can still enable it by setting LOG_LEVEL=DEBUG and adjusting this.)
+    logging.getLogger("sqlalchemy").setLevel(logging.WARNING)
+    logging.getLogger("sqlalchemy.engine").setLevel(logging.WARNING)
+    logging.getLogger("sqlalchemy.pool").setLevel(logging.WARNING)
+    logging.getLogger("sqlalchemy.dialects").setLevel(logging.WARNING)
 
 
 def log_kv(logger: logging.Logger, msg: str, **kv: Any) -> None:
