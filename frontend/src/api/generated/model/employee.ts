@@ -10,6 +10,7 @@ export interface Employee {
   name: string;
   employee_type: string;
   department_id?: number | null;
+  team_id?: number | null;
   manager_id?: number | null;
   title?: string | null;
   status?: string;

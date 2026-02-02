@@ -5,8 +5,6 @@
  * OpenAPI spec version: 0.3.0
  */
 
-export interface ProjectUpdate {
-  name?: string | null;
-  status?: string | null;
-  team_id?: number | null;
-}
+export type ListTeamsTeamsGetParams = {
+  department_id?: number | null;
+};

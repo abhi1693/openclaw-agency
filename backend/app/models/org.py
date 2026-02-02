@@ -13,6 +13,16 @@ class Department(SQLModel, table=True):
     head_employee_id: int | None = Field(default=None, foreign_key="employees.id")
 
 
+class Team(SQLModel, table=True):
+    __tablename__ = "teams"
+
+    id: int | None = Field(default=None, primary_key=True)
+    name: str = Field(index=True)
+
+    department_id: int = Field(foreign_key="departments.id")
+    lead_employee_id: int | None = Field(default=None, foreign_key="employees.id")
+
+
 class Employee(SQLModel, table=True):
     __tablename__ = "employees"
 
@@ -21,6 +31,7 @@ class Employee(SQLModel, table=True):
     employee_type: str  # human | agent
 
     department_id: int | None = Field(default=None, foreign_key="departments.id")
+    team_id: int | None = Field(default=None, foreign_key="teams.id")
     manager_id: int | None = Field(default=None, foreign_key="employees.id")
 
     title: str | None = None

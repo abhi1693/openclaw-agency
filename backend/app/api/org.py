@@ -7,8 +7,15 @@ from sqlmodel import Session, select
 from app.api.utils import get_actor_employee_id, log_activity
 from app.db.session import get_session
 from app.integrations.openclaw import OpenClawClient
-from app.models.org import Department, Employee
-from app.schemas.org import DepartmentCreate, DepartmentUpdate, EmployeeCreate, EmployeeUpdate
+from app.models.org import Department, Team, Employee
+from app.schemas.org import (
+    DepartmentCreate,
+    DepartmentUpdate,
+    TeamCreate,
+    TeamUpdate,
+    EmployeeCreate,
+    EmployeeUpdate,
+)
 
 router = APIRouter(tags=["org"])
 
@@ -125,6 +132,71 @@ def _maybe_auto_provision_agent(session: Session, *, emp: Employee, actor_employ
 @router.get("/departments", response_model=list[Department])
 def list_departments(session: Session = Depends(get_session)):
     return session.exec(select(Department).order_by(Department.name.asc())).all()
+
+
+@router.get("/teams", response_model=list[Team])
+def list_teams(department_id: int | None = None, session: Session = Depends(get_session)):
+    q = select(Team)
+    if department_id is not None:
+        q = q.where(Team.department_id == department_id)
+    return session.exec(q.order_by(Team.name.asc())).all()
+
+
+@router.post("/teams", response_model=Team)
+def create_team(
+    payload: TeamCreate,
+    session: Session = Depends(get_session),
+    actor_employee_id: int = Depends(get_actor_employee_id),
+):
+    team = Team(**payload.model_dump())
+    session.add(team)
+
+    try:
+        session.flush()
+        log_activity(
+            session,
+            actor_employee_id=actor_employee_id,
+            entity_type="team",
+            entity_id=team.id,
+            verb="created",
+            payload={"name": team.name, "department_id": team.department_id, "lead_employee_id": team.lead_employee_id},
+        )
+        session.commit()
+    except IntegrityError:
+        session.rollback()
+        raise HTTPException(status_code=409, detail="Team already exists or violates constraints")
+
+    session.refresh(team)
+    return team
+
+
+@router.patch("/teams/{team_id}", response_model=Team)
+def update_team(
+    team_id: int,
+    payload: TeamUpdate,
+    session: Session = Depends(get_session),
+    actor_employee_id: int = Depends(get_actor_employee_id),
+):
+    team = session.get(Team, team_id)
+    if not team:
+        raise HTTPException(status_code=404, detail="Team not found")
+
+    data = payload.model_dump(exclude_unset=True)
+    for k, v in data.items():
+        setattr(team, k, v)
+
+    session.add(team)
+    try:
+        session.flush()
+        log_activity(session, actor_employee_id=actor_employee_id, entity_type="team", entity_id=team.id, verb="updated", payload=data)
+        session.commit()
+    except IntegrityError:
+        session.rollback()
+        raise HTTPException(status_code=409, detail="Team update violates constraints")
+
+    session.refresh(team)
+    return team
+
 
 
 @router.post("/departments", response_model=Department)

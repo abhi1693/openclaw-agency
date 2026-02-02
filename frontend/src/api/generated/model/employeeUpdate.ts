@@ -9,6 +9,7 @@ export interface EmployeeUpdate {
   name?: string | null;
   employee_type?: string | null;
   department_id?: number | null;
+  team_id?: number | null;
   manager_id?: number | null;
   title?: string | null;
   status?: string | null;

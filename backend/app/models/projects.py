@@ -10,6 +10,9 @@ class Project(SQLModel, table=True):
     name: str = Field(index=True, unique=True)
     status: str = Field(default="active")
 
+    # Project ownership: projects are assigned to teams (not departments)
+    team_id: int | None = Field(default=None, foreign_key="teams.id")
+
 
 class ProjectMember(SQLModel, table=True):
     __tablename__ = "project_members"

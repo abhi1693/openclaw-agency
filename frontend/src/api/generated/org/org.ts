@@ -28,6 +28,10 @@ import type {
   EmployeeCreate,
   EmployeeUpdate,
   HTTPValidationError,
+  ListTeamsTeamsGetParams,
+  Team,
+  TeamCreate,
+  TeamUpdate,
 } from ".././model";
 
 import { customFetch } from "../../mutator";
@@ -324,6 +328,440 @@ export const useCreateDepartmentDepartmentsPost = <
 > => {
   return useMutation(
     getCreateDepartmentDepartmentsPostMutationOptions(options),
+    queryClient,
+  );
+};
+/**
+ * @summary List Teams
+ */
+export type listTeamsTeamsGetResponse200 = {
+  data: Team[];
+  status: 200;
+};
+
+export type listTeamsTeamsGetResponse422 = {
+  data: HTTPValidationError;
+  status: 422;
+};
+
+export type listTeamsTeamsGetResponseSuccess = listTeamsTeamsGetResponse200 & {
+  headers: Headers;
+};
+export type listTeamsTeamsGetResponseError = listTeamsTeamsGetResponse422 & {
+  headers: Headers;
+};
+
+export type listTeamsTeamsGetResponse =
+  | listTeamsTeamsGetResponseSuccess
+  | listTeamsTeamsGetResponseError;
+
+export const getListTeamsTeamsGetUrl = (params?: ListTeamsTeamsGetParams) => {
+  const normalizedParams = new URLSearchParams();
+
+  Object.entries(params || {}).forEach(([key, value]) => {
+    if (value !== undefined) {
+      normalizedParams.append(key, value === null ? "null" : value.toString());
+    }
+  });
+
+  const stringifiedParams = normalizedParams.toString();
+
+  return stringifiedParams.length > 0
+    ? `/teams?${stringifiedParams}`
+    : `/teams`;
+};
+
+export const listTeamsTeamsGet = async (
+  params?: ListTeamsTeamsGetParams,
+  options?: RequestInit,
+): Promise<listTeamsTeamsGetResponse> => {
+  return customFetch<listTeamsTeamsGetResponse>(
+    getListTeamsTeamsGetUrl(params),
+    {
+      ...options,
+      method: "GET",
+    },
+  );
+};
+
+export const getListTeamsTeamsGetQueryKey = (
+  params?: ListTeamsTeamsGetParams,
+) => {
+  return [`/teams`, ...(params ? [params] : [])] as const;
+};
+
+export const getListTeamsTeamsGetQueryOptions = <
+  TData = Awaited<ReturnType<typeof listTeamsTeamsGet>>,
+  TError = HTTPValidationError,
+>(
+  params?: ListTeamsTeamsGetParams,
+  options?: {
+    query?: Partial<
+      UseQueryOptions<
+        Awaited<ReturnType<typeof listTeamsTeamsGet>>,
+        TError,
+        TData
+      >
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+) => {
+  const { query: queryOptions, request: requestOptions } = options ?? {};
+
+  const queryKey =
+    queryOptions?.queryKey ?? getListTeamsTeamsGetQueryKey(params);
+
+  const queryFn: QueryFunction<
+    Awaited<ReturnType<typeof listTeamsTeamsGet>>
+  > = ({ signal }) => listTeamsTeamsGet(params, { signal, ...requestOptions });
+
+  return { queryKey, queryFn, ...queryOptions } as UseQueryOptions<
+    Awaited<ReturnType<typeof listTeamsTeamsGet>>,
+    TError,
+    TData
+  > & { queryKey: DataTag<QueryKey, TData, TError> };
+};
+
+export type ListTeamsTeamsGetQueryResult = NonNullable<
+  Awaited<ReturnType<typeof listTeamsTeamsGet>>
+>;
+export type ListTeamsTeamsGetQueryError = HTTPValidationError;
+
+export function useListTeamsTeamsGet<
+  TData = Awaited<ReturnType<typeof listTeamsTeamsGet>>,
+  TError = HTTPValidationError,
+>(
+  params: undefined | ListTeamsTeamsGetParams,
+  options: {
+    query: Partial<
+      UseQueryOptions<
+        Awaited<ReturnType<typeof listTeamsTeamsGet>>,
+        TError,
+        TData
+      >
+    > &
+      Pick<
+        DefinedInitialDataOptions<
+          Awaited<ReturnType<typeof listTeamsTeamsGet>>,
+          TError,
+          Awaited<ReturnType<typeof listTeamsTeamsGet>>
+        >,
+        "initialData"
+      >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+  queryClient?: QueryClient,
+): DefinedUseQueryResult<TData, TError> & {
+  queryKey: DataTag<QueryKey, TData, TError>;
+};
+export function useListTeamsTeamsGet<
+  TData = Awaited<ReturnType<typeof listTeamsTeamsGet>>,
+  TError = HTTPValidationError,
+>(
+  params?: ListTeamsTeamsGetParams,
+  options?: {
+    query?: Partial<
+      UseQueryOptions<
+        Awaited<ReturnType<typeof listTeamsTeamsGet>>,
+        TError,
+        TData
+      >
+    > &
+      Pick<
+        UndefinedInitialDataOptions<
+          Awaited<ReturnType<typeof listTeamsTeamsGet>>,
+          TError,
+          Awaited<ReturnType<typeof listTeamsTeamsGet>>
+        >,
+        "initialData"
+      >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+  queryClient?: QueryClient,
+): UseQueryResult<TData, TError> & {
+  queryKey: DataTag<QueryKey, TData, TError>;
+};
+export function useListTeamsTeamsGet<
+  TData = Awaited<ReturnType<typeof listTeamsTeamsGet>>,
+  TError = HTTPValidationError,
+>(
+  params?: ListTeamsTeamsGetParams,
+  options?: {
+    query?: Partial<
+      UseQueryOptions<
+        Awaited<ReturnType<typeof listTeamsTeamsGet>>,
+        TError,
+        TData
+      >
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+  queryClient?: QueryClient,
+): UseQueryResult<TData, TError> & {
+  queryKey: DataTag<QueryKey, TData, TError>;
+};
+/**
+ * @summary List Teams
+ */
+
+export function useListTeamsTeamsGet<
+  TData = Awaited<ReturnType<typeof listTeamsTeamsGet>>,
+  TError = HTTPValidationError,
+>(
+  params?: ListTeamsTeamsGetParams,
+  options?: {
+    query?: Partial<
+      UseQueryOptions<
+        Awaited<ReturnType<typeof listTeamsTeamsGet>>,
+        TError,
+        TData
+      >
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+  queryClient?: QueryClient,
+): UseQueryResult<TData, TError> & {
+  queryKey: DataTag<QueryKey, TData, TError>;
+} {
+  const queryOptions = getListTeamsTeamsGetQueryOptions(params, options);
+
+  const query = useQuery(queryOptions, queryClient) as UseQueryResult<
+    TData,
+    TError
+  > & { queryKey: DataTag<QueryKey, TData, TError> };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
+
+/**
+ * @summary Create Team
+ */
+export type createTeamTeamsPostResponse200 = {
+  data: Team;
+  status: 200;
+};
+
+export type createTeamTeamsPostResponse422 = {
+  data: HTTPValidationError;
+  status: 422;
+};
+
+export type createTeamTeamsPostResponseSuccess =
+  createTeamTeamsPostResponse200 & {
+    headers: Headers;
+  };
+export type createTeamTeamsPostResponseError =
+  createTeamTeamsPostResponse422 & {
+    headers: Headers;
+  };
+
+export type createTeamTeamsPostResponse =
+  | createTeamTeamsPostResponseSuccess
+  | createTeamTeamsPostResponseError;
+
+export const getCreateTeamTeamsPostUrl = () => {
+  return `/teams`;
+};
+
+export const createTeamTeamsPost = async (
+  teamCreate: TeamCreate,
+  options?: RequestInit,
+): Promise<createTeamTeamsPostResponse> => {
+  return customFetch<createTeamTeamsPostResponse>(getCreateTeamTeamsPostUrl(), {
+    ...options,
+    method: "POST",
+    headers: { "Content-Type": "application/json", ...options?.headers },
+    body: JSON.stringify(teamCreate),
+  });
+};
+
+export const getCreateTeamTeamsPostMutationOptions = <
+  TError = HTTPValidationError,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof createTeamTeamsPost>>,
+    TError,
+    { data: TeamCreate },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof createTeamTeamsPost>>,
+  TError,
+  { data: TeamCreate },
+  TContext
+> => {
+  const mutationKey = ["createTeamTeamsPost"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof createTeamTeamsPost>>,
+    { data: TeamCreate }
+  > = (props) => {
+    const { data } = props ?? {};
+
+    return createTeamTeamsPost(data, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type CreateTeamTeamsPostMutationResult = NonNullable<
+  Awaited<ReturnType<typeof createTeamTeamsPost>>
+>;
+export type CreateTeamTeamsPostMutationBody = TeamCreate;
+export type CreateTeamTeamsPostMutationError = HTTPValidationError;
+
+/**
+ * @summary Create Team
+ */
+export const useCreateTeamTeamsPost = <
+  TError = HTTPValidationError,
+  TContext = unknown,
+>(
+  options?: {
+    mutation?: UseMutationOptions<
+      Awaited<ReturnType<typeof createTeamTeamsPost>>,
+      TError,
+      { data: TeamCreate },
+      TContext
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+  queryClient?: QueryClient,
+): UseMutationResult<
+  Awaited<ReturnType<typeof createTeamTeamsPost>>,
+  TError,
+  { data: TeamCreate },
+  TContext
+> => {
+  return useMutation(
+    getCreateTeamTeamsPostMutationOptions(options),
+    queryClient,
+  );
+};
+/**
+ * @summary Update Team
+ */
+export type updateTeamTeamsTeamIdPatchResponse200 = {
+  data: Team;
+  status: 200;
+};
+
+export type updateTeamTeamsTeamIdPatchResponse422 = {
+  data: HTTPValidationError;
+  status: 422;
+};
+
+export type updateTeamTeamsTeamIdPatchResponseSuccess =
+  updateTeamTeamsTeamIdPatchResponse200 & {
+    headers: Headers;
+  };
+export type updateTeamTeamsTeamIdPatchResponseError =
+  updateTeamTeamsTeamIdPatchResponse422 & {
+    headers: Headers;
+  };
+
+export type updateTeamTeamsTeamIdPatchResponse =
+  | updateTeamTeamsTeamIdPatchResponseSuccess
+  | updateTeamTeamsTeamIdPatchResponseError;
+
+export const getUpdateTeamTeamsTeamIdPatchUrl = (teamId: number) => {
+  return `/teams/${teamId}`;
+};
+
+export const updateTeamTeamsTeamIdPatch = async (
+  teamId: number,
+  teamUpdate: TeamUpdate,
+  options?: RequestInit,
+): Promise<updateTeamTeamsTeamIdPatchResponse> => {
+  return customFetch<updateTeamTeamsTeamIdPatchResponse>(
+    getUpdateTeamTeamsTeamIdPatchUrl(teamId),
+    {
+      ...options,
+      method: "PATCH",
+      headers: { "Content-Type": "application/json", ...options?.headers },
+      body: JSON.stringify(teamUpdate),
+    },
+  );
+};
+
+export const getUpdateTeamTeamsTeamIdPatchMutationOptions = <
+  TError = HTTPValidationError,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof updateTeamTeamsTeamIdPatch>>,
+    TError,
+    { teamId: number; data: TeamUpdate },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof updateTeamTeamsTeamIdPatch>>,
+  TError,
+  { teamId: number; data: TeamUpdate },
+  TContext
+> => {
+  const mutationKey = ["updateTeamTeamsTeamIdPatch"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof updateTeamTeamsTeamIdPatch>>,
+    { teamId: number; data: TeamUpdate }
+  > = (props) => {
+    const { teamId, data } = props ?? {};
+
+    return updateTeamTeamsTeamIdPatch(teamId, data, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type UpdateTeamTeamsTeamIdPatchMutationResult = NonNullable<
+  Awaited<ReturnType<typeof updateTeamTeamsTeamIdPatch>>
+>;
+export type UpdateTeamTeamsTeamIdPatchMutationBody = TeamUpdate;
+export type UpdateTeamTeamsTeamIdPatchMutationError = HTTPValidationError;
+
+/**
+ * @summary Update Team
+ */
+export const useUpdateTeamTeamsTeamIdPatch = <
+  TError = HTTPValidationError,
+  TContext = unknown,
+>(
+  options?: {
+    mutation?: UseMutationOptions<
+      Awaited<ReturnType<typeof updateTeamTeamsTeamIdPatch>>,
+      TError,
+      { teamId: number; data: TeamUpdate },
+      TContext
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+  queryClient?: QueryClient,
+): UseMutationResult<
+  Awaited<ReturnType<typeof updateTeamTeamsTeamIdPatch>>,
+  TError,
+  { teamId: number; data: TeamUpdate },
+  TContext
+> => {
+  return useMutation(
+    getUpdateTeamTeamsTeamIdPatchMutationOptions(options),
     queryClient,
   );
 };

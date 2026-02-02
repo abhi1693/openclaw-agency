@@ -13,15 +13,21 @@ import {
   useListProjectsProjectsGet,
 } from "@/api/generated/projects/projects";
 
+import { useListTeamsTeamsGet } from "@/api/generated/org/org";
+
 export default function ProjectsPage() {
   const [name, setName] = useState("");
+  const [teamId, setTeamId] = useState<string>("");
 
   const projects = useListProjectsProjectsGet();
+  const teams = useListTeamsTeamsGet({ department_id: undefined });
   const projectList = projects.data?.status === 200 ? projects.data.data : [];
+  const teamList = teams.data?.status === 200 ? teams.data.data : [];
   const createProject = useCreateProjectProjectsPost({
     mutation: {
       onSuccess: () => {
         setName("");
+        setTeamId("");
         projects.refetch();
       },
     },
@@ -48,8 +54,17 @@ export default function ProjectsPage() {
           {projects.error ? <div className={styles.mono}>{(projects.error as Error).message}</div> : null}
           <div className={styles.list}>
             <Input placeholder="Project name" value={name} onChange={(e) => setName(e.target.value)} autoFocus />
+            <div style={{ display: 'flex', gap: 10, alignItems: 'center' }}>
+              <span style={{ fontSize: 12, opacity: 0.8 }}>Owning team</span>
+              <select value={teamId} onChange={(e) => setTeamId(e.target.value)} style={{ flex: 1, padding: '6px 8px', borderRadius: 6, border: '1px solid #333', background: 'transparent' }}>
+                <option value="">(none)</option>
+                {teamList.map((t) => (
+                  <option key={t.id ?? t.name} value={t.id ?? ''}>{t.name}</option>
+                ))}
+              </select>
+            </div>
             <Button
-              onClick={() => createProject.mutate({ data: { name, status: "active" } })}
+              onClick={() => createProject.mutate({ data: { name, status: "active", team_id: teamId ? Number(teamId) : null } })}
               disabled={!name.trim() || createProject.isPending || projects.isFetching}
             >
               Create

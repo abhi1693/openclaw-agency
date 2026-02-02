@@ -8,4 +8,5 @@
 export interface ProjectCreate {
   name: string;
   status?: string;
+  team_id?: number | null;
 }

@@ -9,4 +9,5 @@ export interface Project {
   id?: number | null;
   name: string;
   status?: string;
+  team_id?: number | null;
 }

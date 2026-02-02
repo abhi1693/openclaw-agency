@@ -5,8 +5,8 @@
  * OpenAPI spec version: 0.3.0
  */
 
-export interface ProjectUpdate {
+export interface TeamUpdate {
   name?: string | null;
-  status?: string | null;
-  team_id?: number | null;
+  department_id?: number | null;
+  lead_employee_id?: number | null;
 }
