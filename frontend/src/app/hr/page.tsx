@@ -96,12 +96,18 @@ export default function HRPage() {
 
   return (
     <main className="mx-auto max-w-5xl p-6">
+      {headcount.isLoading || actions.isLoading || onboarding.isLoading ? (
+        <div className="mb-4 text-sm text-muted-foreground">Loading…</div>
+      ) : null}
+      {headcount.error ? <div className="mb-4 text-sm text-destructive">{(headcount.error as Error).message}</div> : null}
+      {actions.error ? <div className="mb-4 text-sm text-destructive">{(actions.error as Error).message}</div> : null}
+      {onboarding.error ? <div className="mb-4 text-sm text-destructive">{(onboarding.error as Error).message}</div> : null}
       <div className="flex items-start justify-between gap-4">
         <div>
           <h1 className="text-2xl font-semibold tracking-tight">HR</h1>
           <p className="mt-1 text-sm text-muted-foreground">Headcount requests and employment actions.</p>
         </div>
-        <Button variant="outline" onClick={() => { headcount.refetch(); actions.refetch(); }}>
+        <Button variant="outline" onClick={() => { headcount.refetch(); actions.refetch(); onboarding.refetch(); departments.refetch(); employees.refetch(); }} disabled={headcount.isFetching || actions.isFetching || onboarding.isFetching || departments.isFetching || employees.isFetching}>
           Refresh
         </Button>
       </div>
@@ -113,6 +119,10 @@ export default function HRPage() {
             <CardDescription>Managers request; HR fulfills later.</CardDescription>
           </CardHeader>
           <CardContent className="space-y-3">
+            {departments.isLoading ? <div className="text-sm text-muted-foreground">Loading departments…</div> : null}
+            {departments.error ? <div className="text-sm text-destructive">{(departments.error as Error).message}</div> : null}
+            {employees.isLoading ? <div className="text-sm text-muted-foreground">Loading employees…</div> : null}
+            {employees.error ? <div className="text-sm text-destructive">{(employees.error as Error).message}</div> : null}
             <Select value={hcDeptId} onChange={(e) => setHcDeptId(e.target.value)}>
               <option value="">Select department</option>
               {departmentList.map((d) => (
@@ -276,10 +286,13 @@ export default function HRPage() {
                     },
                   })
                 }
-                disabled={!onboardAgentName.trim() || !onboardRole.trim() || !onboardPrompt.trim() || createOnboarding.isPending}
+                disabled={!onboardAgentName.trim() || !onboardRole.trim() || !onboardPrompt.trim() || createOnboarding.isPending || employees.isFetching}
               >
                 Create onboarding
               </Button>
+              {createOnboarding.error ? (
+                <div className="text-sm text-destructive">{(createOnboarding.error as Error).message}</div>
+              ) : null}
             </div>
             <div>
               <div className="mb-2 text-sm font-medium">Current onboardings</div>
@@ -331,6 +344,9 @@ export default function HRPage() {
               </ul>
             </div>
           </CardContent>
+          {updateOnboarding.error ? (
+            <div className="mt-2 text-sm text-destructive">{(updateOnboarding.error as Error).message}</div>
+          ) : null}
         </Card>
       </div>
       </div>
