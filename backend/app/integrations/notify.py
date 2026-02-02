@@ -259,7 +259,7 @@ def notify_openclaw(ctx: NotifyContext) -> None:
                 client.tools_invoke(
                     "sessions_send",
                     {"sessionKey": sk, "message": message},
-                    timeout_s=15.0,
+                    timeout_s=30.0,
                 )
             except Exception:
                 # keep the log, but avoid giant stack spam unless debugging

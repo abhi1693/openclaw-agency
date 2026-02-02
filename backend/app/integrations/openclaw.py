@@ -50,7 +50,8 @@ class OpenClawClient:
             payload["sessionKey"] = session_key
 
         last_err: Exception | None = None
-        for attempt in range(2):
+        # Retry a few times; the gateway can be busy and respond slowly.
+        for attempt in range(4):
             try:
                 r = requests.post(
                     f"{self.base_url}/tools/invoke",
@@ -74,14 +75,14 @@ class OpenClawClient:
                     "openclaw.tools_invoke: timeout",
                     extra={"tool": tool, "attempt": attempt + 1, "timeout_s": timeout_s},
                 )
-                time.sleep(0.2 * (attempt + 1))
+                time.sleep(0.5 * (2**attempt))
             except RequestException as e:
                 last_err = e
                 logger.warning(
                     "openclaw.tools_invoke: request error",
                     extra={"tool": tool, "attempt": attempt + 1, "error": str(e)},
                 )
-                time.sleep(0.2 * (attempt + 1))
+                time.sleep(0.5 * (2**attempt))
 
         assert last_err is not None
         raise last_err
