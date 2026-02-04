@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useMemo, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 
@@ -18,7 +18,7 @@ import { useQueryClient } from "@tanstack/react-query";
 import { StatusPill } from "@/components/atoms/StatusPill";
 import { DashboardSidebar } from "@/components/organisms/DashboardSidebar";
 import { DashboardShell } from "@/components/templates/DashboardShell";
-import { Button } from "@/components/ui/button";
+import { Button, buttonVariants } from "@/components/ui/button";
 import {
   Dialog,
   DialogContent,
@@ -27,13 +27,6 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
 import { apiRequest, useAuthedMutation, useAuthedQuery } from "@/lib/api-query";
 
 type Agent = {
@@ -51,14 +44,6 @@ type Board = {
   id: string;
   name: string;
   slug: string;
-};
-
-type GatewayStatus = {
-  connected: boolean;
-  gateway_url: string;
-  sessions_count?: number;
-  sessions?: Record<string, unknown>[];
-  error?: string;
 };
 
 const parseTimestamp = (value?: string | null) => {
@@ -104,7 +89,6 @@ export default function AgentsPage() {
   const queryClient = useQueryClient();
   const router = useRouter();
 
-  const [boardId, setBoardId] = useState("");
   const [sorting, setSorting] = useState<SortingState>([
     { id: "name", desc: false },
   ]);
@@ -122,27 +106,6 @@ export default function AgentsPage() {
 
   const boards = useMemo(() => boardsQuery.data ?? [], [boardsQuery.data]);
   const agents = useMemo(() => agentsQuery.data ?? [], [agentsQuery.data]);
-
-  useEffect(() => {
-    if (!boardId && boards.length > 0) {
-      setBoardId(boards[0].id);
-    }
-  }, [boardId, boards]);
-
-  const statusPath = boardId
-    ? `/api/v1/gateways/status?board_id=${boardId}`
-    : null;
-
-  const gatewayStatusQuery = useAuthedQuery<GatewayStatus>(
-    ["gateway-status", boardId || "all"],
-    statusPath,
-    {
-      enabled: Boolean(statusPath),
-      refetchInterval: 15_000,
-    }
-  );
-
-  const gatewayStatus = gatewayStatusQuery.data ?? null;
 
   const deleteMutation = useAuthedMutation<void, Agent, { previous?: Agent[] }>(
     async (agent, token) =>
@@ -180,14 +143,6 @@ export default function AgentsPage() {
     deleteMutation.mutate(deleteTarget);
   };
 
-  const handleRefresh = async () => {
-    await Promise.all([
-      boardsQuery.refetch(),
-      agentsQuery.refetch(),
-      gatewayStatusQuery.refetch(),
-    ]);
-  };
-
   const columns = useMemo<ColumnDef<Agent>[]>(
     () => {
       const resolveBoardName = (agent: Agent) =>
@@ -198,10 +153,12 @@ export default function AgentsPage() {
           accessorKey: "name",
           header: "Agent",
           cell: ({ row }) => (
-            <div>
-              <p className="font-medium text-strong">{row.original.name}</p>
-              <p className="text-xs text-quiet">ID {row.original.id}</p>
-            </div>
+            <Link href={`/agents/${row.original.id}`} className="group block">
+              <p className="text-sm font-medium text-slate-900 group-hover:text-blue-600">
+                {row.original.name}
+              </p>
+              <p className="text-xs text-slate-500">ID {row.original.id}</p>
+            </Link>
           ),
         },
         {
@@ -213,7 +170,7 @@ export default function AgentsPage() {
           accessorKey: "openclaw_session_id",
           header: "Session",
           cell: ({ row }) => (
-            <span className="text-xs text-muted">
+            <span className="text-sm text-slate-700">
               {truncate(row.original.openclaw_session_id)}
             </span>
           ),
@@ -222,7 +179,7 @@ export default function AgentsPage() {
           accessorKey: "board_id",
           header: "Board",
           cell: ({ row }) => (
-            <span className="text-xs text-muted">
+            <span className="text-sm text-slate-700">
               {resolveBoardName(row.original)}
             </span>
           ),
@@ -231,21 +188,16 @@ export default function AgentsPage() {
           accessorKey: "last_seen_at",
           header: "Last seen",
           cell: ({ row }) => (
-            <div className="text-xs text-muted">
-              <p className="font-medium text-strong">
-                {formatRelative(row.original.last_seen_at)}
-              </p>
-              <p className="text-quiet">
-                {formatTimestamp(row.original.last_seen_at)}
-              </p>
-            </div>
+            <span className="text-sm text-slate-700">
+              {formatRelative(row.original.last_seen_at)}
+            </span>
           ),
         },
         {
           accessorKey: "updated_at",
           header: "Updated",
           cell: ({ row }) => (
-            <span className="text-xs text-muted">
+            <span className="text-sm text-slate-700">
               {formatTimestamp(row.original.updated_at)}
             </span>
           ),
@@ -254,24 +206,15 @@ export default function AgentsPage() {
           id: "actions",
           header: "",
           cell: ({ row }) => (
-            <div
-              className="flex items-center justify-end gap-2"
-              onClick={(event) => event.stopPropagation()}
-            >
-              <Link
-                href={`/agents/${row.original.id}`}
-                className="inline-flex h-8 items-center justify-center rounded-md border border-slate-200 px-3 text-xs font-medium text-slate-600 transition hover:border-slate-300 hover:text-slate-900"
-              >
-                View
-              </Link>
+            <div className="flex justify-end gap-2">
               <Link
                 href={`/agents/${row.original.id}/edit`}
-                className="inline-flex h-8 items-center justify-center rounded-md border border-slate-200 px-3 text-xs font-medium text-slate-600 transition hover:border-slate-300 hover:text-slate-900"
+                className={buttonVariants({ variant: "ghost", size: "sm" })}
               >
                 Edit
               </Link>
               <Button
-                variant="outline"
+                variant="ghost"
                 size="sm"
                 onClick={() => setDeleteTarget(row.original)}
               >
@@ -314,79 +257,58 @@ export default function AgentsPage() {
       <SignedIn>
         <DashboardSidebar />
         <main className="flex-1 overflow-y-auto bg-slate-50">
-          <div className="border-b border-slate-200 bg-white px-8 py-6">
-            <div className="flex flex-wrap items-center justify-between gap-4">
-              <div>
-                <h2 className="font-heading text-2xl font-semibold text-slate-900 tracking-tight">
-                  Agents
-                </h2>
-                <p className="mt-1 text-sm text-slate-500">
-                  {agents.length} agent{agents.length === 1 ? "" : "s"} total.
-                </p>
-              </div>
-              {agents.length > 0 ? (
-                <div className="flex items-center gap-2">
-                  <Button
-                    variant="outline"
-                    onClick={handleRefresh}
-                    disabled={agentsQuery.isLoading}
-                  >
-                    Refresh
-                  </Button>
+          <div className="sticky top-0 z-30 border-b border-slate-200 bg-white">
+            <div className="px-8 py-6">
+              <div className="flex items-center justify-between">
+                <div>
+                  <h1 className="text-2xl font-semibold tracking-tight text-slate-900">
+                    Agents
+                  </h1>
+                  <p className="mt-1 text-sm text-slate-500">
+                    {agents.length} agent{agents.length === 1 ? "" : "s"} total.
+                  </p>
+                </div>
+                {agents.length > 0 ? (
                   <Button onClick={() => router.push("/agents/new")}>
                     New agent
                   </Button>
-                </div>
-              ) : null}
+                ) : null}
+              </div>
             </div>
           </div>
 
           <div className="p-8">
-            {agentsQuery.error ? (
-              <div className="rounded-lg border border-slate-200 bg-white p-3 text-sm text-slate-600 shadow-sm">
-                {agentsQuery.error.message}
-              </div>
-            ) : null}
-
-            {agents.length === 0 && !agentsQuery.isLoading ? (
-              <div className="flex flex-1 flex-col items-center justify-center gap-4 rounded-xl border border-dashed border-slate-200 bg-white/70 p-10 text-center text-sm text-slate-500">
-                <p>No agents yet. Create your first agent to get started.</p>
-                <Button onClick={() => router.push("/agents/new")}>
-                  Create your first agent
-                </Button>
-              </div>
-            ) : (
-              <div className="overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm">
-                <div className="overflow-x-auto">
-                  <table className="min-w-full divide-y divide-slate-200 text-sm">
-                    <thead className="bg-slate-50">
-                      {table.getHeaderGroups().map((headerGroup) => (
-                        <tr key={headerGroup.id}>
-                          {headerGroup.headers.map((header) => (
-                            <th
-                              key={header.id}
-                              className="px-4 py-3 text-left text-[11px] font-semibold uppercase tracking-wider text-slate-500"
-                            >
-                              {header.isPlaceholder
-                                ? null
-                                : flexRender(
-                                    header.column.columnDef.header,
-                                    header.getContext()
-                                  )}
-                            </th>
-                          ))}
-                        </tr>
-                      ))}
-                    </thead>
-                    <tbody className="divide-y divide-slate-200 bg-white">
-                      {table.getRowModel().rows.map((row) => (
-                        <tr
-                          key={row.id}
-                          className="cursor-pointer transition hover:bg-slate-50"
-                          onClick={() => router.push(`/agents/${row.original.id}`)}
-                        >
+            <div className="overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm">
+              <div className="overflow-x-auto">
+                <table className="w-full text-left text-sm">
+                  <thead className="sticky top-0 z-10 bg-slate-50 text-xs font-semibold uppercase tracking-wider text-slate-500">
+                    {table.getHeaderGroups().map((headerGroup) => (
+                      <tr key={headerGroup.id}>
+                        {headerGroup.headers.map((header) => (
+                          <th key={header.id} className="px-6 py-3">
+                            {header.isPlaceholder
+                              ? null
+                              : flexRender(
+                                  header.column.columnDef.header,
+                                  header.getContext()
+                                )}
+                          </th>
+                        ))}
+                      </tr>
+                    ))}
+                  </thead>
+                  <tbody className="divide-y divide-slate-100">
+                    {agentsQuery.isLoading ? (
+                      <tr>
+                        <td colSpan={columns.length} className="px-6 py-8">
+                          <span className="text-sm text-slate-500">Loading…</span>
+                        </td>
+                      </tr>
+                    ) : table.getRowModel().rows.length ? (
+                      table.getRowModel().rows.map((row) => (
+                        <tr key={row.id} className="hover:bg-slate-50">
                           {row.getVisibleCells().map((cell) => (
-                            <td key={cell.id} className="px-4 py-3 align-top">
+                            <td key={cell.id} className="px-6 py-4">
                               {flexRender(
                                 cell.column.columnDef.cell,
                                 cell.getContext()
@@ -394,55 +316,54 @@ export default function AgentsPage() {
                             </td>
                           ))}
                         </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                </div>
+                      ))
+                    ) : (
+                      <tr>
+                        <td colSpan={columns.length} className="px-6 py-16">
+                          <div className="flex flex-col items-center justify-center text-center">
+                            <div className="mb-4 rounded-full bg-slate-50 p-4">
+                              <svg
+                                className="h-16 w-16 text-slate-300"
+                                viewBox="0 0 24 24"
+                                fill="none"
+                                stroke="currentColor"
+                                strokeWidth="1.5"
+                                strokeLinecap="round"
+                                strokeLinejoin="round"
+                              >
+                                <path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2" />
+                                <circle cx="9" cy="7" r="4" />
+                                <path d="M22 21v-2a4 4 0 0 0-3-3.87" />
+                                <path d="M16 3.13a4 4 0 0 1 0 7.75" />
+                              </svg>
+                            </div>
+                            <h3 className="mb-2 text-lg font-semibold text-slate-900">
+                              No agents yet
+                            </h3>
+                            <p className="mb-6 max-w-md text-sm text-slate-500">
+                              Create your first agent to start executing tasks
+                              on this board.
+                            </p>
+                            <Link
+                              href="/agents/new"
+                              className={buttonVariants({ size: "md", variant: "primary" })}
+                            >
+                              Create your first agent
+                            </Link>
+                          </div>
+                        </td>
+                      </tr>
+                    )}
+                  </tbody>
+                </table>
               </div>
-            )}
-
-            <div className="mt-6 rounded-xl border border-slate-200 bg-white p-4 text-sm text-slate-600 shadow-sm">
-              <div className="flex flex-wrap items-center justify-between gap-3">
-                <div>
-                  <p className="text-xs font-semibold uppercase tracking-wider text-slate-500">
-                    Gateway status
-                  </p>
-                  <p className="mt-1 text-sm font-semibold text-slate-900">
-                    {gatewayStatus?.gateway_url ?? "Gateway URL not set"}
-                  </p>
-                </div>
-                <div className="flex items-center gap-3">
-                  <Select
-                    value={boardId}
-                    onValueChange={(value) => setBoardId(value)}
-                    disabled={boards.length === 0}
-                  >
-                    <SelectTrigger className="h-8 w-[200px]">
-                      <SelectValue placeholder="Select board" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {boards.map((board) => (
-                        <SelectItem key={board.id} value={board.id}>
-                          {board.name}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                  <StatusPill status={gatewayStatus?.connected ? "online" : "offline"} />
-                  <span className="text-xs text-slate-500">
-                    {gatewayStatus?.sessions_count ?? 0} sessions
-                  </span>
-                </div>
-              </div>
-              {gatewayStatus?.error ? (
-                <p className="mt-3 text-xs text-red-600">{gatewayStatus.error}</p>
-              ) : null}
-              {gatewayStatusQuery.error ? (
-                <p className="mt-3 text-xs text-red-600">
-                  {gatewayStatusQuery.error.message}
-                </p>
-              ) : null}
             </div>
+
+            {agentsQuery.error ? (
+              <p className="mt-4 text-sm text-red-500">
+                {agentsQuery.error.message}
+              </p>
+            ) : null}
           </div>
         </main>
       </SignedIn>
