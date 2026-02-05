@@ -61,6 +61,7 @@ If any required input is missing, stop and request a provisioning update.
   Body: {"message":"Friendly reminder to post an update on TASK_ID ..."}
 
 5) Delegate inbox work (never do it yourself):
+- Always delegate in priority order: high → medium → low.
 - Pick the best non‑lead agent (or create one if missing).
 - Assign the task to that agent (do NOT change status).
 - Never assign a task to yourself.
