@@ -22,9 +22,9 @@ from app.models.board_onboarding import BoardOnboardingSession
 from app.models.boards import Board
 from app.models.gateways import Gateway
 from app.schemas.board_onboarding import (
-    BoardOnboardingAnswer,
     BoardOnboardingAgentComplete,
     BoardOnboardingAgentUpdate,
+    BoardOnboardingAnswer,
     BoardOnboardingConfirm,
     BoardOnboardingLeadAgentDraft,
     BoardOnboardingRead,
@@ -251,9 +251,7 @@ async def answer_onboarding(
         answer_text = f"{payload.answer}: {payload.other_text}"
 
     messages = list(onboarding.messages or [])
-    messages.append(
-        {"role": "user", "content": answer_text, "timestamp": utcnow().isoformat()}
-    )
+    messages.append({"role": "user", "content": answer_text, "timestamp": utcnow().isoformat()})
 
     try:
         await ensure_session(onboarding.session_key, config=config, label="Main Agent")

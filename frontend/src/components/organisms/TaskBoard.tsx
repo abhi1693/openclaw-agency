@@ -17,6 +17,9 @@ type Task = {
   assigned_agent_id?: string | null;
   assignee?: string | null;
   approvals_pending_count?: number;
+  depends_on_task_ids?: string[];
+  blocked_by_task_ids?: string[];
+  is_blocked?: boolean;
 };
 
 type TaskBoardProps = {
@@ -253,6 +256,10 @@ export const TaskBoard = memo(function TaskBoard({
 
   const handleDragStart =
     (task: Task) => (event: React.DragEvent<HTMLDivElement>) => {
+      if (task.is_blocked) {
+        event.preventDefault();
+        return;
+      }
       setDraggingId(task.id);
       event.dataTransfer.effectAllowed = "move";
       event.dataTransfer.setData(
@@ -342,8 +349,10 @@ export const TaskBoard = memo(function TaskBoard({
                       assignee={task.assignee ?? undefined}
                       due={formatDueDate(task.due_at)}
                       approvalsPendingCount={task.approvals_pending_count}
+                      isBlocked={task.is_blocked}
+                      blockedByCount={task.blocked_by_task_ids?.length ?? 0}
                       onClick={() => onTaskSelect?.(task)}
-                      draggable
+                      draggable={!task.is_blocked}
                       isDragging={draggingId === task.id}
                       onDragStart={handleDragStart(task)}
                       onDragEnd={handleDragEnd}

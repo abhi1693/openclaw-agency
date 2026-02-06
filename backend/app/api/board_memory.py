@@ -77,17 +77,15 @@ async def _fetch_memory_events(
     is_chat: bool | None = None,
 ) -> list[BoardMemory]:
     statement = (
-        select(BoardMemory)
-        .where(col(BoardMemory.board_id) == board_id)
+        select(BoardMemory).where(col(BoardMemory.board_id) == board_id)
         # Old/invalid rows (empty/whitespace-only content) can exist; exclude them to
         # satisfy the NonEmptyStr response schema.
         .where(func.length(func.trim(col(BoardMemory.content))) > 0)
     )
     if is_chat is not None:
         statement = statement.where(col(BoardMemory.is_chat) == is_chat)
-    statement = (
-        statement.where(col(BoardMemory.created_at) >= since)
-        .order_by(col(BoardMemory.created_at))
+    statement = statement.where(col(BoardMemory.created_at) >= since).order_by(
+        col(BoardMemory.created_at)
     )
     return list(await session.exec(statement))
 
@@ -162,8 +160,7 @@ async def list_board_memory(
         if actor.agent.board_id and actor.agent.board_id != board.id:
             raise HTTPException(status_code=status.HTTP_403_FORBIDDEN)
     statement = (
-        select(BoardMemory)
-        .where(col(BoardMemory.board_id) == board.id)
+        select(BoardMemory).where(col(BoardMemory.board_id) == board.id)
         # Old/invalid rows (empty/whitespace-only content) can exist; exclude them to
         # satisfy the NonEmptyStr response schema.
         .where(func.length(func.trim(col(BoardMemory.content))) > 0)

@@ -5,6 +5,7 @@ from app.models.board_memory import BoardMemory
 from app.models.board_onboarding import BoardOnboardingSession
 from app.models.boards import Board
 from app.models.gateways import Gateway
+from app.models.task_dependencies import TaskDependency
 from app.models.task_fingerprints import TaskFingerprint
 from app.models.tasks import Task
 from app.models.users import User
@@ -17,6 +18,7 @@ __all__ = [
     "BoardOnboardingSession",
     "Board",
     "Gateway",
+    "TaskDependency",
     "Task",
     "TaskFingerprint",
     "User",

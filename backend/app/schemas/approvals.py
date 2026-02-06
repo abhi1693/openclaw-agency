@@ -7,7 +7,6 @@ from uuid import UUID
 from pydantic import model_validator
 from sqlmodel import SQLModel
 
-
 ApprovalStatus = Literal["pending", "approved", "rejected"]
 
 

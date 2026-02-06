@@ -23,6 +23,9 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
+import DropdownSelect, {
+  type DropdownSelectOption,
+} from "@/components/ui/dropdown-select";
 import {
   Select,
   SelectContent,
@@ -406,6 +409,9 @@ export default function BoardDetailPage() {
   const [editStatus, setEditStatus] = useState<TaskStatus>("inbox");
   const [editPriority, setEditPriority] = useState("medium");
   const [editAssigneeId, setEditAssigneeId] = useState("");
+  const [editDependsOnTaskIds, setEditDependsOnTaskIds] = useState<string[]>(
+    [],
+  );
   const [isSavingTask, setIsSavingTask] = useState(false);
   const [saveTaskError, setSaveTaskError] = useState<string | null>(null);
 
@@ -796,6 +802,7 @@ export default function BoardDetailPage() {
       setEditStatus("inbox");
       setEditPriority("medium");
       setEditAssigneeId("");
+      setEditDependsOnTaskIds([]);
       setSaveTaskError(null);
       return;
     }
@@ -804,6 +811,7 @@ export default function BoardDetailPage() {
     setEditStatus(selectedTask.status);
     setEditPriority(selectedTask.priority);
     setEditAssigneeId(selectedTask.assigned_agent_id ?? "");
+    setEditDependsOnTaskIds(selectedTask.depends_on_task_ids ?? []);
     setSaveTaskError(null);
   }, [selectedTask]);
 
@@ -1165,6 +1173,14 @@ export default function BoardDetailPage() {
     return map;
   }, [tasks]);
 
+  const taskById = useMemo(() => {
+    const map = new Map<string, Task>();
+    tasks.forEach((task) => {
+      map.set(task.id, task);
+    });
+    return map;
+  }, [tasks]);
+
   const orderedLiveFeed = useMemo(() => {
     return [...liveFeed].sort((a, b) => {
       const aTime = new Date(a.created_at).getTime();
@@ -1178,21 +1194,51 @@ export default function BoardDetailPage() {
     [agents],
   );
 
+  const dependencyOptions = useMemo<DropdownSelectOption[]>(() => {
+    if (!selectedTask) return [];
+    const alreadySelected = new Set(editDependsOnTaskIds);
+    return tasks
+      .filter((task) => task.id !== selectedTask.id)
+      .map((task) => ({
+        value: task.id,
+        label: `${task.title} (${task.status.replace(/_/g, " ")})`,
+        disabled: alreadySelected.has(task.id),
+      }));
+  }, [editDependsOnTaskIds, selectedTask, tasks]);
+
+  const addTaskDependency = useCallback((dependencyId: string) => {
+    setEditDependsOnTaskIds((prev) =>
+      prev.includes(dependencyId) ? prev : [...prev, dependencyId],
+    );
+  }, []);
+
+  const removeTaskDependency = useCallback((dependencyId: string) => {
+    setEditDependsOnTaskIds((prev) =>
+      prev.filter((value) => value !== dependencyId),
+    );
+  }, []);
+
   const hasTaskChanges = useMemo(() => {
     if (!selectedTask) return false;
     const normalizedTitle = editTitle.trim();
     const normalizedDescription = editDescription.trim();
     const currentDescription = (selectedTask.description ?? "").trim();
     const currentAssignee = selectedTask.assigned_agent_id ?? "";
+    const currentDeps = [...(selectedTask.depends_on_task_ids ?? [])]
+      .sort()
+      .join("|");
+    const nextDeps = [...editDependsOnTaskIds].sort().join("|");
     return (
       normalizedTitle !== selectedTask.title ||
       normalizedDescription !== currentDescription ||
       editStatus !== selectedTask.status ||
       editPriority !== selectedTask.priority ||
-      editAssigneeId !== currentAssignee
+      editAssigneeId !== currentAssignee ||
+      currentDeps !== nextDeps
     );
   }, [
     editAssigneeId,
+    editDependsOnTaskIds,
     editDescription,
     editPriority,
     editStatus,
@@ -1348,18 +1394,49 @@ export default function BoardDetailPage() {
     setIsSavingTask(true);
     setSaveTaskError(null);
     try {
+      const currentDeps = [...(selectedTask.depends_on_task_ids ?? [])]
+        .sort()
+        .join("|");
+      const nextDeps = [...editDependsOnTaskIds].sort().join("|");
+      const depsChanged = currentDeps !== nextDeps;
+
+      const updatePayload: Parameters<
+        typeof updateTaskApiV1BoardsBoardIdTasksTaskIdPatch
+      >[2] = {
+        title: trimmedTitle,
+        description: editDescription.trim() || null,
+        status: editStatus,
+        priority: editPriority,
+        assigned_agent_id: editAssigneeId || null,
+      };
+
+      if (depsChanged && selectedTask.status !== "done") {
+        updatePayload.depends_on_task_ids = editDependsOnTaskIds;
+      }
+
       const result = await updateTaskApiV1BoardsBoardIdTasksTaskIdPatch(
         boardId,
         selectedTask.id,
-        {
-          title: trimmedTitle,
-          description: editDescription.trim() || null,
-          status: editStatus,
-          priority: editPriority,
-          assigned_agent_id: editAssigneeId || null,
-        },
+        updatePayload,
       );
-      if (result.status !== 200) throw new Error("Unable to update task.");
+      if (result.status === 409) {
+        const blockedIds = result.data.detail.blocked_by_task_ids ?? [];
+        const blockedTitles = blockedIds
+          .map((id) => taskTitleById.get(id) ?? id)
+          .join(", ");
+        setSaveTaskError(
+          blockedTitles
+            ? `${result.data.detail.message} Blocked by: ${blockedTitles}`
+            : result.data.detail.message,
+        );
+        return;
+      }
+      if (result.status === 422) {
+        setSaveTaskError(
+          result.data.detail?.[0]?.msg ?? "Validation error while saving task.",
+        );
+        return;
+      }
       const previous =
         tasksRef.current.find((task) => task.id === selectedTask.id) ??
         selectedTask;
@@ -1393,6 +1470,7 @@ export default function BoardDetailPage() {
     setEditStatus(selectedTask.status);
     setEditPriority(selectedTask.priority);
     setEditAssigneeId(selectedTask.assigned_agent_id ?? "");
+    setEditDependsOnTaskIds(selectedTask.depends_on_task_ids ?? []);
     setSaveTaskError(null);
   };
 
@@ -1422,6 +1500,10 @@ export default function BoardDetailPage() {
     if (!isSignedIn || !boardId) return;
     const currentTask = tasksRef.current.find((task) => task.id === taskId);
     if (!currentTask || currentTask.status === status) return;
+    if (currentTask.is_blocked && status !== "inbox") {
+      setError("Task is blocked by incomplete dependencies.");
+      return;
+    }
     const previousTasks = tasksRef.current;
     setTasks((prev) =>
       prev.map((task) =>
@@ -1442,7 +1524,22 @@ export default function BoardDetailPage() {
         taskId,
         { status },
       );
-      if (result.status !== 200) throw new Error("Unable to move task.");
+      if (result.status === 409) {
+        const blockedIds = result.data.detail.blocked_by_task_ids ?? [];
+        const blockedTitles = blockedIds
+          .map((id) => taskTitleById.get(id) ?? id)
+          .join(", ");
+        throw new Error(
+          blockedTitles
+            ? `${result.data.detail.message} Blocked by: ${blockedTitles}`
+            : result.data.detail.message,
+        );
+      }
+      if (result.status === 422) {
+        throw new Error(
+          result.data.detail?.[0]?.msg ?? "Validation error while moving task.",
+        );
+      }
       const assignee = result.data.assigned_agent_id
         ? agentsRef.current.find((agent) => agent.id === result.data.assigned_agent_id)
             ?.name ?? null
@@ -1461,7 +1558,7 @@ export default function BoardDetailPage() {
       setTasks(previousTasks);
       setError(err instanceof Error ? err.message : "Unable to move task.");
     }
-  }, [boardId, isSignedIn]);
+  }, [boardId, isSignedIn, taskTitleById]);
 
   const agentInitials = (agent: Agent) =>
     agent.name
@@ -1980,6 +2077,68 @@ export default function BoardDetailPage() {
                 <p className="text-sm text-slate-500">No description provided.</p>
               )}
             </div>
+            <div className="space-y-2">
+              <p className="text-xs font-semibold uppercase tracking-wider text-slate-500">
+                Dependencies
+              </p>
+              {selectedTask?.depends_on_task_ids?.length ? (
+                <div className="space-y-2">
+                  {selectedTask.depends_on_task_ids.map((depId) => {
+                    const depTask = taskById.get(depId);
+                    const title = depTask?.title ?? depId;
+                    const statusLabel = depTask?.status
+                      ? depTask.status.replace(/_/g, " ")
+                      : "unknown";
+                    const isDone = depTask?.status === "done";
+                    const isBlocking = (
+                      selectedTask.blocked_by_task_ids ?? []
+                    ).includes(depId);
+                    return (
+                      <button
+                        key={depId}
+                        type="button"
+                        onClick={() => openComments({ id: depId })}
+                        disabled={!depTask}
+                        className={cn(
+                          "w-full rounded-lg border px-3 py-2 text-left transition",
+                          isBlocking
+                            ? "border-rose-200 bg-rose-50 hover:bg-rose-100/40"
+                            : isDone
+                              ? "border-emerald-200 bg-emerald-50 hover:bg-emerald-100/40"
+                              : "border-slate-200 bg-white hover:bg-slate-50",
+                          !depTask && "cursor-not-allowed opacity-60",
+                        )}
+                      >
+                        <div className="flex items-center justify-between gap-3">
+                          <p className="truncate text-sm font-medium text-slate-900">
+                            {title}
+                          </p>
+                          <span
+                            className={cn(
+                              "text-[10px] font-semibold uppercase tracking-wide",
+                              isBlocking
+                                ? "text-rose-700"
+                                : isDone
+                                  ? "text-emerald-700"
+                                  : "text-slate-500",
+                            )}
+                          >
+                            {statusLabel}
+                          </span>
+                        </div>
+                      </button>
+                    );
+                  })}
+                </div>
+              ) : (
+                <p className="text-sm text-slate-500">No dependencies.</p>
+              )}
+              {selectedTask?.is_blocked ? (
+                <div className="rounded-lg border border-rose-200 bg-rose-50 p-3 text-xs text-rose-700">
+                  Blocked by incomplete dependencies.
+                </div>
+              ) : null}
+            </div>
             <div className="space-y-3">
               <div className="flex items-center justify-between">
                 <p className="text-xs font-semibold uppercase tracking-wider text-slate-500">
@@ -2332,6 +2491,73 @@ export default function BoardDetailPage() {
                   Add agents to assign tasks.
                 </p>
               ) : null}
+            </div>
+            <div className="space-y-2">
+              <label className="text-xs font-semibold uppercase tracking-wider text-slate-500">
+                Dependencies
+              </label>
+              <p className="text-xs text-slate-500">
+                Tasks stay blocked until every dependency is marked done.
+              </p>
+              <DropdownSelect
+                ariaLabel="Add dependency"
+                placeholder="Add dependency"
+                options={dependencyOptions}
+                onValueChange={addTaskDependency}
+                disabled={
+                  !selectedTask ||
+                  isSavingTask ||
+                  selectedTask.status === "done"
+                }
+                emptyMessage="No other tasks found."
+              />
+              {selectedTask?.status === "done" ? (
+                <p className="text-xs text-slate-500">
+                  Dependencies can only be edited until the task is done.
+                </p>
+              ) : null}
+              {editDependsOnTaskIds.length === 0 ? (
+                <p className="text-xs text-slate-500">No dependencies.</p>
+              ) : (
+                <div className="flex flex-wrap gap-2">
+                  {editDependsOnTaskIds.map((depId) => {
+                    const depTask = taskById.get(depId);
+                    const label = depTask?.title ?? depId;
+                    const statusLabel = depTask?.status
+                      ? depTask.status.replace(/_/g, " ")
+                      : null;
+                    const isDone = depTask?.status === "done";
+                    return (
+                      <span
+                        key={depId}
+                        className={cn(
+                          "inline-flex items-center gap-2 rounded-full border px-3 py-1 text-xs",
+                          isDone
+                            ? "border-emerald-200 bg-emerald-50 text-emerald-800"
+                            : "border-slate-200 bg-slate-50 text-slate-700",
+                        )}
+                      >
+                        <span className="max-w-[18rem] truncate">{label}</span>
+                        {statusLabel ? (
+                          <span className="text-[10px] font-semibold uppercase tracking-wide text-slate-400">
+                            {statusLabel}
+                          </span>
+                        ) : null}
+                        {selectedTask?.status !== "done" ? (
+                          <button
+                            type="button"
+                            onClick={() => removeTaskDependency(depId)}
+                            className="rounded-full p-0.5 text-slate-500 transition hover:bg-white hover:text-slate-700"
+                            aria-label="Remove dependency"
+                          >
+                            <X className="h-3 w-3" />
+                          </button>
+                        ) : null}
+                      </span>
+                    );
+                  })}
+                </div>
+              )}
             </div>
             {saveTaskError ? (
               <div className="rounded-lg border border-slate-200 bg-white p-3 text-xs text-slate-600">

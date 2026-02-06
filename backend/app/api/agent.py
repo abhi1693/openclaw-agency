@@ -26,8 +26,15 @@ from app.models.board_memory import BoardMemory
 from app.models.board_onboarding import BoardOnboardingSession
 from app.models.boards import Board
 from app.models.gateways import Gateway
+from app.models.task_dependencies import TaskDependency
 from app.models.tasks import Task
-from app.schemas.agents import AgentCreate, AgentHeartbeat, AgentHeartbeatCreate, AgentNudge, AgentRead
+from app.schemas.agents import (
+    AgentCreate,
+    AgentHeartbeat,
+    AgentHeartbeatCreate,
+    AgentNudge,
+    AgentRead,
+)
 from app.schemas.approvals import ApprovalCreate, ApprovalRead, ApprovalStatus
 from app.schemas.board_memory import BoardMemoryCreate, BoardMemoryRead
 from app.schemas.board_onboarding import BoardOnboardingAgentUpdate, BoardOnboardingRead
@@ -36,6 +43,11 @@ from app.schemas.common import OkResponse
 from app.schemas.pagination import DefaultLimitOffsetPage
 from app.schemas.tasks import TaskCommentCreate, TaskCommentRead, TaskCreate, TaskRead, TaskUpdate
 from app.services.activity_log import record_activity
+from app.services.task_dependencies import (
+    blocked_by_dependency_ids,
+    dependency_status_by_id,
+    validate_dependency_update,
+)
 
 router = APIRouter(prefix="/agent", tags=["agent"])
 
@@ -131,14 +143,39 @@ async def create_task(
     board: Board = Depends(get_board_or_404),
     session: AsyncSession = Depends(get_session),
     agent_ctx: AgentAuthContext = Depends(get_agent_auth_context),
-) -> Task:
+) -> TaskRead:
     _guard_board_access(agent_ctx, board)
     if not agent_ctx.agent.is_board_lead:
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN)
-    task = Task.model_validate(payload)
+    data = payload.model_dump()
+    depends_on_task_ids = cast(list[UUID], data.pop("depends_on_task_ids", []) or [])
+
+    task = Task.model_validate(data)
     task.board_id = board.id
     task.auto_created = True
     task.auto_reason = f"lead_agent:{agent_ctx.agent.id}"
+
+    normalized_deps = await validate_dependency_update(
+        session,
+        board_id=board.id,
+        task_id=task.id,
+        depends_on_task_ids=depends_on_task_ids,
+    )
+    dep_status = await dependency_status_by_id(
+        session,
+        board_id=board.id,
+        dependency_ids=normalized_deps,
+    )
+    blocked_by = blocked_by_dependency_ids(dependency_ids=normalized_deps, status_by_id=dep_status)
+
+    if blocked_by and (task.assigned_agent_id is not None or task.status != "inbox"):
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail={
+                "message": "Task is blocked by incomplete dependencies.",
+                "blocked_by_task_ids": [str(value) for value in blocked_by],
+            },
+        )
     if task.assigned_agent_id:
         agent = await session.get(Agent, task.assigned_agent_id)
         if agent is None:
@@ -151,6 +188,14 @@ async def create_task(
         if agent.board_id and agent.board_id != board.id:
             raise HTTPException(status_code=status.HTTP_409_CONFLICT)
     session.add(task)
+    for dep_id in normalized_deps:
+        session.add(
+            TaskDependency(
+                board_id=board.id,
+                task_id=task.id,
+                depends_on_task_id=dep_id,
+            )
+        )
     await session.commit()
     await session.refresh(task)
     record_activity(
@@ -170,7 +215,13 @@ async def create_task(
                 task=task,
                 agent=assigned_agent,
             )
-    return task
+    return TaskRead.model_validate(task, from_attributes=True).model_copy(
+        update={
+            "depends_on_task_ids": normalized_deps,
+            "blocked_by_task_ids": blocked_by,
+            "is_blocked": bool(blocked_by),
+        }
+    )
 
 
 @router.patch("/boards/{board_id}/tasks/{task_id}", response_model=TaskRead)
@@ -179,7 +230,7 @@ async def update_task(
     task: Task = Depends(get_task_or_404),
     session: AsyncSession = Depends(get_session),
     agent_ctx: AgentAuthContext = Depends(get_agent_auth_context),
-) -> Task:
+) -> TaskRead:
     if agent_ctx.agent.board_id and task.board_id and agent_ctx.agent.board_id != task.board_id:
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN)
     return await tasks_api.update_task(

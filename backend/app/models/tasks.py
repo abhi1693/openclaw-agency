@@ -5,8 +5,8 @@ from uuid import UUID, uuid4
 
 from sqlmodel import Field
 
-from app.models.tenancy import TenantScoped
 from app.core.time import utcnow
+from app.models.tenancy import TenantScoped
 
 
 class Task(TenantScoped, table=True):

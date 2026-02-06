@@ -27,7 +27,6 @@ from app.models.agents import Agent
 from app.models.boards import Board
 from app.models.gateways import Gateway
 from app.models.tasks import Task
-from app.schemas.common import OkResponse
 from app.schemas.agents import (
     AgentCreate,
     AgentHeartbeat,
@@ -35,6 +34,7 @@ from app.schemas.agents import (
     AgentRead,
     AgentUpdate,
 )
+from app.schemas.common import OkResponse
 from app.schemas.pagination import DefaultLimitOffsetPage
 from app.services.activity_log import record_activity
 from app.services.agent_provisioning import (
@@ -97,7 +97,9 @@ async def _require_board(session: AsyncSession, board_id: UUID | str | None) -> 
     return board
 
 
-async def _require_gateway(session: AsyncSession, board: Board) -> tuple[Gateway, GatewayClientConfig]:
+async def _require_gateway(
+    session: AsyncSession, board: Board
+) -> tuple[Gateway, GatewayClientConfig]:
     if not board.gateway_id:
         raise HTTPException(
             status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
@@ -155,7 +157,9 @@ async def _find_gateway_for_main_session(
 ) -> Gateway | None:
     if not session_key:
         return None
-    return (await session.exec(select(Gateway).where(Gateway.main_session_key == session_key))).first()
+    return (
+        await session.exec(select(Gateway).where(Gateway.main_session_key == session_key))
+    ).first()
 
 
 async def _ensure_gateway_session(
@@ -211,7 +215,9 @@ def _record_heartbeat(session: AsyncSession, agent: Agent) -> None:
     )
 
 
-def _record_instruction_failure(session: AsyncSession, agent: Agent, error: str, action: str) -> None:
+def _record_instruction_failure(
+    session: AsyncSession, agent: Agent, error: str, action: str
+) -> None:
     action_label = action.replace("_", " ").capitalize()
     record_activity(
         session,
@@ -275,7 +281,9 @@ async def stream_agents(
                 break
             async with async_session_maker() as session:
                 agents = await _fetch_agent_events(session, board_id, last_seen)
-                main_session_keys = await _get_gateway_main_session_keys(session) if agents else set()
+                main_session_keys = (
+                    await _get_gateway_main_session_keys(session) if agents else set()
+                )
             for agent in agents:
                 updated_at = agent.updated_at or agent.last_seen_at or utcnow()
                 if updated_at > last_seen:

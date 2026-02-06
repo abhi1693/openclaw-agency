@@ -1,5 +1,6 @@
-import pytest
 from uuid import uuid4
+
+import pytest
 
 from app.schemas.board_onboarding import BoardOnboardingConfirm
 from app.schemas.boards import BoardCreate

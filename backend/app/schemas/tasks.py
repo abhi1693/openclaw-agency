@@ -5,10 +5,9 @@ from typing import Any, Literal, Self
 from uuid import UUID
 
 from pydantic import field_validator, model_validator
-from sqlmodel import SQLModel
+from sqlmodel import Field, SQLModel
 
 from app.schemas.common import NonEmptyStr
-
 
 TaskStatus = Literal["inbox", "in_progress", "review", "done"]
 
@@ -20,6 +19,7 @@ class TaskBase(SQLModel):
     priority: str = "medium"
     due_at: datetime | None = None
     assigned_agent_id: UUID | None = None
+    depends_on_task_ids: list[UUID] = Field(default_factory=list)
 
 
 class TaskCreate(TaskBase):
@@ -33,6 +33,7 @@ class TaskUpdate(SQLModel):
     priority: str | None = None
     due_at: datetime | None = None
     assigned_agent_id: UUID | None = None
+    depends_on_task_ids: list[UUID] | None = None
     comment: NonEmptyStr | None = None
 
     @field_validator("comment", mode="before")
@@ -58,6 +59,8 @@ class TaskRead(TaskBase):
     in_progress_at: datetime | None
     created_at: datetime
     updated_at: datetime
+    blocked_by_task_ids: list[UUID] = Field(default_factory=list)
+    is_blocked: bool = False
 
 
 class TaskCommentCreate(SQLModel):

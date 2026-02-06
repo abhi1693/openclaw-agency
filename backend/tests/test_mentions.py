@@ -17,4 +17,3 @@ def test_matches_agent_mention_supports_reserved_lead_shortcut():
     other = Agent(name="Lead", is_board_lead=False)
     assert matches_agent_mention(lead, {"lead"}) is True
     assert matches_agent_mention(other, {"lead"}) is False
-

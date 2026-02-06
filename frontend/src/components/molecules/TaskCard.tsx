@@ -8,6 +8,8 @@ interface TaskCardProps {
   assignee?: string;
   due?: string;
   approvalsPendingCount?: number;
+  isBlocked?: boolean;
+  blockedByCount?: number;
   onClick?: () => void;
   draggable?: boolean;
   isDragging?: boolean;
@@ -21,6 +23,8 @@ export function TaskCard({
   assignee,
   due,
   approvalsPendingCount = 0,
+  isBlocked = false,
+  blockedByCount = 0,
   onClick,
   draggable = false,
   isDragging = false,
@@ -28,6 +32,11 @@ export function TaskCard({
   onDragEnd,
 }: TaskCardProps) {
   const hasPendingApproval = approvalsPendingCount > 0;
+  const leftBarClassName = isBlocked
+    ? "bg-rose-400"
+    : hasPendingApproval
+      ? "bg-amber-400"
+      : null;
   const priorityBadge = (value?: string) => {
     if (!value) return null;
     const normalized = value.toLowerCase();
@@ -51,6 +60,7 @@ export function TaskCard({
         "group relative cursor-pointer rounded-lg border border-slate-200 bg-white p-4 shadow-sm transition-all hover:-translate-y-0.5 hover:border-slate-300 hover:shadow-md",
         isDragging && "opacity-60 shadow-none",
         hasPendingApproval && "border-amber-200 bg-amber-50/40",
+        isBlocked && "border-rose-200 bg-rose-50/50",
       )}
       draggable={draggable}
       onDragStart={onDragStart}
@@ -65,12 +75,23 @@ export function TaskCard({
         }
       }}
     >
-      {hasPendingApproval ? (
-        <span className="absolute left-0 top-0 h-full w-1 rounded-l-lg bg-amber-400" />
+      {leftBarClassName ? (
+        <span
+          className={cn(
+            "absolute left-0 top-0 h-full w-1 rounded-l-lg",
+            leftBarClassName,
+          )}
+        />
       ) : null}
       <div className="flex items-start justify-between gap-3">
         <div className="space-y-2">
           <p className="text-sm font-medium text-slate-900">{title}</p>
+          {isBlocked ? (
+            <div className="flex items-center gap-2 text-[10px] font-semibold uppercase tracking-wide text-rose-700">
+              <span className="h-1.5 w-1.5 rounded-full bg-rose-500" />
+              Blocked{blockedByCount > 0 ? ` · ${blockedByCount}` : ""}
+            </div>
+          ) : null}
           {hasPendingApproval ? (
             <div className="flex items-center gap-2 text-[10px] font-semibold uppercase tracking-wide text-amber-700">
               <span className="h-1.5 w-1.5 rounded-full bg-amber-500" />

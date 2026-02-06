@@ -4,8 +4,7 @@ import re
 from uuid import UUID, uuid4
 
 from fastapi import APIRouter, Depends, HTTPException, Query, status
-from sqlalchemy import delete
-from sqlalchemy import func
+from sqlalchemy import delete, func
 from sqlmodel import col, select
 from sqlmodel.ext.asyncio.session import AsyncSession
 
@@ -31,8 +30,8 @@ from app.models.boards import Board
 from app.models.gateways import Gateway
 from app.models.task_fingerprints import TaskFingerprint
 from app.models.tasks import Task
-from app.schemas.common import OkResponse
 from app.schemas.boards import BoardCreate, BoardRead, BoardUpdate
+from app.schemas.common import OkResponse
 from app.schemas.pagination import DefaultLimitOffsetPage
 from app.schemas.view_models import BoardSnapshot
 from app.services.board_snapshot import build_board_snapshot
@@ -229,10 +228,14 @@ async def delete_board(
 
     if task_ids:
         await session.execute(delete(ActivityEvent).where(col(ActivityEvent.task_id).in_(task_ids)))
-        await session.execute(delete(TaskFingerprint).where(col(TaskFingerprint.board_id) == board.id))
+        await session.execute(
+            delete(TaskFingerprint).where(col(TaskFingerprint.board_id) == board.id)
+        )
     if agents:
         agent_ids = [agent.id for agent in agents]
-        await session.execute(delete(ActivityEvent).where(col(ActivityEvent.agent_id).in_(agent_ids)))
+        await session.execute(
+            delete(ActivityEvent).where(col(ActivityEvent.agent_id).in_(agent_ids))
+        )
         await session.execute(delete(Agent).where(col(Agent.id).in_(agent_ids)))
     await session.execute(delete(Approval).where(col(Approval.board_id) == board.id))
     await session.execute(delete(BoardMemory).where(col(BoardMemory.board_id) == board.id))

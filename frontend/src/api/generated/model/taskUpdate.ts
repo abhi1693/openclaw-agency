@@ -8,6 +8,7 @@
 export interface TaskUpdate {
   assigned_agent_id?: string | null;
   comment?: string | null;
+  depends_on_task_ids?: string[] | null;
   description?: string | null;
   due_at?: string | null;
   priority?: string | null;

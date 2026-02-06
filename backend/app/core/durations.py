@@ -34,4 +34,3 @@ def parse_every_to_seconds(value: str) -> int:
     if seconds > 60 * 60 * 24 * 365 * 10:
         raise ValueError("Schedule is too large (max 10 years).")
     return seconds
-

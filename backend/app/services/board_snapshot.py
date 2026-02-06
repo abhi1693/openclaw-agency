@@ -19,6 +19,11 @@ from app.schemas.approvals import ApprovalRead
 from app.schemas.board_memory import BoardMemoryRead
 from app.schemas.boards import BoardRead
 from app.schemas.view_models import BoardSnapshot, TaskCardRead
+from app.services.task_dependencies import (
+    blocked_by_dependency_ids,
+    dependency_ids_by_task_id,
+    dependency_status_by_id,
+)
 
 OFFLINE_AFTER = timedelta(minutes=10)
 
@@ -42,7 +47,9 @@ async def _gateway_main_session_keys(session: AsyncSession) -> set[str]:
 def _agent_to_read(agent: Agent, main_session_keys: set[str]) -> AgentRead:
     model = AgentRead.model_validate(agent, from_attributes=True)
     computed_status = _computed_agent_status(agent)
-    is_gateway_main = bool(agent.openclaw_session_id and agent.openclaw_session_id in main_session_keys)
+    is_gateway_main = bool(
+        agent.openclaw_session_id and agent.openclaw_session_id in main_session_keys
+    )
     return model.model_copy(update={"status": computed_status, "is_gateway_main": is_gateway_main})
 
 
@@ -59,17 +66,29 @@ def _task_to_card(
     *,
     agent_name_by_id: dict[UUID, str],
     counts_by_task_id: dict[UUID, tuple[int, int]],
+    deps_by_task_id: dict[UUID, list[UUID]],
+    dependency_status_by_id_map: dict[UUID, str],
 ) -> TaskCardRead:
     card = TaskCardRead.model_validate(task, from_attributes=True)
     approvals_count, approvals_pending_count = counts_by_task_id.get(task.id, (0, 0))
     assignee = (
         agent_name_by_id.get(task.assigned_agent_id) if task.assigned_agent_id is not None else None
     )
+    depends_on_task_ids = deps_by_task_id.get(task.id, [])
+    blocked_by_task_ids = blocked_by_dependency_ids(
+        dependency_ids=depends_on_task_ids,
+        status_by_id=dependency_status_by_id_map,
+    )
+    if task.status == "done":
+        blocked_by_task_ids = []
     return card.model_copy(
         update={
             "assignee": assignee,
             "approvals_count": approvals_count,
             "approvals_pending_count": approvals_pending_count,
+            "depends_on_task_ids": depends_on_task_ids,
+            "blocked_by_task_ids": blocked_by_task_ids,
+            "is_blocked": bool(blocked_by_task_ids),
         }
     )
 
@@ -82,22 +101,37 @@ async def build_board_snapshot(session: AsyncSession, board: Board) -> BoardSnap
             select(Task).where(col(Task.board_id) == board.id).order_by(col(Task.created_at).desc())
         )
     )
+    task_ids = [task.id for task in tasks]
+
+    deps_by_task_id = await dependency_ids_by_task_id(session, board_id=board.id, task_ids=task_ids)
+    all_dependency_ids: list[UUID] = []
+    for values in deps_by_task_id.values():
+        all_dependency_ids.extend(values)
+    dependency_status_by_id_map = await dependency_status_by_id(
+        session,
+        board_id=board.id,
+        dependency_ids=list({*all_dependency_ids}),
+    )
 
     main_session_keys = await _gateway_main_session_keys(session)
     agents = list(
         await session.exec(
-            select(Agent).where(col(Agent.board_id) == board.id).order_by(col(Agent.created_at).desc())
+            select(Agent)
+            .where(col(Agent.board_id) == board.id)
+            .order_by(col(Agent.created_at).desc())
         )
     )
     agent_reads = [_agent_to_read(agent, main_session_keys) for agent in agents]
     agent_name_by_id = {agent.id: agent.name for agent in agents}
 
     pending_approvals_count = int(
-        (await session.exec(
-            select(func.count(col(Approval.id)))
-            .where(col(Approval.board_id) == board.id)
-            .where(col(Approval.status) == "pending")
-        )).one()
+        (
+            await session.exec(
+                select(func.count(col(Approval.id)))
+                .where(col(Approval.board_id) == board.id)
+                .where(col(Approval.status) == "pending")
+            )
+        ).one()
     )
 
     approvals = list(
@@ -129,7 +163,13 @@ async def build_board_snapshot(session: AsyncSession, board: Board) -> BoardSnap
         counts_by_task_id[task_id] = (int(total or 0), int(pending or 0))
 
     task_cards = [
-        _task_to_card(task, agent_name_by_id=agent_name_by_id, counts_by_task_id=counts_by_task_id)
+        _task_to_card(
+            task,
+            agent_name_by_id=agent_name_by_id,
+            counts_by_task_id=counts_by_task_id,
+            deps_by_task_id=deps_by_task_id,
+            dependency_status_by_id_map=dependency_status_by_id_map,
+        )
         for task in tasks
     ]
 

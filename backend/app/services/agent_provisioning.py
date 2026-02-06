@@ -338,9 +338,7 @@ def _render_agent_files(
             rendered[name] = env.from_string(override).render(**context).strip()
             continue
         template_name = (
-            template_overrides[name]
-            if template_overrides and name in template_overrides
-            else name
+            template_overrides[name] if template_overrides and name in template_overrides else name
         )
         path = _templates_root() / template_name
         if path.exists():

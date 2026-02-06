@@ -131,7 +131,9 @@ async def stream_approvals(
                         )
                     ).one()
                 )
-                task_ids = {approval.task_id for approval in approvals if approval.task_id is not None}
+                task_ids = {
+                    approval.task_id for approval in approvals if approval.task_id is not None
+                }
                 counts_by_task_id: dict[UUID, tuple[int, int]] = {}
                 if task_ids:
                     rows = list(

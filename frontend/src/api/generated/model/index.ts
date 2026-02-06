@@ -29,6 +29,8 @@ export * from "./approvalReadPayload";
 export * from "./approvalReadRubricScores";
 export * from "./approvalReadStatus";
 export * from "./approvalUpdate";
+export * from "./blockedTaskDetail";
+export * from "./blockedTaskError";
 export * from "./boardCreate";
 export * from "./boardCreateSuccessMetrics";
 export * from "./boardMemoryCreate";

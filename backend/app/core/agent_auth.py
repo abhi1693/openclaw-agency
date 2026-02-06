@@ -22,9 +22,7 @@ class AgentAuthContext:
 
 
 async def _find_agent_for_token(session: AsyncSession, token: str) -> Agent | None:
-    agents = list(
-        await session.exec(select(Agent).where(col(Agent.agent_token_hash).is_not(None)))
-    )
+    agents = list(await session.exec(select(Agent).where(col(Agent.agent_token_hash).is_not(None))))
     for agent in agents:
         if agent.agent_token_hash and verify_agent_token(token, agent.agent_token_hash):
             return agent

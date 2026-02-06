@@ -21,6 +21,7 @@ import type {
 } from "@tanstack/react-query";
 
 import type {
+  BlockedTaskError,
   HTTPValidationError,
   LimitOffsetPageTypeVarCustomizedTaskCommentRead,
   LimitOffsetPageTypeVarCustomizedTaskRead,
@@ -278,6 +279,11 @@ export type createTaskApiV1BoardsBoardIdTasksPostResponse200 = {
   status: 200;
 };
 
+export type createTaskApiV1BoardsBoardIdTasksPostResponse409 = {
+  data: BlockedTaskError;
+  status: 409;
+};
+
 export type createTaskApiV1BoardsBoardIdTasksPostResponse422 = {
   data: HTTPValidationError;
   status: 422;
@@ -287,10 +293,12 @@ export type createTaskApiV1BoardsBoardIdTasksPostResponseSuccess =
   createTaskApiV1BoardsBoardIdTasksPostResponse200 & {
     headers: Headers;
   };
-export type createTaskApiV1BoardsBoardIdTasksPostResponseError =
-  createTaskApiV1BoardsBoardIdTasksPostResponse422 & {
-    headers: Headers;
-  };
+export type createTaskApiV1BoardsBoardIdTasksPostResponseError = (
+  | createTaskApiV1BoardsBoardIdTasksPostResponse409
+  | createTaskApiV1BoardsBoardIdTasksPostResponse422
+) & {
+  headers: Headers;
+};
 
 export type createTaskApiV1BoardsBoardIdTasksPostResponse =
   | createTaskApiV1BoardsBoardIdTasksPostResponseSuccess
@@ -319,7 +327,7 @@ export const createTaskApiV1BoardsBoardIdTasksPost = async (
 };
 
 export const getCreateTaskApiV1BoardsBoardIdTasksPostMutationOptions = <
-  TError = HTTPValidationError,
+  TError = BlockedTaskError | HTTPValidationError,
   TContext = unknown,
 >(options?: {
   mutation?: UseMutationOptions<
@@ -361,13 +369,14 @@ export type CreateTaskApiV1BoardsBoardIdTasksPostMutationResult = NonNullable<
 >;
 export type CreateTaskApiV1BoardsBoardIdTasksPostMutationBody = TaskCreate;
 export type CreateTaskApiV1BoardsBoardIdTasksPostMutationError =
-  HTTPValidationError;
+  | BlockedTaskError
+  | HTTPValidationError;
 
 /**
  * @summary Create Task
  */
 export const useCreateTaskApiV1BoardsBoardIdTasksPost = <
-  TError = HTTPValidationError,
+  TError = BlockedTaskError | HTTPValidationError,
   TContext = unknown,
 >(
   options?: {
@@ -776,6 +785,11 @@ export type updateTaskApiV1BoardsBoardIdTasksTaskIdPatchResponse200 = {
   status: 200;
 };
 
+export type updateTaskApiV1BoardsBoardIdTasksTaskIdPatchResponse409 = {
+  data: BlockedTaskError;
+  status: 409;
+};
+
 export type updateTaskApiV1BoardsBoardIdTasksTaskIdPatchResponse422 = {
   data: HTTPValidationError;
   status: 422;
@@ -785,10 +799,12 @@ export type updateTaskApiV1BoardsBoardIdTasksTaskIdPatchResponseSuccess =
   updateTaskApiV1BoardsBoardIdTasksTaskIdPatchResponse200 & {
     headers: Headers;
   };
-export type updateTaskApiV1BoardsBoardIdTasksTaskIdPatchResponseError =
-  updateTaskApiV1BoardsBoardIdTasksTaskIdPatchResponse422 & {
-    headers: Headers;
-  };
+export type updateTaskApiV1BoardsBoardIdTasksTaskIdPatchResponseError = (
+  | updateTaskApiV1BoardsBoardIdTasksTaskIdPatchResponse409
+  | updateTaskApiV1BoardsBoardIdTasksTaskIdPatchResponse422
+) & {
+  headers: Headers;
+};
 
 export type updateTaskApiV1BoardsBoardIdTasksTaskIdPatchResponse =
   | updateTaskApiV1BoardsBoardIdTasksTaskIdPatchResponseSuccess
@@ -819,7 +835,7 @@ export const updateTaskApiV1BoardsBoardIdTasksTaskIdPatch = async (
 };
 
 export const getUpdateTaskApiV1BoardsBoardIdTasksTaskIdPatchMutationOptions = <
-  TError = HTTPValidationError,
+  TError = BlockedTaskError | HTTPValidationError,
   TContext = unknown,
 >(options?: {
   mutation?: UseMutationOptions<
@@ -868,13 +884,14 @@ export type UpdateTaskApiV1BoardsBoardIdTasksTaskIdPatchMutationResult =
 export type UpdateTaskApiV1BoardsBoardIdTasksTaskIdPatchMutationBody =
   TaskUpdate;
 export type UpdateTaskApiV1BoardsBoardIdTasksTaskIdPatchMutationError =
-  HTTPValidationError;
+  | BlockedTaskError
+  | HTTPValidationError;
 
 /**
  * @summary Update Task
  */
 export const useUpdateTaskApiV1BoardsBoardIdTasksTaskIdPatch = <
-  TError = HTTPValidationError,
+  TError = BlockedTaskError | HTTPValidationError,
   TContext = unknown,
 >(
   options?: {
