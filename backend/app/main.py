@@ -4,8 +4,12 @@ from fastapi import APIRouter, FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
 from app.api.activity import router as activity_router
+from app.api.agent import router as agent_router
 from app.api.agents import router as agents_router
+from app.api.approvals import router as approvals_router
 from app.api.auth import router as auth_router
+from app.api.board_memory import router as board_memory_router
+from app.api.board_onboarding import router as board_onboarding_router
 from app.api.boards import router as boards_router
 from app.api.gateway import router as gateway_router
 from app.api.gateways import router as gateways_router
@@ -53,12 +57,16 @@ def readyz() -> dict[str, bool]:
 
 api_v1 = APIRouter(prefix="/api/v1")
 api_v1.include_router(auth_router)
+api_v1.include_router(agent_router)
 api_v1.include_router(agents_router)
 api_v1.include_router(activity_router)
 api_v1.include_router(gateway_router)
 api_v1.include_router(gateways_router)
 api_v1.include_router(metrics_router)
 api_v1.include_router(boards_router)
+api_v1.include_router(board_memory_router)
+api_v1.include_router(board_onboarding_router)
+api_v1.include_router(approvals_router)
 api_v1.include_router(tasks_router)
 api_v1.include_router(users_router)
 app.include_router(api_v1)

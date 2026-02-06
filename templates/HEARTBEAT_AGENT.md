@@ -1,7 +1,5 @@
 # HEARTBEAT.md
 
-> This file is provisioned per-agent. Follow the loop below if you see this directly.
-
 ## Purpose
 This file defines the single, authoritative heartbeat loop for non-lead agents. Follow it exactly.
 
@@ -21,8 +19,22 @@ If any required input is missing, stop and request a provisioning update.
 ## Non‑negotiable rules
 - Task updates go only to task comments (never chat/web).
 - Comments must be markdown. Write naturally; be clear and concise.
+- When it improves clarity, use headings, bullets, checklists, tables, or short sections. You do not need to use them for every comment.
+- If your update is longer than 2 sentences, do **not** write a single paragraph. Use a short heading + bullets so each idea is on its own line.
 - Every status change must have a comment within 30 seconds.
 - Do not claim a new task if you already have one in progress.
+- If you edit a task description, write it in clean markdown (short sections, bullets/checklists when helpful).
+
+## Task mentions
+- If you receive a TASK MENTION message or see your name @mentioned in a task comment, reply in that task thread even if you are not assigned.
+- Do not change task status or assignment unless you are the assigned agent.
+- Keep the reply focused on the mention request.
+
+## Board chat messages
+- If you receive a BOARD CHAT message or BOARD CHAT MENTION message, reply in board chat.
+- Use: POST $BASE_URL/api/v1/agent/boards/{BOARD_ID}/memory
+  Body: {"content":"...","tags":["chat"]}
+- Do not change task status based on board chat unless you are assigned the relevant task.
 
 ## Mission Control Response Protocol (mandatory)
 - All outputs must be sent to Mission Control via HTTP.
@@ -31,11 +43,11 @@ If any required input is missing, stop and request a provisioning update.
 
 ## Pre‑flight checks (before each heartbeat)
 - Confirm BASE_URL, AUTH_TOKEN, and BOARD_ID are set.
-- Verify API access:
+- Verify API access (do NOT assume last heartbeat outcome):
   - GET $BASE_URL/healthz must succeed.
   - GET $BASE_URL/api/v1/agent/boards must succeed.
   - GET $BASE_URL/api/v1/agent/boards/{BOARD_ID}/tasks must succeed.
-- If any check fails, stop and retry next heartbeat.
+- If any check fails (including 5xx or network errors), stop and retry on the next heartbeat.
 
 ## Heartbeat checklist (run in order)
 1) Check in:
@@ -58,26 +70,37 @@ curl -s "$BASE_URL/api/v1/agent/boards/{BOARD_ID}/tasks?status=in_progress&assig
   -H "X-Agent-Token: {{ auth_token }}"
 ```
 ```bash
+curl -s "$BASE_URL/api/v1/agent/boards/{BOARD_ID}/tasks?status=inbox&assigned_agent_id=$AGENT_ID&limit=10" \
+  -H "X-Agent-Token: {{ auth_token }}"
+```
+```bash
 curl -s "$BASE_URL/api/v1/agent/boards/{BOARD_ID}/tasks?status=inbox&unassigned=true&limit=20" \
   -H "X-Agent-Token: {{ auth_token }}"
 ```
 
 4) If you already have an in_progress task, continue working it and do not claim another.
 
-5) If you do NOT have an in_progress task, claim one inbox task:
-- Move it to in_progress AND add a markdown comment describing the update.
+5) If you do NOT have an in_progress task:
+- If you have **assigned inbox** tasks, move one to in_progress and add a markdown comment describing the update.
+- If there are **unassigned inbox** tasks, do **not** claim them. Wait for the board lead to assign work.
 
 6) Work the task:
 - Post progress comments as you go.
+- Before working, **read all task comments** so you understand context and requirements.
+- If the human asked a question, respond in the task thread before continuing work.
+- Do **real work** every heartbeat. “I’m working on it” is not sufficient.
+- Each heartbeat must produce one of:
+  - a concrete artifact (draft, plan, checklist, analysis, code, or decision), or
+  - a specific blocker with a precise question/request to move forward.
 - Completion is a two‑step sequence:
 6a) Post the full response as a markdown comment using:
       POST $BASE_URL/api/v1/agent/boards/{BOARD_ID}/tasks/{TASK_ID}/comments
-    Example:
+Example:
 ```bash
 curl -s -X POST "$BASE_URL/api/v1/agent/boards/$BOARD_ID/tasks/$TASK_ID/comments" \
   -H "X-Agent-Token: {{ auth_token }}" \
   -H "Content-Type: application/json" \
-  -d '{"message":"- Update: ...\n- Result: ..."}'
+  -d '{"message":"### Update\n- Bullet point 1\n- Bullet point 2\n\n### Next\n- Next step"}'
 ```
   6b) Move the task to review.
 

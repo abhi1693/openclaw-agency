@@ -1,16 +1,20 @@
 from __future__ import annotations
 
+from datetime import datetime
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlmodel import Session, select
 
+from app.core.agent_tokens import generate_agent_token, hash_agent_token
 from app.core.auth import AuthContext, get_auth_context
 from app.db.session import get_session
 from app.integrations.openclaw_gateway import GatewayConfig as GatewayClientConfig
 from app.integrations.openclaw_gateway import OpenClawGatewayError, ensure_session, send_message
+from app.models.agents import Agent
 from app.models.gateways import Gateway
 from app.schemas.gateways import GatewayCreate, GatewayRead, GatewayUpdate
+from app.services.agent_provisioning import DEFAULT_HEARTBEAT_CONFIG, provision_main_agent
 
 router = APIRouter(prefix="/gateways", tags=["gateways"])
 
@@ -227,6 +231,100 @@ rm -rf ~/.openclaw/skills/skyll
 """.strip()
 
 
+def _main_agent_name(gateway: Gateway) -> str:
+    return f"{gateway.name} Main"
+
+
+def _find_main_agent(
+    session: Session,
+    gateway: Gateway,
+    previous_name: str | None = None,
+    previous_session_key: str | None = None,
+) -> Agent | None:
+    if gateway.main_session_key:
+        agent = session.exec(
+            select(Agent).where(Agent.openclaw_session_id == gateway.main_session_key)
+        ).first()
+        if agent:
+            return agent
+    if previous_session_key:
+        agent = session.exec(
+            select(Agent).where(Agent.openclaw_session_id == previous_session_key)
+        ).first()
+        if agent:
+            return agent
+    names = {_main_agent_name(gateway)}
+    if previous_name:
+        names.add(f"{previous_name} Main")
+    for name in names:
+        agent = session.exec(select(Agent).where(Agent.name == name)).first()
+        if agent:
+            return agent
+    return None
+
+
+async def _ensure_main_agent(
+    session: Session,
+    gateway: Gateway,
+    auth: AuthContext,
+    *,
+    previous_name: str | None = None,
+    previous_session_key: str | None = None,
+    action: str = "provision",
+) -> Agent | None:
+    if not gateway.url or not gateway.main_session_key:
+        return None
+    agent = _find_main_agent(session, gateway, previous_name, previous_session_key)
+    if agent is None:
+        agent = Agent(
+            name=_main_agent_name(gateway),
+            status="provisioning",
+            board_id=None,
+            is_board_lead=False,
+            openclaw_session_id=gateway.main_session_key,
+            heartbeat_config=DEFAULT_HEARTBEAT_CONFIG.copy(),
+            identity_profile={
+                "role": "Main Agent",
+                "communication_style": "direct, concise, practical",
+                "emoji": ":compass:",
+            },
+        )
+        session.add(agent)
+    agent.name = _main_agent_name(gateway)
+    agent.openclaw_session_id = gateway.main_session_key
+    raw_token = generate_agent_token()
+    agent.agent_token_hash = hash_agent_token(raw_token)
+    agent.provision_requested_at = datetime.utcnow()
+    agent.provision_action = action
+    agent.updated_at = datetime.utcnow()
+    if agent.heartbeat_config is None:
+        agent.heartbeat_config = DEFAULT_HEARTBEAT_CONFIG.copy()
+    session.add(agent)
+    session.commit()
+    session.refresh(agent)
+    try:
+        await provision_main_agent(agent, gateway, raw_token, auth.user, action=action)
+        await ensure_session(
+            gateway.main_session_key,
+            config=GatewayClientConfig(url=gateway.url, token=gateway.token),
+            label=agent.name,
+        )
+        await send_message(
+            (
+                f"Hello {agent.name}. Your gateway provisioning was updated.\n\n"
+                "Please re-read AGENTS.md, USER.md, HEARTBEAT.md, and TOOLS.md. "
+                "If BOOTSTRAP.md exists, run it once then delete it. Begin heartbeats after startup."
+            ),
+            session_key=gateway.main_session_key,
+            config=GatewayClientConfig(url=gateway.url, token=gateway.token),
+            deliver=True,
+        )
+    except OpenClawGatewayError:
+        # Best-effort provisioning.
+        pass
+    return agent
+
+
 async def _send_skyll_enable_message(gateway: Gateway) -> None:
     if not gateway.url:
         raise OpenClawGatewayError("Gateway url is required")
@@ -278,6 +376,7 @@ async def create_gateway(
     session.add(gateway)
     session.commit()
     session.refresh(gateway)
+    await _ensure_main_agent(session, gateway, auth, action="provision")
     if gateway.skyll_enabled:
         try:
             await _send_skyll_enable_message(gateway)
@@ -308,6 +407,8 @@ async def update_gateway(
     gateway = session.get(Gateway, gateway_id)
     if gateway is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Gateway not found")
+    previous_name = gateway.name
+    previous_session_key = gateway.main_session_key
     previous_skyll_enabled = gateway.skyll_enabled
     updates = payload.model_dump(exclude_unset=True)
     if updates.get("token") == "":
@@ -317,6 +418,14 @@ async def update_gateway(
     session.add(gateway)
     session.commit()
     session.refresh(gateway)
+    await _ensure_main_agent(
+        session,
+        gateway,
+        auth,
+        previous_name=previous_name,
+        previous_session_key=previous_session_key,
+        action="update",
+    )
     if not previous_skyll_enabled and gateway.skyll_enabled:
         try:
             await _send_skyll_enable_message(gateway)

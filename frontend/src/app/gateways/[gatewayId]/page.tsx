@@ -29,6 +29,7 @@ type Agent = {
   board_id?: string | null;
   last_seen_at?: string | null;
   updated_at: string;
+  is_board_lead?: boolean;
 };
 
 type GatewayStatus = {

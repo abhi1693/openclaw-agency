@@ -32,6 +32,7 @@ type Agent = {
   id: string;
   name: string;
   board_id?: string | null;
+  is_gateway_main?: boolean;
   heartbeat_config?: {
     every?: string;
     target?: string;
@@ -109,6 +110,8 @@ export default function EditAgentPage() {
   const [name, setName] = useState("");
   const [boards, setBoards] = useState<Board[]>([]);
   const [boardId, setBoardId] = useState("");
+  const [boardTouched, setBoardTouched] = useState(false);
+  const [isGatewayMain, setIsGatewayMain] = useState(false);
   const [heartbeatEvery, setHeartbeatEvery] = useState("10m");
   const [heartbeatTarget, setHeartbeatTarget] = useState("none");
   const [identityProfile, setIdentityProfile] = useState<IdentityProfile>({
@@ -150,9 +153,13 @@ export default function EditAgentPage() {
       const data = (await response.json()) as Agent;
       setAgent(data);
       setName(data.name);
-      if (data.board_id) {
+      setIsGatewayMain(Boolean(data.is_gateway_main));
+      if (!data.is_gateway_main && data.board_id) {
         setBoardId(data.board_id);
+      } else {
+        setBoardId("");
       }
+      setBoardTouched(false);
       if (data.heartbeat_config?.every) {
         setHeartbeatEvery(data.heartbeat_config.every);
       }
@@ -175,7 +182,7 @@ export default function EditAgentPage() {
   }, [isSignedIn, agentId]);
 
   useEffect(() => {
-    if (boardId) return;
+    if (boardTouched || boardId || isGatewayMain) return;
     if (agent?.board_id) {
       setBoardId(agent.board_id);
       return;
@@ -183,7 +190,7 @@ export default function EditAgentPage() {
     if (boards.length > 0) {
       setBoardId(boards[0].id);
     }
-  }, [agent, boards, boardId]);
+  }, [agent, boards, boardId, isGatewayMain, boardTouched]);
 
   const handleSubmit = async (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault();
@@ -193,31 +200,48 @@ export default function EditAgentPage() {
       setError("Agent name is required.");
       return;
     }
-    if (!boardId) {
-      setError("Select a board before saving.");
+    if (!isGatewayMain && !boardId) {
+      setError("Select a board or mark this agent as the gateway main.");
+      return;
+    }
+    if (isGatewayMain && !boardId && !agent?.is_gateway_main && !agent?.board_id) {
+      setError(
+        "Select a board once so we can resolve the gateway main session key."
+      );
       return;
     }
     setIsLoading(true);
     setError(null);
     try {
       const token = await getToken();
-      const response = await fetch(`${apiBase}/api/v1/agents/${agentId}`, {
-        method: "PATCH",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: token ? `Bearer ${token}` : "",
+      const payload: Record<string, unknown> = {
+        name: trimmed,
+        heartbeat_config: {
+          every: heartbeatEvery.trim() || "10m",
+          target: heartbeatTarget,
         },
-        body: JSON.stringify({
-          name: trimmed,
-          board_id: boardId,
-          heartbeat_config: {
-            every: heartbeatEvery.trim() || "10m",
-            target: heartbeatTarget,
+        identity_profile: normalizeIdentityProfile(identityProfile),
+        soul_template: soulTemplate.trim() || null,
+      };
+      if (!isGatewayMain) {
+        payload.board_id = boardId || null;
+      } else if (boardId) {
+        payload.board_id = boardId;
+      }
+      if (agent?.is_gateway_main !== isGatewayMain) {
+        payload.is_gateway_main = isGatewayMain;
+      }
+      const response = await fetch(
+        `${apiBase}/api/v1/agents/${agentId}?force=true`,
+        {
+          method: "PATCH",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: token ? `Bearer ${token}` : "",
           },
-          identity_profile: normalizeIdentityProfile(identityProfile),
-          soul_template: soulTemplate.trim() || null,
-        }),
-      });
+          body: JSON.stringify(payload),
+        }
+      );
       if (!response.ok) {
         throw new Error("Unable to update agent.");
       }
@@ -300,15 +324,40 @@ export default function EditAgentPage() {
                   </div>
                   <div className="grid gap-6 md:grid-cols-2">
                     <div className="space-y-2">
-                      <label className="text-sm font-medium text-slate-900">
-                        Board <span className="text-red-500">*</span>
-                      </label>
+                      <div className="flex items-center justify-between">
+                        <label className="text-sm font-medium text-slate-900">
+                          Board
+                          {isGatewayMain ? (
+                            <span className="ml-2 text-xs font-normal text-slate-500">
+                              optional
+                            </span>
+                          ) : (
+                            <span className="text-red-500"> *</span>
+                          )}
+                        </label>
+                        {boardId ? (
+                          <button
+                            type="button"
+                            className="text-xs font-medium text-slate-600 hover:text-slate-900"
+                            onClick={() => {
+                              setBoardTouched(true);
+                              setBoardId("");
+                            }}
+                            disabled={isLoading}
+                          >
+                            Clear board
+                          </button>
+                        ) : null}
+                      </div>
                       <SearchableSelect
                         ariaLabel="Select board"
                         value={boardId}
-                        onValueChange={setBoardId}
+                        onValueChange={(value) => {
+                          setBoardTouched(true);
+                          setBoardId(value);
+                        }}
                         options={getBoardOptions(boards)}
-                        placeholder="Select board"
+                        placeholder={isGatewayMain ? "No board (main agent)" : "Select board"}
                         searchPlaceholder="Search boards..."
                         emptyMessage="No matching boards."
                         triggerClassName="w-full h-11 rounded-xl border border-slate-300 bg-white px-3 py-2 text-sm font-medium text-slate-900 shadow-sm focus:border-blue-500 focus:ring-2 focus:ring-blue-200"
@@ -316,7 +365,13 @@ export default function EditAgentPage() {
                         itemClassName="px-4 py-3 text-sm text-slate-700 data-[selected=true]:bg-slate-50 data-[selected=true]:text-slate-900"
                         disabled={boards.length === 0}
                       />
-                      {boards.length === 0 ? (
+                      {isGatewayMain ? (
+                        <p className="text-xs text-slate-500">
+                          Main agents are not attached to a board. If a board is
+                          selected, it is only used to resolve the gateway main
+                          session key and will be cleared on save.
+                        </p>
+                      ) : boards.length === 0 ? (
                         <p className="text-xs text-slate-500">
                           Create a board before assigning agents.
                         </p>
@@ -349,6 +404,26 @@ export default function EditAgentPage() {
                       </Select>
                     </div>
                   </div>
+                </div>
+                <div className="mt-6 rounded-xl border border-slate-200 bg-slate-50 p-4">
+                  <label className="flex items-start gap-3 text-sm text-slate-700">
+                    <input
+                      type="checkbox"
+                      className="mt-1 h-4 w-4 rounded border-slate-300 text-blue-600 focus:ring-blue-200"
+                      checked={isGatewayMain}
+                      onChange={(event) => setIsGatewayMain(event.target.checked)}
+                      disabled={isLoading}
+                    />
+                    <span>
+                      <span className="block font-medium text-slate-900">
+                        Gateway main agent
+                      </span>
+                      <span className="block text-xs text-slate-500">
+                        Uses the gateway main session key and is not tied to a
+                        single board.
+                      </span>
+                    </span>
+                  </label>
                 </div>
               </div>
 

@@ -11,7 +11,7 @@ There is no memory yet. Create what is missing and proceed without blocking.
 4) If `BASE_URL`, `AUTH_TOKEN`, and `BOARD_ID` are set in `TOOLS.md`, check in
    to Mission Control to mark the agent online:
 ```bash
-curl -s -X POST "$BASE_URL/api/v1/agents/heartbeat" \
+curl -s -X POST "$BASE_URL/api/v1/agent/heartbeat" \
   -H "X-Agent-Token: $AUTH_TOKEN" \
   -H "Content-Type: application/json" \
   -d '{"name": "'$AGENT_NAME'", "board_id": "'$BOARD_ID'", "status": "online"}'

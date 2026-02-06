@@ -38,6 +38,7 @@ type Agent = {
   created_at: string;
   updated_at: string;
   board_id?: string | null;
+  is_board_lead?: boolean;
 };
 
 type Board = {
@@ -137,6 +138,7 @@ export default function AgentsPage() {
   );
 
   const sortedAgents = useMemo(() => [...agents], [agents]);
+
 
   const handleDelete = () => {
     if (!deleteTarget) return;

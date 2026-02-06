@@ -25,6 +25,7 @@ dependencies = [
   "redis==5.1.1",
   "fastapi-clerk-auth==0.0.9",
   "sse-starlette==2.1.3",
+  "jinja2"
 ]
 
 [project.optional-dependencies]

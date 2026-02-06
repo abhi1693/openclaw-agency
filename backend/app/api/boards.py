@@ -20,8 +20,12 @@ from app.integrations.openclaw_gateway import (
 )
 from app.models.activity_events import ActivityEvent
 from app.models.agents import Agent
+from app.models.approvals import Approval
+from app.models.board_memory import BoardMemory
+from app.models.board_onboarding import BoardOnboardingSession
 from app.models.boards import Board
 from app.models.gateways import Gateway
+from app.models.task_fingerprints import TaskFingerprint
 from app.models.tasks import Task
 from app.schemas.boards import BoardCreate, BoardRead, BoardUpdate
 
@@ -161,6 +165,14 @@ def update_board(
             )
     for key, value in updates.items():
         setattr(board, key, value)
+    if updates.get("board_type") == "goal":
+        objective = updates.get("objective") or board.objective
+        metrics = updates.get("success_metrics") or board.success_metrics
+        if not objective or not metrics:
+            raise HTTPException(
+                status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+                detail="Goal boards require objective and success_metrics",
+            )
     if not board.gateway_id:
         raise HTTPException(
             status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
@@ -194,10 +206,16 @@ def delete_board(
 
     if task_ids:
         session.execute(delete(ActivityEvent).where(col(ActivityEvent.task_id).in_(task_ids)))
+        session.execute(delete(TaskFingerprint).where(col(TaskFingerprint.board_id) == board.id))
     if agents:
         agent_ids = [agent.id for agent in agents]
         session.execute(delete(ActivityEvent).where(col(ActivityEvent.agent_id).in_(agent_ids)))
         session.execute(delete(Agent).where(col(Agent.id).in_(agent_ids)))
+    session.execute(delete(Approval).where(col(Approval.board_id) == board.id))
+    session.execute(delete(BoardMemory).where(col(BoardMemory.board_id) == board.id))
+    session.execute(
+        delete(BoardOnboardingSession).where(col(BoardOnboardingSession.board_id) == board.id)
+    )
     session.execute(delete(Task).where(col(Task.board_id) == board.id))
     session.delete(board)
     session.commit()

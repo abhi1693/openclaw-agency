@@ -11,6 +11,14 @@
 
 {{ user_context }}
 
+## Board Goal
+
+- **Board name:** {{ board_name }}
+- **Board type:** {{ board_type }}
+- **Objective:** {{ board_objective }}
+- **Success metrics:** {{ board_success_metrics }}
+- **Target date:** {{ board_target_date }}
+
 ---
 
 The more you know, the better you can help. But remember -- you're learning about a person, not building a dossier. Respect the difference.

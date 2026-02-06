@@ -37,10 +37,21 @@ DEFAULT_GATEWAY_FILES = frozenset(
         "IDENTITY.md",
         "USER.md",
         "HEARTBEAT.md",
+        "BOOT.md",
         "BOOTSTRAP.md",
         "MEMORY.md",
     }
 )
+
+HEARTBEAT_LEAD_TEMPLATE = "HEARTBEAT_LEAD.md"
+HEARTBEAT_AGENT_TEMPLATE = "HEARTBEAT_AGENT.md"
+MAIN_TEMPLATE_MAP = {
+    "AGENTS.md": "MAIN_AGENTS.md",
+    "HEARTBEAT.md": "MAIN_HEARTBEAT.md",
+    "USER.md": "MAIN_USER.md",
+    "BOOT.md": "MAIN_BOOT.md",
+    "TOOLS.md": "MAIN_TOOLS.md",
+}
 
 
 def _repo_root() -> Path:
@@ -78,6 +89,10 @@ def _template_env() -> Environment:
         undefined=StrictUndefined,
         keep_trailing_newline=True,
     )
+
+
+def _heartbeat_template_name(agent: Agent) -> str:
+    return HEARTBEAT_LEAD_TEMPLATE if agent.is_board_lead else HEARTBEAT_AGENT_TEMPLATE
 
 
 def _workspace_path(agent_name: str, workspace_root: str) -> str:
@@ -125,10 +140,20 @@ def _build_context(
         context_key: normalized_identity.get(field, DEFAULT_IDENTITY_PROFILE[field])
         for field, context_key in IDENTITY_PROFILE_FIELDS.items()
     }
+    preferred_name = (user.preferred_name or "") if user else ""
+    if preferred_name:
+        preferred_name = preferred_name.strip().split()[0]
     return {
         "agent_name": agent.name,
         "agent_id": agent_id,
         "board_id": str(board.id),
+        "board_name": board.name,
+        "board_type": board.board_type,
+        "board_objective": board.objective or "",
+        "board_success_metrics": json.dumps(board.success_metrics or {}),
+        "board_target_date": board.target_date.isoformat() if board.target_date else "",
+        "board_goal_confirmed": str(board.goal_confirmed).lower(),
+        "is_board_lead": str(agent.is_board_lead).lower(),
         "session_key": session_key,
         "workspace_path": workspace_path,
         "base_url": base_url,
@@ -136,7 +161,55 @@ def _build_context(
         "main_session_key": main_session_key,
         "workspace_root": workspace_root,
         "user_name": (user.name or "") if user else "",
-        "user_preferred_name": (user.preferred_name or "") if user else "",
+        "user_preferred_name": preferred_name,
+        "user_pronouns": (user.pronouns or "") if user else "",
+        "user_timezone": (user.timezone or "") if user else "",
+        "user_notes": (user.notes or "") if user else "",
+        "user_context": (user.context or "") if user else "",
+        **identity_context,
+    }
+
+
+def _build_main_context(
+    agent: Agent,
+    gateway: Gateway,
+    auth_token: str,
+    user: User | None,
+) -> dict[str, str]:
+    base_url = settings.base_url or "REPLACE_WITH_BASE_URL"
+    identity_profile: dict[str, Any] = {}
+    if isinstance(agent.identity_profile, dict):
+        identity_profile = agent.identity_profile
+    normalized_identity: dict[str, str] = {}
+    for key, value in identity_profile.items():
+        if value is None:
+            continue
+        if isinstance(value, list):
+            parts = [str(item).strip() for item in value if str(item).strip()]
+            if not parts:
+                continue
+            normalized_identity[key] = ", ".join(parts)
+            continue
+        text = str(value).strip()
+        if text:
+            normalized_identity[key] = text
+    identity_context = {
+        context_key: normalized_identity.get(field, DEFAULT_IDENTITY_PROFILE[field])
+        for field, context_key in IDENTITY_PROFILE_FIELDS.items()
+    }
+    preferred_name = (user.preferred_name or "") if user else ""
+    if preferred_name:
+        preferred_name = preferred_name.strip().split()[0]
+    return {
+        "agent_name": agent.name,
+        "agent_id": str(agent.id),
+        "session_key": agent.openclaw_session_id or "",
+        "base_url": base_url,
+        "auth_token": auth_token,
+        "main_session_key": gateway.main_session_key or "",
+        "workspace_root": gateway.workspace_root or "",
+        "user_name": (user.name or "") if user else "",
+        "user_preferred_name": preferred_name,
         "user_pronouns": (user.pronouns or "") if user else "",
         "user_timezone": (user.timezone or "") if user else "",
         "user_notes": (user.notes or "") if user else "",
@@ -174,6 +247,12 @@ async def _supported_gateway_files(config: GatewayClientConfig) -> set[str]:
     return set(DEFAULT_GATEWAY_FILES)
 
 
+async def _reset_session(session_key: str, config: GatewayClientConfig) -> None:
+    if not session_key:
+        return
+    await openclaw_call("sessions.reset", {"key": session_key}, config=config)
+
+
 async def _gateway_agent_files_index(
     agent_id: str, config: GatewayClientConfig
 ) -> dict[str, dict[str, Any]]:
@@ -197,6 +276,7 @@ def _render_agent_files(
     file_names: set[str],
     *,
     include_bootstrap: bool,
+    template_overrides: dict[str, str] | None = None,
 ) -> dict[str, str]:
     env = _template_env()
     overrides: dict[str, str] = {}
@@ -212,16 +292,51 @@ def _render_agent_files(
         if name == "MEMORY.md":
             rendered[name] = "# MEMORY\n\nBootstrap pending.\n"
             continue
+        if name == "HEARTBEAT.md":
+            heartbeat_template = (
+                template_overrides.get(name)
+                if template_overrides and name in template_overrides
+                else _heartbeat_template_name(agent)
+            )
+            heartbeat_path = _templates_root() / heartbeat_template
+            if heartbeat_path.exists():
+                rendered[name] = env.get_template(heartbeat_template).render(**context).strip()
+                continue
         override = overrides.get(name)
         if override:
             rendered[name] = env.from_string(override).render(**context).strip()
             continue
-        path = _templates_root() / name
+        template_name = (
+            template_overrides.get(name)
+            if template_overrides and name in template_overrides
+            else name
+        )
+        path = _templates_root() / template_name
         if path.exists():
-            rendered[name] = env.get_template(name).render(**context).strip()
+            rendered[name] = env.get_template(template_name).render(**context).strip()
             continue
         rendered[name] = ""
     return rendered
+
+
+async def _gateway_default_agent_id(
+    config: GatewayClientConfig,
+) -> str | None:
+    try:
+        payload = await openclaw_call("agents.list", config=config)
+    except OpenClawGatewayError:
+        return None
+    if not isinstance(payload, dict):
+        return None
+    default_id = payload.get("defaultId") or payload.get("default_id")
+    if default_id:
+        return default_id
+    agents = payload.get("agents") or []
+    if isinstance(agents, list) and agents:
+        first = agents[0]
+        if isinstance(first, dict):
+            return first.get("id")
+    return None
 
 
 async def _patch_gateway_agent_list(
@@ -279,7 +394,9 @@ async def _remove_gateway_agent_list(
     if not isinstance(lst, list):
         raise OpenClawGatewayError("config agents.list is not a list")
 
-    new_list = [entry for entry in lst if not (isinstance(entry, dict) and entry.get("id") == agent_id)]
+    new_list = [
+        entry for entry in lst if not (isinstance(entry, dict) and entry.get("id") == agent_id)
+    ]
     if len(new_list) == len(lst):
         return
     patch = {"agents": {"list": new_list}}
@@ -317,6 +434,8 @@ async def provision_agent(
     user: User | None,
     *,
     action: str = "provision",
+    force_bootstrap: bool = False,
+    reset_session: bool = False,
 ) -> None:
     if not gateway.url:
         return
@@ -332,10 +451,11 @@ async def provision_agent(
     await _patch_gateway_agent_list(agent_id, workspace_path, heartbeat, client_config)
 
     context = _build_context(agent, board, gateway, auth_token, user)
-    supported = await _supported_gateway_files(client_config)
+    supported = set(await _supported_gateway_files(client_config))
+    supported.add("USER.md")
     existing_files = await _gateway_agent_files_index(agent_id, client_config)
     include_bootstrap = True
-    if action == "update":
+    if action == "update" and not force_bootstrap:
         if not existing_files:
             include_bootstrap = False
         else:
@@ -357,6 +477,61 @@ async def provision_agent(
             {"agentId": agent_id, "name": name, "content": content},
             config=client_config,
         )
+    if reset_session:
+        await _reset_session(session_key, client_config)
+
+
+async def provision_main_agent(
+    agent: Agent,
+    gateway: Gateway,
+    auth_token: str,
+    user: User | None,
+    *,
+    action: str = "provision",
+    force_bootstrap: bool = False,
+    reset_session: bool = False,
+) -> None:
+    if not gateway.url:
+        return
+    if not gateway.main_session_key:
+        raise ValueError("gateway main_session_key is required")
+    client_config = GatewayClientConfig(url=gateway.url, token=gateway.token)
+    await ensure_session(gateway.main_session_key, config=client_config, label="Main Agent")
+
+    agent_id = await _gateway_default_agent_id(client_config)
+    if not agent_id:
+        raise OpenClawGatewayError("Unable to resolve gateway main agent id")
+
+    context = _build_main_context(agent, gateway, auth_token, user)
+    supported = set(await _supported_gateway_files(client_config))
+    supported.add("USER.md")
+    existing_files = await _gateway_agent_files_index(agent_id, client_config)
+    include_bootstrap = action != "update" or force_bootstrap
+    if action == "update" and not force_bootstrap:
+        if not existing_files:
+            include_bootstrap = False
+        else:
+            entry = existing_files.get("BOOTSTRAP.md")
+            if entry and entry.get("missing") is True:
+                include_bootstrap = False
+
+    rendered = _render_agent_files(
+        context,
+        agent,
+        supported,
+        include_bootstrap=include_bootstrap,
+        template_overrides=MAIN_TEMPLATE_MAP,
+    )
+    for name, content in rendered.items():
+        if content == "":
+            continue
+        await openclaw_call(
+            "agents.files.set",
+            {"agentId": agent_id, "name": name, "content": content},
+            config=client_config,
+        )
+    if reset_session:
+        await _reset_session(gateway.main_session_key, client_config)
 
 
 async def cleanup_agent(

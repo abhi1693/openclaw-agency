@@ -4,71 +4,57 @@ import { cn } from "@/lib/utils";
 
 interface TaskCardProps {
   title: string;
-  status: string;
+  priority?: string;
   assignee?: string;
   due?: string;
+  approvalsPendingCount?: number;
   onClick?: () => void;
+  draggable?: boolean;
+  isDragging?: boolean;
+  onDragStart?: (event: React.DragEvent<HTMLDivElement>) => void;
+  onDragEnd?: (event: React.DragEvent<HTMLDivElement>) => void;
 }
 
 export function TaskCard({
   title,
-  status,
+  priority,
   assignee,
   due,
+  approvalsPendingCount = 0,
   onClick,
+  draggable = false,
+  isDragging = false,
+  onDragStart,
+  onDragEnd,
 }: TaskCardProps) {
-  const statusConfig: Record<
-    string,
-    { label: string; dot: string; badge: string; text: string }
-  > = {
-    inbox: {
-      label: "Inbox",
-      dot: "bg-slate-400",
-      badge: "bg-slate-100",
-      text: "text-slate-600",
-    },
-    assigned: {
-      label: "Assigned",
-      dot: "bg-blue-500",
-      badge: "bg-blue-50",
-      text: "text-blue-700",
-    },
-    in_progress: {
-      label: "In progress",
-      dot: "bg-purple-500",
-      badge: "bg-purple-50",
-      text: "text-purple-700",
-    },
-    testing: {
-      label: "Testing",
-      dot: "bg-amber-500",
-      badge: "bg-amber-50",
-      text: "text-amber-700",
-    },
-    review: {
-      label: "Review",
-      dot: "bg-indigo-500",
-      badge: "bg-indigo-50",
-      text: "text-indigo-700",
-    },
-    done: {
-      label: "Done",
-      dot: "bg-green-500",
-      badge: "bg-green-50",
-      text: "text-green-700",
-    },
+  const hasPendingApproval = approvalsPendingCount > 0;
+  const priorityBadge = (value?: string) => {
+    if (!value) return null;
+    const normalized = value.toLowerCase();
+    if (normalized === "high") {
+      return "bg-rose-100 text-rose-700";
+    }
+    if (normalized === "medium") {
+      return "bg-amber-100 text-amber-700";
+    }
+    if (normalized === "low") {
+      return "bg-emerald-100 text-emerald-700";
+    }
+    return "bg-slate-100 text-slate-600";
   };
 
-  const config = statusConfig[status] ?? {
-    label: status,
-    dot: "bg-slate-400",
-    badge: "bg-slate-100",
-    text: "text-slate-600",
-  };
+  const priorityLabel = priority ? priority.toUpperCase() : "MEDIUM";
 
   return (
     <div
-      className="group cursor-pointer rounded-lg border border-slate-200 bg-white p-4 shadow-sm transition-all hover:-translate-y-0.5 hover:border-slate-300 hover:shadow-md"
+      className={cn(
+        "group relative cursor-pointer rounded-lg border border-slate-200 bg-white p-4 shadow-sm transition-all hover:-translate-y-0.5 hover:border-slate-300 hover:shadow-md",
+        isDragging && "opacity-60 shadow-none",
+        hasPendingApproval && "border-amber-200 bg-amber-50/40",
+      )}
+      draggable={draggable}
+      onDragStart={onDragStart}
+      onDragEnd={onDragEnd}
       onClick={onClick}
       role="button"
       tabIndex={0}
@@ -79,19 +65,28 @@ export function TaskCard({
         }
       }}
     >
+      {hasPendingApproval ? (
+        <span className="absolute left-0 top-0 h-full w-1 rounded-l-lg bg-amber-400" />
+      ) : null}
       <div className="flex items-start justify-between gap-3">
         <div className="space-y-2">
+          <p className="text-sm font-medium text-slate-900">{title}</p>
+          {hasPendingApproval ? (
+            <div className="flex items-center gap-2 text-[10px] font-semibold uppercase tracking-wide text-amber-700">
+              <span className="h-1.5 w-1.5 rounded-full bg-amber-500" />
+              Approval needed · {approvalsPendingCount}
+            </div>
+          ) : null}
+        </div>
+        <div className="flex flex-col items-end gap-2">
           <span
             className={cn(
-              "inline-flex items-center gap-2 rounded-full px-2.5 py-1 text-[10px] font-semibold uppercase tracking-wide",
-              config.badge,
-              config.text,
+              "inline-flex items-center rounded-full px-2 py-1 text-[10px] font-semibold uppercase tracking-wide",
+              priorityBadge(priority) ?? "bg-slate-100 text-slate-600",
             )}
           >
-            <span className={cn("h-1.5 w-1.5 rounded-full", config.dot)} />
-            {config.label}
+            {priorityLabel}
           </span>
-          <p className="text-sm font-medium text-slate-900">{title}</p>
         </div>
       </div>
       <div className="mt-3 flex items-center justify-between text-xs text-slate-500">

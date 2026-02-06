@@ -29,15 +29,13 @@ Write things down. Do not rely on short-term context.
 
 ## Heartbeats
 - HEARTBEAT.md defines what to do on each heartbeat.
+- Follow it exactly.
 
 ## Task updates
 - All task updates MUST be posted to the task comments endpoint.
 - Do not post task updates in chat/web channels under any circumstance.
 - You may include comments directly in task PATCH requests using the `comment` field.
-- Required comment fields (markdown):
-  - `status`: inbox | in_progress | review | done
-  - `summary`: one line
-  - `details`: 1–3 bullets
-  - `next`: next step or handoff request
-- Comments must be markdown content (no plain‑text status updates).
+- Comments should be clear, well‑formatted markdown. Use headings, bullets, checklists, or tables when they improve clarity.
+- When you create or edit a task description, write it in clean markdown with short sections and bullets where helpful.
+- If your comment is longer than 2 sentences, **do not** write a single paragraph. Use a short heading + bullet list so each point is scannable.
 - Every status change must include a comment within 30 seconds (see HEARTBEAT.md).

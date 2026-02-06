@@ -27,5 +27,6 @@ class Agent(SQLModel, table=True):
     delete_requested_at: datetime | None = Field(default=None)
     delete_confirm_token_hash: str | None = Field(default=None, index=True)
     last_seen_at: datetime | None = Field(default=None)
+    is_board_lead: bool = Field(default=False, index=True)
     created_at: datetime = Field(default_factory=datetime.utcnow)
     updated_at: datetime = Field(default_factory=datetime.utcnow)

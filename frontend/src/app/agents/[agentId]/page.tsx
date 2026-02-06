@@ -31,6 +31,8 @@ type Agent = {
   created_at: string;
   updated_at: string;
   board_id?: string | null;
+  is_board_lead?: boolean;
+  is_gateway_main?: boolean;
 };
 
 type Board = {
@@ -102,9 +104,10 @@ export default function AgentDetailPage() {
     return events.filter((event) => event.agent_id === agent.id);
   }, [events, agent]);
   const linkedBoard = useMemo(() => {
-    if (!agent?.board_id) return null;
+    if (!agent?.board_id || agent?.is_gateway_main) return null;
     return boards.find((board) => board.id === agent.board_id) ?? null;
-  }, [boards, agent?.board_id]);
+  }, [boards, agent?.board_id, agent?.is_gateway_main]);
+
 
   const loadAgent = async () => {
     if (!isSignedIn || !agentId) return;
@@ -265,7 +268,9 @@ export default function AgentDetailPage() {
                       <p className="text-xs font-semibold uppercase tracking-[0.2em] text-quiet">
                         Board
                       </p>
-                      {linkedBoard ? (
+                      {agent.is_gateway_main ? (
+                        <p className="mt-1 text-sm text-strong">Gateway main (no board)</p>
+                      ) : linkedBoard ? (
                         <Link
                           href={`/boards/${linkedBoard.id}`}
                           className="mt-1 inline-flex text-sm font-medium text-[color:var(--accent)] transition hover:underline"
