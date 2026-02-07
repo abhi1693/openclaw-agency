@@ -105,4 +105,3 @@ async def ensure_board_lead_agent(
         pass
 
     return agent, True
-

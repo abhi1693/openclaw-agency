@@ -72,4 +72,3 @@ class GatewayLeadBroadcastResponse(SQLModel):
     sent: int = 0
     failed: int = 0
     results: list[GatewayLeadBroadcastBoardResult] = Field(default_factory=list)
-
