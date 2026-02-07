@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { clerkMiddleware } from "@clerk/nextjs/server";
+import { clerkMiddleware, createRouteMatcher } from "@clerk/nextjs/server";
 
 import { isLikelyValidClerkPublishableKey } from "@/auth/clerkKey";
 
@@ -8,7 +8,22 @@ const isClerkEnabled = () =>
     process.env.NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY,
   );
 
-export default isClerkEnabled() ? clerkMiddleware() : () => NextResponse.next();
+// Public routes must include Clerk sign-in paths to avoid redirect loops.
+const isPublicRoute = createRouteMatcher(["/sign-in(.*)"]);
+
+export default isClerkEnabled()
+  ? clerkMiddleware(async (auth, req) => {
+      if (isPublicRoute(req)) return NextResponse.next();
+
+      // Clerk typings in App Router return a Promise; keep middleware callback async.
+      const { userId, redirectToSignIn } = await auth();
+      if (!userId) {
+        return redirectToSignIn({ returnBackUrl: req.url });
+      }
+
+      return NextResponse.next();
+    })
+  : () => NextResponse.next();
 
 export const config = {
   matcher: [
