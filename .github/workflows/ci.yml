@@ -74,6 +74,22 @@ jobs:
           make frontend-test
           make frontend-build
 
+      - name: Run Cypress E2E (real Clerk login; no bypass)
+        uses: cypress-io/github-action@v6
+        with:
+          working-directory: frontend
+          # next start requires a build output
+          start: npm run start -- --port 3000
+          wait-on: http://localhost:3000/activity
+          wait-on-timeout: 180
+        env:
+          NEXT_TELEMETRY_DISABLED: "1"
+          CLERK_SECRET_KEY: ${{ secrets.CLERK_SECRET_KEY }}
+          NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY: ${{ vars.NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY }}
+          CLERK_JWKS_URL: ${{ vars.CLERK_JWKS_URL }}
+          # Optional: if the app uses this at runtime
+          NEXT_PUBLIC_API_URL: http://localhost:8000
+
       - name: Upload coverage artifacts
         if: always()
         uses: actions/upload-artifact@v4

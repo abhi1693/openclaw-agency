@@ -5,17 +5,50 @@ describe("/activity feed", () => {
 
   function stubStreamEmpty() {
     // Return a minimal SSE response that ends immediately.
-    cy.intercept(
-      "GET",
-      `${apiBase}/activity/task-comments/stream*`,
-      {
-        statusCode: 200,
-        headers: {
-          "content-type": "text/event-stream",
-        },
-        body: "",
+    cy.intercept("GET", `${apiBase}/activity/task-comments/stream*`, {
+      statusCode: 200,
+      headers: {
+        "content-type": "text/event-stream",
       },
-    ).as("activityStream");
+      body: "",
+    }).as("activityStream");
+  }
+
+  function signInViaClerk() {
+    // The /activity page is gated by <SignedIn/> when Clerk is enabled.
+    // This flow automates Clerk's modal sign-in.
+    cy.contains("button", /sign in/i, { timeout: 20_000 }).click();
+
+    // Clerk typically uses `name=identifier` for the email field.
+    cy.get(
+      'input[name="identifier"], input[type="email"], input[autocomplete="email"]',
+      {
+        timeout: 20_000,
+      },
+    )
+      .first()
+      .clear()
+      .type("jane+clerk_test@example.com");
+
+    cy.contains("button", /continue|sign in/i, { timeout: 20_000 }).click();
+
+    // OTP step: Clerk uses a code input (often `name=code`).
+    cy.get(
+      'input[name="code"], input[autocomplete="one-time-code"], input[inputmode="numeric"]',
+      {
+        timeout: 20_000,
+      },
+    )
+      .first()
+      .clear()
+      .type("424242");
+
+    cy.contains("button", /continue|verify|sign in/i, {
+      timeout: 20_000,
+    }).click();
+
+    // After successful sign-in, the main UI should be visible.
+    cy.contains(/live feed/i, { timeout: 30_000 }).should("be.visible");
   }
 
   it("happy path: renders task comment cards", () => {
@@ -57,9 +90,9 @@ describe("/activity feed", () => {
       },
     });
 
-    cy.wait("@activityList");
+    signInViaClerk();
 
-    cy.contains(/live feed/i).should("be.visible");
+    cy.wait("@activityList");
     cy.contains("CI hardening").should("be.visible");
     cy.contains("Coverage policy").should("be.visible");
     cy.contains("Hello world").should("be.visible");
@@ -74,6 +107,7 @@ describe("/activity feed", () => {
     stubStreamEmpty();
 
     cy.visit("/activity");
+    signInViaClerk();
     cy.wait("@activityList");
 
     cy.contains(/waiting for new comments/i).should("be.visible");
@@ -88,6 +122,7 @@ describe("/activity feed", () => {
     stubStreamEmpty();
 
     cy.visit("/activity");
+    signInViaClerk();
     cy.wait("@activityList");
 
     // UI uses query.error.message or fallback.
