@@ -168,8 +168,7 @@ async def get_my_membership(
     )
     model = _member_to_read(ctx.member, user)
     model.board_access = [
-        OrganizationBoardAccessRead.model_validate(row, from_attributes=True)
-        for row in access_rows
+        OrganizationBoardAccessRead.model_validate(row, from_attributes=True) for row in access_rows
     ]
     return model
 
@@ -216,8 +215,7 @@ async def get_org_member(
     )
     model = _member_to_read(member, user)
     model.board_access = [
-        OrganizationBoardAccessRead.model_validate(row, from_attributes=True)
-        for row in access_rows
+        OrganizationBoardAccessRead.model_validate(row, from_attributes=True) for row in access_rows
     ]
     return model
 
