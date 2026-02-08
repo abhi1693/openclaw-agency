@@ -16,14 +16,13 @@ describe("Organizations (PR #61)", () => {
     cy.visit("/boards");
 
     // Create a new org via OrgSwitcher.
-    cy.contains(/org switcher/i, { timeout: 30_000 }).should("be.visible");
-
-    // Open select and click "Create new org".
-    cy.contains("button", /select organization/i)
+    // The switcher is a Shadcn Select trigger (`role=combobox`).
+    cy.get('button[role="combobox"]', { timeout: 30_000 })
+      .first()
       .should("be.visible")
       .click();
 
-    cy.contains(/create new org/i).should("be.visible").click();
+    cy.contains(/create new org/i, { timeout: 30_000 }).should("be.visible").click();
 
     const orgName = `Cypress Org ${Date.now()}`;
     cy.get("#org-name").should("be.visible").clear().type(orgName);
