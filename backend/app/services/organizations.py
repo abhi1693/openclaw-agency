@@ -237,9 +237,8 @@ async def has_board_access(
     if write:
         if member_all_boards_write(member):
             return True
-    else:
-        if member_all_boards_read(member):
-            return True
+    elif member_all_boards_read(member):
+        return True
     access = await OrganizationBoardAccess.objects.filter_by(
         organization_member_id=member.id,
         board_id=board.id,
