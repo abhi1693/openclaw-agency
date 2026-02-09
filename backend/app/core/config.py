@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from pathlib import Path
-from typing import Self
+from typing import Literal, Self
 
 from pydantic import model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
@@ -26,6 +26,10 @@ class Settings(BaseSettings):
     environment: str = "dev"
     database_url: str = "postgresql+psycopg://postgres:postgres@localhost:5432/openclaw_agency"
     redis_url: str = "redis://localhost:6379/0"
+
+    # Auth configuration (clerk, local_bearer, disabled)
+    auth_mode: Literal["clerk", "local_bearer", "disabled"] = "clerk"
+    local_auth_token: str = ""
 
     # Clerk auth (auth only; roles stored in DB)
     clerk_jwks_url: str = ""

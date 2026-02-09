@@ -76,6 +76,19 @@ async def get_auth_context(
     session: AsyncSession = SESSION_DEP,
 ) -> AuthContext:
     """Resolve required authenticated user context from Clerk JWT headers."""
+    # LOCAL BEARER: Simple token auth for self-hosted deployments
+    if settings.auth_mode == "local_bearer" and settings.local_auth_token:
+        auth_header = request.headers.get("Authorization", "")
+        if auth_header.startswith("Bearer "):
+            token = auth_header[7:].strip()
+            if token == settings.local_auth_token:
+                return AuthContext(actor_type="user", user=None)
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED)
+
+    # DISABLED: No authentication for local development
+    if settings.auth_mode == "disabled":
+        return AuthContext(actor_type="user", user=None)
+
     if credentials is None:
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED)
 
@@ -127,8 +140,27 @@ async def get_auth_context_optional(
     session: AsyncSession = SESSION_DEP,
 ) -> AuthContext | None:
     """Resolve user context if available, otherwise return `None`."""
+    # Allow X-Agent-Token to pass through for agent-based auth
     if request.headers.get("X-Agent-Token"):
         return None
+
+    # LOCAL BEARER: Simple token auth for self-hosted deployments
+    # Only enforce if Authorization header is present (don't block X-Agent-Token)
+    if settings.auth_mode == "local_bearer" and settings.local_auth_token:
+        auth_header = request.headers.get("Authorization", "")
+        if auth_header.startswith("Bearer "):
+            token = auth_header[7:].strip()
+            if token == settings.local_auth_token:
+                return AuthContext(actor_type="user", user=None)
+            # Invalid token - return None to let other auth methods try
+            return None
+        # No Authorization header - return None to let other auth methods try
+        return None
+
+    # DISABLED: No authentication for local development
+    if settings.auth_mode == "disabled":
+        return AuthContext(actor_type="user", user=None)
+
     if credentials is None:
         return None
 

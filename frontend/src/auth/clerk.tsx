@@ -16,21 +16,40 @@ import {
 } from "@clerk/nextjs";
 
 import { isLikelyValidClerkPublishableKey } from "@/auth/clerkKey";
+import { getLocalAuthToken, isLocalAuthMode } from "@/auth/localAuth";
+
+function isE2EAuthBypassEnabled(): boolean {
+  // Used only for Cypress E2E to keep tests secretless and deterministic.
+  // When enabled, we treat the user as signed in and skip Clerk entirely.
+  return process.env.NEXT_PUBLIC_E2E_AUTH_BYPASS === "1";
+}
+
+function isLocalAuthEnabled(): boolean {
+  // Local bearer token auth for self-hosted deployments.
+  // Enabled when AUTH_MODE is local_bearer AND we have a token stored.
+  return isLocalAuthMode() && !!getLocalAuthToken();
+}
 
 export function isClerkEnabled(): boolean {
   // IMPORTANT: keep this in sync with AuthProvider; otherwise components like
   // <SignedOut/> may render without a <ClerkProvider/> and crash during prerender.
+  if (isE2EAuthBypassEnabled()) return false;
+  if (isLocalAuthEnabled()) return false;
   return isLikelyValidClerkPublishableKey(
     process.env.NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY,
   );
 }
 
 export function SignedIn(props: { children: ReactNode }) {
+  if (isE2EAuthBypassEnabled()) return <>{props.children}</>;
+  if (isLocalAuthEnabled()) return <>{props.children}</>;  // Local auth is always "signed in"
   if (!isClerkEnabled()) return null;
   return <ClerkSignedIn>{props.children}</ClerkSignedIn>;
 }
 
 export function SignedOut(props: { children: ReactNode }) {
+  if (isE2EAuthBypassEnabled()) return null;
+  if (isLocalAuthEnabled()) return null;  // Local auth is never "signed out"
   if (!isClerkEnabled()) return <>{props.children}</>;
   return <ClerkSignedOut>{props.children}</ClerkSignedOut>;
 }
@@ -56,6 +75,25 @@ export function useUser() {
 }
 
 export function useAuth() {
+  const token = getLocalAuthToken();
+  if (isLocalAuthMode() && token) {
+    return {
+      isLoaded: true,
+      isSignedIn: true,
+      userId: "local-user",
+      sessionId: "local-session",
+      getToken: async () => token,
+    } as const;
+  }
+  if (isE2EAuthBypassEnabled()) {
+    return {
+      isLoaded: true,
+      isSignedIn: true,
+      userId: "e2e-user",
+      sessionId: "e2e-session",
+      getToken: async () => "e2e-token",
+    } as const;
+  }
   if (!isClerkEnabled()) {
     return {
       isLoaded: true,

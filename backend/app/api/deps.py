@@ -9,6 +9,7 @@ from fastapi import Depends, HTTPException, status
 
 from app.core.agent_auth import AgentAuthContext, get_agent_auth_context_optional
 from app.core.auth import AuthContext, get_auth_context, get_auth_context_optional
+from app.core.config import settings
 from app.db.session import get_session
 from app.models.boards import Board
 from app.models.organizations import Organization
@@ -36,6 +37,9 @@ SESSION_DEP = Depends(get_session)
 
 def require_admin_auth(auth: AuthContext = AUTH_DEP) -> AuthContext:
     """Require an authenticated admin user."""
+    # Local bearer and disabled modes don't require a Clerk user
+    if settings.auth_mode in ("local_bearer", "disabled"):
+        return auth
     require_admin(auth)
     return auth
 
@@ -54,6 +58,13 @@ def require_admin_or_agent(
     agent_auth: AgentAuthContext | None = AGENT_AUTH_OPTIONAL_DEP,
 ) -> ActorContext:
     """Authorize either an admin user or an authenticated agent."""
+    # Local bearer and disabled modes bypass Clerk checks
+    if settings.auth_mode in ("local_bearer", "disabled"):
+        return ActorContext(actor_type="user", user=None)
+
+    # DEV BYPASS: Allow all access in dev mode without Clerk (legacy)
+    if settings.environment == "dev" and not settings.clerk_jwks_url:
+        return ActorContext(actor_type="user", user=None)
     if auth is not None:
         require_admin(auth)
         return ActorContext(actor_type="user", user=auth.user)

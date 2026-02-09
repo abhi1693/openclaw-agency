@@ -43,6 +43,9 @@ services:
       REDIS_URL: redis://redis:6379/0
       CORS_ORIGINS: ${CORS_ORIGINS:-http://localhost:3000}
       DB_AUTO_MIGRATE: ${DB_AUTO_MIGRATE:-true}
+      # Auth configuration (clerk, local_bearer, disabled)
+      AUTH_MODE: ${AUTH_MODE:-clerk}
+      LOCAL_AUTH_TOKEN: ${LOCAL_AUTH_TOKEN:-}
     depends_on:
       db:
         condition: service_healthy
@@ -50,12 +53,16 @@ services:
         condition: service_healthy
     ports:
       - "${BACKEND_PORT:-8000}:8000"
+    # Auth is now configurable via AUTH_MODE environment variable (clerk, local_bearer, disabled)
+    # No patching required - see docs/authentication-configuration.md
 
   frontend:
     build:
       context: ./frontend
       args:
         NEXT_PUBLIC_API_URL: ${NEXT_PUBLIC_API_URL:-http://localhost:8000}
+        # Only pass auth mode (safe), NOT the token (secret)
+        NEXT_PUBLIC_AUTH_MODE: ${AUTH_MODE:-clerk}
     # Optional, user-managed env file.
     # IMPORTANT: do NOT load `.env.example` here because it contains non-empty
     # placeholder Clerk keys, which can accidentally flip Clerk "on".
@@ -64,6 +71,8 @@ services:
         required: false
     environment:
       NEXT_PUBLIC_API_URL: ${NEXT_PUBLIC_API_URL:-http://localhost:8000}
+      # Only pass auth mode (safe), NOT the token (secret)
+      NEXT_PUBLIC_AUTH_MODE: ${AUTH_MODE:-clerk}
     depends_on:
       - backend
     ports:

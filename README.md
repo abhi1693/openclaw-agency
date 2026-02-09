@@ -16,11 +16,54 @@ OpenClaw Mission Control is under active development. Expect breaking changes an
 - **Data:** Postgres + Redis
 - **Gateway integration:** see [`docs/openclaw_gateway_ws.md`](./docs/openclaw_gateway_ws.md)
 
+## Authentication
+
+Mission Control supports multiple authentication modes via the `AUTH_MODE` environment variable:
+
+| Mode | Use Case | External Dependencies |
+|------|----------|----------------------|
+| `clerk` (default) | Production, multi-user, SaaS | Requires Clerk account |
+| `local_bearer` | Self-hosted, single-user, homelab | None |
+| `disabled` | Local development only | None |
+
+### Clerk Mode (Default)
+
+Full-featured authentication using [Clerk](https://clerk.com/). Requires:
+- `NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY` in frontend
+- `CLERK_JWKS_URL` in backend
+
+### Local Bearer Mode
+
+Simple token-based authentication for self-hosted deployments:
+
+```bash
+# Backend
+AUTH_MODE=local_bearer
+LOCAL_AUTH_TOKEN=your-random-token
+
+# Frontend
+NEXT_PUBLIC_LOCAL_AUTH_TOKEN=your-random-token
+```
+
+See [docs/authentication-configuration.md](./docs/authentication-configuration.md) for detailed configuration.
+
+### Disabled Mode
+
+No authentication for local development:
+
+```bash
+AUTH_MODE=disabled
+```
+
+> ⚠️ **Warning:** Only use for localhost development. Never expose to networks.
+
 > Note on auth (Clerk)
 >
 > Clerk is **optional** for local/self-host. The frontend enables Clerk **only** when
-> `NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY` is set. If you don’t want to configure Clerk,
-> make sure that variable is **unset/blank**.
+> `NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY` is set. If you don't want to configure Clerk,
+> set `AUTH_MODE=local_bearer` or `AUTH_MODE=disabled`.
+>
+> See [docs/authentication-configuration.md](./docs/authentication-configuration.md) for details.
 
 ## Quick start (self-host with Docker Compose)
 
