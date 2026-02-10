@@ -33,6 +33,7 @@ from app.services.openclaw.exceptions import (
     map_gateway_error_to_http_exception,
 )
 from app.services.openclaw.gateway_dispatch import GatewayDispatchService
+from app.services.openclaw.gateway_resolver import gateway_client_config
 from app.services.openclaw.gateway_rpc import GatewayConfig as GatewayClientConfig
 from app.services.openclaw.gateway_rpc import OpenClawGatewayError, openclaw_call
 from app.services.openclaw.internal.agent_key import agent_key
@@ -119,8 +120,7 @@ class GatewayCoordinationService(AbstractGatewayMessagingService):
             actor_agent=actor_agent,
             gateway=gateway,
         )
-        OpenClawAuthorizationPolicy.require_gateway_configured(gateway)
-        return gateway, GatewayClientConfig(url=gateway.url, token=gateway.token)
+        return gateway, gateway_client_config(gateway)
 
     async def require_gateway_board(
         self,

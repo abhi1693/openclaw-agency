@@ -39,6 +39,7 @@ from app.schemas.pagination import DefaultLimitOffsetPage
 from app.schemas.view_models import BoardGroupSnapshot, BoardSnapshot
 from app.services.board_group_snapshot import build_board_group_snapshot
 from app.services.board_snapshot import build_board_snapshot
+from app.services.openclaw.gateway_resolver import gateway_client_config, require_gateway_for_board
 from app.services.openclaw.gateway_rpc import OpenClawGatewayError
 from app.services.openclaw.provisioning import OpenClawGatewayProvisioner
 from app.services.organizations import OrganizationContext, board_access_filter
@@ -173,23 +174,10 @@ async def _board_gateway(
 ) -> Gateway | None:
     if not board.gateway_id:
         return None
-    config = await Gateway.objects.by_id(board.gateway_id).first(session)
-    if config is None:
-        raise HTTPException(
-            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
-            detail="Board gateway_id is invalid",
-        )
-    if not config.url:
-        raise HTTPException(
-            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
-            detail="Gateway url is required",
-        )
-    if not config.workspace_root:
-        raise HTTPException(
-            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
-            detail="Gateway workspace_root is required",
-        )
-    return config
+    gateway = await require_gateway_for_board(session, board, require_workspace_root=True)
+    # Validate the connection config; the caller needs a configured gateway URL.
+    gateway_client_config(gateway)
+    return gateway
 
 
 @router.get("", response_model=DefaultLimitOffsetPage[BoardRead])

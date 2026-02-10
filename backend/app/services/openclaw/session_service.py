@@ -12,7 +12,6 @@ from sqlmodel import col
 
 from app.models.agents import Agent
 from app.models.boards import Board
-from app.models.gateways import Gateway
 from app.schemas.gateway_api import (
     GatewayResolveQuery,
     GatewaySessionHistoryResponse,
@@ -22,6 +21,7 @@ from app.schemas.gateway_api import (
     GatewaysStatusResponse,
 )
 from app.services.openclaw.db_service import OpenClawDBService
+from app.services.openclaw.gateway_resolver import gateway_client_config, require_gateway_for_board
 from app.services.openclaw.gateway_rpc import GatewayConfig as GatewayClientConfig
 from app.services.openclaw.gateway_rpc import (
     OpenClawGatewayError,
@@ -95,9 +95,18 @@ class GatewaySessionService(OpenClawDBService):
             params.gateway_url,
         )
         if params.gateway_url:
+            raw_url = params.gateway_url.strip()
+            if not raw_url:
+                raise HTTPException(
+                    status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+                    detail="board_id or gateway_url is required",
+                )
             return (
                 None,
-                GatewayClientConfig(url=params.gateway_url, token=params.gateway_token),
+                GatewayClientConfig(
+                    url=raw_url,
+                    token=(params.gateway_token or "").strip() or None,
+                ),
                 None,
             )
         if not params.board_id:
@@ -113,18 +122,8 @@ class GatewaySessionService(OpenClawDBService):
             )
         if user is not None:
             await require_board_access(self.session, user=user, board=board, write=False)
-        if not board.gateway_id:
-            raise HTTPException(
-                status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
-                detail="Board gateway_id is required",
-            )
-        gateway = await Gateway.objects.by_id(board.gateway_id).first(self.session)
-        if gateway is None:
-            raise HTTPException(
-                status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
-                detail="Board gateway_id is invalid",
-            )
-        OpenClawAuthorizationPolicy.require_gateway_configured(gateway)
+        gateway = await require_gateway_for_board(self.session, board)
+        config = gateway_client_config(gateway)
         main_agent = (
             await Agent.objects.filter_by(gateway_id=gateway.id)
             .filter(col(Agent.board_id).is_(None))
@@ -133,7 +132,7 @@ class GatewaySessionService(OpenClawDBService):
         main_session = main_agent.openclaw_session_id if main_agent else None
         return (
             board,
-            GatewayClientConfig(url=gateway.url, token=gateway.token),
+            config,
             main_session,
         )
 

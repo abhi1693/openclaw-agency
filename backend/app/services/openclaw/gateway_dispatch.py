@@ -8,11 +8,15 @@ from __future__ import annotations
 
 from uuid import uuid4
 
-from fastapi import HTTPException, status
-
 from app.models.boards import Board
 from app.models.gateways import Gateway
 from app.services.openclaw.db_service import OpenClawDBService
+from app.services.openclaw.gateway_resolver import (
+    get_gateway_for_board,
+    gateway_client_config,
+    optional_gateway_client_config,
+    require_gateway_for_board,
+)
 from app.services.openclaw.gateway_rpc import GatewayConfig as GatewayClientConfig
 from app.services.openclaw.gateway_rpc import OpenClawGatewayError, ensure_session, send_message
 
@@ -24,29 +28,15 @@ class GatewayDispatchService(OpenClawDBService):
         self,
         board: Board,
     ) -> GatewayClientConfig | None:
-        if board.gateway_id is None:
-            return None
-        gateway = await Gateway.objects.by_id(board.gateway_id).first(self.session)
-        if gateway is None or not gateway.url:
-            return None
-        return GatewayClientConfig(url=gateway.url, token=gateway.token)
+        gateway = await get_gateway_for_board(self.session, board)
+        return optional_gateway_client_config(gateway)
 
     async def require_gateway_config_for_board(
         self,
         board: Board,
     ) -> tuple[Gateway, GatewayClientConfig]:
-        if board.gateway_id is None:
-            raise HTTPException(
-                status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
-                detail="Board is not attached to a gateway",
-            )
-        gateway = await Gateway.objects.by_id(board.gateway_id).first(self.session)
-        if gateway is None or not gateway.url:
-            raise HTTPException(
-                status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
-                detail="Gateway is not configured for this board",
-            )
-        return gateway, GatewayClientConfig(url=gateway.url, token=gateway.token)
+        gateway = await require_gateway_for_board(self.session, board)
+        return gateway, gateway_client_config(gateway)
 
     async def send_agent_message(
         self,

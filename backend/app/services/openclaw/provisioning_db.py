@@ -55,6 +55,11 @@ from app.services.openclaw.db_agent_state import (
     mint_agent_token,
 )
 from app.services.openclaw.db_service import OpenClawDBService
+from app.services.openclaw.gateway_resolver import (
+    gateway_client_config,
+    optional_gateway_client_config,
+    require_gateway_for_board,
+)
 from app.services.openclaw.gateway_rpc import GatewayConfig as GatewayClientConfig
 from app.services.openclaw.gateway_rpc import (
     OpenClawGatewayError,
@@ -766,42 +771,12 @@ class AgentLifecycleService(OpenClawDBService):
         self,
         board: Board,
     ) -> tuple[Gateway, GatewayClientConfig]:
-        if not board.gateway_id:
-            raise HTTPException(
-                status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
-                detail="Board gateway_id is required",
-            )
-        gateway = await Gateway.objects.by_id(board.gateway_id).first(self.session)
-        if gateway is None:
-            raise HTTPException(
-                status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
-                detail="Board gateway_id is invalid",
-            )
-        if gateway.organization_id != board.organization_id:
-            raise HTTPException(
-                status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
-                detail="Board gateway_id is invalid",
-            )
-        if not gateway.url:
-            raise HTTPException(
-                status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
-                detail="Gateway url is required",
-            )
-        if not gateway.workspace_root:
-            raise HTTPException(
-                status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
-                detail="Gateway workspace_root is required",
-            )
-        return gateway, GatewayClientConfig(url=gateway.url, token=gateway.token)
-
-    @staticmethod
-    def gateway_client_config(gateway: Gateway) -> GatewayClientConfig:
-        if not gateway.url:
-            raise HTTPException(
-                status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
-                detail="Gateway url is required",
-            )
-        return GatewayClientConfig(url=gateway.url, token=gateway.token)
+        gateway = await require_gateway_for_board(
+            self.session,
+            board,
+            require_workspace_root=True,
+        )
+        return gateway, gateway_client_config(gateway)
 
     @staticmethod
     def is_gateway_main(agent: Agent) -> bool:
@@ -1679,8 +1654,8 @@ class AgentLifecycleService(OpenClawDBService):
         if agent.board_id is None:
             # Gateway-main agents are not tied to a board; resolve via agent.gateway_id.
             gateway = await Gateway.objects.by_id(agent.gateway_id).first(self.session)
-            if gateway and gateway.url:
-                client_config = GatewayClientConfig(url=gateway.url, token=gateway.token)
+            client_config = optional_gateway_client_config(gateway)
+            if gateway is not None and client_config is not None:
                 try:
                     workspace_path = await OpenClawGatewayProvisioner().delete_agent_lifecycle(
                         agent=agent,

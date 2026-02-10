@@ -21,7 +21,6 @@ from app.core.config import settings
 from app.core.time import utcnow
 from app.db.session import get_session
 from app.models.board_onboarding import BoardOnboardingSession
-from app.models.gateways import Gateway
 from app.schemas.board_onboarding import (
     BoardOnboardingAgentComplete,
     BoardOnboardingAgentUpdate,
@@ -33,6 +32,7 @@ from app.schemas.board_onboarding import (
     BoardOnboardingUserProfile,
 )
 from app.schemas.boards import BoardRead
+from app.services.openclaw.gateway_resolver import get_gateway_for_board
 from app.services.openclaw.gateway_dispatch import GatewayDispatchService
 from app.services.openclaw.onboarding_service import BoardOnboardingMessagingService
 from app.services.openclaw.policies import OpenClawAuthorizationPolicy
@@ -310,13 +310,12 @@ async def agent_onboarding_update(
     agent = actor.agent
     OpenClawAuthorizationPolicy.require_gateway_scoped_actor(actor_agent=agent)
 
-    if board.gateway_id:
-        gateway = await Gateway.objects.by_id(board.gateway_id).first(session)
-        if gateway:
-            OpenClawAuthorizationPolicy.require_gateway_main_actor_binding(
-                actor_agent=agent,
-                gateway=gateway,
-            )
+    gateway = await get_gateway_for_board(session, board)
+    if gateway is not None:
+        OpenClawAuthorizationPolicy.require_gateway_main_actor_binding(
+            actor_agent=agent,
+            gateway=gateway,
+        )
 
     onboarding = (
         await BoardOnboardingSession.objects.filter_by(board_id=board.id)
