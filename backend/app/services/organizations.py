@@ -48,6 +48,76 @@ def is_org_admin(member: OrganizationMember) -> bool:
     return member.role in ADMIN_ROLES
 
 
+async def get_default_org(session: AsyncSession) -> Organization | None:
+    """Return the default personal organization if it exists."""
+    return await Organization.objects.filter_by(name=DEFAULT_ORG_NAME).first(session)
+
+
+async def ensure_default_org(session: AsyncSession) -> Organization:
+    """Ensure and return the default personal organization."""
+    org = await get_default_org(session)
+    if org is not None:
+        return org
+    org = Organization(name=DEFAULT_ORG_NAME, created_at=utcnow(), updated_at=utcnow())
+    session.add(org)
+    await session.commit()
+    await session.refresh(org)
+    return org
+
+
+async def get_or_create_default_org(
+    session: AsyncSession,
+) -> tuple[Organization, OrganizationMember]:
+    """Get or create the default organization and a local member for self-hosted mode.
+
+    For local_bearer/disabled auth modes where there's no Clerk user,
+    we create a default org and a placeholder member with full access.
+    """
+    # Get or create default org
+    org = await ensure_default_org(session)
+
+    # Check if we already have a "local" member for this org
+    local_member = await OrganizationMember.objects.filter_by(
+        organization_id=org.id,
+    ).first(session)
+
+    if local_member is not None:
+        # Refresh org to ensure it's attached to session
+        await session.refresh(org)
+        return org, local_member
+
+    # Create a placeholder user for local auth
+    now = utcnow()
+    local_user = User(
+        clerk_user_id="local",
+        email="local@localhost",
+        name="Local User",
+        created_at=now,
+        updated_at=now,
+    )
+    session.add(local_user)
+    await session.commit()
+    await session.refresh(local_user)
+
+    # Create owner member with full access
+    member = OrganizationMember(
+        organization_id=org.id,
+        user_id=local_user.id,
+        role="owner",
+        all_boards_read=True,
+        all_boards_write=True,
+        created_at=now,
+        updated_at=now,
+    )
+    local_user.active_organization_id = org.id
+    session.add(local_user)
+    session.add(member)
+    await session.commit()
+    await session.refresh(member)
+    await session.refresh(org)
+    return org, member
+
+
 async def get_member(
     session: AsyncSession,
     *,

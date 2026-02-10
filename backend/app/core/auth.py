@@ -451,6 +451,7 @@ def _parse_subject(claims: dict[str, object]) -> str | None:
 
 
 async def get_auth_context(
+    request: Request,
     credentials: HTTPAuthorizationCredentials | None = SECURITY_DEP,
     session: AsyncSession = SESSION_DEP,
 ) -> AuthContext:

@@ -308,6 +308,15 @@ async def _require_user_context(
     session: AsyncSession,
     user: User | None,
 ) -> OrganizationContext:
+    # Local auth mode: use default org context
+    from app.core.config import settings
+    if settings.auth_mode in ("local_bearer", "disabled") and user is None:
+        from app.services.organizations import get_or_create_default_org
+        org, member = await get_or_create_default_org(session)
+        if org is None or member is None:
+            raise HTTPException(status_code=status.HTTP_403_FORBIDDEN)
+        return OrganizationContext(organization=org, member=member)
+
     if user is None:
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED)
     member = await get_active_membership(session, user)
@@ -376,6 +385,13 @@ async def _coerce_agent_create_payload(
     actor: ActorContext,
 ) -> AgentCreate:
     if actor.actor_type == "user":
+        # Local auth mode: actor.user is None but we have org access
+        if actor.user is None:
+            from app.core.config import settings
+            if settings.auth_mode in ("local_bearer", "disabled"):
+                # Allow agent creation in local auth mode
+                return payload
+            raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED)
         ctx = await _require_user_context(session, actor.user)
         if not is_org_admin(ctx.member):
             raise HTTPException(status_code=status.HTTP_403_FORBIDDEN)

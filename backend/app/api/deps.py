@@ -59,7 +59,11 @@ def require_admin_or_agent(
 ) -> ActorContext:
     """Authorize either an admin user or an authenticated agent."""
     # Local bearer and disabled modes bypass Clerk checks
+    import logging
+    logger = logging.getLogger(__name__)
+    logger.info(f"DEBUG: auth_mode={settings.auth_mode}, auth={auth}, agent_auth={agent_auth}")
     if settings.auth_mode in ("local_bearer", "disabled"):
+        logger.info("DEBUG: Returning local auth actor context")
         return ActorContext(actor_type="user", user=None)
 
     # DEV BYPASS: Allow all access in dev mode without Clerk (legacy)
@@ -81,6 +85,15 @@ async def require_org_member(
     session: AsyncSession = SESSION_DEP,
 ) -> OrganizationContext:
     """Resolve and require active organization membership for the current user."""
+    # Local bearer and disabled modes: use default org without requiring a User record
+    if settings.auth_mode in ("local_bearer", "disabled"):
+        from app.services.organizations import get_or_create_default_org
+
+        org, member = await get_or_create_default_org(session)
+        if org is None or member is None:
+            raise HTTPException(status_code=status.HTTP_403_FORBIDDEN)
+        return OrganizationContext(organization=org, member=member)
+
     if auth.user is None:
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED)
     member = await get_active_membership(session, auth.user)
