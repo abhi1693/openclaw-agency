@@ -2,6 +2,12 @@
 
 This page documents how Mission Control’s backend integrates with an OpenClaw **Gateway** over WebSocket RPC.
 
+## Source of truth
+
+- Backend implementation: `backend/app/services/openclaw/*`
+- Primary protocol reference: [Gateway WebSocket protocol](../openclaw_gateway_ws.md)
+- If the implementation moves: search the backend for `services.openclaw` imports and `openclaw_call(` usages to find the new entrypoints.
+
 **Audience**
 - Maintainers: where to add/modify gateway calls and lifecycle behavior.
 - Operators/SRE: common failure modes and what to check when the gateway disconnects or calls time out.
@@ -11,10 +17,19 @@ This page documents how Mission Control’s backend integrates with an OpenClaw 
 - Protocol reference: [Gateway WebSocket protocol](../openclaw_gateway_ws.md)
 - Gateway base config: [Gateway base config](../openclaw_gateway_base_config.md)
 
-In the backend, the gateway integration lives under:
-- `backend/app/services/openclaw/*`
-
 The design goal is to keep **gateway protocol details** in one place, and keep API routes thin.
+
+## Boundaries / non-goals
+
+This module **does**:
+- Maintain the WS/RPC client and call primitive (`openclaw_call`).
+- Define and execute the gateway-side provisioning flows (file sync, lifecycle orchestration).
+- Provide DB-backed orchestration services that combine Mission Control state with gateway RPC operations.
+
+This module **does not** own:
+- Frontend auth/UI behavior (see frontend auth docs).
+- Provider-specific messaging implementations (Slack/Telegram/etc.)
+- The core “what a session means” semantics outside gateway coordination (those live in the backend domain/services; gateway is a transport/control plane).
 
 ## Layering overview
 
@@ -90,6 +105,30 @@ Implication:
 
 ## Retry / resilience behavior
 
+## Debug checklist (first 10 minutes)
+
+When gateway integration breaks (disconnects, timeouts, missing events), check:
+
+1) **Config / env**
+- Gateway URL and token: confirm `GatewayConfig(url, token)` resolves correctly for the board/gateway.
+- Confirm the WS URL matches the documented protocol endpoint (see [Gateway WebSocket protocol](../openclaw_gateway_ws.md)).
+
+2) **Connectivity**
+- Can the backend reach the gateway host/port from where it’s running?
+- Any reverse proxy/LB timeouts affecting WebSockets?
+
+3) **Logs**
+- Backend logs around handshake and call failures in `backend/app/services/openclaw/gateway_rpc.py`.
+- Look for the connect handshake (`connect.challenge` → `connect`) and any `req` timeouts.
+
+4) **Fast smoke test**
+- Trigger a known-safe RPC call via an existing API path (e.g., list sessions or send a noop-ish chat message) and observe:
+  - request frame sent
+  - response frame received
+  - timeout / retry behavior
+
+## Retry / resilience behavior
+
 ### Gateway retry helper
 
 **File:** `backend/app/services/openclaw/internal/retry.py`
@@ -155,11 +194,34 @@ What to check:
 - Provisioning uses an idempotent “create then update” flow.
 - Many gateway calls are safe to retry, but beware operations that can be destructive (`sessions.delete`, agent delete).
 
+## Change risk (what tends to break during refactors)
+
+High-risk changes in this area usually break one of:
+- **RPC method names/payload shapes** (gateway and backend must match exactly).
+- **Auth/token propagation** (query token vs header semantics; accidental token logging).
+- **Session key derivation** (breaking determinism breaks coordination/provisioning assumptions).
+- **Reconnect/backoff behavior** (WebSocket timeouts, retry classification).
+
+What to lean on:
+- Backend tests around gateway coordination/provisioning (and any integration tests that exercise WS/RPC flows).
+- CI: ensure the doc PR keeps checks green, and watch for failures in tests touching `services/openclaw/*`.
+
 ## Where to add new gateway capabilities
 
 ### Adding a new RPC call (backend)
-1. If it’s a generic gateway method call: use `openclaw_call(...)`.
-2. If it’s lifecycle-related: consider adding it to `GatewayControlPlane` or `OpenClawGatewayProvisioner`.
+
+Rule of thumb:
+- Use a one-off `openclaw_call(...)` when the call is narrowly scoped (single endpoint/flow) and you don’t need shared lifecycle semantics.
+- Extend `GatewayControlPlane` when you want a typed, reusable operation used across multiple flows, or when you want to centralize retries/backoff and lifecycle invariants.
+
+Concrete example (shape):
+- **One-off call** (single endpoint):
+  - Add the method name/payload shape per the gateway protocol.
+  - Call: `openclaw_call("nodes.describe", {"node": node_id}, config=...)`.
+- **Control-plane operation** (reused / lifecycle-affecting):
+  - Add `describe_node(...)` (or similar) to `GatewayControlPlane`.
+  - Implement it in `OpenClawGatewayControlPlane` via `openclaw_call(...)`.
+  - Use that method from provisioning/coordination services.
 3. If it’s API-facing and needs DB context: add to a DB-backed service in `backend/app/services/openclaw/*`.
 
 ### Adding/changing protocol methods/events
