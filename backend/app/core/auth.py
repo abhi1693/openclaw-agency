@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-import logging
 from dataclasses import dataclass
 from typing import TYPE_CHECKING, Literal
 
@@ -17,6 +16,7 @@ from pydantic import BaseModel, ValidationError
 from starlette.concurrency import run_in_threadpool
 
 from app.core.config import settings
+from app.core.logging import get_logger
 from app.db import crud
 from app.db.session import get_session
 from app.models.users import User
@@ -25,7 +25,7 @@ if TYPE_CHECKING:
     from clerk_backend_api.models.user import User as ClerkUser
     from sqlmodel.ext.asyncio.session import AsyncSession
 
-logger = logging.getLogger(__name__)
+logger = get_logger(__name__)
 security = HTTPBearer(auto_error=False)
 SECURITY_DEP = Depends(security)
 SESSION_DEP = Depends(get_session)
@@ -331,9 +331,8 @@ async def _get_or_sync_user(
         )
     else:
         logger.debug(
-            "auth.user.sync clerk_user_id=%s updated=%s fetched_profile=%s",
+            "auth.user.sync.noop clerk_user_id=%s fetched_profile=%s",
             clerk_user_id_log,
-            changed,
             should_fetch_profile,
         )
     if not user.email:

@@ -42,6 +42,8 @@ class Settings(BaseSettings):
     log_level: str = "INFO"
     log_format: str = "text"
     log_use_utc: bool = False
+    request_log_slow_ms: int = Field(default=1000, ge=0)
+    request_log_include_health: bool = False
 
     @model_validator(mode="after")
     def _defaults(self) -> Self:
