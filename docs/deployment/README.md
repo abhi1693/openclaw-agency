@@ -15,7 +15,9 @@ When running Compose, you get:
   - Health check: `GET /healthz`
 - **Frontend UI** (Next.js) on `http://localhost:${FRONTEND_PORT:-3000}`
 
-Auth (Clerk) is **required** right now. You must configure Clerk keys for the frontend and backend (`CLERK_SECRET_KEY`).
+Auth is configurable per deployment:
+- `AUTH_MODE=local` (self-host default; shared bearer token)
+- `AUTH_MODE=clerk` (Clerk JWT auth; backend requires `CLERK_SECRET_KEY`)
 
 ## Requirements
 
@@ -86,7 +88,7 @@ These persist across `docker compose down`.
 ### Root `.env` (Compose)
 
 - Copy the template: `cp .env.example .env`
-- Edit values as needed (ports, Clerk URLs/keys, etc.)
+- Edit values as needed (ports, auth mode, tokens, API URL, etc.)
 
 Compose is invoked with:
 
@@ -158,7 +160,6 @@ Create `frontend/.env` with at least:
 NEXT_PUBLIC_AUTH_MODE=clerk
 NEXT_PUBLIC_API_URL=http://localhost:8000
 NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY=pk_test_your_real_key
-CLERK_SECRET_KEY=sk_test_your_real_key
 ```
 
 **Security:** treat `LOCAL_AUTH_TOKEN` and `CLERK_SECRET_KEY` like passwords. Do not commit them.

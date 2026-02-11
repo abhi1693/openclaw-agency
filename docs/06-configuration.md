@@ -89,16 +89,12 @@ This table is based on `backend/app/core/config.py`, `.env.example`, `backend/.e
 |---|---:|---|---|---|
 | `NEXT_PUBLIC_API_URL` | **yes** | Backend base URL used by the browser | `http://localhost:8000` | Must be browser-reachable |
 | `NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY` | **yes** | Enables Clerk in the frontend | (none) | Must be a real publishable key |
-| `CLERK_SECRET_KEY` | **yes** | Clerk secret key used by the frontend (server-side) and E2E | (none) | Do not commit; required for Clerk-enabled operation |
-| `NEXT_PUBLIC_CLERK_SIGN_IN_FORCE_REDIRECT_URL` | optional | Post-login redirect | `/boards` | — |
-| `NEXT_PUBLIC_CLERK_SIGN_UP_FORCE_REDIRECT_URL` | optional | Post-signup redirect | `/boards` | — |
 | `NEXT_PUBLIC_CLERK_SIGN_IN_FALLBACK_REDIRECT_URL` | optional | Fallback redirect | `/boards` | — |
-| `NEXT_PUBLIC_CLERK_SIGN_UP_FALLBACK_REDIRECT_URL` | optional | Fallback redirect | `/boards` | — |
 | `NEXT_PUBLIC_CLERK_AFTER_SIGN_OUT_URL` | optional | Post-logout redirect | `/` | — |
 
 ## Operational footguns
 
-- **Clerk placeholder keys**: `frontend/.env.example` contains non-empty Clerk placeholders. `compose.yml` intentionally does **not** load it, because it can accidentally flip Clerk “on”. Prefer user-managed `frontend/.env` (for Compose) or `frontend/.env.local` (for Next dev).
+- **Frontend env template vs runtime env**: `frontend/.env.example` is a template and `compose.yml` intentionally does **not** load it at runtime. Use user-managed `frontend/.env` (for Compose) or `frontend/.env.local` (for Next dev).
 - **`DB_AUTO_MIGRATE`**:
   - In `ENVIRONMENT=dev`, backend defaults `DB_AUTO_MIGRATE=true` if you didn’t set it explicitly.
   - In production, consider disabling auto-migrate and running migrations as an explicit step.

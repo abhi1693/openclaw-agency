@@ -70,8 +70,8 @@ For `local` mode:
 For `clerk` mode, configure:
 
 - `NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY`
-- `CLERK_SECRET_KEY`
-- optional Clerk redirect env vars
+- optional `NEXT_PUBLIC_CLERK_SIGN_IN_FALLBACK_REDIRECT_URL`
+- optional `NEXT_PUBLIC_CLERK_AFTER_SIGN_OUT_URL`
 
 ## How the frontend talks to the backend
 
