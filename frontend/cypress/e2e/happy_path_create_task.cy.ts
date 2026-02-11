@@ -111,7 +111,8 @@ describe("Happy path: create a task", () => {
     // Use list view for simpler assertions.
     cy.contains("button", "List").click();
 
-    cy.contains("button", /new task/i).click();
+    // Prefer explicit aria-label selector (defined in boards page).
+    cy.get('button[aria-label="New task"]').click();
     cy.get("input").first().type("First E2E task");
     cy.contains("button", /create task/i).click();
 
