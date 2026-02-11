@@ -53,6 +53,7 @@ flowchart LR
 
 ### Gateway integration (optional)
 Mission Control can call into an OpenClaw Gateway over WebSockets.
+- Backend integration doc: [Gateway integration (backend)](gateway-integration.md)
 - Client + protocol: `backend/app/services/openclaw/gateway_rpc.py`
 - Protocol doc: [Gateway WebSocket protocol](../openclaw_gateway_ws.md)
 - Base gateway config (getting started): [Gateway base config](../openclaw_gateway_base_config.md)
