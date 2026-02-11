@@ -70,9 +70,9 @@ Cypress.Commands.add("loginWithClerkOtp", () => {
     // Ensure we click the *form* submit button (not a social-login button), otherwise OTP never appears.
     // Some Clerk variants render the submit button without matching text, so don't require a text match.
     cy.get('button[type="submit"], input[type="submit"]', { timeout: 20_000 })
-      .filter(':visible')
       .first()
-      .should('not.be.disabled')
+      .should('be.visible')
+      .and('not.be.disabled')
       .click({ force: true });
   };
 
