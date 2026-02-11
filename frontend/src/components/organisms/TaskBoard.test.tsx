@@ -78,13 +78,13 @@ describe("TaskBoard", () => {
     render(<TaskBoard tasks={tasks} />);
 
     const reviewHeading = screen.getByRole("heading", { name: "Review" });
-    const reviewColumn = reviewHeading.closest(".kanban-column");
+    const reviewColumn = reviewHeading.closest(".kanban-column") as HTMLElement | null;
     expect(reviewColumn).toBeTruthy();
 
-    const header = (reviewColumn as Element).querySelector(".column-header");
+    const header = reviewColumn!.querySelector(".column-header") as HTMLElement | null;
     expect(header).toBeTruthy();
 
-    const headerQueries = within(header as Element);
+    const headerQueries = within(header!);
 
     expect(headerQueries.getByRole("button", { name: /All · 3/i })).toBeInTheDocument();
     expect(
@@ -127,10 +127,10 @@ describe("TaskBoard", () => {
 
     const dropTarget = screen
       .getByRole("heading", { name: "Done" })
-      .closest(".kanban-column");
+      .closest(".kanban-column") as HTMLElement | null;
     expect(dropTarget).toBeTruthy();
 
-    fireEvent.drop(dropTarget as Element, {
+    fireEvent.drop(dropTarget!, {
       dataTransfer: {
         getData: () => JSON.stringify({ taskId: "t1", status: "inbox" }),
       },
