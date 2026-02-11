@@ -16,6 +16,7 @@ import {
   useUpdateApprovalApiV1BoardsBoardIdApprovalsApprovalIdPatch,
 } from "@/api/generated/approvals/approvals";
 import type { ApprovalRead } from "@/api/generated/model";
+import { StatusDot } from "@/components/atoms/StatusDot";
 import {
   ChartContainer,
   ChartTooltip,
@@ -84,12 +85,6 @@ const humanizeAction = (value: string) =>
 
 const formatStatusLabel = (status: string) =>
   status.replace(/_/g, " ").replace(/\b\w/g, (char) => char.toUpperCase());
-
-const statusDotClass = (status: string) => {
-  if (status === "approved") return "bg-emerald-500";
-  if (status === "rejected") return "bg-rose-500";
-  return "bg-amber-500";
-};
 
 const rubricColors = [
   "#0f172a",
@@ -584,10 +579,11 @@ export function BoardApprovalsPanel({
                     </div>
 
                     <div className="flex items-center gap-3 rounded-lg border border-slate-200 bg-slate-50 px-4 py-3">
-                      <span
+                      <StatusDot
+                        status={selectedApproval.status}
+                        variant="approval"
                         className={cn(
                           "h-2 w-2 rounded-full",
-                          statusDotClass(selectedApproval.status),
                         )}
                       />
                       <div>

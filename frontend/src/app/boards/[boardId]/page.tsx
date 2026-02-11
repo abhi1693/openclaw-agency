@@ -20,6 +20,7 @@ import {
 } from "lucide-react";
 
 import { Markdown } from "@/components/atoms/Markdown";
+import { StatusDot } from "@/components/atoms/StatusDot";
 import { DashboardSidebar } from "@/components/organisms/DashboardSidebar";
 import { TaskBoard } from "@/components/organisms/TaskBoard";
 import { DashboardShell } from "@/components/templates/DashboardShell";
@@ -2425,14 +2426,12 @@ export default function BoardDetailPage() {
                         >
                           <div className="relative flex h-9 w-9 items-center justify-center rounded-full bg-slate-100 text-xs font-semibold text-slate-700">
                             {agentAvatarLabel(agent)}
-                            <span
+                            <StatusDot
+                              status={agent.status}
+                              variant="agent"
                               className={cn(
                                 "absolute -right-0.5 -bottom-0.5 h-2.5 w-2.5 rounded-full border-2 border-white",
-                                isWorking
-                                  ? "bg-emerald-500"
-                                  : agent.status === "online"
-                                    ? "bg-green-500"
-                                    : "bg-slate-300",
+                                isWorking && "ring-2 ring-emerald-200",
                               )}
                             />
                           </div>
