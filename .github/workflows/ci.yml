@@ -62,6 +62,36 @@ jobs:
             nextjs-${{ runner.os }}-node-${{ steps.setup-node.outputs.node-version }}-
 
 
+
+      - name: Run migration integrity gate
+        run: |
+          set -euo pipefail
+
+          if [ "${{ github.event_name }}" = "pull_request" ]; then
+            BASE_SHA="${{ github.event.pull_request.base.sha }}"
+            HEAD_SHA="${{ github.sha }}"
+            git fetch --no-tags --depth=1 origin "$BASE_SHA"
+          else
+            BASE_SHA="${{ github.event.before }}"
+            HEAD_SHA="${{ github.sha }}"
+          fi
+
+          CHANGED_FILES=$(git diff --name-only "$BASE_SHA" "$HEAD_SHA")
+          echo "Changed files:"
+          echo "$CHANGED_FILES"
+
+          if ! echo "$CHANGED_FILES" | grep -Eq '^backend/(app/models|db|migrations|alembic\.ini)'; then
+            echo "No migration-relevant backend changes detected; skipping migration gate."
+            exit 0
+          fi
+
+          if echo "$CHANGED_FILES" | grep -Eq '^backend/app/models/' && ! echo "$CHANGED_FILES" | grep -Eq '^backend/migrations/versions/'; then
+            echo "Model changes detected without a migration under backend/migrations/versions/."
+            exit 1
+          fi
+
+          make backend-migration-check
+
       - name: Run backend checks
         env:
           # Keep CI builds deterministic.
