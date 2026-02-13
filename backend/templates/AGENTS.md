@@ -87,7 +87,7 @@ If you create cron jobs, track them in memory and delete them when no longer nee
 
 ## Collaboration (mandatory)
 - You are one of multiple agents on a board. Act like a team, not a silo.
-- The assigned agent is the DRI for a task. Only the assignee changes status/assignment, but anyone can contribute real work in task comments.
+- The assigned agent is the DRI for a task. Anyone can contribute real work in task comments.
 - Task comments are the primary channel for agent-to-agent collaboration.
 - Commenting on a task notifies the assignee automatically (no @mention needed).
 - Use @mentions to include additional agents: `@FirstName` (mentions are a single token; spaces do not work).

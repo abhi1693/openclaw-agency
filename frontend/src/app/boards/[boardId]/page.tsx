@@ -3,7 +3,12 @@
 export const dynamic = "force-dynamic";
 
 import { memo, useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { useParams, useRouter, useSearchParams } from "next/navigation";
+import {
+  useParams,
+  usePathname,
+  useRouter,
+  useSearchParams,
+} from "next/navigation";
 
 import { SignInButton, SignedIn, SignedOut, useAuth } from "@/auth/clerk";
 import {
@@ -30,6 +35,8 @@ import {
 } from "@/components/molecules/DependencyBanner";
 import { DashboardShell } from "@/components/templates/DashboardShell";
 import { BoardChatComposer } from "@/components/BoardChatComposer";
+import { TaskCustomFieldsEditor } from "./TaskCustomFieldsEditor";
+import { buildUrlWithTaskId } from "./task-detail-query";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -82,6 +89,10 @@ import {
   type listTagsApiV1TagsGetResponse,
   useListTagsApiV1TagsGet,
 } from "@/api/generated/tags/tags";
+import {
+  type listOrgCustomFieldsApiV1OrganizationsMeCustomFieldsGetResponse,
+  useListOrgCustomFieldsApiV1OrganizationsMeCustomFieldsGet,
+} from "@/api/generated/org-custom-fields/org-custom-fields";
 import type {
   AgentRead,
   ApprovalRead,
@@ -92,6 +103,7 @@ import type {
   OrganizationMemberRead,
   TaskCardRead,
   TaskCommentRead,
+  TaskCustomFieldDefinitionRead,
   TagRead,
   TaskRead,
 } from "@/api/generated/model";
@@ -102,12 +114,31 @@ import {
   parseApiDatetime,
   toLocalDateInput,
 } from "@/lib/datetime";
+import {
+  DEFAULT_HUMAN_LABEL,
+  resolveHumanActorName,
+  resolveMemberDisplayName,
+} from "@/lib/display-name";
 import { cn } from "@/lib/utils";
 import { usePageActive } from "@/hooks/usePageActive";
+import {
+  boardCustomFieldValues,
+  canonicalizeCustomFieldValues,
+  customFieldPayload,
+  customFieldPatchPayload,
+  firstMissingRequiredCustomField,
+  formatCustomFieldDetailValue,
+  isCustomFieldVisible,
+  type TaskCustomFieldValues,
+} from "./custom-field-utils";
 
 type Board = BoardRead;
 
 type TaskStatus = Exclude<TaskCardRead["status"], undefined>;
+
+type TaskCustomFieldPayload = {
+  custom_field_values?: TaskCustomFieldValues;
+};
 
 type Task = Omit<
   TaskCardRead,
@@ -117,6 +148,7 @@ type Task = Omit<
   priority: string;
   approvals_count: number;
   approvals_pending_count: number;
+  custom_field_values?: TaskCustomFieldValues | null;
 };
 
 type Agent = AgentRead & { status: string };
@@ -174,6 +206,15 @@ const LIVE_FEED_EVENT_TYPES = new Set<LiveFeedEventType>([
 const isLiveFeedEventType = (value: string): value is LiveFeedEventType =>
   LIVE_FEED_EVENT_TYPES.has(value as LiveFeedEventType);
 
+type BoardTaskCreatePayload = Parameters<
+  typeof createTaskApiV1BoardsBoardIdTasksPost
+>[1] &
+  TaskCustomFieldPayload;
+type BoardTaskUpdatePayload = Parameters<
+  typeof updateTaskApiV1BoardsBoardIdTasksTaskIdPatch
+>[2] &
+  TaskCustomFieldPayload;
+
 const toLiveFeedFromActivity = (
   event: ActivityEventRead,
 ): LiveFeedItem | null => {
@@ -204,7 +245,7 @@ const toLiveFeedFromComment = (comment: TaskCommentRead): LiveFeedItem => ({
 
 const toLiveFeedFromBoardChat = (memory: BoardChatMessage): LiveFeedItem => {
   const content = (memory.content ?? "").trim();
-  const actorName = (memory.source ?? "User").trim() || "User";
+  const actorName = resolveHumanActorName(memory.source, DEFAULT_HUMAN_LABEL);
   const isCommand = content.startsWith("/");
   return {
     id: `chat:${memory.id}`,
@@ -555,15 +596,16 @@ TaskCommentCard.displayName = "TaskCommentCard";
 
 const ChatMessageCard = memo(function ChatMessageCard({
   message,
+  fallbackSource,
 }: {
   message: BoardChatMessage;
+  fallbackSource: string;
 }) {
+  const sourceLabel = resolveHumanActorName(message.source, fallbackSource);
   return (
     <div className="rounded-2xl border border-slate-200 bg-slate-50/60 p-4">
       <div className="flex flex-wrap items-center justify-between gap-2">
-        <p className="text-sm font-semibold text-slate-900">
-          {message.source ?? "User"}
-        </p>
+        <p className="text-sm font-semibold text-slate-900">{sourceLabel}</p>
         <span className="text-xs text-slate-400">
           {formatShortTimestamp(message.created_at)}
         </span>
@@ -672,6 +714,7 @@ LiveFeedCard.displayName = "LiveFeedCard";
 export default function BoardDetailPage() {
   const router = useRouter();
   const params = useParams();
+  const pathname = usePathname();
   const searchParams = useSearchParams();
   const boardIdParam = params?.boardId;
   const boardId = Array.isArray(boardIdParam) ? boardIdParam[0] : boardIdParam;
@@ -702,6 +745,29 @@ export default function BoardDetailPage() {
       tagsQuery.data?.status === 200 ? (tagsQuery.data.data.items ?? []) : [],
     [tagsQuery.data],
   );
+  const customFieldDefinitionsQuery =
+    useListOrgCustomFieldsApiV1OrganizationsMeCustomFieldsGet<
+      listOrgCustomFieldsApiV1OrganizationsMeCustomFieldsGetResponse,
+      ApiError
+    >({
+      query: {
+        enabled: Boolean(isSignedIn),
+        refetchOnMount: "always",
+        retry: false,
+      },
+    });
+  const boardCustomFieldDefinitions = useMemo(() => {
+    if (!boardId || customFieldDefinitionsQuery.data?.status !== 200) {
+      return [] as TaskCustomFieldDefinitionRead[];
+    }
+    return (customFieldDefinitionsQuery.data.data ?? [])
+      .filter((definition) => (definition.board_ids ?? []).includes(boardId))
+      .sort((left, right) =>
+        (left.label || left.field_key).localeCompare(
+          right.label || right.field_key,
+        ),
+      );
+  }, [boardId, customFieldDefinitionsQuery.data]);
 
   const boardAccess = useMemo(
     () =>
@@ -716,6 +782,11 @@ export default function BoardDetailPage() {
       membershipQuery.data?.status === 200 ? membershipQuery.data.data : null;
     return member ? ["owner", "admin"].includes(member.role) : false;
   }, [membershipQuery.data]);
+  const currentUserDisplayName = useMemo(() => {
+    const member =
+      membershipQuery.data?.status === 200 ? membershipQuery.data.data : null;
+    return resolveMemberDisplayName(member, DEFAULT_HUMAN_LABEL);
+  }, [membershipQuery.data]);
   const canWrite = boardAccess.canWrite;
 
   const [board, setBoard] = useState<Board | null>(null);
@@ -728,6 +799,7 @@ export default function BoardDetailPage() {
     null,
   );
   const [isLoading, setIsLoading] = useState(false);
+  const [hasLoadedBoardSnapshot, setHasLoadedBoardSnapshot] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [selectedTask, setSelectedTask] = useState<Task | null>(null);
   const selectedTaskIdRef = useRef<string | null>(null);
@@ -1010,6 +1082,8 @@ export default function BoardDetailPage() {
   const [priority, setPriority] = useState("medium");
   const [createDueDate, setCreateDueDate] = useState("");
   const [createTagIds, setCreateTagIds] = useState<string[]>([]);
+  const [createCustomFieldValues, setCreateCustomFieldValues] =
+    useState<TaskCustomFieldValues>({});
   const [createError, setCreateError] = useState<string | null>(null);
   const [isCreating, setIsCreating] = useState(false);
 
@@ -1023,10 +1097,30 @@ export default function BoardDetailPage() {
   const [editDependsOnTaskIds, setEditDependsOnTaskIds] = useState<string[]>(
     [],
   );
+  const [editCustomFieldValues, setEditCustomFieldValues] =
+    useState<TaskCustomFieldValues>({});
   const [isSavingTask, setIsSavingTask] = useState(false);
   const [saveTaskError, setSaveTaskError] = useState<string | null>(null);
 
   const isSidePanelOpen = isDetailOpen || isChatOpen || isLiveFeedOpen;
+  const defaultCreateCustomFieldValues = useMemo(
+    () => boardCustomFieldValues(boardCustomFieldDefinitions, {}),
+    [boardCustomFieldDefinitions],
+  );
+  const selectedTaskCustomFieldValues = useMemo(
+    () =>
+      boardCustomFieldValues(
+        boardCustomFieldDefinitions,
+        selectedTask?.custom_field_values,
+      ),
+    [boardCustomFieldDefinitions, selectedTask?.custom_field_values],
+  );
+
+  useEffect(() => {
+    setCreateCustomFieldValues((prev) =>
+      boardCustomFieldValues(boardCustomFieldDefinitions, prev),
+    );
+  }, [boardCustomFieldDefinitions]);
 
   const titleLabel = useMemo(
     () => (board ? `${board.name} board` : "Board"),
@@ -1097,6 +1191,7 @@ export default function BoardDetailPage() {
 
   const loadBoard = useCallback(async () => {
     if (!isSignedIn || !boardId) return;
+    setHasLoadedBoardSnapshot(false);
     setIsLoading(true);
     setIsApprovalsLoading(true);
     setError(null);
@@ -1150,6 +1245,7 @@ export default function BoardDetailPage() {
     } finally {
       setIsLoading(false);
       setIsApprovalsLoading(false);
+      setHasLoadedBoardSnapshot(true);
     }
   }, [boardId, isSignedIn]);
 
@@ -1497,6 +1593,9 @@ export default function BoardDetailPage() {
       setEditAssigneeId("");
       setEditTagIds([]);
       setEditDependsOnTaskIds([]);
+      setEditCustomFieldValues(
+        boardCustomFieldValues(boardCustomFieldDefinitions, {}),
+      );
       setSaveTaskError(null);
       return;
     }
@@ -1508,8 +1607,14 @@ export default function BoardDetailPage() {
     setEditAssigneeId(selectedTask.assigned_agent_id ?? "");
     setEditTagIds(selectedTask.tag_ids ?? []);
     setEditDependsOnTaskIds(selectedTask.depends_on_task_ids ?? []);
+    setEditCustomFieldValues(
+      boardCustomFieldValues(
+        boardCustomFieldDefinitions,
+        selectedTask.custom_field_values,
+      ),
+    );
     setSaveTaskError(null);
-  }, [selectedTask]);
+  }, [boardCustomFieldDefinitions, selectedTask]);
 
   useEffect(() => {
     if (!isPageActive) return;
@@ -1620,19 +1725,20 @@ export default function BoardDetailPage() {
                     return next;
                   });
                 } else if (payload.task) {
+                  const incomingTask = payload.task;
                   setTasks((prev) => {
                     const index = prev.findIndex(
-                      (item) => item.id === payload.task?.id,
+                      (item) => item.id === incomingTask.id,
                     );
                     if (index === -1) {
-                      const assignee = payload.task?.assigned_agent_id
+                      const assignee = incomingTask.assigned_agent_id
                         ? (agentsRef.current.find(
                             (agent) =>
-                              agent.id === payload.task?.assigned_agent_id,
+                              agent.id === incomingTask.assigned_agent_id,
                           )?.name ?? null)
                         : null;
                       const created = normalizeTask({
-                        ...payload.task,
+                        ...incomingTask,
                         assignee,
                         approvals_count: 0,
                         approvals_pending_count: 0,
@@ -1641,15 +1747,15 @@ export default function BoardDetailPage() {
                     }
                     const next = [...prev];
                     const existing = next[index];
-                    const assignee = payload.task?.assigned_agent_id
+                    const assignee = incomingTask.assigned_agent_id
                       ? (agentsRef.current.find(
                           (agent) =>
-                            agent.id === payload.task?.assigned_agent_id,
+                            agent.id === incomingTask.assigned_agent_id,
                         )?.name ?? null)
                       : null;
                     const updated = normalizeTask({
                       ...existing,
-                      ...payload.task,
+                      ...incomingTask,
                       assignee,
                       approvals_count: existing.approvals_count,
                       approvals_pending_count: existing.approvals_pending_count,
@@ -1657,6 +1763,21 @@ export default function BoardDetailPage() {
                     next[index] = { ...existing, ...updated };
                     return next;
                   });
+                  if (selectedTaskIdRef.current === incomingTask.id) {
+                    setSelectedTask((prev) => {
+                      if (!prev || prev.id !== incomingTask.id) {
+                        return prev;
+                      }
+                      return {
+                        ...prev,
+                        ...incomingTask,
+                        custom_field_values:
+                          incomingTask.custom_field_values !== undefined
+                            ? incomingTask.custom_field_values
+                            : prev.custom_field_values,
+                      };
+                    });
+                  }
                 }
               } catch {
                 // Ignore malformed payloads.
@@ -1815,6 +1936,7 @@ export default function BoardDetailPage() {
     setPriority("medium");
     setCreateDueDate("");
     setCreateTagIds([]);
+    setCreateCustomFieldValues(defaultCreateCustomFieldValues);
     setCreateError(null);
   };
 
@@ -1825,17 +1947,36 @@ export default function BoardDetailPage() {
       setCreateError("Add a task title to continue.");
       return;
     }
+    const createCustomFieldPayload = customFieldPayload(
+      boardCustomFieldDefinitions,
+      createCustomFieldValues,
+    );
+    const missingRequiredCustomField = firstMissingRequiredCustomField(
+      boardCustomFieldDefinitions,
+      createCustomFieldPayload,
+    );
+    if (missingRequiredCustomField) {
+      setCreateError(
+        `Custom field "${missingRequiredCustomField}" is required.`,
+      );
+      return;
+    }
     setIsCreating(true);
     setCreateError(null);
     try {
-      const result = await createTaskApiV1BoardsBoardIdTasksPost(boardId, {
+      const payload: BoardTaskCreatePayload = {
         title: trimmed,
         description: description.trim() || null,
         status: "inbox",
         priority,
         due_at: localDateInputToUtcIso(createDueDate),
         tag_ids: createTagIds,
-      });
+        custom_field_values: createCustomFieldPayload,
+      };
+      const result = await createTaskApiV1BoardsBoardIdTasksPost(
+        boardId,
+        payload,
+      );
       if (result.status !== 200) throw new Error("Unable to create task.");
 
       const created = normalizeTask({
@@ -1872,6 +2013,7 @@ export default function BoardDetailPage() {
           {
             content: trimmed,
             tags: ["chat"],
+            source: currentUserDisplayName,
           },
         );
         if (result.status !== 200) {
@@ -1898,7 +2040,7 @@ export default function BoardDetailPage() {
         return { ok: false, error: message };
       }
     },
-    [boardId, isSignedIn, pushLiveFeed],
+    [boardId, currentUserDisplayName, isSignedIn, pushLiveFeed],
   );
 
   const handleSendChat = useCallback(
@@ -2075,6 +2217,15 @@ export default function BoardDetailPage() {
       .sort()
       .join("|");
     const nextDeps = [...editDependsOnTaskIds].sort().join("|");
+    const currentCustomFieldValues = canonicalizeCustomFieldValues(
+      boardCustomFieldValues(
+        boardCustomFieldDefinitions,
+        selectedTask.custom_field_values,
+      ),
+    );
+    const nextCustomFieldValues = canonicalizeCustomFieldValues(
+      customFieldPayload(boardCustomFieldDefinitions, editCustomFieldValues),
+    );
     return (
       normalizedTitle !== selectedTask.title ||
       normalizedDescription !== currentDescription ||
@@ -2083,7 +2234,8 @@ export default function BoardDetailPage() {
       editDueDate !== currentDueDate ||
       editAssigneeId !== currentAssignee ||
       currentTags !== nextTags ||
-      currentDeps !== nextDeps
+      currentDeps !== nextDeps ||
+      currentCustomFieldValues !== nextCustomFieldValues
     );
   }, [
     editAssigneeId,
@@ -2094,6 +2246,8 @@ export default function BoardDetailPage() {
     editPriority,
     editStatus,
     editTitle,
+    editCustomFieldValues,
+    boardCustomFieldDefinitions,
     selectedTask,
   ]);
 
@@ -2207,12 +2361,21 @@ export default function BoardDetailPage() {
       setIsLiveFeedOpen(false);
       const fullTask = tasksRef.current.find((item) => item.id === task.id);
       if (!fullTask) return;
+      const currentTaskIdFromUrl = searchParams.get("taskId");
+      if (currentTaskIdFromUrl !== fullTask.id) {
+        router.replace(
+          buildUrlWithTaskId(pathname, searchParams, fullTask.id),
+          {
+            scroll: false,
+          },
+        );
+      }
       selectedTaskIdRef.current = fullTask.id;
       setSelectedTask(fullTask);
       setIsDetailOpen(true);
       void loadComments(task.id);
     },
-    [loadComments],
+    [loadComments, pathname, router, searchParams],
   );
 
   const selectedTaskDependencies = useMemo<DependencyBannerDependency[]>(() => {
@@ -2266,15 +2429,38 @@ export default function BoardDetailPage() {
   }, [openComments, selectedTask, tasks]);
 
   useEffect(() => {
-    if (!taskIdFromUrl) return;
+    if (!hasLoadedBoardSnapshot) return;
+    if (!taskIdFromUrl) {
+      openedTaskIdFromUrlRef.current = null;
+      return;
+    }
     if (openedTaskIdFromUrlRef.current === taskIdFromUrl) return;
     const exists = tasks.some((task) => task.id === taskIdFromUrl);
-    if (!exists) return;
+    if (!exists) {
+      router.replace(buildUrlWithTaskId(pathname, searchParams, null), {
+        scroll: false,
+      });
+      return;
+    }
     openedTaskIdFromUrlRef.current = taskIdFromUrl;
     openComments({ id: taskIdFromUrl });
-  }, [openComments, taskIdFromUrl, tasks]);
+  }, [
+    hasLoadedBoardSnapshot,
+    openComments,
+    pathname,
+    router,
+    searchParams,
+    taskIdFromUrl,
+    tasks,
+  ]);
 
   const closeComments = () => {
+    openedTaskIdFromUrlRef.current = null;
+    if (searchParams.get("taskId")) {
+      router.replace(buildUrlWithTaskId(pathname, searchParams, null), {
+        scroll: false,
+      });
+    }
     setIsDetailOpen(false);
     selectedTaskIdRef.current = null;
     setSelectedTask(null);
@@ -2348,6 +2534,34 @@ export default function BoardDetailPage() {
       setSaveTaskError("Title is required.");
       return;
     }
+    const currentTaskCustomFieldValues = boardCustomFieldValues(
+      boardCustomFieldDefinitions,
+      selectedTask.custom_field_values,
+    );
+    const editCustomFieldPayload = customFieldPayload(
+      boardCustomFieldDefinitions,
+      editCustomFieldValues,
+    );
+    const editCustomFieldPatch = customFieldPatchPayload(
+      boardCustomFieldDefinitions,
+      currentTaskCustomFieldValues,
+      editCustomFieldPayload,
+    );
+    const missingRequiredCustomField = firstMissingRequiredCustomField(
+      boardCustomFieldDefinitions.filter((definition) =>
+        Object.prototype.hasOwnProperty.call(
+          editCustomFieldPatch,
+          definition.field_key,
+        ),
+      ),
+      editCustomFieldPatch,
+    );
+    if (missingRequiredCustomField) {
+      setSaveTaskError(
+        `Custom field "${missingRequiredCustomField}" is required.`,
+      );
+      return;
+    }
     setIsSavingTask(true);
     setSaveTaskError(null);
     try {
@@ -2361,10 +2575,10 @@ export default function BoardDetailPage() {
       const tagsChanged = currentTags !== nextTags;
       const currentDueDate = toLocalDateInput(selectedTask.due_at);
       const dueDateChanged = editDueDate !== currentDueDate;
+      const customFieldValuesChanged =
+        Object.keys(editCustomFieldPatch).length > 0;
 
-      const updatePayload: Parameters<
-        typeof updateTaskApiV1BoardsBoardIdTasksTaskIdPatch
-      >[2] = {
+      const updatePayload: BoardTaskUpdatePayload = {
         title: trimmedTitle,
         description: editDescription.trim() || null,
         status: editStatus,
@@ -2380,6 +2594,12 @@ export default function BoardDetailPage() {
       }
       if (dueDateChanged) {
         updatePayload.due_at = localDateInputToUtcIso(editDueDate);
+      }
+      if (
+        customFieldValuesChanged &&
+        Object.keys(editCustomFieldPatch).length > 0
+      ) {
+        updatePayload.custom_field_values = editCustomFieldPatch;
       }
 
       const result = await updateTaskApiV1BoardsBoardIdTasksTaskIdPatch(
@@ -2445,6 +2665,12 @@ export default function BoardDetailPage() {
     setEditAssigneeId(selectedTask.assigned_agent_id ?? "");
     setEditTagIds(selectedTask.tag_ids ?? []);
     setEditDependsOnTaskIds(selectedTask.depends_on_task_ids ?? []);
+    setEditCustomFieldValues(
+      boardCustomFieldValues(
+        boardCustomFieldDefinitions,
+        selectedTask.custom_field_values,
+      ),
+    );
     setSaveTaskError(null);
   };
 
@@ -3409,6 +3635,44 @@ export default function BoardDetailPage() {
             </div>
             <div className="space-y-2">
               <p className="text-xs font-semibold uppercase tracking-wider text-slate-500">
+                Custom fields
+              </p>
+              {customFieldDefinitionsQuery.isLoading ? (
+                <p className="text-sm text-slate-500">Loading custom fields…</p>
+              ) : boardCustomFieldDefinitions.length > 0 ? (
+                <div className="rounded-lg border border-slate-200 bg-slate-50 p-3">
+                  <dl className="space-y-2">
+                    {boardCustomFieldDefinitions.map((definition) => {
+                      const value =
+                        selectedTaskCustomFieldValues[definition.field_key];
+                      if (!isCustomFieldVisible(definition, value)) {
+                        return null;
+                      }
+                      return (
+                        <div
+                          key={definition.id}
+                          className="grid grid-cols-[160px_1fr] gap-3"
+                        >
+                          <dt className="text-xs font-semibold text-slate-600">
+                            {definition.label || definition.field_key}
+                            {definition.required === true ? (
+                              <span className="ml-1 text-rose-600">*</span>
+                            ) : null}
+                          </dt>
+                          <dd className="text-xs text-slate-800">
+                            {formatCustomFieldDetailValue(definition, value)}
+                          </dd>
+                        </div>
+                      );
+                    })}
+                  </dl>
+                </div>
+              ) : (
+                <p className="text-sm text-slate-500">No custom fields.</p>
+              )}
+            </div>
+            <div className="space-y-2">
+              <p className="text-xs font-semibold uppercase tracking-wider text-slate-500">
                 Tags
               </p>
               {selectedTask?.tags?.length ? (
@@ -3617,7 +3881,7 @@ export default function BoardDetailPage() {
                       authorLabel={
                         comment.agent_id
                           ? (assigneeById.get(comment.agent_id) ?? "Agent")
-                          : "Admin"
+                          : currentUserDisplayName
                       }
                     />
                   ))}
@@ -3666,7 +3930,11 @@ export default function BoardDetailPage() {
                 </p>
               ) : (
                 chatMessages.map((message) => (
-                  <ChatMessageCard key={message.id} message={message} />
+                  <ChatMessageCard
+                    key={message.id}
+                    message={message}
+                    fallbackSource={currentUserDisplayName}
+                  />
                 ))
               )}
               <div ref={chatEndRef} />
@@ -3731,8 +3999,11 @@ export default function BoardDetailPage() {
                       null)
                     : null;
                   const authorName =
-                    item.actor_name?.trim() ||
-                    (authorAgent ? authorAgent.name : "Admin");
+                    authorAgent?.name ??
+                    resolveHumanActorName(
+                      item.actor_name,
+                      currentUserDisplayName,
+                    );
                   const authorRole = authorAgent
                     ? agentRoleLabel(authorAgent)
                     : null;
@@ -3795,6 +4066,18 @@ export default function BoardDetailPage() {
                 onChange={(event) => setEditDescription(event.target.value)}
                 placeholder="Task details"
                 className="min-h-[140px]"
+                disabled={!selectedTask || isSavingTask || !canWrite}
+              />
+            </div>
+            <div className="space-y-2">
+              <label className="text-xs font-semibold uppercase tracking-wider text-slate-500">
+                Custom fields
+              </label>
+              <TaskCustomFieldsEditor
+                definitions={boardCustomFieldDefinitions}
+                values={editCustomFieldValues}
+                setValues={setEditCustomFieldValues}
+                isLoading={customFieldDefinitionsQuery.isLoading}
                 disabled={!selectedTask || isSavingTask || !canWrite}
               />
             </div>
@@ -4119,6 +4402,18 @@ export default function BoardDetailPage() {
                 onChange={(event) => setDescription(event.target.value)}
                 placeholder="Optional details"
                 className="min-h-[120px]"
+                disabled={!canWrite || isCreating}
+              />
+            </div>
+            <div className="space-y-2">
+              <label className="text-sm font-medium text-strong">
+                Custom fields
+              </label>
+              <TaskCustomFieldsEditor
+                definitions={boardCustomFieldDefinitions}
+                values={createCustomFieldValues}
+                setValues={setCreateCustomFieldValues}
+                isLoading={customFieldDefinitionsQuery.isLoading}
                 disabled={!canWrite || isCreating}
               />
             </div>

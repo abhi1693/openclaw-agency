@@ -18,7 +18,7 @@ from app.models.boards import Board
 from app.models.gateways import Gateway
 from app.models.organizations import Organization
 from app.models.tasks import Task
-from app.schemas.tasks import TaskUpdate
+from app.schemas.tasks import TaskRead, TaskUpdate
 
 
 async def _make_engine() -> AsyncEngine:
@@ -39,6 +39,8 @@ async def _seed_board_task_and_agent(
     require_approval_for_done: bool = True,
     require_review_before_done: bool = False,
     block_status_changes_with_pending_approval: bool = False,
+    only_lead_can_change_status: bool = False,
+    agent_is_board_lead: bool = False,
 ) -> tuple[Board, Task, Agent]:
     organization_id = uuid4()
     gateway = Gateway(
@@ -57,6 +59,7 @@ async def _seed_board_task_and_agent(
         require_approval_for_done=require_approval_for_done,
         require_review_before_done=require_review_before_done,
         block_status_changes_with_pending_approval=block_status_changes_with_pending_approval,
+        only_lead_can_change_status=only_lead_can_change_status,
     )
     task = Task(id=uuid4(), board_id=board.id, title="Task", status=task_status)
     agent = Agent(
@@ -65,7 +68,7 @@ async def _seed_board_task_and_agent(
         gateway_id=gateway.id,
         name="agent",
         status="online",
-        is_board_lead=False,
+        is_board_lead=agent_is_board_lead,
     )
 
     session.add(Organization(id=organization_id, name=f"org-{organization_id}"))
@@ -97,8 +100,8 @@ async def _update_task_status(
     task: Task,
     agent: Agent,
     status: Literal["inbox", "in_progress", "review", "done"],
-) -> None:
-    await tasks_api.update_task(
+) -> TaskRead:
+    return await tasks_api.update_task(
         payload=TaskUpdate(status=status),
         task=task,
         session=session,
@@ -352,6 +355,81 @@ async def test_update_task_allows_status_change_with_pending_approval_when_toggl
             )
 
             assert updated.status == "in_progress"
+    finally:
+        await engine.dispose()
+
+
+@pytest.mark.asyncio
+async def test_update_task_rejects_non_lead_status_change_when_only_lead_rule_enabled() -> None:
+    engine = await _make_engine()
+    try:
+        async with await _make_session(engine) as session:
+            _board, task, agent = await _seed_board_task_and_agent(
+                session,
+                task_status="inbox",
+                require_approval_for_done=False,
+                only_lead_can_change_status=True,
+            )
+
+            with pytest.raises(HTTPException) as exc:
+                await _update_task_status(
+                    session,
+                    task=task,
+                    agent=agent,
+                    status="in_progress",
+                )
+
+            assert exc.value.status_code == 403
+    finally:
+        await engine.dispose()
+
+
+@pytest.mark.asyncio
+async def test_update_task_allows_non_lead_status_change_when_only_lead_rule_disabled() -> None:
+    engine = await _make_engine()
+    try:
+        async with await _make_session(engine) as session:
+            _board, task, agent = await _seed_board_task_and_agent(
+                session,
+                task_status="inbox",
+                require_approval_for_done=False,
+                only_lead_can_change_status=False,
+            )
+
+            updated = await _update_task_status(
+                session,
+                task=task,
+                agent=agent,
+                status="in_progress",
+            )
+
+            assert updated.status == "in_progress"
+    finally:
+        await engine.dispose()
+
+
+@pytest.mark.asyncio
+async def test_update_task_lead_can_still_change_status_when_only_lead_rule_enabled() -> None:
+    engine = await _make_engine()
+    try:
+        async with await _make_session(engine) as session:
+            _board, task, lead_agent = await _seed_board_task_and_agent(
+                session,
+                task_status="review",
+                require_approval_for_done=False,
+                require_review_before_done=False,
+                only_lead_can_change_status=True,
+                agent_is_board_lead=True,
+            )
+
+            updated = await tasks_api.update_task(
+                payload=TaskUpdate(status="inbox"),
+                task=task,
+                session=session,
+                actor=ActorContext(actor_type="agent", agent=lead_agent),
+            )
+
+            assert updated.status == "inbox"
     finally:
         await engine.dispose()
 

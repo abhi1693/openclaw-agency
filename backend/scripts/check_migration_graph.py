@@ -43,7 +43,9 @@ def main() -> int:
         return 1
 
     if len(heads) > 1 and not allow_multiple_heads:
-        print("ERROR: multiple Alembic heads detected (set ALLOW_MULTIPLE_HEADS=true only for intentional merge windows)")
+        print(
+            "ERROR: multiple Alembic heads detected (set ALLOW_MULTIPLE_HEADS=true only for intentional merge windows)"
+        )
         for h in heads:
             print(f"  - {h}")
         return 1

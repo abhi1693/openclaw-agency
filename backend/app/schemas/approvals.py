@@ -48,6 +48,7 @@ class ApprovalCreate(ApprovalBase):
     """Payload for creating a new approval request."""
 
     agent_id: UUID | None = None
+    lead_reasoning: str | None = None
 
     @model_validator(mode="after")
     def validate_lead_reasoning(self) -> Self:
@@ -62,6 +63,13 @@ class ApprovalCreate(ApprovalBase):
                 nested_reason = decision.get("reason")
                 if isinstance(nested_reason, str) and nested_reason.strip():
                     return self
+        lead_reasoning = self.lead_reasoning
+        if isinstance(lead_reasoning, str) and lead_reasoning.strip():
+            self.payload = {
+                **(payload if isinstance(payload, dict) else {}),
+                "reason": lead_reasoning.strip(),
+            }
+            return self
         raise ValueError(LEAD_REASONING_REQUIRED_ERROR)
 
 

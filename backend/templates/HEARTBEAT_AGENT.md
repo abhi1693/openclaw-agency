@@ -66,7 +66,6 @@ jq -r '
 
 ## Task mentions
 - If you receive TASK MENTION or are @mentioned in a task, reply in that task.
-- If you are not assigned, do not change task status or assignment.
 - If a non-lead peer posts a task update and you are not mentioned, only reply when you add net-new value.
 
 ## Board chat messages

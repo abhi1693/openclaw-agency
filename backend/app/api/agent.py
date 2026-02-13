@@ -3,8 +3,7 @@
 from __future__ import annotations
 
 from enum import Enum
-from typing import TYPE_CHECKING, Any
-from typing import cast
+from typing import TYPE_CHECKING, Any, cast
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, HTTPException, Query, status
@@ -288,13 +287,16 @@ async def create_task(
     """Create a task as the board lead.
 
     Lead-only endpoint. Supports dependency-aware creation via
-    `depends_on_task_ids` and optional `tag_ids`.
+    `depends_on_task_ids`, optional `tag_ids`, and `custom_field_values`.
     """
     _guard_board_access(agent_ctx, board)
     _require_board_lead(agent_ctx)
-    data = payload.model_dump(exclude={"depends_on_task_ids", "tag_ids"})
+    data = payload.model_dump(
+        exclude={"depends_on_task_ids", "tag_ids", "custom_field_values"},
+    )
     depends_on_task_ids = list(payload.depends_on_task_ids)
     tag_ids = list(payload.tag_ids)
+    custom_field_values = dict(payload.custom_field_values)
 
     task = Task.model_validate(data)
     task.board_id = board.id
@@ -344,6 +346,12 @@ async def create_task(
     session.add(task)
     # Ensure the task exists in the DB before inserting dependency rows.
     await session.flush()
+    await tasks_api._set_task_custom_field_values_for_create(
+        session,
+        board_id=board.id,
+        task_id=task.id,
+        custom_field_values=custom_field_values,
+    )
     for dep_id in normalized_deps:
         session.add(
             TaskDependency(

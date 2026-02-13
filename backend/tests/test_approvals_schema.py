@@ -58,3 +58,16 @@ def test_approval_create_accepts_float_confidence() -> None:
         },
     )
     assert model.confidence == 88.75
+
+
+def test_approval_create_accepts_top_level_lead_reasoning() -> None:
+    model = ApprovalCreate.model_validate(
+        {
+            "action_type": "task.update",
+            "confidence": 80,
+            "lead_reasoning": "Need manual review before changing task status.",
+        },
+    )
+    assert model.payload == {
+        "reason": "Need manual review before changing task status.",
+    }

@@ -45,6 +45,31 @@ Core operational areas:
 
 ## Get started in minutes
 
+### Option A: One-command production-style bootstrap
+
+If you haven't cloned the repo yet, you can run the installer in one line:
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/abhi1693/openclaw-mission-control/master/install.sh | bash
+```
+
+If you already cloned the repo:
+
+```bash
+./install.sh
+```
+
+The installer is interactive and will:
+
+- Ask for deployment mode (`docker` or `local`).
+- Install missing system dependencies when possible.
+- Generate and configure environment files.
+- Bootstrap and start the selected deployment mode.
+
+Installer support matrix: [`docs/installer-support.md`](./docs/installer-support.md)
+
+### Option B: Manual setup
+
 ### Prerequisites
 
 - Docker Engine

@@ -53,6 +53,7 @@ import {
 import SearchableSelect from "@/components/ui/searchable-select";
 import { Textarea } from "@/components/ui/textarea";
 import { localDateInputToUtcIso, toLocalDateInput } from "@/lib/datetime";
+import { Markdown } from "@/components/atoms/Markdown";
 
 const slugify = (value: string) =>
   value
@@ -188,7 +189,9 @@ function WebhookCard({
           disabled={isBusy}
         />
       ) : (
-        <p className="text-sm text-slate-700">{webhook.description}</p>
+        <div className="text-sm text-slate-700">
+          <Markdown content={webhook.description || ""} variant="description" />
+        </div>
       )}
       <div className="rounded-md bg-slate-50 px-3 py-2">
         <code className="break-all text-xs text-slate-700">
@@ -231,6 +234,9 @@ export default function EditBoardPage() {
     blockStatusChangesWithPendingApproval,
     setBlockStatusChangesWithPendingApproval,
   ] = useState<boolean | undefined>(undefined);
+  const [onlyLeadCanChangeStatus, setOnlyLeadCanChangeStatus] = useState<
+    boolean | undefined
+  >(undefined);
   const [successMetrics, setSuccessMetrics] = useState<string | undefined>(
     undefined,
   );
@@ -425,6 +431,8 @@ export default function EditBoardPage() {
     blockStatusChangesWithPendingApproval ??
     baseBoard?.block_status_changes_with_pending_approval ??
     false;
+  const resolvedOnlyLeadCanChangeStatus =
+    onlyLeadCanChangeStatus ?? baseBoard?.only_lead_can_change_status ?? false;
   const resolvedSuccessMetrics =
     successMetrics ??
     (baseBoard?.success_metrics
@@ -498,6 +506,7 @@ export default function EditBoardPage() {
     setBlockStatusChangesWithPendingApproval(
       updated.block_status_changes_with_pending_approval ?? false,
     );
+    setOnlyLeadCanChangeStatus(updated.only_lead_can_change_status ?? false);
     setSuccessMetrics(
       updated.success_metrics
         ? JSON.stringify(updated.success_metrics, null, 2)
@@ -559,6 +568,7 @@ export default function EditBoardPage() {
       require_review_before_done: resolvedRequireReviewBeforeDone,
       block_status_changes_with_pending_approval:
         resolvedBlockStatusChangesWithPendingApproval,
+      only_lead_can_change_status: resolvedOnlyLeadCanChangeStatus,
       success_metrics: resolvedBoardType === "general" ? null : parsedMetrics,
       target_date:
         resolvedBoardType === "general"
@@ -921,6 +931,39 @@ export default function EditBoardPage() {
                   <span className="block text-xs text-slate-600">
                     Prevent status transitions while any linked approval is in{" "}
                     <code>pending</code> state.
+                  </span>
+                </span>
+              </div>
+              <div className="flex items-start gap-3 rounded-lg border border-slate-200 px-3 py-3">
+                <button
+                  type="button"
+                  role="switch"
+                  aria-checked={resolvedOnlyLeadCanChangeStatus}
+                  aria-label="Only lead can change status"
+                  onClick={() =>
+                    setOnlyLeadCanChangeStatus(!resolvedOnlyLeadCanChangeStatus)
+                  }
+                  disabled={isLoading}
+                  className={`mt-0.5 inline-flex h-6 w-11 shrink-0 items-center rounded-full border transition ${
+                    resolvedOnlyLeadCanChangeStatus
+                      ? "border-emerald-600 bg-emerald-600"
+                      : "border-slate-300 bg-slate-200"
+                  } ${isLoading ? "cursor-not-allowed opacity-60" : "cursor-pointer"}`}
+                >
+                  <span
+                    className={`inline-block h-5 w-5 rounded-full bg-white shadow-sm transition ${
+                      resolvedOnlyLeadCanChangeStatus
+                        ? "translate-x-5"
+                        : "translate-x-0.5"
+                    }`}
+                  />
+                </button>
+                <span className="space-y-1">
+                  <span className="block text-sm font-medium text-slate-900">
+                    Only lead can change status
+                  </span>
+                  <span className="block text-xs text-slate-600">
+                    Restrict status changes to the board lead.
                   </span>
                 </span>
               </div>

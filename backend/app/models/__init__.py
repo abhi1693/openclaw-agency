@@ -19,6 +19,11 @@ from app.models.organization_members import OrganizationMember
 from app.models.organizations import Organization
 from app.models.tag_assignments import TagAssignment
 from app.models.tags import Tag
+from app.models.task_custom_fields import (
+    BoardTaskCustomField,
+    TaskCustomFieldDefinition,
+    TaskCustomFieldValue,
+)
 from app.models.task_dependencies import TaskDependency
 from app.models.task_fingerprints import TaskFingerprint
 from app.models.tasks import Task
@@ -38,6 +43,9 @@ __all__ = [
     "Board",
     "Gateway",
     "Organization",
+    "BoardTaskCustomField",
+    "TaskCustomFieldDefinition",
+    "TaskCustomFieldValue",
     "OrganizationMember",
     "OrganizationBoardAccess",
     "OrganizationInvite",
