@@ -107,8 +107,7 @@ async def _tasks_for_pr_url(
         .where(col(TaskCustomFieldDefinition.field_key) == "github_pr_url")
         .order_by(col(Task.created_at).asc())
     )
-    raw_rows = list(await session.exec(statement))
-    rows = cast(list[tuple[Task, object]], raw_rows)
+    rows = list(await session.exec(statement))
 
     tasks: list[Task] = []
     for task, value in rows:
