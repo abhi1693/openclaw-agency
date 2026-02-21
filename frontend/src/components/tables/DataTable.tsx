@@ -1,3 +1,5 @@
+"use client";
+
 import type { ReactNode } from "react";
 import Link from "next/link";
 
@@ -8,6 +10,7 @@ import {
   TableLoadingRow,
 } from "@/components/ui/table-state";
 import { Button, buttonVariants } from "@/components/ui/button";
+import { useTranslation } from "@/lib/i18n";
 
 export type DataTableEmptyState = {
   icon: ReactNode;
@@ -52,8 +55,8 @@ type DataTableProps<TData> = {
 export function DataTable<TData>({
   table,
   isLoading = false,
-  loadingLabel = "Loading…",
-  emptyMessage = "No rows found.",
+  loadingLabel,
+  emptyMessage,
   emptyState,
   rowActions,
   stickyHeader = false,
@@ -64,20 +67,23 @@ export function DataTable<TData>({
   rowClassName = "hover:bg-slate-50",
   cellClassName = "px-6 py-4",
 }: DataTableProps<TData>) {
+  const { t } = useTranslation();
+  const resolvedLoadingLabel = loadingLabel ?? t("common.loading");
+  const resolvedEmptyMessage = emptyMessage ?? t("common.noRowsFound");
   const resolvedRowActions = rowActions
     ? (rowActions.actions ??
       [
         rowActions.getEditHref
           ? ({
               key: "edit",
-              label: "Edit",
+              label: t("common.edit"),
               href: rowActions.getEditHref,
             } as DataTableRowAction<TData>)
           : null,
         rowActions.onDelete
           ? ({
               key: "delete",
-              label: "Delete",
+              label: t("common.delete"),
               onClick: rowActions.onDelete,
             } as DataTableRowAction<TData>)
           : null,
@@ -138,7 +144,7 @@ export function DataTable<TData>({
         </thead>
         <tbody className={bodyClassName}>
           {isLoading ? (
-            <TableLoadingRow colSpan={colSpan} label={loadingLabel} />
+            <TableLoadingRow colSpan={colSpan} label={resolvedLoadingLabel} />
           ) : table.getRowModel().rows.length ? (
             table.getRowModel().rows.map((row) => (
               <tr
@@ -208,7 +214,7 @@ export function DataTable<TData>({
                 colSpan={colSpan}
                 className="px-6 py-8 text-sm text-slate-500"
               >
-                {emptyMessage}
+                {resolvedEmptyMessage}
               </td>
             </tr>
           )}

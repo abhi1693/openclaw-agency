@@ -12,11 +12,13 @@ import { useAcceptOrgInviteApiV1OrganizationsInvitesAcceptPost } from "@/api/gen
 import { BrandMark } from "@/components/atoms/BrandMark";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { useTranslation } from "@/lib/i18n";
 
 function InviteContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const { isSignedIn } = useAuth();
+  const { t } = useTranslation();
 
   const tokenFromQuery = (searchParams.get("token") ?? "").trim();
   const [token, setToken] = useState(tokenFromQuery);
@@ -38,7 +40,7 @@ function InviteContent() {
           }
         },
         onError: (err) => {
-          setError(err.message || "Unable to accept invite.");
+          setError(err.message || t("invite.acceptFailed"));
         },
       },
     });
@@ -48,7 +50,7 @@ function InviteContent() {
     if (!isSignedIn) return;
     const trimmed = token.trim();
     if (!trimmed) {
-      setError("Invite token is required.");
+      setError(t("invite.tokenRequired"));
       return;
     }
     setError(null);
@@ -59,13 +61,13 @@ function InviteContent() {
   const isReady = Boolean(token.trim());
   const helperText = useMemo(() => {
     if (accepted) {
-      return "Invite accepted. Redirecting to your organization…";
+      return t("invite.accepted");
     }
     if (!token.trim()) {
-      return "Paste the invite token or open the invite link you were sent.";
+      return t("invite.description");
     }
-    return "Accept the invite to join the organization.";
-  }, [accepted, token]);
+    return t("invite.acceptDesc");
+  }, [accepted, token, t]);
 
   return (
     <div className="min-h-screen bg-app text-strong">
@@ -79,22 +81,22 @@ function InviteContent() {
         <div className="rounded-2xl border border-[color:var(--border)] bg-[color:var(--surface)] p-8 shadow-sm">
           <div className="flex flex-col gap-3">
             <p className="text-xs font-semibold uppercase tracking-[0.3em] text-quiet">
-              Organization Invite
+              {t("invite.title")}
             </p>
             <h1 className="text-2xl font-semibold text-strong">
-              Join your team in OpenClaw
+              {t("invite.subtitle")}
             </h1>
             <p className="text-sm text-muted">{helperText}</p>
           </div>
 
           <div className="mt-6 flex flex-col gap-4">
             <label className="text-xs font-semibold uppercase tracking-[0.2em] text-quiet">
-              Invite Token
+              {t("invite.tokenLabel")}
             </label>
             <Input
               value={token}
               onChange={(event) => setToken(event.target.value)}
-              placeholder="Paste invite token"
+              placeholder={t("invite.tokenPlaceholder")}
               disabled={accepted || isSubmitting}
             />
 
@@ -106,9 +108,9 @@ function InviteContent() {
 
             <SignedOut>
               <div className="flex flex-col gap-3 rounded-xl border border-dashed border-[color:var(--border)] bg-[color:var(--surface-muted)] p-4 text-sm text-muted">
-                <p>Sign in to accept your invite.</p>
+                <p>{t("invite.signInPrompt")}</p>
                 <SignInButton mode="modal">
-                  <Button size="md">Sign in</Button>
+                  <Button size="md">{t("menu.signIn")}</Button>
                 </SignInButton>
               </div>
             </SignedOut>
@@ -124,10 +126,10 @@ function InviteContent() {
                   disabled={!isReady || isSubmitting || accepted}
                 >
                   {accepted
-                    ? "Invite accepted"
+                    ? t("invite.accepted")
                     : isSubmitting
-                      ? "Accepting…"
-                      : "Accept invite"}
+                      ? t("invite.accepting")
+                      : t("invite.accept")}
                 </Button>
                 <Button
                   type="button"
@@ -136,7 +138,7 @@ function InviteContent() {
                   onClick={() => router.push("/")}
                   disabled={isSubmitting}
                 >
-                  Go back
+                  {t("common.goBack")}
                 </Button>
               </form>
             </SignedIn>
@@ -147,24 +149,27 @@ function InviteContent() {
   );
 }
 
+function InviteLoadingFallback() {
+  const { t } = useTranslation();
+  return (
+    <div className="min-h-screen bg-app text-strong">
+      <header className="border-b border-[color:var(--border)] bg-white">
+        <div className="mx-auto flex max-w-5xl items-center justify-between px-6 py-4">
+          <BrandMark />
+        </div>
+      </header>
+      <main className="mx-auto flex max-w-3xl flex-col gap-6 px-6 py-16">
+        <div className="rounded-2xl border border-[color:var(--border)] bg-[color:var(--surface)] p-8 shadow-sm">
+          <div className="text-sm text-muted">{t("invite.loading")}</div>
+        </div>
+      </main>
+    </div>
+  );
+}
+
 export default function InvitePage() {
   return (
-    <Suspense
-      fallback={
-        <div className="min-h-screen bg-app text-strong">
-          <header className="border-b border-[color:var(--border)] bg-white">
-            <div className="mx-auto flex max-w-5xl items-center justify-between px-6 py-4">
-              <BrandMark />
-            </div>
-          </header>
-          <main className="mx-auto flex max-w-3xl flex-col gap-6 px-6 py-16">
-            <div className="rounded-2xl border border-[color:var(--border)] bg-[color:var(--surface)] p-8 shadow-sm">
-              <div className="text-sm text-muted">Loading invite…</div>
-            </div>
-          </main>
-        </div>
-      }
-    >
+    <Suspense fallback={<InviteLoadingFallback />}>
       <InviteContent />
     </Suspense>
   );

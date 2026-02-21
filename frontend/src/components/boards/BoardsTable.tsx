@@ -1,3 +1,5 @@
+"use client";
+
 import { useMemo, useState } from "react";
 
 import {
@@ -17,6 +19,7 @@ import {
   type DataTableEmptyState,
 } from "@/components/tables/DataTable";
 import { dateCell, linkifyCell } from "@/components/tables/cell-formatters";
+import { useTranslation } from "@/lib/i18n";
 
 type BoardsTableProps = {
   boards: BoardRead[];
@@ -68,9 +71,11 @@ export function BoardsTable({
   columnOrder,
   disableSorting = false,
   onDelete,
-  emptyMessage = "No boards found.",
+  emptyMessage,
   emptyState,
 }: BoardsTableProps) {
+  const { t } = useTranslation();
+  const resolvedEmptyMessage = emptyMessage ?? t("boards.noBoardsFound");
   const [internalSorting, setInternalSorting] = useState<SortingState>([
     { id: "name", desc: false },
   ]);
@@ -99,7 +104,7 @@ export function BoardsTable({
     const baseColumns: ColumnDef<BoardRead>[] = [
       {
         accessorKey: "name",
-        header: "Board",
+        header: t("boards.board"),
         cell: ({ row }) =>
           linkifyCell({
             href: `/boards/${row.original.id}`,
@@ -113,7 +118,7 @@ export function BoardsTable({
           if (!groupId) return "";
           return groupById.get(groupId)?.name ?? groupId;
         },
-        header: "Group",
+        header: t("boards.group"),
         cell: ({ row }) => {
           const groupId = row.original.board_group_id;
           if (!groupId) {
@@ -132,13 +137,13 @@ export function BoardsTable({
       },
       {
         accessorKey: "updated_at",
-        header: "Updated",
+        header: t("common.updated"),
         cell: ({ row }) => dateCell(row.original.updated_at),
       },
     ];
 
     return baseColumns;
-  }, [groupById]);
+  }, [groupById, t]);
 
   // eslint-disable-next-line react-hooks/incompatible-library
   const table = useReactTable({
@@ -160,7 +165,7 @@ export function BoardsTable({
       table={table}
       isLoading={isLoading}
       stickyHeader={stickyHeader}
-      emptyMessage={emptyMessage}
+      emptyMessage={resolvedEmptyMessage}
       rowClassName="transition hover:bg-slate-50"
       cellClassName="px-6 py-4 align-top"
       rowActions={

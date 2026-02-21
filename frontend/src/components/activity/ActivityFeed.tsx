@@ -1,4 +1,8 @@
+"use client";
+
 import type { ReactNode } from "react";
+
+import { useTranslation } from "@/lib/i18n";
 
 type FeedItem = {
   id: string;
@@ -17,15 +21,17 @@ export function ActivityFeed<TItem extends FeedItem>({
   items,
   renderItem,
 }: ActivityFeedProps<TItem>) {
+  const { t } = useTranslation();
+
   if (isLoading && items.length === 0) {
-    return <p className="text-sm text-slate-500">Loading feed…</p>;
+    return <p className="text-sm text-slate-500">{t("activity.loadingFeed")}</p>;
   }
 
   const hasError = errorMessage !== null && errorMessage !== undefined;
   if (hasError) {
     return (
       <div className="rounded-lg border border-slate-200 bg-white p-4 text-sm text-slate-700 shadow-sm">
-        {errorMessage || "Unable to load feed."}
+        {errorMessage || t("activity.loadFailed")}
       </div>
     );
   }
@@ -34,10 +40,10 @@ export function ActivityFeed<TItem extends FeedItem>({
     return (
       <div className="rounded-xl border border-slate-200 bg-white p-10 text-center shadow-sm">
         <p className="text-sm font-medium text-slate-900">
-          Waiting for new activity…
+          {t("activity.waitingActivity")}
         </p>
         <p className="mt-1 text-sm text-slate-500">
-          When updates happen, they will show up here.
+          {t("activity.waitingDesc")}
         </p>
       </div>
     );

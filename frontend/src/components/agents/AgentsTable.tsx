@@ -1,3 +1,5 @@
+"use client";
+
 import { type ReactNode, useMemo, useState } from "react";
 
 import {
@@ -19,6 +21,7 @@ import {
   pillCell,
 } from "@/components/tables/cell-formatters";
 import { truncateText as truncate } from "@/lib/formatters";
+import { useTranslation } from "@/lib/i18n";
 
 type AgentsTableEmptyState = {
   title: string;
@@ -72,10 +75,14 @@ export function AgentsTable({
   columnOrder,
   disableSorting = false,
   stickyHeader = false,
-  emptyMessage = "No agents found.",
+  emptyMessage,
   emptyState,
   onDelete,
 }: AgentsTableProps) {
+  const { t } = useTranslation();
+
+  const resolvedEmptyMessage = emptyMessage ?? t("agents.noAgentsFound");
+
   const [internalSorting, setInternalSorting] = useState<SortingState>([
     { id: "name", desc: false },
   ]);
@@ -103,7 +110,7 @@ export function AgentsTable({
     const baseColumns: ColumnDef<AgentRead>[] = [
       {
         accessorKey: "name",
-        header: "Agent",
+        header: t("agents.agent"),
         cell: ({ row }) =>
           linkifyCell({
             href: `/agents/${row.original.id}`,
@@ -113,12 +120,12 @@ export function AgentsTable({
       },
       {
         accessorKey: "status",
-        header: "Status",
+        header: t("common.status"),
         cell: ({ row }) => pillCell(row.original.status),
       },
       {
         accessorKey: "openclaw_session_id",
-        header: "Session",
+        header: t("agents.session"),
         cell: ({ row }) => (
           <span className="text-sm text-slate-700">
             {truncate(row.original.openclaw_session_id)}
@@ -127,7 +134,7 @@ export function AgentsTable({
       },
       {
         accessorKey: "board_id",
-        header: "Board",
+        header: t("boards.board"),
         cell: ({ row }) => {
           const boardId = row.original.board_id;
           if (!boardId) {
@@ -143,19 +150,19 @@ export function AgentsTable({
       },
       {
         accessorKey: "last_seen_at",
-        header: "Last seen",
+        header: t("agents.lastSeen"),
         cell: ({ row }) =>
           dateCell(row.original.last_seen_at, { relative: true }),
       },
       {
         accessorKey: "updated_at",
-        header: "Updated",
+        header: t("common.updated"),
         cell: ({ row }) => dateCell(row.original.updated_at),
       },
     ];
 
     return baseColumns;
-  }, [boardNameById]);
+  }, [t, boardNameById]);
 
   // eslint-disable-next-line react-hooks/incompatible-library
   const table = useReactTable({
@@ -176,7 +183,7 @@ export function AgentsTable({
     <DataTable
       table={table}
       isLoading={isLoading}
-      emptyMessage={emptyMessage}
+      emptyMessage={resolvedEmptyMessage}
       stickyHeader={stickyHeader}
       rowActions={
         showActions

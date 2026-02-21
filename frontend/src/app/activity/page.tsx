@@ -35,6 +35,7 @@ import { SignedOutPanel } from "@/components/auth/SignedOutPanel";
 import { DashboardSidebar } from "@/components/organisms/DashboardSidebar";
 import { DashboardShell } from "@/components/templates/DashboardShell";
 import { createExponentialBackoff } from "@/lib/backoff";
+import { useTranslation } from "@/lib/i18n";
 import {
   DEFAULT_HUMAN_LABEL,
   resolveHumanActorName,
@@ -145,21 +146,24 @@ const roleFromAgent = (agent?: Agent | null): string | null => {
   return trimmed || null;
 };
 
-const eventLabel = (eventType: FeedEventType): string => {
-  if (eventType === "task.comment") return "Comment";
-  if (eventType === "task.created") return "Created";
-  if (eventType === "task.status_changed") return "Status";
-  if (eventType === "board.chat") return "Chat";
-  if (eventType === "board.command") return "Command";
-  if (eventType === "agent.created") return "Agent";
-  if (eventType === "agent.online") return "Online";
-  if (eventType === "agent.offline") return "Offline";
-  if (eventType === "agent.updated") return "Agent update";
-  if (eventType === "approval.created") return "Approval";
-  if (eventType === "approval.updated") return "Approval update";
-  if (eventType === "approval.approved") return "Approved";
-  if (eventType === "approval.rejected") return "Rejected";
-  return "Updated";
+const eventLabel = (
+  eventType: FeedEventType,
+  t: (key: string) => string,
+): string => {
+  if (eventType === "task.comment") return t("activity.comment");
+  if (eventType === "task.created") return t("activity.created");
+  if (eventType === "task.status_changed") return t("activity.status");
+  if (eventType === "board.chat") return t("activity.chat");
+  if (eventType === "board.command") return t("activity.command");
+  if (eventType === "agent.created") return t("activity.agent");
+  if (eventType === "agent.online") return t("agents.online");
+  if (eventType === "agent.offline") return t("agents.offline");
+  if (eventType === "agent.updated") return t("activity.agentUpdate");
+  if (eventType === "approval.created") return t("activity.approval");
+  if (eventType === "approval.updated") return t("activity.approvalUpdate");
+  if (eventType === "approval.approved") return t("approvals.approved");
+  if (eventType === "approval.rejected") return t("approvals.rejected");
+  return t("common.updated") || "Updated";
 };
 
 const eventPillClass = (eventType: FeedEventType): string => {
@@ -206,6 +210,7 @@ const eventPillClass = (eventType: FeedEventType): string => {
 };
 
 const FeedCard = memo(function FeedCard({ item }: { item: FeedItem }) {
+  const { t } = useTranslation();
   const message = (item.message ?? "").trim();
   const authorAvatar = (item.actor_name[0] ?? "A").toUpperCase();
   const taskHref =
@@ -248,7 +253,7 @@ const FeedCard = memo(function FeedCard({ item }: { item: FeedItem }) {
                   eventPillClass(item.event_type),
                 )}
               >
-                {eventLabel(item.event_type)}
+                {eventLabel(item.event_type, t)}
               </span>
               {boardHref && item.board_name ? (
                 <Link
@@ -303,6 +308,7 @@ export default function ActivityPage() {
 
   const { isSignedIn } = useAuth();
   const isPageActive = usePageActive();
+  const { t } = useTranslation();
 
   const membershipQuery = useGetMyMembershipApiV1OrganizationsMeMemberGet<
     getMyMembershipApiV1OrganizationsMeMemberGetResponse,
@@ -1291,7 +1297,7 @@ export default function ActivityPage() {
         <>
           <SignedOut>
             <SignedOutPanel
-              message="Sign in to view the feed."
+              message={t("activity.signInPrompt")}
               forceRedirectUrl="/activity"
               signUpForceRedirectUrl="/activity"
               mode="redirect"
@@ -1308,12 +1314,11 @@ export default function ActivityPage() {
                       <div className="flex items-center gap-2">
                         <ActivityIcon className="h-5 w-5 text-slate-600" />
                         <h1 className="text-2xl font-semibold tracking-tight text-slate-900">
-                          Live feed
+                          {t("activity.title")}
                         </h1>
                       </div>
                       <p className="mt-1 text-sm text-slate-500">
-                        Realtime task, approval, agent, and board-chat activity
-                        across all boards.
+                        {t("activity.description")}
                       </p>
                     </div>
                   </div>

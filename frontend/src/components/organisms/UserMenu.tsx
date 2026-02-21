@@ -25,6 +25,7 @@ import {
   PopoverTrigger,
 } from "@/components/ui/popover";
 import { cn } from "@/lib/utils";
+import { useTranslation } from "@/lib/i18n";
 
 type UserMenuProps = {
   className?: string;
@@ -40,6 +41,7 @@ export function UserMenu({
   const [open, setOpen] = useState(false);
   const { user } = useUser();
   const localMode = isLocalAuthMode();
+  const { t } = useTranslation();
   if (!user && !localMode) return null;
 
   const avatarUrl = localMode ? null : (user?.imageUrl ?? null);
@@ -137,7 +139,7 @@ export function UserMenu({
               onClick={() => setOpen(false)}
             >
               <Trello className="h-4 w-4 text-[color:var(--neutral-700,var(--text-quiet))]" />
-              Open boards
+              {t("menu.openBoards")}
             </Link>
             <Link
               href="/boards/new"
@@ -145,7 +147,7 @@ export function UserMenu({
               onClick={() => setOpen(false)}
             >
               <Plus className="h-4 w-4 opacity-90" />
-              Create board
+              {t("menu.createBoard")}
             </Link>
           </div>
 
@@ -153,17 +155,17 @@ export function UserMenu({
 
           {(
             [
-              { href: "/dashboard", label: "Dashboard", icon: LayoutDashboard },
-              { href: "/activity", label: "Activity", icon: Activity },
-              { href: "/agents", label: "Agents", icon: Bot },
-              { href: "/gateways", label: "Gateways", icon: Server },
+              { href: "/dashboard", labelKey: "menu.dashboard", icon: LayoutDashboard },
+              { href: "/activity", labelKey: "menu.activity", icon: Activity },
+              { href: "/agents", labelKey: "menu.agents", icon: Bot },
+              { href: "/gateways", labelKey: "menu.gateways", icon: Server },
               {
                 href: "/skills/marketplace",
-                label: "Skills marketplace",
+                labelKey: "menu.skillsMarketplace",
                 icon: Store,
               },
-              { href: "/skills/packs", label: "Skill packs", icon: Boxes },
-              { href: "/settings", label: "Settings", icon: Settings },
+              { href: "/skills/packs", labelKey: "menu.skillPacks", icon: Boxes },
+              { href: "/settings", labelKey: "menu.settings", icon: Settings },
             ] as const
           ).map((item) => (
             <Link
@@ -173,7 +175,7 @@ export function UserMenu({
               onClick={() => setOpen(false)}
             >
               <item.icon className="h-4 w-4 text-[color:var(--neutral-700,var(--text-quiet))]" />
-              {item.label}
+              {t(item.labelKey)}
             </Link>
           ))}
 
@@ -190,7 +192,7 @@ export function UserMenu({
               }}
             >
               <LogOut className="h-4 w-4 text-[color:var(--neutral-700,var(--text-quiet))]" />
-              Sign out
+              {t("menu.signOut")}
             </button>
           ) : (
             <SignOutButton>
@@ -200,7 +202,7 @@ export function UserMenu({
                 onClick={() => setOpen(false)}
               >
                 <LogOut className="h-4 w-4 text-[color:var(--neutral-700,var(--text-quiet))]" />
-                Sign out
+                {t("menu.signOut")}
               </button>
             </SignOutButton>
           )}

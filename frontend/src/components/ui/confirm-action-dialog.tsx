@@ -1,3 +1,5 @@
+"use client";
+
 import type { ReactNode } from "react";
 
 import { Button, type ButtonProps } from "@/components/ui/button";
@@ -9,6 +11,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
+import { useTranslation } from "@/lib/i18n";
 
 type ConfirmActionDialogProps = {
   open: boolean;
@@ -34,13 +37,17 @@ export function ConfirmActionDialog({
   onConfirm,
   isConfirming,
   errorMessage,
-  confirmLabel = "Delete",
-  confirmingLabel = "Deleting…",
-  cancelLabel = "Cancel",
+  confirmLabel,
+  confirmingLabel,
+  cancelLabel,
   cancelVariant = "outline",
   errorStyle = "panel",
   ariaLabel,
 }: ConfirmActionDialogProps) {
+  const { t } = useTranslation();
+  const resolvedConfirmLabel = confirmLabel ?? t("confirm.delete");
+  const resolvedConfirmingLabel = confirmingLabel ?? t("confirm.deleting");
+  const resolvedCancelLabel = cancelLabel ?? t("confirm.cancel");
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent aria-label={ariaLabel}>
@@ -59,10 +66,10 @@ export function ConfirmActionDialog({
         ) : null}
         <DialogFooter>
           <Button variant={cancelVariant} onClick={() => onOpenChange(false)}>
-            {cancelLabel}
+            {resolvedCancelLabel}
           </Button>
           <Button onClick={onConfirm} disabled={isConfirming}>
-            {isConfirming ? confirmingLabel : confirmLabel}
+            {isConfirming ? resolvedConfirmingLabel : resolvedConfirmLabel}
           </Button>
         </DialogFooter>
       </DialogContent>

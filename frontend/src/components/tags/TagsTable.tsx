@@ -1,3 +1,5 @@
+"use client";
+
 import { useMemo, useState } from "react";
 
 import {
@@ -16,6 +18,7 @@ import {
   type DataTableEmptyState,
 } from "@/components/tables/DataTable";
 import { dateCell } from "@/components/tables/cell-formatters";
+import { useTranslation } from "@/lib/i18n";
 
 type TagsTableProps = {
   tags: TagRead[];
@@ -62,6 +65,7 @@ export function TagsTable({
   onDelete,
   emptyState,
 }: TagsTableProps) {
+  const { t } = useTranslation();
   const [internalSorting, setInternalSorting] = useState<SortingState>([
     { id: "name", desc: false },
   ]);
@@ -76,7 +80,7 @@ export function TagsTable({
     () => [
       {
         accessorKey: "name",
-        header: "Tag",
+        header: t("tags.tag"),
         cell: ({ row }) => {
           const color = normalizeColor(row.original.color);
           return (
@@ -100,7 +104,7 @@ export function TagsTable({
       },
       {
         accessorKey: "color",
-        header: "Color",
+        header: t("tags.color"),
         cell: ({ row }) => {
           const color = normalizeColor(row.original.color);
           return (
@@ -116,7 +120,7 @@ export function TagsTable({
       },
       {
         accessorKey: "task_count",
-        header: "Tasks",
+        header: t("tags.tasks"),
         cell: ({ row }) => (
           <span className="text-sm font-medium text-slate-700">
             {row.original.task_count ?? 0}
@@ -125,11 +129,11 @@ export function TagsTable({
       },
       {
         accessorKey: "updated_at",
-        header: "Updated",
+        header: t("common.updated"),
         cell: ({ row }) => dateCell(row.original.updated_at),
       },
     ],
-    [],
+    [t],
   );
 
   // eslint-disable-next-line react-hooks/incompatible-library
@@ -156,10 +160,16 @@ export function TagsTable({
           ? {
               actions: [
                 ...(onEdit
-                  ? [{ key: "edit", label: "Edit", onClick: onEdit }]
+                  ? [{ key: "edit", label: t("common.edit"), onClick: onEdit }]
                   : []),
                 ...(onDelete
-                  ? [{ key: "delete", label: "Delete", onClick: onDelete }]
+                  ? [
+                      {
+                        key: "delete",
+                        label: t("common.delete"),
+                        onClick: onDelete,
+                      },
+                    ]
                   : []),
               ],
             }

@@ -7,6 +7,7 @@ import Link from "next/link";
 
 import { useAuth } from "@/auth/clerk";
 import { useQueryClient } from "@tanstack/react-query";
+import { useTranslation } from "@/lib/i18n";
 
 import { ApiError } from "@/api/mutator";
 import {
@@ -33,6 +34,7 @@ const BOARD_SORTABLE_COLUMNS = ["name", "group", "updated_at"];
 export default function BoardsPage() {
   const { isSignedIn } = useAuth();
   const queryClient = useQueryClient();
+  const { t } = useTranslation();
   const { sorting, onSortingChange } = useUrlSorting({
     allowedColumnIds: BOARD_SORTABLE_COLUMNS,
     defaultSorting: [{ id: "name", desc: false }],
@@ -113,12 +115,12 @@ export default function BoardsPage() {
     <>
       <DashboardPageLayout
         signedOut={{
-          message: "Sign in to view boards.",
+          message: t("boards.signInPrompt"),
           forceRedirectUrl: "/boards",
           signUpForceRedirectUrl: "/boards",
         }}
-        title="Boards"
-        description={`Manage boards and task workflows. ${boards.length} board${boards.length === 1 ? "" : "s"} total.`}
+        title={t("boards.title")}
+        description={`${t("boards.description")} ${boards.length} ${t("boards.countSummary")}.`}
         headerActions={
           boards.length > 0 && isAdmin ? (
             <Link
@@ -128,7 +130,7 @@ export default function BoardsPage() {
                 variant: "primary",
               })}
             >
-              Create board
+              {t("boards.createBoard")}
             </Link>
           ) : null
         }
@@ -145,11 +147,10 @@ export default function BoardsPage() {
             stickyHeader
             onDelete={setDeleteTarget}
             emptyState={{
-              title: "No boards yet",
-              description:
-                "Create your first board to start routing tasks and monitoring work across agents.",
+              title: t("boards.noBoards"),
+              description: t("boards.noBoardsDesc"),
               actionHref: "/boards/new",
-              actionLabel: "Create your first board",
+              actionLabel: t("boards.createFirst"),
             }}
           />
         </div>
@@ -167,11 +168,11 @@ export default function BoardsPage() {
             setDeleteTarget(null);
           }
         }}
-        ariaLabel="Delete board"
-        title="Delete board"
+        ariaLabel={t("boards.deleteBoard")}
+        title={t("boards.deleteBoard")}
         description={
           <>
-            This will remove {deleteTarget?.name}. This action cannot be undone.
+            {t("boards.deleteConfirm")}
           </>
         }
         errorMessage={deleteMutation.error?.message}

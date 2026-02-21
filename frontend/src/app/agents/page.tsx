@@ -29,6 +29,7 @@ import { type AgentRead } from "@/api/generated/model";
 import { createOptimisticListDeleteMutation } from "@/lib/list-delete";
 import { useOrganizationMembership } from "@/lib/use-organization-membership";
 import { useUrlSorting } from "@/lib/use-url-sorting";
+import { useTranslation } from "@/lib/i18n";
 
 const AGENT_SORTABLE_COLUMNS = [
   "name",
@@ -43,6 +44,7 @@ export default function AgentsPage() {
   const { isSignedIn } = useAuth();
   const queryClient = useQueryClient();
   const router = useRouter();
+  const { t } = useTranslation();
 
   const { isAdmin } = useOrganizationMembership(isSignedIn);
   const { sorting, onSortingChange } = useUrlSorting({
@@ -125,21 +127,21 @@ export default function AgentsPage() {
     <>
       <DashboardPageLayout
         signedOut={{
-          message: "Sign in to view agents.",
+          message: t("agents.signInPrompt"),
           forceRedirectUrl: "/agents",
           signUpForceRedirectUrl: "/agents",
         }}
-        title="Agents"
-        description={`${agents.length} agent${agents.length === 1 ? "" : "s"} total.`}
+        title={t("agents.title")}
+        description={`${agents.length} ${t("agents.countSummary")}.`}
         headerActions={
           agents.length > 0 ? (
             <Button onClick={() => router.push("/agents/new")}>
-              New agent
+              {t("agents.newAgent")}
             </Button>
           ) : null
         }
         isAdmin={isAdmin}
-        adminOnlyMessage="Only organization owners and admins can access agents."
+        adminOnlyMessage={t("agents.adminOnly")}
         stickyHeader
       >
         <div className="overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm">
@@ -153,11 +155,10 @@ export default function AgentsPage() {
             stickyHeader
             onDelete={setDeleteTarget}
             emptyState={{
-              title: "No agents yet",
-              description:
-                "Create your first agent to start executing tasks on this board.",
+              title: t("agents.noAgents"),
+              description: t("agents.noAgentsDesc"),
               actionHref: "/agents/new",
-              actionLabel: "Create your first agent",
+              actionLabel: t("agents.createFirst"),
             }}
           />
         </div>
@@ -176,11 +177,11 @@ export default function AgentsPage() {
             setDeleteTarget(null);
           }
         }}
-        ariaLabel="Delete agent"
-        title="Delete agent"
+        ariaLabel={t("agents.deleteAgent")}
+        title={t("agents.deleteAgent")}
         description={
           <>
-            This will remove {deleteTarget?.name}. This action cannot be undone.
+            {t("agents.deleteConfirm")}
           </>
         }
         errorMessage={deleteMutation.error?.message}

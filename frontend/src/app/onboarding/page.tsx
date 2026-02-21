@@ -24,6 +24,7 @@ import { DashboardShell } from "@/components/templates/DashboardShell";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import SearchableSelect from "@/components/ui/searchable-select";
+import { useTranslation } from "@/lib/i18n";
 import { isOnboardingComplete } from "@/lib/onboarding";
 import { getSupportedTimezones } from "@/lib/timezones";
 
@@ -31,6 +32,7 @@ export default function OnboardingPage() {
   const router = useRouter();
   const { isSignedIn } = useAuth();
   const { user } = useUser();
+  const { t } = useTranslation();
 
   const [name, setName] = useState("");
   const [timezone, setTimezone] = useState("");
@@ -118,7 +120,7 @@ export default function OnboardingPage() {
           <div className="w-full max-w-2xl rounded-xl border border-slate-200 bg-white shadow-sm">
             <div className="border-b border-slate-100 px-6 py-5">
               <h1 className="text-2xl font-semibold tracking-tight text-slate-900">
-                Mission Control profile
+                {t("onboarding.title")}
               </h1>
               <p className="mt-1 text-sm text-slate-600">
                 Sign in to configure your profile and timezone.
@@ -141,10 +143,10 @@ export default function OnboardingPage() {
           <section className="w-full max-w-2xl rounded-xl border border-slate-200 bg-white shadow-sm">
             <div className="border-b border-slate-100 px-6 py-5">
               <h1 className="text-2xl font-semibold tracking-tight text-slate-900">
-                Mission Control profile
+                {t("onboarding.title")}
               </h1>
               <p className="mt-1 text-sm text-slate-600">
-                Configure your mission control settings and preferences.
+                {t("onboarding.description")}
               </p>
             </div>
             <div className="px-6 py-6">
@@ -153,13 +155,13 @@ export default function OnboardingPage() {
                   <div className="space-y-2">
                     <label className="text-sm font-medium text-slate-700 flex items-center gap-2">
                       <User className="h-4 w-4 text-slate-500" />
-                      Name
+                      {t("onboarding.name")}
                       <span className="text-red-500">*</span>
                     </label>
                     <Input
                       value={resolvedName}
                       onChange={(event) => setName(event.target.value)}
-                      placeholder="Enter your name"
+                      placeholder={t("onboarding.namePlaceholder")}
                       disabled={isLoading}
                       className="border-slate-300 text-slate-900 focus-visible:ring-blue-500"
                     />
@@ -167,16 +169,16 @@ export default function OnboardingPage() {
                   <div className="space-y-2">
                     <label className="text-sm font-medium text-slate-700 flex items-center gap-2">
                       <Globe className="h-4 w-4 text-slate-500" />
-                      Timezone
+                      {t("onboarding.timezone")}
                       <span className="text-red-500">*</span>
                     </label>
                     <SearchableSelect
-                      ariaLabel="Select timezone"
+                      ariaLabel={t("onboarding.selectTimezone")}
                       value={resolvedTimezone}
                       onValueChange={setTimezone}
                       options={timezoneOptions}
-                      placeholder="Select timezone"
-                      searchPlaceholder="Search timezones..."
+                      placeholder={t("onboarding.selectTimezone")}
+                      searchPlaceholder={t("onboarding.searchTimezones")}
                       emptyMessage="No matching timezones."
                       triggerClassName="w-full h-11 rounded-xl border border-slate-300 bg-white px-3 py-2 text-sm font-medium text-slate-900 shadow-sm focus:border-blue-500 focus:ring-2 focus:ring-blue-200"
                       contentClassName="rounded-xl border border-slate-200 shadow-lg"
@@ -188,8 +190,7 @@ export default function OnboardingPage() {
                 <div className="rounded-lg border border-blue-200 bg-blue-50 p-4 text-sm text-blue-800 flex items-start gap-3">
                   <Info className="mt-0.5 h-4 w-4 text-blue-600" />
                   <p>
-                    <strong>Note:</strong> Your timezone is used to display all
-                    timestamps and schedule mission-critical events accurately.
+                    <strong>Note:</strong> {t("onboarding.timezoneNote")}
                   </p>
                 </div>
 
@@ -206,7 +207,7 @@ export default function OnboardingPage() {
                     disabled={isLoading || requiredMissing}
                   >
                     <Save className="h-4 w-4" />
-                    {isLoading ? "Saving…" : "Save Profile"}
+                    {isLoading ? t("common.saving") : t("onboarding.saveProfile")}
                   </Button>
                   <button
                     type="button"
@@ -219,7 +220,7 @@ export default function OnboardingPage() {
                   >
                     <span className="inline-flex items-center gap-2">
                       <RotateCcw className="h-4 w-4" />
-                      Reset
+                      {t("onboarding.reset")}
                     </span>
                   </button>
                 </div>

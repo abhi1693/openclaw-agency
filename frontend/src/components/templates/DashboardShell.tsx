@@ -15,6 +15,8 @@ import { BrandMark } from "@/components/atoms/BrandMark";
 import { OrgSwitcher } from "@/components/organisms/OrgSwitcher";
 import { UserMenu } from "@/components/organisms/UserMenu";
 import { isOnboardingComplete } from "@/lib/onboarding";
+import { useTranslation } from "@/lib/i18n";
+import { LocaleSwitcher } from "@/components/organisms/LocaleSwitcher";
 
 export function DashboardShell({ children }: { children: ReactNode }) {
   const router = useRouter();
@@ -22,6 +24,7 @@ export function DashboardShell({ children }: { children: ReactNode }) {
   const { isSignedIn } = useAuth();
   const isOnboardingPath = pathname === "/onboarding";
 
+  const { t } = useTranslation();
   const meQuery = useGetMeApiV1UsersMeGet<
     getMeApiV1UsersMeGetResponse,
     ApiError
@@ -84,11 +87,12 @@ export function DashboardShell({ children }: { children: ReactNode }) {
           </SignedIn>
           <SignedIn>
             <div className="flex items-center gap-3 px-6">
+              <LocaleSwitcher />
               <div className="hidden text-right lg:block">
                 <p className="text-sm font-semibold text-slate-900">
                   {displayName}
                 </p>
-                <p className="text-xs text-slate-500">Operator</p>
+                <p className="text-xs text-slate-500">{t("shell.operator")}</p>
               </div>
               <UserMenu displayName={displayName} displayEmail={displayEmail} />
             </div>

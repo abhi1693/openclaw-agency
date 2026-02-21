@@ -1,3 +1,5 @@
+"use client";
+
 import { useMemo, useState } from "react";
 
 import {
@@ -18,6 +20,7 @@ import {
 } from "@/components/tables/DataTable";
 import { dateCell, linkifyCell } from "@/components/tables/cell-formatters";
 import { truncateText as truncate } from "@/lib/formatters";
+import { useTranslation } from "@/lib/i18n";
 
 type GatewaysTableProps = {
   gateways: GatewayRead[];
@@ -62,9 +65,13 @@ export function GatewaysTable({
   columnOrder,
   disableSorting = false,
   onDelete,
-  emptyMessage = "No gateways found.",
+  emptyMessage,
   emptyState,
 }: GatewaysTableProps) {
+  const { t } = useTranslation();
+
+  const resolvedEmptyMessage = emptyMessage ?? t("gateways.noGatewaysFound");
+
   const [internalSorting, setInternalSorting] = useState<SortingState>([
     { id: "name", desc: false },
   ]);
@@ -88,7 +95,7 @@ export function GatewaysTable({
     const baseColumns: ColumnDef<GatewayRead>[] = [
       {
         accessorKey: "name",
-        header: "Gateway",
+        header: t("gateways.gateway"),
         cell: ({ row }) =>
           linkifyCell({
             href: `/gateways/${row.original.id}`,
@@ -98,7 +105,7 @@ export function GatewaysTable({
       },
       {
         accessorKey: "workspace_root",
-        header: "Workspace root",
+        header: t("gateways.workspaceRoot"),
         cell: ({ row }) => (
           <span className="text-sm text-slate-700">
             {truncate(row.original.workspace_root, 28)}
@@ -107,13 +114,13 @@ export function GatewaysTable({
       },
       {
         accessorKey: "updated_at",
-        header: "Updated",
+        header: t("common.updated"),
         cell: ({ row }) => dateCell(row.original.updated_at),
       },
     ];
 
     return baseColumns;
-  }, []);
+  }, [t]);
 
   // eslint-disable-next-line react-hooks/incompatible-library
   const table = useReactTable({
@@ -135,7 +142,7 @@ export function GatewaysTable({
       table={table}
       isLoading={isLoading}
       stickyHeader={stickyHeader}
-      emptyMessage={emptyMessage}
+      emptyMessage={resolvedEmptyMessage}
       rowActions={
         showActions
           ? {

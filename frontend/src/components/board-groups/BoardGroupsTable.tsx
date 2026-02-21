@@ -1,3 +1,5 @@
+"use client";
+
 import { useMemo, useState } from "react";
 
 import {
@@ -17,6 +19,7 @@ import {
   type DataTableEmptyState,
 } from "@/components/tables/DataTable";
 import { dateCell, linkifyCell } from "@/components/tables/cell-formatters";
+import { useTranslation } from "@/lib/i18n";
 
 type BoardGroupsTableProps = {
   groups: BoardGroupRead[];
@@ -64,9 +67,11 @@ export function BoardGroupsTable({
   columnOrder,
   disableSorting = false,
   onDelete,
-  emptyMessage = "No groups found.",
+  emptyMessage,
   emptyState,
 }: BoardGroupsTableProps) {
+  const { t } = useTranslation();
+  const resolvedEmptyMessage = emptyMessage ?? t("boardGroups.noGroupsFound");
   const [internalSorting, setInternalSorting] = useState<SortingState>([
     { id: "name", desc: false },
   ]);
@@ -87,12 +92,12 @@ export function BoardGroupsTable({
     const baseColumns: ColumnDef<BoardGroupRead>[] = [
       {
         accessorKey: "name",
-        header: "Group",
+        header: t("boards.group"),
         cell: ({ row }) =>
           linkifyCell({
             href: `/board-groups/${row.original.id}`,
             label: row.original.name,
-            subtitle: row.original.description ?? "No description",
+            subtitle: row.original.description ?? t("common.noDescription"),
             subtitleClassName: row.original.description
               ? "mt-1 line-clamp-2 text-xs text-slate-500"
               : "mt-1 text-xs text-slate-400",
@@ -100,13 +105,13 @@ export function BoardGroupsTable({
       },
       {
         accessorKey: "updated_at",
-        header: "Updated",
+        header: t("common.updated"),
         cell: ({ row }) => dateCell(row.original.updated_at),
       },
     ];
 
     return baseColumns;
-  }, []);
+  }, [t]);
 
   // eslint-disable-next-line react-hooks/incompatible-library
   const table = useReactTable({
@@ -128,7 +133,7 @@ export function BoardGroupsTable({
       table={table}
       isLoading={isLoading}
       stickyHeader={stickyHeader}
-      emptyMessage={emptyMessage}
+      emptyMessage={resolvedEmptyMessage}
       rowClassName="transition hover:bg-slate-50"
       cellClassName="px-6 py-4 align-top"
       rowActions={

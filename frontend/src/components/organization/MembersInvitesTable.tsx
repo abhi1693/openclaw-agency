@@ -14,6 +14,7 @@ import type {
 import { DataTable } from "@/components/tables/DataTable";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { useTranslation } from "@/lib/i18n";
 import { formatTimestamp } from "@/lib/formatters";
 
 type MemberInviteRow =
@@ -45,22 +46,29 @@ const initialsFrom = (value?: string | null) => {
   return `${parts[0][0]}${parts[1][0]}`.toUpperCase();
 };
 
-const summarizeAccess = (allRead: boolean, allWrite: boolean) => {
+const summarizeAccess = (
+  allRead: boolean,
+  allWrite: boolean,
+  t: (key: string) => string,
+) => {
   if (allRead || allWrite) {
-    if (allRead && allWrite) return "All boards: read + write";
-    if (allWrite) return "All boards: write";
-    return "All boards: read";
+    if (allRead && allWrite) return t("organization.allBoardsReadWrite");
+    if (allWrite) return t("organization.allBoardsWrite");
+    return t("organization.allBoardsRead");
   }
-  return "Selected boards";
+  return t("organization.selectedBoards");
 };
 
-const memberDisplay = (member: OrganizationMemberRead) => {
+const memberDisplay = (
+  member: OrganizationMemberRead,
+  noEmailLabel: string,
+) => {
   const primary =
     member.user?.name ||
     member.user?.preferred_name ||
     member.user?.email ||
     member.user_id;
-  const secondary = member.user?.email ?? "No email on file";
+  const secondary = member.user?.email ?? noEmailLabel;
   return {
     primary,
     secondary,
@@ -79,6 +87,8 @@ export function MembersInvitesTable({
   onRevokeInvite,
   isRevoking,
 }: MembersInvitesTableProps) {
+  const { t } = useTranslation();
+
   const rows = useMemo<MemberInviteRow[]>(
     () => [
       ...members.map((member) => ({ kind: "member" as const, member })),
@@ -91,10 +101,13 @@ export function MembersInvitesTable({
     () => [
       {
         id: "member",
-        header: "Member",
+        header: t("common.name"),
         cell: ({ row }) => {
           if (row.original.kind === "member") {
-            const display = memberDisplay(row.original.member);
+            const display = memberDisplay(
+              row.original.member,
+              t("organization.noEmail"),
+            );
             return (
               <div className="flex items-center gap-3">
                 <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-gradient-to-br from-blue-500 to-indigo-500 text-xs font-semibold text-white">
@@ -122,7 +135,8 @@ export function MembersInvitesTable({
                   {row.original.invite.invited_email}
                 </div>
                 <div className="text-xs text-slate-500">
-                  Invited {formatTimestamp(row.original.invite.created_at)}
+                  {t("common.created")}{" "}
+                  {formatTimestamp(row.original.invite.created_at)}
                 </div>
               </div>
             </div>
@@ -131,7 +145,7 @@ export function MembersInvitesTable({
       },
       {
         id: "status",
-        header: "Status",
+        header: t("common.status"),
         cell: ({ row }) => {
           if (row.original.kind === "member") {
             return (
@@ -143,7 +157,7 @@ export function MembersInvitesTable({
 
           return (
             <div className="flex flex-wrap items-center gap-2">
-              <Badge variant="warning">Pending</Badge>
+              <Badge variant="warning">{t("organization.pendingStatus")}</Badge>
               <Badge variant={roleBadgeVariant(row.original.invite.role)}>
                 {row.original.invite.role}
               </Badge>
@@ -153,29 +167,35 @@ export function MembersInvitesTable({
       },
       {
         id: "access",
-        header: "Access",
+        header: t("organization.boardAccess"),
         cell: ({ row }) => (
           <span className="text-slate-600">
             {row.original.kind === "member"
               ? summarizeAccess(
                   row.original.member.all_boards_read,
                   row.original.member.all_boards_write,
+                  t,
                 )
               : summarizeAccess(
                   row.original.invite.all_boards_read,
                   row.original.invite.all_boards_write,
+                  t,
                 )}
           </span>
         ),
       },
       {
         id: "actions",
-        header: "Actions",
+        header: t("common.actions"),
         cell: ({ row }) => {
           if (row.original.kind === "member") {
             const member = row.original.member;
             if (!isAdmin) {
-              return <span className="text-xs text-slate-400">Admin only</span>;
+              return (
+                <span className="text-xs text-slate-400">
+                  {t("organization.adminOnlyAction")}
+                </span>
+              );
             }
             return (
               <div className="flex justify-end">
@@ -185,7 +205,7 @@ export function MembersInvitesTable({
                   size="sm"
                   onClick={() => onManageAccess(member.id)}
                 >
-                  Manage access
+                  {t("organization.manageAccess")}
                 </Button>
               </div>
             );
@@ -201,7 +221,9 @@ export function MembersInvitesTable({
                 onClick={() => onCopyInvite(invite)}
               >
                 <Copy className="h-4 w-4" />
-                {copiedInviteId === invite.id ? "Copied" : "Copy link"}
+                {copiedInviteId === invite.id
+                  ? t("common.copied")
+                  : t("common.copyLink")}
               </Button>
               <Button
                 type="button"
@@ -210,7 +232,7 @@ export function MembersInvitesTable({
                 onClick={() => onRevokeInvite(invite.id)}
                 disabled={isRevoking}
               >
-                Revoke
+                {t("common.revoke")}
               </Button>
             </div>
           );
@@ -224,6 +246,7 @@ export function MembersInvitesTable({
       onCopyInvite,
       onManageAccess,
       onRevokeInvite,
+      t,
     ],
   );
 
@@ -239,8 +262,8 @@ export function MembersInvitesTable({
     <DataTable
       table={table}
       isLoading={isLoading}
-      loadingLabel="Loading members..."
-      emptyMessage="No members or invites yet."
+      loadingLabel={t("organization.loadingMembers")}
+      emptyMessage={t("organization.noMembersYet")}
       headerClassName="bg-slate-50 text-[11px] uppercase tracking-wide text-slate-500"
       headerCellClassName="px-5 py-3 text-left font-medium"
       cellClassName="px-5 py-4"

@@ -44,6 +44,7 @@ import {
 } from "@/api/generated/metrics/metrics";
 import type { DashboardMetricsApiV1MetricsDashboardGetRangeKey } from "@/api/generated/model/dashboardMetricsApiV1MetricsDashboardGetRangeKey";
 import { parseApiDatetime } from "@/lib/datetime";
+import { useTranslation } from "@/lib/i18n";
 
 type RangeKey = DashboardMetricsApiV1MetricsDashboardGetRangeKey;
 type BucketKey = "hour" | "day" | "week" | "month";
@@ -83,18 +84,18 @@ const monthFormatter = new Intl.DateTimeFormat("en-US", {
   year: "numeric",
 });
 
-const DASHBOARD_RANGE_OPTIONS: Array<{ value: RangeKey; label: string }> = [
-  { value: "24h", label: "24 hours" },
-  { value: "3d", label: "3 days" },
-  { value: "7d", label: "7 days" },
-  { value: "14d", label: "14 days" },
-  { value: "1m", label: "1 month" },
-  { value: "3m", label: "3 months" },
-  { value: "6m", label: "6 months" },
-  { value: "1y", label: "1 year" },
+const DASHBOARD_RANGE_VALUES: Array<{ value: RangeKey; labelKey: string }> = [
+  { value: "24h", labelKey: "dashboard.24hours" },
+  { value: "3d", labelKey: "dashboard.3days" },
+  { value: "7d", labelKey: "dashboard.7days" },
+  { value: "14d", labelKey: "dashboard.14days" },
+  { value: "1m", labelKey: "dashboard.1month" },
+  { value: "3m", labelKey: "dashboard.3months" },
+  { value: "6m", labelKey: "dashboard.6months" },
+  { value: "1y", labelKey: "dashboard.1year" },
 ];
 const DASHBOARD_RANGE_SET = new Set<RangeKey>(
-  DASHBOARD_RANGE_OPTIONS.map((option) => option.value),
+  DASHBOARD_RANGE_VALUES.map((option) => option.value),
 );
 const ALL_FILTER_VALUE = "all";
 const DEFAULT_RANGE: RangeKey = "7d";
@@ -161,13 +162,26 @@ type TooltipProps = {
   payload?: Array<{ value?: number; name?: string; color?: string }>;
   label?: string;
   formatter?: (value: number, name?: string) => string;
+  periodLabel: string;
+  valueLabel: string;
 };
 
-function TooltipCard({ active, payload, label, formatter }: TooltipProps) {
+function TooltipCard({
+  active,
+  payload,
+  label,
+  formatter,
+  periodLabel,
+  valueLabel,
+}: TooltipProps) {
   if (!active || !payload?.length) return null;
   return (
     <div className="rounded-lg bg-slate-900/95 px-3 py-2 text-xs text-slate-200 shadow-lg">
-      {label ? <div className="text-slate-400">Period: {label}</div> : null}
+      {label ? (
+        <div className="text-slate-400">
+          {periodLabel} {label}
+        </div>
+      ) : null}
       <div className="mt-1 space-y-1">
         {payload.map((entry, index) => (
           <div
@@ -179,10 +193,10 @@ function TooltipCard({ active, payload, label, formatter }: TooltipProps) {
                 className="h-2 w-2 rounded-full"
                 style={{ backgroundColor: entry.color }}
               />
-              {entry.name ?? "Value"}
+              {entry.name}
             </span>
             <span className="font-semibold text-slate-100">
-              <span className="text-slate-400">Value: </span>
+              <span className="text-slate-400">{valueLabel} </span>
               {formatter
                 ? formatter(Number(entry.value ?? 0), entry.name)
                 : entry.value}
@@ -258,6 +272,7 @@ function ChartCard({
 }
 
 export default function DashboardPage() {
+  const { t } = useTranslation();
   const { isSignedIn } = useAuth();
   const pathname = usePathname();
   const router = useRouter();
@@ -278,6 +293,15 @@ export default function DashboardPage() {
     selectedBoardParam && selectedBoardParam !== ALL_FILTER_VALUE
       ? selectedBoardParam
       : null;
+
+  const dashboardRangeOptions = useMemo(
+    () =>
+      DASHBOARD_RANGE_VALUES.map((option) => ({
+        value: option.value,
+        label: t(option.labelKey),
+      })),
+    [t],
+  );
 
   const boardsQuery = useListBoardsApiV1BoardsGet<
     listBoardsApiV1BoardsGetResponse,
@@ -343,20 +367,20 @@ export default function DashboardPage() {
 
   const boardGroupOptions = useMemo<DropdownSelectOption[]>(
     () => [
-      { value: ALL_FILTER_VALUE, label: "All groups" },
+      { value: ALL_FILTER_VALUE, label: t("dashboard.allGroups") },
       ...boardGroups.map((group) => ({ value: group.id, label: group.name })),
     ],
-    [boardGroups],
+    [boardGroups, t],
   );
   const boardOptions = useMemo<DropdownSelectOption[]>(
     () => [
-      { value: ALL_FILTER_VALUE, label: "All boards" },
+      { value: ALL_FILTER_VALUE, label: t("dashboard.allBoards") },
       ...filteredBoards.map((board) => ({
         value: board.id,
         label: board.name,
       })),
     ],
-    [filteredBoards],
+    [filteredBoards, t],
   );
 
   const metricsQuery = useDashboardMetricsApiV1MetricsDashboardGet<
@@ -425,11 +449,14 @@ export default function DashboardPage() {
     [cycleSpark],
   );
 
+  const periodLabel = t("dashboard.period");
+  const valueLabel = t("dashboard.value");
+
   return (
     <DashboardShell>
       <SignedOut>
         <SignedOutPanel
-          message="Sign in to access the dashboard."
+          message={t("dashboard.signInPrompt")}
           forceRedirectUrl="/onboarding"
           signUpForceRedirectUrl="/onboarding"
         />
@@ -441,10 +468,10 @@ export default function DashboardPage() {
             <div className="flex items-center justify-between gap-4">
               <div>
                 <h2 className="font-heading text-2xl font-semibold text-slate-900 tracking-tight">
-                  Dashboard
+                  {t("dashboard.title")}
                 </h2>
                 <p className="mt-1 text-sm text-slate-500">
-                  Monitor your mission control operations
+                  {t("dashboard.description")}
                 </p>
               </div>
               <div className="flex flex-wrap items-center justify-end gap-3">
@@ -456,7 +483,7 @@ export default function DashboardPage() {
                     params.set("range", nextRange);
                     router.replace(`${pathname}?${params.toString()}`);
                   }}
-                  options={DASHBOARD_RANGE_OPTIONS}
+                  options={dashboardRangeOptions}
                   ariaLabel="Dashboard date range"
                   placeholder="Select range"
                   searchEnabled={false}
@@ -489,7 +516,7 @@ export default function DashboardPage() {
                   }}
                   options={boardGroupOptions}
                   ariaLabel="Dashboard board group filter"
-                  placeholder="All groups"
+                  placeholder={t("dashboard.allGroups")}
                   triggerClassName="h-9 min-w-[170px] rounded-lg border border-slate-300 bg-white px-3 py-1.5 text-sm text-slate-700 shadow-sm focus:border-blue-500 focus:ring-2 focus:ring-blue-100"
                   contentClassName="rounded-lg border border-slate-200"
                   searchEnabled={false}
@@ -510,7 +537,7 @@ export default function DashboardPage() {
                   }}
                   options={boardOptions}
                   ariaLabel="Dashboard board filter"
-                  placeholder="All boards"
+                  placeholder={t("dashboard.allBoards")}
                   triggerClassName="h-9 min-w-[170px] rounded-lg border border-slate-300 bg-white px-3 py-1.5 text-sm text-slate-700 shadow-sm focus:border-blue-500 focus:ring-2 focus:ring-blue-100"
                   contentClassName="rounded-lg border border-slate-200"
                   searchEnabled={false}
@@ -521,7 +548,7 @@ export default function DashboardPage() {
                     href={`/board-groups/${selectedGroup.id}`}
                     className="inline-flex h-9 items-center rounded-lg border border-slate-300 bg-white px-3 text-sm font-medium text-slate-700 shadow-sm transition hover:bg-slate-50"
                   >
-                    Open group
+                    {t("dashboard.openGroup")}
                   </Link>
                 ) : null}
                 {selectedBoard ? (
@@ -529,7 +556,7 @@ export default function DashboardPage() {
                     href={`/boards/${selectedBoard.id}`}
                     className="inline-flex h-9 items-center rounded-lg border border-slate-300 bg-white px-3 text-sm font-medium text-slate-700 shadow-sm transition hover:bg-slate-50"
                   >
-                    Open board
+                    {t("dashboard.openBoard")}
                   </Link>
                 ) : null}
               </div>
@@ -544,7 +571,7 @@ export default function DashboardPage() {
 
             {metricsQuery.isLoading && !metrics ? (
               <div className="rounded-xl border border-slate-200 bg-white p-6 text-sm text-slate-500 shadow-sm">
-                Loading dashboard metrics…
+                {t("dashboard.loadingMetrics")}
               </div>
             ) : null}
 
@@ -552,25 +579,25 @@ export default function DashboardPage() {
               <>
                 <div className="grid grid-cols-1 gap-6 md:grid-cols-2 lg:grid-cols-4">
                   <KpiCard
-                    label="Active agents"
+                    label={t("dashboard.activeAgents")}
                     value={formatNumber(metrics.kpis.active_agents)}
                     icon={<Users className="h-4 w-4" />}
                     progress={activeProgress}
                   />
                   <KpiCard
-                    label="Tasks in progress"
+                    label={t("dashboard.tasksInProgress")}
                     value={formatNumber(metrics.kpis.tasks_in_progress)}
                     icon={<PenSquare className="h-4 w-4" />}
                     progress={wipProgress}
                   />
                   <KpiCard
-                    label="Error rate"
+                    label={t("dashboard.errorRate")}
                     value={formatPercent(metrics.kpis.error_rate_pct)}
                     icon={<Activity className="h-4 w-4" />}
                     progress={errorProgress}
                   />
                   <KpiCard
-                    label="Median cycle time"
+                    label={t("dashboard.medianCycleTime")}
                     value={formatHours(metrics.kpis.median_cycle_time_hours_7d)}
                     icon={<Timer className="h-4 w-4" />}
                     progress={cycleProgress}
@@ -578,7 +605,10 @@ export default function DashboardPage() {
                 </div>
 
                 <div className="mt-8 grid grid-cols-1 gap-6 lg:grid-cols-2">
-                  <ChartCard title="Completed Tasks" subtitle="Throughput">
+                  <ChartCard
+                    title={t("dashboard.completedTasks")}
+                    subtitle={t("dashboard.throughput")}
+                  >
                     <ResponsiveContainer width="100%" height="100%">
                       <BarChart
                         data={throughputSeries}
@@ -599,7 +629,11 @@ export default function DashboardPage() {
                         />
                         <Tooltip
                           content={
-                            <TooltipCard formatter={(v) => formatNumber(v)} />
+                            <TooltipCard
+                              formatter={(v) => formatNumber(v)}
+                              periodLabel={periodLabel}
+                              valueLabel={valueLabel}
+                            />
                           }
                         />
                         <Legend
@@ -615,7 +649,7 @@ export default function DashboardPage() {
                         />
                         <Bar
                           dataKey="value"
-                          name="Completed"
+                          name={t("dashboard.completed")}
                           fill="#2563eb"
                           radius={[6, 6, 0, 0]}
                         />
@@ -623,7 +657,10 @@ export default function DashboardPage() {
                     </ResponsiveContainer>
                   </ChartCard>
 
-                  <ChartCard title="Avg Hours to Review" subtitle="Cycle time">
+                  <ChartCard
+                    title={t("dashboard.avgHoursToReview")}
+                    subtitle={t("dashboard.cycleTime")}
+                  >
                     <ResponsiveContainer width="100%" height="100%">
                       <LineChart
                         data={cycleSeries}
@@ -646,6 +683,8 @@ export default function DashboardPage() {
                           content={
                             <TooltipCard
                               formatter={(v) => `${v.toFixed(1)}h`}
+                              periodLabel={periodLabel}
+                              valueLabel={valueLabel}
                             />
                           }
                         />
@@ -663,7 +702,7 @@ export default function DashboardPage() {
                         <Line
                           type="monotone"
                           dataKey="value"
-                          name="Hours"
+                          name={t("dashboard.hours")}
                           stroke="#1d4ed8"
                           strokeWidth={2}
                           dot={false}
@@ -672,7 +711,10 @@ export default function DashboardPage() {
                     </ResponsiveContainer>
                   </ChartCard>
 
-                  <ChartCard title="Failed Events" subtitle="Error rate">
+                  <ChartCard
+                    title={t("dashboard.failedEvents")}
+                    subtitle={t("dashboard.errorRate")}
+                  >
                     <ResponsiveContainer width="100%" height="100%">
                       <LineChart
                         data={errorSeries}
@@ -693,7 +735,11 @@ export default function DashboardPage() {
                         />
                         <Tooltip
                           content={
-                            <TooltipCard formatter={(v) => formatPercent(v)} />
+                            <TooltipCard
+                              formatter={(v) => formatPercent(v)}
+                              periodLabel={periodLabel}
+                              valueLabel={valueLabel}
+                            />
                           }
                         />
                         <Legend
@@ -710,7 +756,7 @@ export default function DashboardPage() {
                         <Line
                           type="monotone"
                           dataKey="value"
-                          name="Error rate"
+                          name={t("dashboard.errorRate")}
                           stroke="#1e40af"
                           strokeWidth={2}
                           dot={false}
@@ -720,8 +766,8 @@ export default function DashboardPage() {
                   </ChartCard>
 
                   <ChartCard
-                    title="Status Distribution"
-                    subtitle="Work in progress"
+                    title={t("dashboard.statusDistribution")}
+                    subtitle={t("dashboard.workInProgress")}
                   >
                     <ResponsiveContainer width="100%" height="100%">
                       <AreaChart
@@ -743,7 +789,11 @@ export default function DashboardPage() {
                         />
                         <Tooltip
                           content={
-                            <TooltipCard formatter={(v) => formatNumber(v)} />
+                            <TooltipCard
+                              formatter={(v) => formatNumber(v)}
+                              periodLabel={periodLabel}
+                              valueLabel={valueLabel}
+                            />
                           }
                         />
                         <Legend
@@ -760,7 +810,7 @@ export default function DashboardPage() {
                         <Area
                           type="monotone"
                           dataKey="inbox"
-                          name="Inbox"
+                          name={t("dashboard.inbox")}
                           stackId="wip"
                           fill="#fed7aa"
                           stroke="#ea580c"
@@ -769,7 +819,7 @@ export default function DashboardPage() {
                         <Area
                           type="monotone"
                           dataKey="in_progress"
-                          name="In progress"
+                          name={t("dashboard.inProgress")}
                           stackId="wip"
                           fill="#bfdbfe"
                           stroke="#1d4ed8"
@@ -778,7 +828,7 @@ export default function DashboardPage() {
                         <Area
                           type="monotone"
                           dataKey="review"
-                          name="Review"
+                          name={t("dashboard.review")}
                           stackId="wip"
                           fill="#e9d5ff"
                           stroke="#7e22ce"
@@ -787,7 +837,7 @@ export default function DashboardPage() {
                         <Area
                           type="monotone"
                           dataKey="done"
-                          name="Done"
+                          name={t("dashboard.done")}
                           stackId="wip"
                           fill="#bbf7d0"
                           stroke="#15803d"

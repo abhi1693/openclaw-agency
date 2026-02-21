@@ -1,13 +1,17 @@
 import { render, screen } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
 
+import { LocaleProvider } from "@/lib/i18n";
 import { ActivityFeed } from "./ActivityFeed";
 
 type Item = { id: string; label: string };
 
+const renderWithLocale = (ui: React.ReactElement) =>
+  render(<LocaleProvider>{ui}</LocaleProvider>);
+
 describe("ActivityFeed", () => {
   it("renders loading state when loading and no items", () => {
-    render(
+    renderWithLocale(
       <ActivityFeed<Item>
         isLoading={true}
         errorMessage={null}
@@ -20,7 +24,7 @@ describe("ActivityFeed", () => {
   });
 
   it("renders error state", () => {
-    render(
+    renderWithLocale(
       <ActivityFeed<Item>
         isLoading={false}
         errorMessage={"Boom"}
@@ -33,7 +37,7 @@ describe("ActivityFeed", () => {
   });
 
   it("renders default error message when errorMessage is empty", () => {
-    render(
+    renderWithLocale(
       <ActivityFeed<Item>
         isLoading={false}
         errorMessage={""}
@@ -46,7 +50,7 @@ describe("ActivityFeed", () => {
   });
 
   it("renders empty state", () => {
-    render(
+    renderWithLocale(
       <ActivityFeed<Item>
         isLoading={false}
         errorMessage={null}
@@ -67,7 +71,7 @@ describe("ActivityFeed", () => {
       { id: "2", label: "Second" },
     ];
 
-    render(
+    renderWithLocale(
       <ActivityFeed<Item>
         isLoading={false}
         errorMessage={null}
