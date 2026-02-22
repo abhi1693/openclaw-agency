@@ -22,7 +22,15 @@ from app.api.board_onboarding import router as board_onboarding_router
 from app.api.board_webhooks import router as board_webhooks_router
 from app.api.boards import router as boards_router
 from app.api.gateway import router as gateway_router
+from app.api.gateway_registration import router as gateway_registration_router
+from app.api.gateway_registration import ws_router as gateway_ws_router
 from app.api.gateways import router as gateways_router
+from app.api.agent_events import router as agent_events_router
+from app.api.agent_suggestions import _AGENT_SUGGESTION_ROUTER as agent_suggestion_agent_router
+from app.api.agent_suggestions import router as agent_suggestions_router
+from app.api.h5_auth import router as h5_auth_router
+from app.api.h5_users import router as h5_users_router
+from app.api.proactive_rules import router as proactive_rules_router
 from app.api.metrics import router as metrics_router
 from app.api.organizations import router as organizations_router
 from app.api.skills_marketplace import router as skills_marketplace_router
@@ -126,6 +134,30 @@ OPENAPI_TAGS = [
     {
         "name": "users",
         "description": "User profile read/update operations and user-centric settings endpoints.",
+    },
+    {
+        "name": "gateway-registry",
+        "description": "Gateway auto-registration, heartbeat, and deregistration endpoints.",
+    },
+    {
+        "name": "gateway-ws",
+        "description": "WebSocket relay endpoints for persistent gateway connections.",
+    },
+    {
+        "name": "suggestions",
+        "description": "AI-generated proactive suggestion list, lifecycle (accept/dismiss), and SSE stream.",
+    },
+    {
+        "name": "proactive-rules",
+        "description": "Proactive rule configuration: create, update, toggle, and delete.",
+    },
+    {
+        "name": "h5-auth",
+        "description": "H5 mobile web user authentication: registration, login, token refresh, and profile.",
+    },
+    {
+        "name": "h5-users",
+        "description": "Admin endpoints for managing H5 users and agent assignments.",
     },
     {
         "name": "agent",
@@ -543,7 +575,15 @@ api_v1.include_router(tasks_router)
 api_v1.include_router(task_custom_fields_router)
 api_v1.include_router(tags_router)
 api_v1.include_router(users_router)
+api_v1.include_router(h5_auth_router)
+api_v1.include_router(h5_users_router)
+api_v1.include_router(gateway_registration_router)
+api_v1.include_router(agent_suggestions_router)
+api_v1.include_router(proactive_rules_router)
+api_v1.include_router(agent_suggestion_agent_router)
+api_v1.include_router(agent_events_router)
 app.include_router(api_v1)
+app.include_router(gateway_ws_router)
 
 add_pagination(app)
 logger.debug("app.routes.registered count=%s", len(app.routes))

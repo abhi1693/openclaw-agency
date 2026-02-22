@@ -1,0 +1,146 @@
+# Production Docker Compose for Alibaba Cloud ECS deployment.
+# Uses managed ApsaraDB RDS (PostgreSQL 16) and ApsaraDB Redis 7.
+# Run with: docker compose -f docker-compose.prod.yml up -d
+
+name: openclaw-mc-prod
+
+services:
+  api-server:
+    image: ${ACR_REGISTRY}/mc-backend:${TAG:-latest}
+    command: uvicorn app.main:app --host 0.0.0.0 --port 8000 --workers 4
+    env_file:
+      - path: ./env/.env.production
+        required: false
+    environment:
+      DATABASE_URL: postgresql+psycopg://${RDS_USER}:${RDS_PASS}@${RDS_HOST}/${RDS_DB}
+      RQ_REDIS_URL: redis://${REDIS_HOST}:6379/0
+      WS_REDIS_PUBSUB_URL: redis://${REDIS_HOST}:6379/1
+      PROACTIVITY_REDIS_URL: redis://${REDIS_HOST}:6379/2
+      BOARD_SYNC_REDIS_URL: redis://${REDIS_HOST}:6379/3
+      CORS_ORIGINS: https://admin.xxx.com,https://h5.xxx.com
+      ENVIRONMENT: production
+      DB_AUTO_MIGRATE: "false"
+    deploy:
+      replicas: 2
+      resources:
+        limits:
+          cpus: "2"
+          memory: 4G
+        reservations:
+          cpus: "1"
+          memory: 2G
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/healthz"]
+      interval: 15s
+      timeout: 5s
+      start_period: 10s
+      retries: 3
+    restart: unless-stopped
+    networks:
+      - mc-network
+    logging:
+      driver: json-file
+      options:
+        max-size: "50m"
+        max-file: "3"
+
+  rq-worker:
+    image: ${ACR_REGISTRY}/mc-backend:${TAG:-latest}
+    command: python -m app.services.queue_worker
+    env_file:
+      - path: ./env/.env.production
+        required: false
+    environment:
+      DATABASE_URL: postgresql+psycopg://${RDS_USER}:${RDS_PASS}@${RDS_HOST}/${RDS_DB}
+      RQ_REDIS_URL: redis://${REDIS_HOST}:6379/0
+      ENVIRONMENT: production
+    deploy:
+      replicas: 2
+      resources:
+        limits:
+          cpus: "1"
+          memory: 2G
+        reservations:
+          cpus: "0.5"
+          memory: 1G
+    restart: unless-stopped
+    networks:
+      - mc-network
+    logging:
+      driver: json-file
+      options:
+        max-size: "50m"
+        max-file: "3"
+
+  frontend:
+    image: ${ACR_REGISTRY}/mc-frontend:${TAG:-latest}
+    environment:
+      NEXT_PUBLIC_API_URL: https://api.xxx.com
+    deploy:
+      resources:
+        limits:
+          cpus: "1"
+          memory: 2G
+        reservations:
+          cpus: "0.5"
+          memory: 1G
+    healthcheck:
+      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:3000/"]
+      interval: 15s
+      timeout: 5s
+      start_period: 15s
+      retries: 3
+    restart: unless-stopped
+    networks:
+      - mc-network
+    logging:
+      driver: json-file
+      options:
+        max-size: "50m"
+        max-file: "3"
+
+  nginx:
+    image: nginx:1.27-alpine
+    ports:
+      - "80:80"
+    volumes:
+      - ./nginx/api.conf:/etc/nginx/conf.d/api.conf:ro
+      - ./nginx/admin.conf:/etc/nginx/conf.d/admin.conf:ro
+      # Uncomment when h5-app is deployed (Phase 5):
+      # - ./nginx/h5.conf:/etc/nginx/conf.d/h5.conf:ro
+    depends_on:
+      api-server:
+        condition: service_healthy
+      frontend:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:80/"]
+      interval: 15s
+      timeout: 5s
+      retries: 3
+    restart: unless-stopped
+    networks:
+      - mc-network
+    logging:
+      driver: json-file
+      options:
+        max-size: "20m"
+        max-file: "3"
+
+  event-bus-consumer:
+    image: ${ACR_REGISTRY}/mc-backend:${TAG:-latest}
+    command: python -m app.services.proactivity.rule_engine
+    environment:
+      DATABASE_URL: postgresql+psycopg://${RDS_USER}:${RDS_PASS}@${RDS_HOST}/${RDS_DB}
+      PROACTIVITY_REDIS_URL: redis://${REDIS_HOST}:6379/2
+      ENVIRONMENT: production
+      LOG_LEVEL: ${LOG_LEVEL:-INFO}
+    deploy:
+      replicas: 1
+    restart: unless-stopped
+    networks:
+      - mc-network
+
+networks:
+  mc-network:
+    driver: bridge

@@ -61,6 +61,22 @@ class Settings(BaseSettings):
     rq_dispatch_retry_base_seconds: float = 10.0
     rq_dispatch_retry_max_seconds: float = 120.0
 
+    # H5 user authentication
+    h5_jwt_secret: str = ""
+    h5_jwt_access_ttl_minutes: int = 15
+    h5_jwt_refresh_ttl_days: int = 30
+
+    # Gateway auto-registration (M2)
+    gateway_registration_enabled: bool = True
+    gateway_heartbeat_interval_seconds: int = 30
+    gateway_offline_threshold_seconds: int = 90
+
+    # Proactivity Engine (M8)
+    proactivity_redis_url: str = "redis://localhost:6379/2"
+    proactivity_event_ttl_days: int = 90
+    proactivity_suggestion_expiry_hours: int = 168
+    proactivity_rule_cooldown_seconds: int = 3600
+
     # OpenClaw gateway runtime compatibility
     gateway_min_version: str = "2026.02.9"
 
@@ -88,6 +104,12 @@ class Settings(BaseSettings):
                 raise ValueError(
                     "LOCAL_AUTH_TOKEN must be at least 50 characters and non-placeholder when AUTH_MODE=local.",
                 )
+        # Require a real H5 JWT secret in all non-dev environments to prevent
+        # accidental deployment with an empty signing key.
+        if self.environment != "dev" and not self.h5_jwt_secret.strip():
+            raise ValueError(
+                "H5_JWT_SECRET must be set and non-empty when ENVIRONMENT is not 'dev'.",
+            )
         # In dev, default to applying Alembic migrations at startup to avoid
         # schema drift (e.g. missing newly-added columns).
         if "db_auto_migrate" not in self.model_fields_set and self.environment == "dev":

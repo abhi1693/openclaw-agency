@@ -1,6 +1,9 @@
 """Model exports for SQLAlchemy/SQLModel metadata discovery."""
 
 from app.models.activity_events import ActivityEvent
+from app.models.agent_events import AgentEvent
+from app.models.agent_suggestions import AgentSuggestion
+from app.models.proactive_rules import ProactiveRule
 from app.models.agents import Agent
 from app.models.approval_task_links import ApprovalTaskLink
 from app.models.approvals import Approval
@@ -12,6 +15,7 @@ from app.models.board_webhook_payloads import BoardWebhookPayload
 from app.models.board_webhooks import BoardWebhook
 from app.models.boards import Board
 from app.models.gateways import Gateway
+from app.models.h5_users import H5RefreshToken, H5User, H5UserAgentAssignment
 from app.models.organization_board_access import OrganizationBoardAccess
 from app.models.organization_invite_board_access import OrganizationInviteBoardAccess
 from app.models.organization_invites import OrganizationInvite
@@ -32,6 +36,9 @@ from app.models.users import User
 
 __all__ = [
     "ActivityEvent",
+    "AgentEvent",
+    "AgentSuggestion",
+    "ProactiveRule",
     "Agent",
     "ApprovalTaskLink",
     "Approval",
@@ -43,6 +50,9 @@ __all__ = [
     "BoardGroup",
     "Board",
     "Gateway",
+    "H5RefreshToken",
+    "H5User",
+    "H5UserAgentAssignment",
     "GatewayInstalledSkill",
     "MarketplaceSkill",
     "SkillPack",

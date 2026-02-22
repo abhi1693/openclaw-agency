@@ -24,10 +24,15 @@ from uuid import UUID
 
 from fastapi import Depends, HTTPException, status
 
+import jwt as pyjwt
+from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
+
 from app.core.agent_auth import AgentAuthContext, get_agent_auth_context_optional
 from app.core.auth import AuthContext, get_auth_context, get_auth_context_optional
+from app.core.h5_auth import H5_TOKEN_TYPE, decode_h5_access_token
 from app.db.session import get_session
 from app.models.boards import Board
+from app.models.h5_users import H5User
 from app.models.organizations import Organization
 from app.models.tasks import Task
 from app.services.admin_access import require_admin
@@ -44,6 +49,8 @@ if TYPE_CHECKING:
 
     from app.models.agents import Agent
     from app.models.users import User
+
+_h5_bearer = HTTPBearer(auto_error=False)
 
 AUTH_DEP = Depends(get_auth_context)
 AUTH_OPTIONAL_DEP = Depends(get_auth_context_optional)
@@ -206,3 +213,46 @@ async def get_task_or_404(
     if task is None or task.board_id != board.id:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND)
     return task
+
+
+# ---------------------------------------------------------------------------
+# H5 user authentication
+# ---------------------------------------------------------------------------
+
+
+@dataclass
+class H5AuthContext:
+    """Authenticated H5 user context resolved from an H5 JWT."""
+
+    h5_user: H5User
+    organization_id: UUID
+
+
+async def get_h5_auth_context(
+    credentials: HTTPAuthorizationCredentials | None = Depends(_h5_bearer),
+    session: AsyncSession = SESSION_DEP,
+) -> H5AuthContext:
+    """Validate an H5 JWT Bearer token and return the authenticated context."""
+    if credentials is None:
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED)
+    try:
+        payload = decode_h5_access_token(credentials.credentials)
+    except pyjwt.PyJWTError:
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED)
+
+    if payload.get("type") != H5_TOKEN_TYPE:
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED)
+
+    h5_user_id = payload.get("sub")
+    org_id = payload.get("org")
+    if not h5_user_id or not org_id:
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED)
+
+    user = await session.get(H5User, UUID(h5_user_id))
+    if user is None or user.status != "active":
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED)
+
+    return H5AuthContext(h5_user=user, organization_id=UUID(org_id))
+
+
+H5_AUTH_DEP = Depends(get_h5_auth_context)

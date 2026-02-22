@@ -1,0 +1,72 @@
+# syntax=docker/dockerfile:1
+
+# Production-optimized backend image for Alibaba Cloud ECS deployment.
+# Multi-stage build: base -> deps -> runtime
+# Based on the development Dockerfile at backend/Dockerfile.
+
+FROM python:3.12-slim AS base
+
+ENV PYTHONDONTWRITEBYTECODE=1 \
+    PYTHONUNBUFFERED=1
+
+WORKDIR /app
+
+# System deps (keep minimal)
+RUN apt-get update \
+  && apt-get install -y --no-install-recommends curl ca-certificates \
+  && rm -rf /var/lib/apt/lists/*
+
+# Install uv (https://github.com/astral-sh/uv)
+RUN curl -LsSf https://astral.sh/uv/install.sh | sh
+ENV PATH="/root/.local/bin:${PATH}"
+
+# --- deps layer ---
+FROM base AS deps
+
+# Copy only dependency metadata first for better build caching.
+# NOTE: production compose builds from repo root, so files live under /backend.
+COPY backend/pyproject.toml backend/uv.lock ./
+
+# Create venv and sync deps (production only, no dev extras)
+RUN uv sync --frozen --no-dev
+
+# --- runtime ---
+FROM python:3.12-slim AS runtime
+
+ENV PYTHONDONTWRITEBYTECODE=1 \
+    PYTHONUNBUFFERED=1
+
+WORKDIR /app
+
+# Minimal runtime deps (curl for healthcheck)
+RUN apt-get update \
+  && apt-get install -y --no-install-recommends curl \
+  && rm -rf /var/lib/apt/lists/*
+
+# Create non-root user for security
+RUN groupadd --gid 1000 appuser \
+  && useradd --uid 1000 --gid appuser --shell /bin/sh --create-home appuser
+
+# Copy virtual environment from deps stage
+COPY --from=deps /app/.venv /app/.venv
+ENV PATH="/app/.venv/bin:${PATH}"
+
+# Copy app source
+COPY backend/migrations ./migrations
+COPY backend/alembic.ini ./alembic.ini
+COPY backend/app ./app
+
+# Copy provisioning templates.
+# In-repo these live at `backend/templates/`; runtime path is `/app/templates`.
+COPY backend/templates ./templates
+
+# Switch to non-root user
+USER appuser
+
+EXPOSE 8000
+
+HEALTHCHECK --interval=30s --timeout=5s --start-period=10s --retries=3 \
+  CMD curl -f http://localhost:8000/healthz || exit 1
+
+# Production: 4 workers for concurrency behind SLB
+CMD ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000", "--workers", "4"]
