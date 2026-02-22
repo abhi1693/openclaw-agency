@@ -238,7 +238,7 @@ def _build_connect_params(config: GatewayConfig) -> dict[str, Any]:
         "role": "operator",
         "scopes": list(GATEWAY_OPERATOR_SCOPES),
         "client": {
-            "id": "gateway-client",
+            "id": "openclaw-control-ui",
             "version": "1.0.0",
             "platform": "web",
             "mode": "ui",
@@ -290,7 +290,7 @@ async def openclaw_call(
         _redacted_url_for_log(gateway_url),
     )
     try:
-        async with websockets.connect(gateway_url, ping_interval=None) as ws:
+        async with websockets.connect(gateway_url, ping_interval=None, origin="http://127.0.0.1:18789") as ws:
             first_message = None
             try:
                 first_message = await asyncio.wait_for(ws.recv(), timeout=2)
@@ -336,7 +336,7 @@ async def openclaw_connect_metadata(*, config: GatewayConfig) -> object:
         _redacted_url_for_log(gateway_url),
     )
     try:
-        async with websockets.connect(gateway_url, ping_interval=None) as ws:
+        async with websockets.connect(gateway_url, ping_interval=None, origin="http://127.0.0.1:18789") as ws:
             first_message = None
             try:
                 first_message = await asyncio.wait_for(ws.recv(), timeout=2)
