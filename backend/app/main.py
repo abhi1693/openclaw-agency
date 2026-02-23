@@ -30,6 +30,9 @@ from app.api.agent_suggestions import _AGENT_SUGGESTION_ROUTER as agent_suggesti
 from app.api.agent_suggestions import router as agent_suggestions_router
 from app.api.h5_auth import router as h5_auth_router
 from app.api.h5_users import router as h5_users_router
+from app.api.ws_h5 import ws_router as h5_ws_router
+from app.api.ws_gateway import ws_gateway_router
+from app.api.ws_board import ws_board_router
 from app.api.proactive_rules import router as proactive_rules_router
 from app.api.metrics import router as metrics_router
 from app.api.organizations import router as organizations_router
@@ -154,6 +157,14 @@ OPENAPI_TAGS = [
     {
         "name": "h5-auth",
         "description": "H5 mobile web user authentication: registration, login, token refresh, and profile.",
+    },
+    {
+        "name": "h5-ws",
+        "description": "WebSocket relay endpoints for H5 client chat sessions.",
+    },
+    {
+        "name": "board-ws",
+        "description": "WebSocket endpoints for board real-time sync (M4 stub, full impl in M9).",
     },
     {
         "name": "h5-users",
@@ -584,6 +595,9 @@ api_v1.include_router(agent_suggestion_agent_router)
 api_v1.include_router(agent_events_router)
 app.include_router(api_v1)
 app.include_router(gateway_ws_router)
+app.include_router(h5_ws_router)
+app.include_router(ws_gateway_router)
+app.include_router(ws_board_router)
 
 add_pagination(app)
 logger.debug("app.routes.registered count=%s", len(app.routes))
