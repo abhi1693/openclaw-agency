@@ -30,6 +30,7 @@ from app.core.time import utcnow
 from app.db.session import async_session_maker
 from app.models.agents import Agent
 from app.models.board_memory import BoardMemory
+from app.models.boards import Board
 from app.models.gateways import Gateway
 from app.models.tasks import Task
 from app.services.openclaw.internal.agent_key import agent_key as _agent_key
@@ -41,10 +42,10 @@ from app.services.openclaw.gateway_rpc import GatewayConfig as GatewayClientConf
 
 logger = get_logger(__name__)
 
-# Governor cadence + behaviour.
-ACTIVE_EVERY = "5m"
-LADDER: list[str] = ["10m", "30m", "1h", "3h", "6h"]
-LEAD_CAP_EVERY = "1h"
+# Governor cadence + behaviour (defaults; may be overridden by board policy).
+DEFAULT_ACTIVE_EVERY = "5m"
+DEFAULT_LADDER: list[str] = ["10m", "30m", "1h", "3h", "6h"]
+DEFAULT_LEAD_CAP_EVERY = "1h"
 ACTIVE_WINDOW = timedelta(minutes=60)
 
 # Postgres advisory lock key (2x int32). Keep stable.
@@ -72,6 +73,9 @@ def compute_desired_heartbeat(
     is_lead: bool,
     active: bool,
     step: int,
+    active_every: str = DEFAULT_ACTIVE_EVERY,
+    ladder: list[str] | None = None,
+    lead_cap_every: str = DEFAULT_LEAD_CAP_EVERY,
 ) -> DesiredHeartbeat:
     """Return desired heartbeat for an agent.
 
@@ -81,30 +85,29 @@ def compute_desired_heartbeat(
       len(LADDER)+1 means off (for non-leads).
     """
 
+    ladder = list(ladder or DEFAULT_LADDER)
+
     if active:
-        return DesiredHeartbeat(every=ACTIVE_EVERY, step=0, off=False)
+        return DesiredHeartbeat(every=active_every, step=0, off=False)
 
     # If idle, advance one rung.
     next_step = max(1, int(step) + 1)
 
     if is_lead:
-        # Leads never go fully off; cap at 1h.
+        # Leads never go fully off; cap at lead_cap_every.
         if next_step <= 0:
-            next_every = ACTIVE_EVERY
-        elif next_step <= len(LADDER):
-            next_every = LADDER[next_step - 1]
+            next_every = active_every
+        elif next_step <= len(ladder):
+            next_every = ladder[next_step - 1]
         else:
-            next_every = LEAD_CAP_EVERY
-        # Enforce cap.
-        if next_every in ("3h", "6h"):
-            next_every = LEAD_CAP_EVERY
-        return DesiredHeartbeat(every=next_every, step=min(next_step, len(LADDER)), off=False)
+            next_every = lead_cap_every
+        return DesiredHeartbeat(every=next_every, step=min(next_step, len(ladder)), off=False)
 
     # Non-leads can go fully off after max backoff.
-    if next_step <= len(LADDER):
-        return DesiredHeartbeat(every=LADDER[next_step - 1], step=next_step, off=False)
+    if next_step <= len(ladder):
+        return DesiredHeartbeat(every=ladder[next_step - 1], step=next_step, off=False)
 
-    return DesiredHeartbeat(every=None, step=len(LADDER) + 1, off=True)
+    return DesiredHeartbeat(every=None, step=len(ladder) + 1, off=True)
 
 
 async def _acquire_lock(session) -> bool:
@@ -207,6 +210,13 @@ async def run_governor_once() -> None:
             chat_by_board = await _latest_chat_by_board(session)
             has_work_by_agent = await _has_work_map(session)
 
+            # Load board policies referenced by these agents.
+            board_ids = {a.board_id for a in agents if a.board_id}
+            boards = (
+                await session.exec(select(Board).where(col(Board.id).in_(board_ids)))
+            ).all() if board_ids else []
+            board_by_id = {b.id: b for b in boards}
+
             # Load gateways referenced by these agents.
             gateway_ids = {a.gateway_id for a in agents if a.gateway_id}
             gateways = (
@@ -225,16 +235,45 @@ async def run_governor_once() -> None:
                 if gateway is None or not gateway.url or not gateway.workspace_root:
                     continue
 
+                board = board_by_id.get(agent.board_id) if agent.board_id else None
+                if board is not None and not bool(board.auto_heartbeat_governor_enabled):
+                    continue
+
                 last_chat_at = None
                 if agent.board_id:
                     last_chat_at = chat_by_board.get(agent.board_id)
-                has_work = has_work_by_agent.get(agent.id, False)
 
-                active = _is_active(now=now, last_chat_at=last_chat_at, has_work=has_work)
+                has_work = has_work_by_agent.get(agent.id, False)
+                trigger = (
+                    str(getattr(board, "auto_heartbeat_governor_activity_trigger_type", "B"))
+                    if board is not None
+                    else "B"
+                )
+                active = _is_active(
+                    now=now,
+                    last_chat_at=last_chat_at,
+                    has_work=(has_work if trigger != "A" else False),
+                )
+
+                ladder = (
+                    list(getattr(board, "auto_heartbeat_governor_ladder", None) or [])
+                    if board is not None
+                    else None
+                )
+                if not ladder:
+                    ladder = None
+                lead_cap = (
+                    str(getattr(board, "auto_heartbeat_governor_lead_cap_every", DEFAULT_LEAD_CAP_EVERY))
+                    if board is not None
+                    else DEFAULT_LEAD_CAP_EVERY
+                )
+
                 desired = compute_desired_heartbeat(
                     is_lead=bool(agent.is_board_lead),
                     active=active,
                     step=int(agent.auto_heartbeat_step or 0),
+                    ladder=ladder,
+                    lead_cap_every=lead_cap,
                 )
 
                 # Determine if we need to update DB state.

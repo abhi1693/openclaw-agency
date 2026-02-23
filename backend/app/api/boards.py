@@ -26,6 +26,10 @@ from app.models.agents import Agent
 from app.models.board_groups import BoardGroup
 from app.models.boards import Board
 from app.models.gateways import Gateway
+from app.schemas.auto_heartbeat_governor import (
+    AutoHeartbeatGovernorPolicyRead,
+    AutoHeartbeatGovernorPolicyUpdate,
+)
 from app.schemas.boards import BoardCreate, BoardRead, BoardUpdate
 from app.schemas.common import OkResponse
 from app.schemas.pagination import DefaultLimitOffsetPage
@@ -406,6 +410,52 @@ def get_board(
 ) -> Board:
     """Get a board by id."""
     return board
+
+
+@router.get(
+    "/{board_id}/auto-heartbeat-governor-policy",
+    response_model=AutoHeartbeatGovernorPolicyRead,
+)
+def get_auto_heartbeat_governor_policy(
+    board: Board = BOARD_USER_READ_DEP,
+) -> AutoHeartbeatGovernorPolicyRead:
+    """Get board-scoped auto heartbeat governor policy."""
+    return AutoHeartbeatGovernorPolicyRead(
+        enabled=bool(board.auto_heartbeat_governor_enabled),
+        run_interval_seconds=int(board.auto_heartbeat_governor_run_interval_seconds),
+        ladder=list(board.auto_heartbeat_governor_ladder or []),
+        lead_cap_every=str(board.auto_heartbeat_governor_lead_cap_every),
+        activity_trigger_type=str(board.auto_heartbeat_governor_activity_trigger_type),
+    )
+
+
+@router.patch(
+    "/{board_id}/auto-heartbeat-governor-policy",
+    response_model=AutoHeartbeatGovernorPolicyRead,
+)
+async def update_auto_heartbeat_governor_policy(
+    payload: AutoHeartbeatGovernorPolicyUpdate,
+    session: AsyncSession = SESSION_DEP,
+    board: Board = BOARD_USER_WRITE_DEP,
+) -> AutoHeartbeatGovernorPolicyRead:
+    """Patch board-scoped auto heartbeat governor policy."""
+    updates = payload.model_dump(exclude_unset=True)
+    if "enabled" in updates:
+        board.auto_heartbeat_governor_enabled = bool(updates["enabled"])
+    if "run_interval_seconds" in updates:
+        board.auto_heartbeat_governor_run_interval_seconds = int(updates["run_interval_seconds"])
+    if "ladder" in updates:
+        board.auto_heartbeat_governor_ladder = list(updates["ladder"])
+    if "lead_cap_every" in updates:
+        board.auto_heartbeat_governor_lead_cap_every = str(updates["lead_cap_every"])
+    if "activity_trigger_type" in updates:
+        trigger = updates["activity_trigger_type"]
+        board.auto_heartbeat_governor_activity_trigger_type = (
+            trigger.value if hasattr(trigger, "value") else str(trigger)
+        )
+    board.updated_at = utcnow()
+    await crud.save(session, board)
+    return get_auto_heartbeat_governor_policy(board)
 
 
 @router.get("/{board_id}/snapshot", response_model=BoardSnapshot)
