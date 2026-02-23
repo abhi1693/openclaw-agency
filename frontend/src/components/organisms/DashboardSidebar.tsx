@@ -7,6 +7,7 @@ import {
   BarChart3,
   Bot,
   Boxes,
+  CalendarDays,
   CheckCircle2,
   Folder,
   Building2,
@@ -94,6 +95,18 @@ export function DashboardSidebar() {
               >
                 <Activity className="h-4 w-4" />
                 {t("menu.liveFeed")}
+              </Link>
+              <Link
+                href="/calendar"
+                className={cn(
+                  "flex items-center gap-3 rounded-lg px-3 py-2.5 text-slate-700 transition",
+                  pathname.startsWith("/calendar")
+                    ? "bg-blue-100 text-blue-800 font-medium"
+                    : "hover:bg-slate-100",
+                )}
+              >
+                <CalendarDays className="h-4 w-4" />
+                {t("menu.calendar")}
               </Link>
             </div>
           </div>
