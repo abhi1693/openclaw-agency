@@ -15,6 +15,7 @@ from app.api.agent import router as agent_router
 from app.api.agents import router as agents_router
 from app.api.approvals import router as approvals_router
 from app.api.auth import router as auth_router
+from app.api.hello import router as hello_router
 from app.api.board_group_memory import router as board_group_memory_router
 from app.api.board_groups import router as board_groups_router
 from app.api.board_memory import router as board_memory_router
@@ -47,6 +48,12 @@ OPENAPI_TAGS = [
         "name": "auth",
         "description": (
             "Authentication bootstrap endpoints for resolving caller identity and session context."
+        ),
+    },
+    {
+        "name": "hello",
+        "description": (
+            "Simple greeting endpoints for health checks and basic connectivity tests."
         ),
     },
     {
@@ -523,6 +530,7 @@ def readyz() -> HealthStatusResponse:
 
 api_v1 = APIRouter(prefix="/api/v1")
 api_v1.include_router(auth_router)
+api_v1.include_router(hello_router)
 api_v1.include_router(agent_router)
 api_v1.include_router(agents_router)
 api_v1.include_router(activity_router)
