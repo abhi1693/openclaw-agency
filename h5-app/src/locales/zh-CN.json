@@ -1,0 +1,7 @@
+{
+  "header": { "back": "返回" },
+  "status": { "connected": "已连接", "reconnecting": "重新连接中…", "offline": "已离线" },
+  "login": { "subtitle": "与您的 AI 助手对话", "organizationId": "组织 ID", "organizationIdPlaceholder": "请输入组织 ID", "username": "用户名", "usernamePlaceholder": "请输入用户名", "password": "密码", "passwordPlaceholder": "请输入密码", "submit": "登录" },
+  "sessions": { "title": "消息", "empty": "暂无对话", "loggedInAs": "当前用户：{{username}}", "logout": "退出登录" },
+  "chat": { "defaultTitle": "聊天", "defaultAgentName": "智能体", "inputPlaceholder": "输入消息…", "connectingPlaceholder": "连接中…", "enterHint": "按 Enter 发送 · Shift+Enter 换行", "send": "发送", "emptyState": "发送消息开始对话", "agentOffline": "智能体当前不在线，请稍后再试。" }
+}

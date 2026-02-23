@@ -1,0 +1,18 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root {
+    --color-app: 0 0% 100%;
+    --color-surface: 220 14% 96%;
+    --color-surface-raised: 220 14% 90%;
+    --color-text-strong: 220 20% 10%;
+    --color-text-muted: 220 10% 50%;
+    --color-line: 220 13% 91%;
+  }
+  html { -webkit-text-size-adjust: 100%; text-size-adjust: 100%; }
+  body { -webkit-overflow-scrolling: touch; overscroll-behavior: none; }
+  * { -webkit-tap-highlight-color: transparent; }
+  html, body, #root { height: 100%; overflow: hidden; }
+}

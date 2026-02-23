@@ -1,0 +1,7 @@
+{
+  "header": { "back": "Go back" },
+  "status": { "connected": "Connected", "reconnecting": "Reconnecting…", "offline": "Offline" },
+  "login": { "subtitle": "Chat with your AI assistant", "organizationId": "Organization ID", "organizationIdPlaceholder": "Enter your organization ID", "username": "Username", "usernamePlaceholder": "Enter your username", "password": "Password", "passwordPlaceholder": "Enter your password", "submit": "Sign in" },
+  "sessions": { "title": "Messages", "empty": "No conversations yet", "loggedInAs": "Signed in as {{username}}", "logout": "Sign out" },
+  "chat": { "defaultTitle": "Chat", "defaultAgentName": "Agent", "inputPlaceholder": "Type a message…", "connectingPlaceholder": "Connecting…", "enterHint": "Press Enter to send · Shift+Enter for new line", "send": "Send", "emptyState": "Send a message to start the conversation", "agentOffline": "Agent is currently offline. Please try again later." }
+}

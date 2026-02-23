@@ -66,6 +66,18 @@ services:
     ports:
       - "${FRONTEND_PORT:-3000}:3000"
 
+
+  h5-app:
+    build:
+      context: ./h5-app
+      args:
+        VITE_API_URL: ${VITE_API_URL:-http://localhost:8000}
+        VITE_DEFAULT_ORG_ID: ${VITE_DEFAULT_ORG_ID:-}
+    ports:
+      - "${H5_APP_PORT:-5173}:80"
+    depends_on:
+      - backend
+
   webhook-worker:
     build:
       context: .
