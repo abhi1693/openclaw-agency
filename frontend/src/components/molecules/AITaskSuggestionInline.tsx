@@ -1,11 +1,10 @@
 "use client";
 
 /**
- * AITaskSuggestionInline — inline suggestion strip below board header (M9).
+ * AITaskSuggestionInline — 看板标题下方内联 AI 建议条 (M9)。
  *
- * Displays the latest AI suggestions received via the board sync WebSocket.
- * Each suggestion can be dismissed. Suggestions auto-scroll horizontally on
- * narrow screens.
+ * 展示通过看板同步 WebSocket 接收到的最新 AI 建议。
+ * 每条建议可单独关闭。建议列表在窄屏下支持横向滚动。
  */
 
 import { useTranslation } from "react-i18next";

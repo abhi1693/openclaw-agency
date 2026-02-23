@@ -1,11 +1,10 @@
 "use client";
 
 /**
- * QuickTaskCreator — inline task creation form for the board (M9).
+ * QuickTaskCreator — 看板内联任务快速创建表单 (M9)。
  *
- * Renders a compact input row that emits a task.create message via the board
- * sync WebSocket when submitted. Can also call a REST mutation prop for
- * persistence if WS-only creation is not desired.
+ * 渲染一行紧凑输入组件，提交时通过看板同步 WebSocket 发送 task.create 消息。
+ * 若需要，也可通过 REST 回调 prop 进行持久化操作。
  */
 
 import { useRef, useState } from "react";

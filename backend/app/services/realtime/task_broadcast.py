@@ -1,9 +1,9 @@
-"""TaskBroadcaster: broadcast task mutations to board subscribers via Redis DB3.
+"""TaskBroadcaster：通过 Redis DB3 向看板订阅者广播任务变更事件。
 
-Channel pattern: board_sync:{board_id}
+频道命名规则：board_sync:{board_id}
 
-Messages published are plain JSON dicts that match the BoardSyncMessage
-protocol defined in frontend/src/lib/board-sync-protocol.ts.
+发布的消息为纯 JSON 字典，与 frontend/src/lib/board-sync-protocol.ts
+中定义的 BoardSyncMessage 协议保持一致。
 """
 
 from __future__ import annotations
@@ -17,7 +17,7 @@ from app.core.logging import get_logger
 
 logger = get_logger(__name__)
 
-# Channel prefix for board sync — using Redis DB3 (BOARD_SYNC_REDIS_URL).
+# 看板同步频道前缀 — 使用 Redis DB3 (BOARD_SYNC_REDIS_URL)。
 _CHANNEL_PREFIX = "board_sync"
 
 
@@ -30,10 +30,9 @@ def _utc_now_iso() -> str:
 
 
 class TaskBroadcaster:
-    """Broadcast task mutations to all board sync subscribers via Redis DB3.
+    """通过 Redis DB3 向所有看板同步订阅者广播任务变更事件。
 
-    Uses lazy Redis initialization so the app can start even if Redis is
-    temporarily unavailable.
+    采用懒加载 Redis 初始化策略，即使 Redis 暂时不可用，应用也能正常启动。
     """
 
     def __init__(self, redis_url: str) -> None:

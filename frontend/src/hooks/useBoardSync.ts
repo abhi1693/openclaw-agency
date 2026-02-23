@@ -1,11 +1,10 @@
 "use client";
 
 /**
- * useBoardSync — WebSocket hook for M9 real-time board sync.
+ * useBoardSync — M9 看板实时同步 WebSocket Hook。
  *
- * Connects to /ws/board/{boardId}/sync, handles auth, heartbeat,
- * auto-reconnect with exponential backoff, and merges server events into
- * the provided task state via callbacks.
+ * 连接 /ws/board/{boardId}/sync，处理鉴权、心跳、
+ * 指数退避自动重连，并通过回调将服务端事件合并到任务状态中。
  */
 
 import { useCallback, useEffect, useRef, useState } from "react";
@@ -24,36 +23,36 @@ const BACKOFF_MAX_MS = 30_000;
 const BACKOFF_MULTIPLIER = 2;
 
 export type BoardSyncCallbacks = {
-  /** Called with the full task list when initial board.state arrives. */
+  /** 收到初始 board.state 时调用，包含完整任务列表。 */
   onBoardState?: (tasks: BoardSyncTask[]) => void;
-  /** Called when a task is updated; `changes` has the updated fields. */
+  /** 任务更新时调用；changes 包含变更字段。 */
   onTaskUpdated?: (
     taskId: string,
     changes: Partial<BoardSyncTask> & { previous_status?: string },
   ) => void;
-  /** Called when a new task is created. */
+  /** 新任务创建时调用。 */
   onTaskCreated?: (task: BoardSyncTask) => void;
-  /** Called when a task is deleted. */
+  /** 任务删除时调用。 */
   onTaskDeleted?: (taskId: string) => void;
-  /** Called when a new AI suggestion arrives. */
+  /** 收到 AI 新建议时调用。 */
   onSuggestionNew?: (suggestion: AgentSuggestion) => void;
 };
 
 export type UseBoardSyncOptions = {
   boardId: string;
-  /** Admin bearer token (local token or Clerk JWT). */
+  /** 管理员 Bearer Token（本地令牌或 Clerk JWT）。 */
   token: string | null | undefined;
-  /** Base URL of the API server (defaults to window origin). */
+  /** API 服务器基础 URL（默认使用 window.origin）。 */
   apiBaseUrl?: string;
-  /** Callbacks for board sync events. */
+  /** 看板同步事件回调。 */
   callbacks?: BoardSyncCallbacks;
-  /** Disable the connection (e.g. when token is not yet available). */
+  /** 禁用连接（如 token 尚未就绪时）。 */
   enabled?: boolean;
 };
 
 export type UseBoardSyncResult = {
   connectionState: BoardSyncConnectionState;
-  /** Send a message to the server (task.move / task.create). */
+  /** 向服务端发送消息（task.move / task.create）。 */
   sendMessage: (msg: ClientMessage) => void;
 };
 
@@ -123,7 +122,7 @@ export function useBoardSync({
       reconnectAttemptsRef.current = 0;
       setConnectionState("connected");
 
-      // Start heartbeat
+      // 启动心跳定时器
       clearHeartbeat();
       heartbeatTimerRef.current = setInterval(() => {
         if (ws.readyState === WebSocket.OPEN) {
@@ -165,7 +164,7 @@ export function useBoardSync({
     };
 
     ws.onerror = () => {
-      // onclose will fire next and handle reconnect.
+      // onclose 事件将在之后触发并处理重连逻辑。
     };
 
     ws.onclose = (event: CloseEvent) => {
@@ -174,7 +173,7 @@ export function useBoardSync({
 
       if (!mountedRef.current) return;
 
-      // 4001 = unauthorized, 4004 = board not found — don't reconnect.
+      // 4001 = 未授权，4004 = 看板不存在 — 不重连。
       if (event.code === 4001 || event.code === 4004) {
         setConnectionState("disconnected");
         return;

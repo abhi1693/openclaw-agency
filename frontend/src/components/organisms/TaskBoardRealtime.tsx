@@ -1,15 +1,15 @@
 "use client";
 
 /**
- * TaskBoardRealtime — wraps the existing TaskBoard with WebSocket real-time sync (M9).
+ * TaskBoardRealtime — 为现有 TaskBoard 添加 WebSocket 实时同步能力 (M9)。
  *
- * Responsibilities:
- * - Connects to /ws/board/{boardId}/sync via useBoardSync hook.
- * - Merges incremental server events (task.created, task.updated, task.deleted)
- *   into local state that shadows the React Query cache.
- * - Renders the existing <TaskBoard /> with the merged task list.
- * - Shows a connection status indicator to admin users.
- * - Renders the inline AI suggestion strip when suggestions arrive.
+ * 职责：
+ * - 通过 useBoardSync Hook 连接 /ws/board/{boardId}/sync。
+ * - 将增量服务端事件（task.created / task.updated / task.deleted）
+ *   合并到本地状态中，覆盖 React Query 缓存。
+ * - 将合并后的任务列表传递给现有 <TaskBoard /> 组件渲染。
+ * - 向管理员用户展示连接状态指示器。
+ * - 收到建议时渲染内联 AI 建议条。
  */
 
 import { useCallback, useEffect, useMemo, useState } from "react";
@@ -80,14 +80,13 @@ export function TaskBoardRealtime({
 }: TaskBoardRealtimeProps) {
   const { t } = useTranslation();
 
-  // Local task state — seeded from initialTasks and updated by WS events.
+  // 本地任务状态 — 初始化自 initialTasks，随 WS 事件更新。
   const [tasks, setTasks] =
     useState<TaskBoardCompatibleTask[]>(initialTasks);
   const [suggestions, setSuggestions] = useState<AgentSuggestion[]>([]);
   const [receivedInitialState, setReceivedInitialState] = useState(false);
 
-  // Sync initialTasks changes (e.g. from React Query refetch) into local
-  // state only until we have received the authoritative board.state from WS.
+  // 在收到 WS 下发的权威 board.state 之前，同步 React Query 的更新。
   useEffect(() => {
     if (!receivedInitialState) {
       setTasks(initialTasks);
@@ -138,7 +137,7 @@ export function TaskBoardRealtime({
   const handleSuggestionNew = useCallback((suggestion: AgentSuggestion) => {
     setSuggestions((prev) => {
       if (prev.some((s) => s.id === suggestion.id)) return prev;
-      return [suggestion, ...prev.slice(0, 4)]; // keep at most 5 suggestions
+      return [suggestion, ...prev.slice(0, 4)]; // 最多保留 5 条建议
     });
   }, []);
 
@@ -158,18 +157,18 @@ export function TaskBoardRealtime({
 
   const handleTaskMove = useCallback(
     async (taskId: string, status: TaskStatus) => {
-      // Optimistic local update
+      // 乐观更新本地状态
       setTasks((prev) =>
         prev.map((t) => (t.id === taskId ? { ...t, status } : t)),
       );
-      // Send to server via WS
+      // 通过 WS 发送任务移动消息到服务端
       const wsMsg: ClientMessage = {
         type: "task.move",
         task_id: taskId,
         status,
       };
       sendMessage(wsMsg);
-      // Also call the parent handler for REST mutation if provided
+      // 若父组件提供了 REST 回调也一并触发
       if (onTaskMove) {
         await onTaskMove(taskId, status);
       }

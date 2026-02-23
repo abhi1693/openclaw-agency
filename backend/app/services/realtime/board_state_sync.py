@@ -1,7 +1,7 @@
-"""Board state snapshot service for initial WebSocket board sync (M9).
+"""看板状态快照服务，用于 WebSocket 初次连接时的全量数据下发 (M9)。
 
-Fetches the full task list for a board so newly connected clients receive a
-complete board.state payload before subscribing to incremental updates.
+获取看板的完整任务列表，确保新连接的客户端在订阅增量更新前
+先收到完整的 board.state 快照。
 """
 
 from __future__ import annotations
@@ -26,7 +26,7 @@ def _utc_now_iso() -> str:
 
 
 def _task_to_dict(task: Any) -> dict[str, object]:
-    """Serialize a Task ORM object to a plain dict for the board.state payload."""
+    """将 Task ORM 对象序列化为 board.state 消息所需的纯字典格式。"""
     return {
         "id": str(task.id),
         "board_id": str(task.board_id) if task.board_id else None,
@@ -53,12 +53,12 @@ async def fetch_board_state(
     *,
     board_id: UUID,
 ) -> dict[str, object]:
-    """Fetch a full board state snapshot for initial WebSocket delivery.
+    """获取看板完整状态快照，用于 WebSocket 初次连接时下发。
 
-    Returns a board.state message dict ready to be serialized and sent.
+    返回可直接序列化并发送的 board.state 消息字典。
     """
-    # Lazy import: defers loading app.models (and its __init__ dependencies) until
-    # this function is actually called, rather than at module import time.
+    # 懒加载：延迟至函数调用时再导入 app.models，避免模块加载时触发
+    # app/models/__init__.py 中对尚未实现的其他模块（如 M11）的依赖。
     from app.models.tasks import Task  # noqa: PLC0415
 
     tasks = list(

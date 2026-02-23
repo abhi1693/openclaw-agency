@@ -1,9 +1,9 @@
 /**
- * Board sync WebSocket protocol types (M9).
+ * 看板实时同步 WebSocket 协议类型定义 (M9)。
  *
- * Endpoint: /ws/board/{boardId}/sync
+ * 端点：/ws/board/{boardId}/sync
  *
- * All messages are JSON objects with a `type` discriminant.
+ * 所有消息均为带有 `type` 判别字段的 JSON 对象。
  */
 
 export type TaskStatus = "inbox" | "in_progress" | "review" | "done";
@@ -42,7 +42,7 @@ export type AgentSuggestion = {
   created_at: string;
 };
 
-// ── Server → Client messages ────────────────────────────────────────────────
+// ── 服务端 → 客户端消息 ──────────────────────────────────────────────────────
 
 export type BoardStateMessage = {
   type: "board.state";
@@ -88,7 +88,7 @@ export type ServerMessage =
   | SuggestionNewMessage
   | HeartbeatAckMessage;
 
-// ── Client → Server messages ────────────────────────────────────────────────
+// ── 客户端 → 服务端消息 ──────────────────────────────────────────────────────
 
 export type TaskMoveMessage = {
   type: "task.move";
@@ -110,7 +110,7 @@ export type HeartbeatMessage = {
 
 export type ClientMessage = TaskMoveMessage | TaskCreateMessage | HeartbeatMessage;
 
-// ── Connection state ─────────────────────────────────────────────────────────
+// ── 连接状态 ─────────────────────────────────────────────────────────────────
 
 export type BoardSyncConnectionState =
   | "connecting"
