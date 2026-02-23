@@ -129,7 +129,7 @@ async def _latest_chat_by_board(session) -> dict[Any, datetime]:
         text(
             """
             SELECT board_id, MAX(created_at) AS last_chat_at
-            FROM boardmemory
+            FROM board_memory
             WHERE is_chat = true
             GROUP BY board_id
             """,
@@ -149,7 +149,7 @@ async def _has_work_map(session) -> dict[Any, bool]:
         text(
             """
             SELECT assigned_agent_id, COUNT(*)
-            FROM task
+            FROM tasks
             WHERE assigned_agent_id IS NOT NULL
               AND status IN ('in_progress', 'review')
             GROUP BY assigned_agent_id
