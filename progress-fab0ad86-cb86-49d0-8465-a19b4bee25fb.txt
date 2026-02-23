@@ -1,0 +1,33 @@
+# Progress Log
+Run: fab0ad86-cb86-49d0-8465-a19b4bee25fb
+Task: 测试任务：创建一个 hello endpoint，并给出验收标准
+Started: 2026-02-22T20:22:00-06:00
+
+## Codebase Patterns
+- **FastAPI router pattern**: Routers are defined in `app/api/<name>.py` with `router = APIRouter(prefix="/<name>", tags=["<name>"])`, then imported and registered in `app/main.py` via `api_v1.include_router(<name>_router)`
+- **Schema pattern**: Schemas use `SQLModel` base class from sqlmodel, with `Field()` for descriptions and examples
+- **Test pattern**: Tests use `pytest.mark.asyncio` for async endpoint tests, direct function calls (not HTTP client)
+- **Run commands**: Use `uv run` for all Python commands (mypy, pytest, etc.)
+
+---
+## 2026-02-22T20:22:00-06:00 - US-001: Create backend hello endpoint
+- Created `app/schemas/hello.py` with `HelloResponse` schema containing a `message` string field
+- Created `app/api/hello.py` with GET `/api/v1/hello` endpoint returning `{"message": "Hello, World!"}`
+- Registered hello router in `app/main.py` under `/api/v1` prefix
+- Added 'hello' tag to `OPENAPI_TAGS` in main.py
+- Created `tests/test_hello_api.py` with async test for GET /hello
+- Typecheck passes (mypy)
+- Tests pass
+- **Commit**: ff8b4b4
+- **Learnings**: This project uses uv for dependency management, so always use `uv run` prefix for Python commands
+
+---
+## 2026-02-22T20:38:00-06:00 - US-002: Generate frontend API client and create hello page
+- Generated hello API client in `frontend/src/api/generated/hello/hello.ts` using orval
+- Created `frontend/src/app/hello/page.tsx` with loading and error state handling
+- Created unit tests in `frontend/src/app/hello/page.test.tsx` covering loading, error, and success states
+- TypeScript typecheck passes
+- All 3 hello page tests pass
+- **Commit**: 36982bd
+- **Learnings**: The frontend uses @tanstack/react-query for API calls, generated hooks follow naming pattern `use<Endpoint><Method>`
+---
