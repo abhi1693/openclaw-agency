@@ -44,5 +44,12 @@ class Agent(QueryModel, table=True):
     delete_confirm_token_hash: str | None = Field(default=None, index=True)
     last_seen_at: datetime | None = Field(default=None)
     is_board_lead: bool = Field(default=False, index=True)
+
+    # Auto heartbeat governor state (Mission Control managed)
+    auto_heartbeat_enabled: bool = Field(default=True, index=True)
+    auto_heartbeat_step: int = Field(default=0)
+    auto_heartbeat_off: bool = Field(default=False, index=True)
+    auto_heartbeat_last_active_at: datetime | None = Field(default=None)
+
     created_at: datetime = Field(default_factory=utcnow)
     updated_at: datetime = Field(default_factory=utcnow)
