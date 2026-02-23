@@ -23,5 +23,7 @@ class AgentCapability(QueryModel, table=True):
     agent_id: UUID = Field(foreign_key="agents.id", index=True)
     capability: str = Field(index=True)
     proficiency: str = Field(default="standard")
-    metadata: dict[str, Any] | None = Field(default=None, sa_column=Column(JSON))
+    extra_data: dict[str, Any] | None = Field(
+        default=None, sa_column=Column("metadata", JSON, nullable=True)
+    )
     created_at: datetime = Field(default_factory=utcnow)
