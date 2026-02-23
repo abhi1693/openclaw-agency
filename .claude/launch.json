@@ -1,0 +1,24 @@
+{
+  "version": "0.0.1",
+  "configurations": [
+    {
+      "name": "frontend-dev",
+      "runtimeExecutable": "npm",
+      "runtimeArgs": ["run", "dev"],
+      "port": 3000,
+      "cwd": "frontend"
+    },
+    {
+      "name": "docker-stack",
+      "runtimeExecutable": "docker",
+      "runtimeArgs": ["compose", "-f", "compose.yml", "--env-file", ".env", "up", "--build"],
+      "port": 3000
+    },
+    {
+      "name": "docker-infra",
+      "runtimeExecutable": "docker",
+      "runtimeArgs": ["compose", "-f", "compose.yml", "--env-file", ".env", "up", "db", "redis", "backend", "webhook-worker"],
+      "port": 8000
+    }
+  ]
+}
