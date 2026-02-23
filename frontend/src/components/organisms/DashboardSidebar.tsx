@@ -12,10 +12,12 @@ import {
   Folder,
   Building2,
   LayoutGrid,
+  Monitor,
   Network,
   Settings,
   Store,
   Tags,
+  Users,
 } from "lucide-react";
 
 import { useAuth } from "@/auth/clerk";
@@ -164,6 +166,18 @@ export function DashboardSidebar() {
                 <CheckCircle2 className="h-4 w-4" />
                 {t("menu.approvals")}
               </Link>
+              <Link
+                href="/teams"
+                className={cn(
+                  "flex items-center gap-3 rounded-lg px-3 py-2.5 text-slate-700 transition",
+                  pathname.startsWith("/teams")
+                    ? "bg-blue-100 text-blue-800 font-medium"
+                    : "hover:bg-slate-100",
+                )}
+              >
+                <Users className="h-4 w-4" />
+                {t("menu.teams")}
+              </Link>
               {isAdmin ? (
                 <Link
                   href="/custom-fields"
@@ -261,6 +275,20 @@ export function DashboardSidebar() {
                 >
                   <Bot className="h-4 w-4" />
                   {t("menu.agents")}
+                </Link>
+              ) : null}
+              {isAdmin ? (
+                <Link
+                  href="/command-center"
+                  className={cn(
+                    "flex items-center gap-3 rounded-lg px-3 py-2.5 text-slate-700 transition",
+                    pathname.startsWith("/command-center")
+                      ? "bg-blue-100 text-blue-800 font-medium"
+                      : "hover:bg-slate-100",
+                  )}
+                >
+                  <Monitor className="h-4 w-4" />
+                  {t("menu.commandCenter")}
                 </Link>
               ) : null}
             </div>

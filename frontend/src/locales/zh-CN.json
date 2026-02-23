@@ -31,7 +31,9 @@
     "getStarted": "开始使用",
     "createAccount": "注册账号",
     "onboarding": "引导设置",
-    "calendar": "共享日历"
+    "calendar": "共享日历",
+    "teams": "团队",
+    "commandCenter": "指挥中心"
   },
   "status": {
     "allSystemsOperational": "所有系统运行正常",
@@ -680,6 +682,24 @@
     "deleting": "删除中…",
     "cancel": "取消"
   },
+  "boardSync": {
+    "connected": "实时同步",
+    "connecting": "连接中…",
+    "reconnecting": "重新连接中…",
+    "disconnected": "已断开",
+    "quickCreate": "快速创建任务",
+    "quickCreatePlaceholder": "新任务标题…",
+    "quickCreateStatus": "状态",
+    "statusInbox": "待处理",
+    "statusInProgress": "进行中",
+    "statusReview": "评审中",
+    "statusDone": "已完成",
+    "addTask": "添加",
+    "creating": "添加中…",
+    "suggestionsLabel": "AI 建议",
+    "aiLabel": "AI",
+    "dismissSuggestion": "忽略建议"
+  },
   "calendar": {
     "title": "共享日历",
     "description": "查看所有智能体的里程碑、截止日期和已排期任务。",
@@ -891,6 +911,42 @@
       "cancel": "取消",
       "validationError": "标题和内容为必填项。",
       "unknownError": "发生未知错误。"
+    }
+  },
+  "h5": {
+    "header": {
+      "back": "返回"
+    },
+    "status": {
+      "connected": "已连接",
+      "reconnecting": "重新连接中…",
+      "offline": "离线"
+    },
+    "login": {
+      "subtitle": "与您的 AI 助手对话",
+      "organizationId": "组织 ID",
+      "organizationIdPlaceholder": "请输入组织 ID",
+      "username": "用户名",
+      "usernamePlaceholder": "请输入用户名",
+      "password": "密码",
+      "passwordPlaceholder": "请输入密码",
+      "submit": "登录"
+    },
+    "sessions": {
+      "title": "消息",
+      "empty": "暂无对话",
+      "loggedInAs": "当前用户：{username}",
+      "logout": "退出登录"
+    },
+    "chat": {
+      "defaultTitle": "聊天",
+      "defaultAgentName": "智能体",
+      "inputPlaceholder": "输入消息…",
+      "connectingPlaceholder": "连接中…",
+      "enterHint": "按 Enter 发送 · Shift+Enter 换行",
+      "send": "发送",
+      "emptyState": "发送消息开始对话",
+      "agentOffline": "智能体当前不在线，请稍后再试。"
     }
   }
 }
