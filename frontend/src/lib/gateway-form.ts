@@ -4,54 +4,9 @@ export const DEFAULT_WORKSPACE_ROOT = "~/.openclaw";
 
 export type GatewayCheckStatus = "idle" | "checking" | "success" | "error";
 
-/**
- * Returns true only when the URL string contains an explicit ":port" segment.
- *
- * JavaScript's URL API sets `.port` to "" for *both* an omitted port and a
- * port that equals the scheme's default (e.g. 443 for wss:). We therefore
- * inspect the raw host+port token from the URL string instead.
- */
-function hasExplicitPort(urlString: string): boolean {
-  try {
-    // Extract the authority portion (between // and the first / ? or #)
-    const withoutScheme = urlString.slice(urlString.indexOf("//") + 2);
-    const authority = withoutScheme.split(/[/?#]/)[0];
-    if (!authority) {
-      return false;
-    }
-
-    // authority may be:
-    // - host[:port]
-    // - [ipv6][:port]
-    // - userinfo@host[:port]
-    // - userinfo@[ipv6][:port]
-    const atIndex = authority.lastIndexOf("@");
-    const hostPort = atIndex === -1 ? authority : authority.slice(atIndex + 1);
-
-    let portSegment = "";
-    if (hostPort.startsWith("[")) {
-      const closingBracketIndex = hostPort.indexOf("]");
-      if (closingBracketIndex === -1) {
-        return false;
-      }
-      portSegment = hostPort.slice(closingBracketIndex + 1);
-    } else {
-      const lastColonIndex = hostPort.lastIndexOf(":");
-      if (lastColonIndex === -1) {
-        return false;
-      }
-      portSegment = hostPort.slice(lastColonIndex);
-    }
-
-    if (!portSegment.startsWith(":") || !/^:\d+$/.test(portSegment)) {
-      return false;
-    }
-
-    const port = Number.parseInt(portSegment.slice(1), 10);
-    return Number.isInteger(port) && port >= 0 && port <= 65535;
-  } catch {
-    return false;
-  }
+function hasValidHost(url: URL): boolean {
+  // Reject empty host forms like ws://:443 while allowing localhost, domains and IPs.
+  return Boolean(url.hostname && url.hostname.trim().length > 0);
 }
 
 export const validateGatewayUrl = (value: string) => {
@@ -62,12 +17,21 @@ export const validateGatewayUrl = (value: string) => {
     if (url.protocol !== "ws:" && url.protocol !== "wss:") {
       return "Gateway URL must start with ws:// or wss://.";
     }
-    if (!hasExplicitPort(trimmed)) {
-      return "Gateway URL must include an explicit port.";
+    if (!hasValidHost(url)) {
+      return "Gateway URL must include a valid host.";
     }
+
+    // Default ports are valid (ws:80, wss:443). Explicit ports are optional.
+    if (url.port) {
+      const port = Number.parseInt(url.port, 10);
+      if (!Number.isInteger(port) || port < 1 || port > 65535) {
+        return "Gateway URL has an invalid port.";
+      }
+    }
+
     return null;
   } catch {
-    return "Enter a valid gateway URL including port.";
+    return "Enter a valid gateway URL.";
   }
 };
 
