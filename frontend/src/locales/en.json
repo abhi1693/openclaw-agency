@@ -964,6 +964,75 @@
       "unknownError": "An unexpected error occurred."
     }
   },
+  "pipelines": {
+    "title": "Pipelines",
+    "signInPrompt": "Sign in to view pipelines.",
+    "description": "Manage automated workflow pipelines.",
+    "adminOnly": "Only organization owners and admins can manage pipelines.",
+    "countSummary": "pipelines total",
+    "newPipeline": "New pipeline",
+    "noPipelines": "No pipelines yet",
+    "noPipelinesDesc": "Create your first pipeline to automate workflows.",
+    "deletePipeline": "Delete pipeline",
+    "deleteConfirm": "This will remove the pipeline. This action cannot be undone.",
+    "active": "Active",
+    "inactive": "Inactive",
+    "run": "Run",
+    "noStages": "No stages configured.",
+    "runId": "Run ID",
+    "startedAt": "Started",
+    "columns": {
+      "name": "Name",
+      "type": "Type",
+      "stages": "Stages",
+      "status": "Status"
+    },
+    "types": {
+      "general": "General",
+      "review_flow": "Review flow",
+      "release_flow": "Release flow",
+      "onboarding": "Onboarding"
+    },
+    "stageTypes": {
+      "ai_task": "AI Task",
+      "approval": "Approval",
+      "manual": "Manual",
+      "webhook": "Webhook",
+      "condition": "Condition"
+    },
+    "stageStatus": {
+      "pending": "Pending",
+      "running": "Running",
+      "completed": "Completed",
+      "failed": "Failed",
+      "waiting": "Waiting",
+      "paused": "Paused"
+    },
+    "runStatus": {
+      "running": "Running",
+      "paused": "Paused",
+      "completed": "Completed",
+      "failed": "Failed",
+      "cancelled": "Cancelled"
+    },
+    "canvas": {
+      "noStages": "No stages yet. Add a stage below to get started.",
+      "addStage": "Add stage",
+      "stageName": "Stage name",
+      "stageConfig": "Config (JSON)",
+      "moveUp": "Move up",
+      "moveDown": "Move down",
+      "removeStage": "Remove stage",
+      "expand": "Expand",
+      "collapse": "Collapse"
+    },
+    "templates": {
+      "selectPrompt": "Select a template to pre-fill the pipeline configuration.",
+      "noTemplates": "No templates available",
+      "noTemplatesDesc": "No pipeline templates have been configured yet.",
+      "loadFailed": "Failed to load templates."
+    }
+  },
   "h5": {
     "header": {
       "back": "Go back"

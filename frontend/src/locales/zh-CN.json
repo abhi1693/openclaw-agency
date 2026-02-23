@@ -964,6 +964,75 @@
       "unknownError": "发生未知错误。"
     }
   },
+  "pipelines": {
+    "title": "流程",
+    "signInPrompt": "请登录以查看流程。",
+    "description": "管理自动化工作流程。",
+    "adminOnly": "只有组织所有者和管理员可以管理流程。",
+    "countSummary": "个流程",
+    "newPipeline": "新建流程",
+    "noPipelines": "暂无流程",
+    "noPipelinesDesc": "创建第一个流程以自动化工作流。",
+    "deletePipeline": "删除流程",
+    "deleteConfirm": "此操作将删除该流程，无法撤销。",
+    "active": "启用",
+    "inactive": "停用",
+    "run": "运行",
+    "noStages": "未配置阶段。",
+    "runId": "运行 ID",
+    "startedAt": "开始时间",
+    "columns": {
+      "name": "名称",
+      "type": "类型",
+      "stages": "阶段",
+      "status": "状态"
+    },
+    "types": {
+      "general": "通用",
+      "review_flow": "评审流程",
+      "release_flow": "发布流程",
+      "onboarding": "入职流程"
+    },
+    "stageTypes": {
+      "ai_task": "AI 任务",
+      "approval": "审批",
+      "manual": "人工",
+      "webhook": "Webhook",
+      "condition": "条件"
+    },
+    "stageStatus": {
+      "pending": "待处理",
+      "running": "运行中",
+      "completed": "已完成",
+      "failed": "失败",
+      "waiting": "等待中",
+      "paused": "已暂停"
+    },
+    "runStatus": {
+      "running": "运行中",
+      "paused": "已暂停",
+      "completed": "已完成",
+      "failed": "失败",
+      "cancelled": "已取消"
+    },
+    "canvas": {
+      "noStages": "暂无阶段，请在下方添加阶段。",
+      "addStage": "添加阶段",
+      "stageName": "阶段名称",
+      "stageConfig": "配置（JSON）",
+      "moveUp": "上移",
+      "moveDown": "下移",
+      "removeStage": "删除阶段",
+      "expand": "展开",
+      "collapse": "折叠"
+    },
+    "templates": {
+      "selectPrompt": "选择模板以预填充流程配置。",
+      "noTemplates": "暂无可用模板",
+      "noTemplatesDesc": "尚未配置任何流程模板。",
+      "loadFailed": "加载模板失败。"
+    }
+  },
   "h5": {
     "header": {
       "back": "返回"

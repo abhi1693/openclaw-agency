@@ -83,7 +83,7 @@ class Settings(BaseSettings):
     proactivity_suggestion_expiry_hours: int = 168
     proactivity_rule_cooldown_seconds: int = 3600
 
-    # Board Sync (M9)
+    # 看板实时同步 (M9)
     board_sync_redis_url: str = "redis://localhost:6379/3"
 
     # Knowledge Hub (M12)

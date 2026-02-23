@@ -34,6 +34,7 @@ from app.models.task_custom_fields import (
     TaskCustomFieldValue,
 )
 from app.models.knowledge_entries import KnowledgeDocument, KnowledgeEntry
+from app.models.pipelines import Pipeline, PipelineRun, PipelineStageTask
 from app.models.task_dependencies import TaskDependency
 from app.models.task_fingerprints import TaskFingerprint
 from app.models.tasks import Task
@@ -77,6 +78,9 @@ __all__ = [
     "OrganizationInviteBoardAccess",
     "KnowledgeDocument",
     "KnowledgeEntry",
+    "Pipeline",
+    "PipelineRun",
+    "PipelineStageTask",
     "TaskDependency",
     "Task",
     "TaskFingerprint",
