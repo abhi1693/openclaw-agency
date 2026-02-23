@@ -9,9 +9,9 @@ export default defineConfig({
       registerType: "autoUpdate",
       includeAssets: ["favicon.ico", "icons/*.png"],
       manifest: {
-        name: "OpenClaw",
-        short_name: "OpenClaw",
-        description: "Chat with your AI assistant",
+        name: "OpenClaw 助手",
+        short_name: "OC 助手",
+        description: "与您的 AI 助手对话",
         theme_color: "#2563eb",
         background_color: "#ffffff",
         display: "standalone",
