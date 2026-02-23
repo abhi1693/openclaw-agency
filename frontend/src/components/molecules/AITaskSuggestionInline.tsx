@@ -7,7 +7,7 @@
  * 每条建议可单独关闭。建议列表在窄屏下支持横向滚动。
  */
 
-import { useTranslation } from "react-i18next";
+import { useTranslation } from "@/lib/i18n";
 
 import type { AgentSuggestion } from "@/lib/board-sync-protocol";
 import { cn } from "@/lib/utils";

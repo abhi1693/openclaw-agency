@@ -1,7 +1,7 @@
 "use client";
 
 import { Send } from "lucide-react";
-import { useTranslations } from "next-intl";
+import { useTranslation } from "@/lib/i18n";
 import { useRef, useState } from "react";
 
 import { cn } from "@/lib/utils";
@@ -13,7 +13,7 @@ interface ChatInputProps {
 }
 
 export function ChatInput({ onSend, disabled = false, placeholder }: ChatInputProps) {
-  const t = useTranslations("h5");
+  const { t } = useTranslation();
   const [value, setValue] = useState("");
   const textareaRef = useRef<HTMLTextAreaElement>(null);
 
@@ -52,13 +52,13 @@ export function ChatInput({ onSend, disabled = false, placeholder }: ChatInputPr
           onChange={handleInput}
           onKeyDown={handleKeyDown}
           disabled={disabled}
-          placeholder={placeholder ?? t("chat.inputPlaceholder")}
+          placeholder={placeholder ?? t("h5.chat.inputPlaceholder")}
           className="max-h-[120px] min-h-[24px] flex-1 resize-none bg-transparent text-sm text-strong placeholder:text-muted focus:outline-none disabled:cursor-not-allowed disabled:opacity-50"
         />
         <button
           onClick={handleSend}
           disabled={!value.trim() || disabled}
-          aria-label={t("chat.send")}
+          aria-label={t("h5.chat.send")}
           className={cn(
             "flex h-8 w-8 shrink-0 items-center justify-center rounded-full transition-colors",
             value.trim() && !disabled
@@ -70,7 +70,7 @@ export function ChatInput({ onSend, disabled = false, placeholder }: ChatInputPr
         </button>
       </div>
       <p className="mt-1 text-center text-[10px] text-muted">
-        {t("chat.enterHint")}
+        {t("h5.chat.enterHint")}
       </p>
     </div>
   );

@@ -132,10 +132,9 @@ export default function KnowledgeSearchPage() {
         {!loading && searched && (
           <>
             <p className="text-sm text-slate-500">
-              {t("knowledge.search.resultsCount", {
-                count: results.length,
-                query: currentQuery,
-              })}
+              {t("knowledge.search.resultsCount")
+                .replace("{{count}}", String(results.length))
+                .replace("{{query}}", currentQuery)}
             </p>
             {results.length === 0 ? (
               <div className="flex flex-col items-center py-16 text-center text-slate-400">

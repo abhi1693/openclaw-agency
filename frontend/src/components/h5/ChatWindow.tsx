@@ -1,6 +1,6 @@
 "use client";
 
-import { useTranslations } from "next-intl";
+import { useTranslation } from "@/lib/i18n";
 import { useCallback, useEffect, useRef, useState } from "react";
 
 import { ChatBubble, ChatMessage, TypingIndicator } from "@/components/h5/ChatBubble";
@@ -21,7 +21,7 @@ let msgCounter = 0;
 const nextId = () => `local-${++msgCounter}`;
 
 export function ChatWindow({ agentId, agentName, sessionId }: ChatWindowProps) {
-  const t = useTranslations("h5");
+  const { t } = useTranslation();
   const { token } = useH5Auth();
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [isTyping, setIsTyping] = useState(false);
@@ -69,7 +69,7 @@ export function ChatWindow({ agentId, agentName, sessionId }: ChatWindowProps) {
           ...prev,
           {
             id: nextId(),
-            content: t("chat.agentOffline"),
+            content: t("h5.chat.agentOffline"),
             role: "agent",
             agentId,
             agentName,
@@ -110,7 +110,7 @@ export function ChatWindow({ agentId, agentName, sessionId }: ChatWindowProps) {
   return (
     <div className="flex h-full flex-col">
       <H5Header
-        title={agentName ?? t("chat.defaultTitle")}
+        title={agentName ?? t("h5.chat.defaultTitle")}
         backHref="/h5/chat"
         connectionStatus={status}
       />
@@ -119,7 +119,7 @@ export function ChatWindow({ agentId, agentName, sessionId }: ChatWindowProps) {
       <div className="flex-1 overflow-y-auto px-4 py-4">
         {messages.length === 0 && (
           <div className="flex h-full flex-col items-center justify-center text-center text-sm text-muted">
-            <p>{t("chat.emptyState")}</p>
+            <p>{t("h5.chat.emptyState")}</p>
           </div>
         )}
         <div className="space-y-4">
@@ -136,8 +136,8 @@ export function ChatWindow({ agentId, agentName, sessionId }: ChatWindowProps) {
         disabled={isInputDisabled}
         placeholder={
           isInputDisabled
-            ? t("chat.connectingPlaceholder")
-            : t("chat.inputPlaceholder")
+            ? t("h5.chat.connectingPlaceholder")
+            : t("h5.chat.inputPlaceholder")
         }
       />
     </div>

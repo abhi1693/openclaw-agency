@@ -107,7 +107,7 @@ export default function H5UserDetailPage() {
       agent_id: a.agent_id,
       agent_name: agent?.name,
       board_id: a.board_id,
-      board_name: null,
+      board_name: undefined,
       role: a.role,
     };
   });

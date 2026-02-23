@@ -1,6 +1,6 @@
 "use client";
 
-import { useTranslations } from "next-intl";
+import { useTranslation } from "@/lib/i18n";
 import { useParams, useRouter, useSearchParams } from "next/navigation";
 import { useEffect } from "react";
 
@@ -20,7 +20,7 @@ import { useH5Auth } from "@/hooks/useH5Auth";
  * On desktop it is shown as the right panel of the split-panel layout.
  */
 export default function H5ConversationPage() {
-  const t = useTranslations("h5");
+  const { t } = useTranslation();
   const router = useRouter();
   const params = useParams();
   const searchParams = useSearchParams();
@@ -28,7 +28,7 @@ export default function H5ConversationPage() {
 
   const sessionId = params.sessionId as string;
   const agentId = searchParams.get("agentId") ?? "";
-  const agentName = searchParams.get("agentName") ?? t("chat.defaultAgentName");
+  const agentName = searchParams.get("agentName") ?? t("h5.chat.defaultAgentName");
 
   useEffect(() => {
     if (!isAuthenticated) {

@@ -74,7 +74,7 @@ export function AgentAssignmentDialog({
         <DialogHeader>
           <DialogTitle>{t("h5Users.manageAssignments")}</DialogTitle>
           <DialogDescription>
-            {t("h5Users.manageAssignmentsDesc", { username })}
+            {t("h5Users.manageAssignmentsDesc").replace("{username}", username)}
           </DialogDescription>
         </DialogHeader>
 

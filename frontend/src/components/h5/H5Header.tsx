@@ -1,7 +1,7 @@
 "use client";
 
 import { ChevronLeft, Wifi, WifiOff } from "lucide-react";
-import { useTranslations } from "next-intl";
+import { useTranslation } from "@/lib/i18n";
 import Link from "next/link";
 
 import { cn } from "@/lib/utils";
@@ -18,7 +18,7 @@ export function H5Header({
   backHref,
   connectionStatus,
 }: H5HeaderProps) {
-  const t = useTranslations("h5");
+  const { t } = useTranslation();
 
   return (
     <header className="sticky top-0 z-10 border-b border-line bg-app">
@@ -34,14 +34,14 @@ export function H5Header({
         >
           <WifiOff className="h-3 w-3" />
           {connectionStatus === "reconnecting"
-            ? t("status.reconnecting")
-            : t("status.offline")}
+            ? t("h5.status.reconnecting")
+            : t("h5.status.offline")}
         </div>
       )}
       {connectionStatus === "connected" && (
         <div className="flex items-center justify-center gap-1.5 bg-emerald-50 px-4 py-1 text-xs font-medium text-emerald-700">
           <Wifi className="h-3 w-3" />
-          {t("status.connected")}
+          {t("h5.status.connected")}
         </div>
       )}
       <div className="flex h-14 items-center gap-3 px-4">
@@ -49,7 +49,7 @@ export function H5Header({
           <Link
             href={backHref}
             className="flex h-8 w-8 items-center justify-center rounded-full text-muted transition-colors hover:bg-surface-raised hover:text-strong"
-            aria-label={t("header.back")}
+            aria-label={t("h5.header.back")}
           >
             <ChevronLeft className="h-5 w-5" />
           </Link>

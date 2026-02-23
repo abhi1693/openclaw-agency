@@ -1,7 +1,7 @@
 "use client";
 
 import { MessageCircle } from "lucide-react";
-import { useTranslations } from "next-intl";
+import { useTranslation } from "@/lib/i18n";
 import Link from "next/link";
 
 import { cn } from "@/lib/utils";
@@ -39,7 +39,7 @@ export function SessionList({
   activeSessionId,
   isLoading = false,
 }: SessionListProps) {
-  const t = useTranslations("h5");
+  const { t } = useTranslation();
 
   if (isLoading) {
     return (
@@ -58,7 +58,7 @@ export function SessionList({
     return (
       <div className="flex h-full flex-col items-center justify-center gap-3 p-8 text-center">
         <MessageCircle className="h-10 w-10 text-muted" />
-        <p className="text-sm text-muted">{t("sessions.empty")}</p>
+        <p className="text-sm text-muted">{t("h5.sessions.empty")}</p>
       </div>
     );
   }
