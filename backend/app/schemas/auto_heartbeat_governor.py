@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import re
 from enum import Enum
 from typing import Annotated
 
@@ -32,8 +33,6 @@ def _validate_duration(value: str) -> str:
         raise ValueError('duration cannot be "disabled"')
     # Simple format: integer + unit.
     # Keep permissive for future; server-side logic still treats these as opaque.
-    import re
-
     if not re.match(r"^\d+\s*[smhd]$", value, flags=re.IGNORECASE):
         raise ValueError("duration must match ^\\d+[smhd]$")
     return value.replace(" ", "")

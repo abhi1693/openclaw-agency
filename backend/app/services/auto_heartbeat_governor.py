@@ -95,9 +95,7 @@ def compute_desired_heartbeat(
 
     if is_lead:
         # Leads never go fully off; cap at lead_cap_every.
-        if next_step <= 0:
-            next_every = active_every
-        elif next_step <= len(ladder):
+        if next_step <= len(ladder):
             next_every = ladder[next_step - 1]
         else:
             next_every = lead_cap_every
@@ -308,18 +306,21 @@ async def run_governor_once() -> None:
                             (agent_id, workspace_path, heartbeat_payload),
                         )
 
-                if needs_db:
+                # Keep heartbeat_config in sync for non-off entries.
+                needs_heartbeat_config_update = (
+                    desired.every is not None and agent.heartbeat_config != heartbeat_payload
+                )
+
+                if needs_db or needs_heartbeat_config_update:
                     agent.auto_heartbeat_step = desired.step
                     agent.auto_heartbeat_off = desired.off
-                    if active:
+                    if active and needs_db:
                         agent.auto_heartbeat_last_active_at = now
+                    if needs_heartbeat_config_update:
+                        agent.heartbeat_config = heartbeat_payload
                     agent.updated_at = now
                     session.add(agent)
                     changed += 1
-
-                # Keep heartbeat_config in sync for non-off entries.
-                if desired.every is not None:
-                    agent.heartbeat_config = heartbeat_payload
 
             if changed:
                 await session.commit()
