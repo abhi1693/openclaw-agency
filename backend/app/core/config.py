@@ -71,6 +71,12 @@ class Settings(BaseSettings):
     gateway_heartbeat_interval_seconds: int = 30
     gateway_offline_threshold_seconds: int = 90
 
+    # WebSocket Relay (M4)
+    ws_redis_pubsub_url: str = "redis://localhost:6379/1"
+    ws_heartbeat_interval_seconds: int = 30
+    ws_heartbeat_timeout_seconds: int = 90
+    ws_max_connections_per_instance: int = 10000
+
     # Proactivity Engine (M8)
     proactivity_redis_url: str = "redis://localhost:6379/2"
     proactivity_event_ttl_days: int = 90

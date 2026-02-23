@@ -16,6 +16,7 @@ from app.models.board_webhooks import BoardWebhook
 from app.models.boards import Board
 from app.models.gateways import Gateway
 from app.models.h5_users import H5RefreshToken, H5User, H5UserAgentAssignment
+from app.models.ws_sessions import H5ChatSession
 from app.models.organization_board_access import OrganizationBoardAccess
 from app.models.organization_invite_board_access import OrganizationInviteBoardAccess
 from app.models.organization_invites import OrganizationInvite
@@ -50,6 +51,7 @@ __all__ = [
     "BoardGroup",
     "Board",
     "Gateway",
+    "H5ChatSession",
     "H5RefreshToken",
     "H5User",
     "H5UserAgentAssignment",
