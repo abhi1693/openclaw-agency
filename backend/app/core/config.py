@@ -77,6 +77,9 @@ class Settings(BaseSettings):
     proactivity_suggestion_expiry_hours: int = 168
     proactivity_rule_cooldown_seconds: int = 3600
 
+    # Board Sync (M9)
+    board_sync_redis_url: str = "redis://localhost:6379/3"
+
     # OpenClaw gateway runtime compatibility
     gateway_min_version: str = "2026.02.9"
 

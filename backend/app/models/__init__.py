@@ -1,6 +1,8 @@
 """Model exports for SQLAlchemy/SQLModel metadata discovery."""
 
 from app.models.activity_events import ActivityEvent
+from app.models.agent_capabilities import AgentCapability
+from app.models.calendar_events import CalendarEvent, TaskSchedule as CalendarTaskSchedule
 from app.models.agent_events import AgentEvent
 from app.models.agent_suggestions import AgentSuggestion
 from app.models.proactive_rules import ProactiveRule
@@ -36,6 +38,9 @@ from app.models.users import User
 
 __all__ = [
     "ActivityEvent",
+    "AgentCapability",
+    "CalendarEvent",
+    "CalendarTaskSchedule",
     "AgentEvent",
     "AgentSuggestion",
     "ProactiveRule",
