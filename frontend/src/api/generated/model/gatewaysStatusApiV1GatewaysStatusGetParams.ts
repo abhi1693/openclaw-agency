@@ -9,4 +9,6 @@ export type GatewaysStatusApiV1GatewaysStatusGetParams = {
   board_id?: string | null;
   gateway_url?: string | null;
   gateway_token?: string | null;
+  gateway_disable_device_pairing?: boolean;
+  gateway_allow_insecure_tls?: boolean;
 };

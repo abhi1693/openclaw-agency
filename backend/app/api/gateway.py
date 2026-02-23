@@ -37,11 +37,15 @@ def _query_to_resolve_input(
     board_id: str | None = Query(default=None),
     gateway_url: str | None = Query(default=None),
     gateway_token: str | None = Query(default=None),
+    gateway_disable_device_pairing: bool = Query(default=False),
+    gateway_allow_insecure_tls: bool = Query(default=False),
 ) -> GatewayResolveQuery:
     return GatewaySessionService.to_resolve_query(
         board_id=board_id,
         gateway_url=gateway_url,
         gateway_token=gateway_token,
+        gateway_disable_device_pairing=gateway_disable_device_pairing,
+        gateway_allow_insecure_tls=gateway_allow_insecure_tls,
     )
 
 

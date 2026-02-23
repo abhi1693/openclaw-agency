@@ -51,6 +51,8 @@ class _GatewayStub:
     url: str
     token: str | None
     workspace_root: str
+    allow_insecure_tls: bool = False
+    disable_device_pairing: bool = False
 
 
 @pytest.mark.asyncio

@@ -1,4 +1,10 @@
-import { act, fireEvent, render, screen, waitFor } from "@testing-library/react";
+import {
+  act,
+  fireEvent,
+  render,
+  screen,
+  waitFor,
+} from "@testing-library/react";
 import type { ReactNode } from "react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
@@ -21,9 +27,7 @@ vi.mock("@/components/ui/dialog", () => ({
   DialogFooter: ({ children }: { children?: ReactNode }) => (
     <div>{children}</div>
   ),
-  DialogTitle: ({ children }: { children?: ReactNode }) => (
-    <h2>{children}</h2>
-  ),
+  DialogTitle: ({ children }: { children?: ReactNode }) => <h2>{children}</h2>,
 }));
 
 vi.mock("@/api/generated/board-onboarding/board-onboarding", () => ({
@@ -31,10 +35,12 @@ vi.mock("@/api/generated/board-onboarding/board-onboarding", () => ({
     startOnboardingMock(...args),
   getOnboardingApiV1BoardsBoardIdOnboardingGet: (...args: unknown[]) =>
     getOnboardingMock(...args),
-  answerOnboardingApiV1BoardsBoardIdOnboardingAnswerPost: (...args: unknown[]) =>
-    answerOnboardingMock(...args),
-  confirmOnboardingApiV1BoardsBoardIdOnboardingConfirmPost: (...args: unknown[]) =>
-    confirmOnboardingMock(...args),
+  answerOnboardingApiV1BoardsBoardIdOnboardingAnswerPost: (
+    ...args: unknown[]
+  ) => answerOnboardingMock(...args),
+  confirmOnboardingApiV1BoardsBoardIdOnboardingConfirmPost: (
+    ...args: unknown[]
+  ) => confirmOnboardingMock(...args),
 }));
 
 const buildQuestionSession = (question: string): BoardOnboardingRead => ({
@@ -116,7 +122,9 @@ describe("BoardOnboardingChat polling", () => {
     });
 
     await waitFor(() => {
-      expect(getOnboardingMock.mock.calls.length).toBeGreaterThan(callsBeforePoll);
+      expect(getOnboardingMock.mock.calls.length).toBeGreaterThan(
+        callsBeforePoll,
+      );
     });
   });
 });

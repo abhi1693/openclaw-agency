@@ -40,7 +40,13 @@ export default function EditGatewayPage() {
   const [gatewayToken, setGatewayToken] = useState<string | undefined>(
     undefined,
   );
+  const [disableDevicePairing, setDisableDevicePairing] = useState<
+    boolean | undefined
+  >(undefined);
   const [workspaceRoot, setWorkspaceRoot] = useState<string | undefined>(
+    undefined,
+  );
+  const [allowInsecureTls, setAllowInsecureTls] = useState<boolean | undefined>(
     undefined,
   );
 
@@ -82,38 +88,25 @@ export default function EditGatewayPage() {
   const resolvedName = name ?? loadedGateway?.name ?? "";
   const resolvedGatewayUrl = gatewayUrl ?? loadedGateway?.url ?? "";
   const resolvedGatewayToken = gatewayToken ?? loadedGateway?.token ?? "";
+  const resolvedDisableDevicePairing =
+    disableDevicePairing ?? loadedGateway?.disable_device_pairing ?? false;
   const resolvedWorkspaceRoot =
     workspaceRoot ?? loadedGateway?.workspace_root ?? DEFAULT_WORKSPACE_ROOT;
+  const resolvedAllowInsecureTls =
+    allowInsecureTls ?? loadedGateway?.allow_insecure_tls ?? false;
 
-  const isLoading = gatewayQuery.isLoading || updateMutation.isPending;
+  const isLoading =
+    gatewayQuery.isLoading ||
+    updateMutation.isPending ||
+    gatewayCheckStatus === "checking";
   const errorMessage = error ?? gatewayQuery.error?.message ?? null;
 
   const canSubmit =
     Boolean(resolvedName.trim()) &&
     Boolean(resolvedGatewayUrl.trim()) &&
-    Boolean(resolvedWorkspaceRoot.trim()) &&
-    gatewayCheckStatus === "success";
+    Boolean(resolvedWorkspaceRoot.trim());
 
-  const runGatewayCheck = async () => {
-    const validationError = validateGatewayUrl(resolvedGatewayUrl);
-    setGatewayUrlError(validationError);
-    if (validationError) {
-      setGatewayCheckStatus("error");
-      setGatewayCheckMessage(validationError);
-      return;
-    }
-    if (!isSignedIn) return;
-    setGatewayCheckStatus("checking");
-    setGatewayCheckMessage(null);
-    const { ok, message } = await checkGatewayConnection({
-      gatewayUrl: resolvedGatewayUrl,
-      gatewayToken: resolvedGatewayToken,
-    });
-    setGatewayCheckStatus(ok ? "success" : "error");
-    setGatewayCheckMessage(message);
-  };
-
-  const handleSubmit = (event: React.FormEvent<HTMLFormElement>) => {
+  const handleSubmit = async (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault();
     if (!isSignedIn || !gatewayId) return;
 
@@ -133,13 +126,29 @@ export default function EditGatewayPage() {
       return;
     }
 
+    setGatewayCheckStatus("checking");
+    setGatewayCheckMessage(null);
+    const { ok, message } = await checkGatewayConnection({
+      gatewayUrl: resolvedGatewayUrl,
+      gatewayToken: resolvedGatewayToken,
+      gatewayDisableDevicePairing: resolvedDisableDevicePairing,
+      gatewayAllowInsecureTls: resolvedAllowInsecureTls,
+    });
+    setGatewayCheckStatus(ok ? "success" : "error");
+    setGatewayCheckMessage(message);
+    if (!ok) {
+      return;
+    }
+
     setError(null);
 
     const payload: GatewayUpdate = {
       name: resolvedName.trim(),
       url: resolvedGatewayUrl.trim(),
       token: resolvedGatewayToken.trim() || null,
+      disable_device_pairing: resolvedDisableDevicePairing,
       workspace_root: resolvedWorkspaceRoot.trim(),
+      allow_insecure_tls: resolvedAllowInsecureTls,
     };
 
     updateMutation.mutate({ gatewayId, data: payload });
@@ -164,7 +173,9 @@ export default function EditGatewayPage() {
         name={resolvedName}
         gatewayUrl={resolvedGatewayUrl}
         gatewayToken={resolvedGatewayToken}
+        disableDevicePairing={resolvedDisableDevicePairing}
         workspaceRoot={resolvedWorkspaceRoot}
+        allowInsecureTls={resolvedAllowInsecureTls}
         gatewayUrlError={gatewayUrlError}
         gatewayCheckStatus={gatewayCheckStatus}
         gatewayCheckMessage={gatewayCheckMessage}
@@ -177,7 +188,6 @@ export default function EditGatewayPage() {
         submitBusyLabel="Saving…"
         onSubmit={handleSubmit}
         onCancel={() => router.push("/gateways")}
-        onRunGatewayCheck={runGatewayCheck}
         onNameChange={setName}
         onGatewayUrlChange={(next) => {
           setGatewayUrl(next);
@@ -190,7 +200,17 @@ export default function EditGatewayPage() {
           setGatewayCheckStatus("idle");
           setGatewayCheckMessage(null);
         }}
+        onDisableDevicePairingChange={(next) => {
+          setDisableDevicePairing(next);
+          setGatewayCheckStatus("idle");
+          setGatewayCheckMessage(null);
+        }}
         onWorkspaceRootChange={setWorkspaceRoot}
+        onAllowInsecureTlsChange={(next) => {
+          setAllowInsecureTls(next);
+          setGatewayCheckStatus("idle");
+          setGatewayCheckMessage(null);
+        }}
       />
     </DashboardPageLayout>
   );

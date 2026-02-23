@@ -42,6 +42,9 @@ COPY backend/app ./app
 # In-repo these live at `backend/templates/`; runtime path is `/app/templates`.
 COPY backend/templates ./templates
 
+# Copy docs for file browser and seed data
+COPY docs ./docs
+
 # Default API port
 EXPOSE 8000
 

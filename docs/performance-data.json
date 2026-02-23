@@ -1,0 +1,211 @@
+{
+  "fetchedAt": "2026-02-19T08:09:31.220953+00:00",
+  "date": "2026-02-19",
+  "brands": {
+    "plentum": {
+      "shopify": {
+        "revenue": 34.99,
+        "orders": 1,
+        "aov": 34.99
+      },
+      "shopify_yesterday": {
+        "revenue": 397.47,
+        "orders": 9,
+        "aov": 44.16
+      },
+      "meta": {
+        "spend": 7.12,
+        "roas": 0,
+        "impressions": 135,
+        "clicks": 6,
+        "cpc": 1.19,
+        "cpm": 52.74,
+        "ctr": 4.44,
+        "purchases": 0,
+        "cpp": 0
+      },
+      "meta_yesterday": {
+        "spend": 223.17,
+        "roas": 0.16,
+        "impressions": 3889,
+        "clicks": 109,
+        "cpc": 2.05,
+        "cpm": 57.38,
+        "ctr": 2.8,
+        "purchases": 1,
+        "cpp": 223.17
+      },
+      "campaigns": [
+        {
+          "name": "Plentum | New Creatives | CBO | COST CAP",
+          "brand": "Plentum",
+          "spend": 7.03,
+          "roas": 0,
+          "purchases": 0,
+          "impressions": 134,
+          "clicks": 6,
+          "cpc": 1.17,
+          "ctr": 4.48,
+          "cpp": 0
+        }
+      ],
+      "kpi": {
+        "revenue": 34.99,
+        "orders": 1,
+        "adSpend": 7.12,
+        "roas": 4.91,
+        "aov": 34.99,
+        "cpp": 0,
+        "impressions": 135,
+        "clicks": 6,
+        "ctr": 4.44,
+        "cpc": 1.19,
+        "revenueChange": -91.2,
+        "ordersChange": -88.9,
+        "spendChange": -96.8
+      }
+    },
+    "mavena": {
+      "shopify": {
+        "revenue": 350.72,
+        "orders": 6,
+        "aov": 58.45
+      },
+      "shopify_yesterday": {
+        "revenue": 3256.36,
+        "orders": 50,
+        "aov": 65.13
+      },
+      "meta": {
+        "spend": 46.05,
+        "roas": 2.61,
+        "impressions": 1019,
+        "clicks": 53,
+        "cpc": 0.87,
+        "cpm": 45.19,
+        "ctr": 5.2,
+        "purchases": 2,
+        "cpp": 23.02
+      },
+      "meta_yesterday": {
+        "spend": 782.07,
+        "roas": 2.37,
+        "impressions": 18427,
+        "clicks": 868,
+        "cpc": 0.9,
+        "cpm": 42.44,
+        "ctr": 4.71,
+        "purchases": 30,
+        "cpp": 26.07
+      },
+      "campaigns": [
+        {
+          "name": "Working Products | CBO | $25 CAP",
+          "brand": "Mavena",
+          "spend": 19.62,
+          "roas": 2.82,
+          "purchases": 1,
+          "impressions": 398,
+          "clicks": 23,
+          "cpc": 0.85,
+          "ctr": 5.78,
+          "cpp": 19.62
+        },
+        {
+          "name": "Bowknot Retro Thick-Soled Shoes | CBO",
+          "brand": "Mavena",
+          "spend": 17.21,
+          "roas": 3.78,
+          "purchases": 1,
+          "impressions": 503,
+          "clicks": 25,
+          "cpc": 0.69,
+          "ctr": 4.97,
+          "cpp": 17.21
+        },
+        {
+          "name": "Mavena \u2014 Retargeting",
+          "brand": "Mavena",
+          "spend": 9.19,
+          "roas": 0,
+          "purchases": 0,
+          "impressions": 116,
+          "clicks": 5,
+          "cpc": 1.84,
+          "ctr": 4.31,
+          "cpp": 0
+        },
+        {
+          "name": "V-Neck Blazer Mini Dress | CBO",
+          "brand": "Mavena",
+          "spend": 0.02,
+          "roas": 0,
+          "purchases": 0,
+          "impressions": 1,
+          "clicks": 0,
+          "cpc": 0.0,
+          "ctr": 0.0,
+          "cpp": 0
+        },
+        {
+          "name": "High Rise Wide Leg Jeans | CBO",
+          "brand": "Mavena",
+          "spend": 0.01,
+          "roas": 0,
+          "purchases": 0,
+          "impressions": 1,
+          "clicks": 0,
+          "cpc": 0.0,
+          "ctr": 0.0,
+          "cpp": 0
+        }
+      ],
+      "kpi": {
+        "revenue": 350.72,
+        "orders": 6,
+        "adSpend": 46.05,
+        "roas": 7.62,
+        "aov": 58.45,
+        "cpp": 23.02,
+        "impressions": 1019,
+        "clicks": 53,
+        "ctr": 5.2,
+        "cpc": 0.87,
+        "revenueChange": -89.2,
+        "ordersChange": -88.0,
+        "spendChange": -94.1
+      }
+    },
+    "pawfully": {
+      "shopify": {
+        "revenue": 0,
+        "orders": 0,
+        "aov": 0
+      },
+      "kpi": {
+        "revenue": 0,
+        "orders": 0,
+        "adSpend": 0,
+        "roas": 0,
+        "aov": 0,
+        "cpp": 0,
+        "impressions": 0,
+        "clicks": 0,
+        "ctr": 0,
+        "cpc": 0,
+        "revenueChange": 0,
+        "ordersChange": 0,
+        "spendChange": 0
+      }
+    }
+  },
+  "totals": {
+    "revenue": 385.71,
+    "orders": 7,
+    "adSpend": 53.17,
+    "roas": 7.25,
+    "aov": 55.1,
+    "impressions": 1154,
+    "clicks": 59
+  }
+}

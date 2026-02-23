@@ -479,6 +479,9 @@ When adding a gateway in Mission Control:
 
 - URL: `ws://127.0.0.1:18789` (or your host/IP with explicit port)
 - Token: provide only if your gateway requires token auth
+- Device pairing: enabled by default and recommended
+  - Keep pairing enabled for normal operation.
+  - Optional bypass: enable `Disable device pairing` per gateway only when the gateway is explicitly configured for control UI auth bypass (for example `gateway.controlUi.dangerouslyDisableDeviceAuth: true` plus appropriate `gateway.controlUi.allowedOrigins`).
 - Workspace root (in Mission Control gateway config): align with `agents.defaults.workspace` when possible
 
 ## Security Notes

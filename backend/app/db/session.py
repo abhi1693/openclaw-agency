@@ -32,10 +32,11 @@ def _normalize_database_url(database_url: str) -> str:
     return database_url
 
 
-async_engine: AsyncEngine = create_async_engine(
-    _normalize_database_url(settings.database_url),
-    pool_pre_ping=True,
-)
+_db_url = _normalize_database_url(settings.database_url)
+_engine_kwargs: dict = {}
+if not _db_url.startswith("sqlite"):
+    _engine_kwargs["pool_pre_ping"] = True
+async_engine: AsyncEngine = create_async_engine(_db_url, **_engine_kwargs)
 async_session_maker = async_sessionmaker(
     async_engine,
     class_=AsyncSession,

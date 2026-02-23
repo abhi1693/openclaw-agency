@@ -14,7 +14,7 @@ requires-python = ">=3.12"
 dependencies = [
     "alembic==1.18.3",
     "clerk-backend-api==4.2.0",
-    "fastapi==0.128.6",
+    "fastapi==0.131.0",
     "fastapi-pagination==0.15.10",
     "jinja2==3.1.6",
     "psycopg[binary]==3.3.2",
@@ -27,6 +27,11 @@ dependencies = [
     "websockets==16.0",
     "redis==6.3.0",
     "rq==2.6.0",
+    "psutil==7.0.0",
+    "httpx==0.28.1",
+    "bcrypt>=4.0.0",
+    "PyJWT>=2.8.0",
+    "cryptography==45.0.7",
 ]
 
 [project.optional-dependencies]

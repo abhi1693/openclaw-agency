@@ -29,6 +29,19 @@ from app.models.task_dependencies import TaskDependency
 from app.models.task_fingerprints import TaskFingerprint
 from app.models.tasks import Task
 from app.models.users import User
+from app.models.mc_models import (
+    Brand,
+    MCAgent,
+    MCTask,
+    MCUser,
+    TaskActivityLog,
+    TaskComment,
+    ActivityFeedEntry,
+    CommsSession,
+    CommsMessage,
+    SessionNotes,
+    PerformanceSnapshot,
+)
 
 __all__ = [
     "ActivityEvent",
@@ -60,4 +73,15 @@ __all__ = [
     "Tag",
     "TagAssignment",
     "User",
+    "Brand",
+    "MCAgent",
+    "MCTask",
+    "MCUser",
+    "TaskActivityLog",
+    "TaskComment",
+    "ActivityFeedEntry",
+    "CommsSession",
+    "CommsMessage",
+    "SessionNotes",
+    "PerformanceSnapshot",
 ]

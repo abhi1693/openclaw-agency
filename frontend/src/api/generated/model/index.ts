@@ -10,6 +10,7 @@ export * from "./activityTaskCommentFeedItemRead";
 export * from "./agentCreate";
 export * from "./agentCreateHeartbeatConfig";
 export * from "./agentCreateIdentityProfile";
+export * from "./agentHealthStatusResponse";
 export * from "./agentHeartbeat";
 export * from "./agentHeartbeatCreate";
 export * from "./agentNudge";
