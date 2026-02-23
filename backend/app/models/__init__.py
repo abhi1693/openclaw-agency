@@ -1,8 +1,11 @@
 """Model exports for SQLAlchemy/SQLModel metadata discovery."""
 
 from app.models.activity_events import ActivityEvent
+from app.models.agent_capabilities import AgentCapability
 from app.models.agent_events import AgentEvent
+from app.models.agent_teams import AgentTeam, AgentTeamMember
 from app.models.agent_suggestions import AgentSuggestion
+from app.models.calendar_events import CalendarEvent, TaskSchedule
 from app.models.proactive_rules import ProactiveRule
 from app.models.agents import Agent
 from app.models.approval_task_links import ApprovalTaskLink
@@ -16,6 +19,7 @@ from app.models.board_webhooks import BoardWebhook
 from app.models.boards import Board
 from app.models.gateways import Gateway
 from app.models.h5_users import H5RefreshToken, H5User, H5UserAgentAssignment
+from app.models.ws_sessions import H5ChatSession
 from app.models.organization_board_access import OrganizationBoardAccess
 from app.models.organization_invite_board_access import OrganizationInviteBoardAccess
 from app.models.organization_invites import OrganizationInvite
@@ -29,6 +33,7 @@ from app.models.task_custom_fields import (
     TaskCustomFieldDefinition,
     TaskCustomFieldValue,
 )
+from app.models.knowledge_entries import KnowledgeDocument, KnowledgeEntry
 from app.models.task_dependencies import TaskDependency
 from app.models.task_fingerprints import TaskFingerprint
 from app.models.tasks import Task
@@ -36,8 +41,13 @@ from app.models.users import User
 
 __all__ = [
     "ActivityEvent",
+    "AgentCapability",
     "AgentEvent",
+    "AgentTeam",
+    "AgentTeamMember",
     "AgentSuggestion",
+    "CalendarEvent",
+    "TaskSchedule",
     "ProactiveRule",
     "Agent",
     "ApprovalTaskLink",
@@ -50,6 +60,7 @@ __all__ = [
     "BoardGroup",
     "Board",
     "Gateway",
+    "H5ChatSession",
     "H5RefreshToken",
     "H5User",
     "H5UserAgentAssignment",
@@ -64,6 +75,8 @@ __all__ = [
     "OrganizationBoardAccess",
     "OrganizationInvite",
     "OrganizationInviteBoardAccess",
+    "KnowledgeDocument",
+    "KnowledgeEntry",
     "TaskDependency",
     "Task",
     "TaskFingerprint",

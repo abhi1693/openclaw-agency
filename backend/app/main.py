@@ -11,6 +11,7 @@ from fastapi.openapi.utils import get_openapi
 from fastapi_pagination import add_pagination
 
 from app.api.activity import router as activity_router
+from app.api.calendar import router as calendar_router
 from app.api.agent import router as agent_router
 from app.api.agents import router as agents_router
 from app.api.approvals import router as approvals_router
@@ -26,10 +27,17 @@ from app.api.gateway_registration import router as gateway_registration_router
 from app.api.gateway_registration import ws_router as gateway_ws_router
 from app.api.gateways import router as gateways_router
 from app.api.agent_events import router as agent_events_router
+from app.api.agent_teams import capabilities_router as agent_capabilities_router
+from app.api.agent_teams import router as agent_teams_router
+from app.api.agent_teams import search_router as agent_capabilities_search_router
+from app.api.command_center import router as command_center_router
 from app.api.agent_suggestions import _AGENT_SUGGESTION_ROUTER as agent_suggestion_agent_router
 from app.api.agent_suggestions import router as agent_suggestions_router
 from app.api.h5_auth import router as h5_auth_router
 from app.api.h5_users import router as h5_users_router
+from app.api.ws_h5 import ws_router as h5_ws_router
+from app.api.ws_gateway import ws_gateway_router
+from app.api.ws_board import ws_board_router
 from app.api.proactive_rules import router as proactive_rules_router
 from app.api.metrics import router as metrics_router
 from app.api.organizations import router as organizations_router
@@ -37,6 +45,8 @@ from app.api.skills_marketplace import router as skills_marketplace_router
 from app.api.souls_directory import router as souls_directory_router
 from app.api.tags import router as tags_router
 from app.api.task_custom_fields import router as task_custom_fields_router
+from app.api.knowledge import _agent_router as knowledge_agent_router
+from app.api.knowledge import router as knowledge_router
 from app.api.tasks import router as tasks_router
 from app.api.users import router as users_router
 from app.core.config import settings
@@ -156,8 +166,41 @@ OPENAPI_TAGS = [
         "description": "H5 mobile web user authentication: registration, login, token refresh, and profile.",
     },
     {
+        "name": "h5-ws",
+        "description": "WebSocket relay endpoints for H5 client chat sessions.",
+    },
+    {
+        "name": "board-ws",
+        "description": "WebSocket endpoints for board real-time sync (M4 stub, full impl in M9).",
+    },
+    {
         "name": "h5-users",
         "description": "Admin endpoints for managing H5 users and agent assignments.",
+    },
+    {
+        "name": "agent-teams",
+        "description": "Agent team formation, member management, and capability tracking endpoints.",
+    },
+    {
+        "name": "command-center",
+        "description": (
+            "Command Center live dashboard: KPI overview, agent status, communication graph, "
+            "resource allocation, and live activity stream."
+        ),
+    },
+    {
+        "name": "calendar",
+        "description": (
+            "Shared calendar system: organization-wide events, task schedules, "
+            "agent workload tracking, and optimal slot suggestions."
+        ),
+    },
+    {
+        "name": "knowledge",
+        "description": (
+            "Digital Memory Hub: knowledge base CRUD, hybrid keyword + semantic search, "
+            "and document attachment management."
+        ),
     },
     {
         "name": "agent",
@@ -582,8 +625,18 @@ api_v1.include_router(agent_suggestions_router)
 api_v1.include_router(proactive_rules_router)
 api_v1.include_router(agent_suggestion_agent_router)
 api_v1.include_router(agent_events_router)
+api_v1.include_router(agent_teams_router)
+api_v1.include_router(agent_capabilities_router)
+api_v1.include_router(agent_capabilities_search_router)
+api_v1.include_router(command_center_router)
+api_v1.include_router(calendar_router)
+api_v1.include_router(knowledge_router)
+api_v1.include_router(knowledge_agent_router)
 app.include_router(api_v1)
 app.include_router(gateway_ws_router)
+app.include_router(h5_ws_router)
+app.include_router(ws_gateway_router)
+app.include_router(ws_board_router)
 
 add_pagination(app)
 logger.debug("app.routes.registered count=%s", len(app.routes))

@@ -71,11 +71,25 @@ class Settings(BaseSettings):
     gateway_heartbeat_interval_seconds: int = 30
     gateway_offline_threshold_seconds: int = 90
 
+    # WebSocket Relay (M4)
+    ws_redis_pubsub_url: str = "redis://localhost:6379/1"
+    ws_heartbeat_interval_seconds: int = 30
+    ws_heartbeat_timeout_seconds: int = 90
+    ws_max_connections_per_instance: int = 10000
+
     # Proactivity Engine (M8)
     proactivity_redis_url: str = "redis://localhost:6379/2"
     proactivity_event_ttl_days: int = 90
     proactivity_suggestion_expiry_hours: int = 168
     proactivity_rule_cooldown_seconds: int = 3600
+
+    # Knowledge Hub (M12)
+    embedding_provider: str = "none"  # openai | tongyi | local | none
+    embedding_api_key: str = ""
+    embedding_model: str = "text-embedding-ada-002"
+    embedding_base_url: str = ""
+    knowledge_search_language: str = "english"
+    knowledge_max_document_size_mb: int = 50
 
     # OpenClaw gateway runtime compatibility
     gateway_min_version: str = "2026.02.9"
