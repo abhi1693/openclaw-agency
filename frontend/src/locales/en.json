@@ -678,5 +678,23 @@
     "delete": "Delete",
     "deleting": "Deleting…",
     "cancel": "Cancel"
+  },
+  "boardSync": {
+    "connected": "Live",
+    "connecting": "Connecting…",
+    "reconnecting": "Reconnecting…",
+    "disconnected": "Offline",
+    "quickCreate": "Quick task",
+    "quickCreatePlaceholder": "New task title…",
+    "quickCreateStatus": "Status",
+    "statusInbox": "Inbox",
+    "statusInProgress": "In Progress",
+    "statusReview": "Review",
+    "statusDone": "Done",
+    "addTask": "Add",
+    "creating": "Adding…",
+    "suggestionsLabel": "AI suggestions",
+    "aiLabel": "AI",
+    "dismissSuggestion": "Dismiss suggestion"
   }
 }

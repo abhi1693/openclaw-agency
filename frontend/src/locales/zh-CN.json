@@ -678,5 +678,23 @@
     "delete": "删除",
     "deleting": "删除中…",
     "cancel": "取消"
+  },
+  "boardSync": {
+    "connected": "实时",
+    "connecting": "连接中…",
+    "reconnecting": "重连中…",
+    "disconnected": "离线",
+    "quickCreate": "快速任务",
+    "quickCreatePlaceholder": "新任务标题…",
+    "quickCreateStatus": "状态",
+    "statusInbox": "待办",
+    "statusInProgress": "进行中",
+    "statusReview": "审核中",
+    "statusDone": "已完成",
+    "addTask": "添加",
+    "creating": "添加中…",
+    "suggestionsLabel": "AI 建议",
+    "aiLabel": "AI",
+    "dismissSuggestion": "忽略建议"
   }
 }

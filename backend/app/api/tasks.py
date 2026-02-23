@@ -1339,6 +1339,19 @@ async def create_task(
         message=f"Task created: {task.title}.",
     )
     await session.commit()
+    # Broadcast task creation to all board WebSocket subscribers (M9).
+    asyncio.create_task(
+        task_broadcaster.broadcast_task_created(
+            board.id,
+            task={
+                "id": str(task.id),
+                "board_id": str(task.board_id),
+                "title": task.title,
+                "status": task.status,
+                "priority": task.priority,
+            },
+        )
+    )
     await _notify_lead_on_task_create(session=session, board=board, task=task)
     if task.assigned_agent_id:
         assigned_agent = await Agent.objects.by_id(task.assigned_agent_id).first(
@@ -1505,7 +1518,16 @@ async def delete_task(
     if auth.user is None:
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED)
     await require_board_access(session, user=auth.user, board=board, write=True)
+    # Capture identifiers before the row is deleted (M9 broadcast).
+    board_id_for_broadcast = board.id
+    task_id_for_broadcast = task.id
     await delete_task_and_related_records(session, task=task)
+    # Broadcast task deletion to all board WebSocket subscribers (M9).
+    asyncio.create_task(
+        task_broadcaster.broadcast_task_deleted(
+            board_id_for_broadcast, task_id=task_id_for_broadcast
+        )
+    )
     return OkResponse()
 
 
@@ -2261,6 +2283,23 @@ async def _record_task_update_activity(
         actor_agent_id=actor_agent_id,
     )
     await session.commit()
+    # Broadcast task update to all board WebSocket subscribers (M9).
+    changes: dict[str, object] = {"status": update.task.status}
+    if update.previous_status:
+        changes["previous_status"] = update.previous_status
+    actor_ref: dict[str, object] = (
+        {"type": "agent", "id": str(actor_agent_id)}
+        if actor_agent_id
+        else {"type": "user", "id": str(update.actor.user.id) if update.actor.user else "unknown"}
+    )
+    asyncio.create_task(
+        task_broadcaster.broadcast_task_updated(
+            update.board_id,
+            task_id=update.task.id,
+            changes=changes,
+            actor=actor_ref,
+        )
+    )
 
 
 async def _notify_task_update_assignment_changes(
