@@ -115,6 +115,7 @@ export * from "./getSessionHistoryApiV1GatewaysSessionsSessionIdHistoryGetParams
 export * from "./healthHealthGet200";
 export * from "./healthStatusResponse";
 export * from "./healthzHealthzGet200";
+export * from "./helloResponse";
 export * from "./hTTPValidationError";
 export * from "./installMarketplaceSkillApiV1SkillsMarketplaceSkillIdInstallPostParams";
 export * from "./limitOffsetPageTypeVarCustomizedActivityEventRead";
