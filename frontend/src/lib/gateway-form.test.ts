@@ -46,7 +46,9 @@ describe("validateGatewayUrl", () => {
   });
 
   it("accepts userinfo URLs with explicit port", () => {
-    expect(validateGatewayUrl("ws://user:pass@gateway.example.com:8080")).toBeNull();
+    expect(
+      validateGatewayUrl("ws://user:pass@gateway.example.com:8080"),
+    ).toBeNull();
   });
 
   it("accepts userinfo URLs with IPv6 host and explicit port", () => {

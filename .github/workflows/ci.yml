@@ -102,9 +102,8 @@ jobs:
       - name: Run backend checks
         env:
           # Keep CI builds deterministic.
-          NEXT_TELEMETRY_DISABLED: "1"
-          AUTH_MODE: "clerk"
-          CLERK_SECRET_KEY: ${{ secrets.CLERK_SECRET_KEY }}
+          AUTH_MODE: "local"
+          LOCAL_AUTH_TOKEN: "ci-local-auth-token-0123456789-0123456789-0123456789x"
         run: |
           make backend-lint
           make backend-coverage
@@ -113,10 +112,8 @@ jobs:
         env:
           # Keep CI builds deterministic.
           NEXT_TELEMETRY_DISABLED: "1"
-          NEXT_PUBLIC_API_URL: ${{ secrets.NEXT_PUBLIC_API_URL }}
-          NEXT_PUBLIC_AUTH_MODE: "clerk"
-          CLERK_SECRET_KEY: ${{ secrets.CLERK_SECRET_KEY }}
-          NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY: ${{ secrets.NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY }}
+          NEXT_PUBLIC_API_URL: "http://localhost:8000"
+          NEXT_PUBLIC_AUTH_MODE: "local"
         run: |
           make frontend-lint
           make frontend-typecheck
@@ -218,11 +215,9 @@ jobs:
 
       - name: Start frontend (dev server)
         env:
-          NEXT_PUBLIC_API_URL: ${{ secrets.NEXT_PUBLIC_API_URL }}
-          NEXT_PUBLIC_AUTH_MODE: "clerk"
+          NEXT_PUBLIC_API_URL: "http://localhost:8000"
+          NEXT_PUBLIC_AUTH_MODE: "local"
           NEXT_TELEMETRY_DISABLED: "1"
-          CLERK_SECRET_KEY: ${{ secrets.CLERK_SECRET_KEY }}
-          NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY: ${{ secrets.NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY }}
         run: |
           cd frontend
           npm run dev -- --hostname 0.0.0.0 --port 3000 &
@@ -235,13 +230,9 @@ jobs:
 
       - name: Run Cypress E2E
         env:
-          NEXT_PUBLIC_API_URL: ${{ secrets.NEXT_PUBLIC_API_URL }}
-          NEXT_PUBLIC_AUTH_MODE: "clerk"
+          NEXT_PUBLIC_API_URL: "http://localhost:8000"
+          NEXT_PUBLIC_AUTH_MODE: "local"
           NEXT_TELEMETRY_DISABLED: "1"
-          # Clerk testing tokens (official @clerk/testing Cypress integration)
-          CLERK_SECRET_KEY: ${{ secrets.CLERK_SECRET_KEY }}
-          # Also set for the app itself.
-          NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY: ${{ secrets.NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY }}
         run: |
           cd frontend
           npm run e2e -- --browser chrome

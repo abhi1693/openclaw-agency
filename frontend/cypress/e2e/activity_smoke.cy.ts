@@ -1,6 +1,8 @@
 describe("/activity page", () => {
-  it("signed-out user is redirected to sign-in", () => {
+  it("signed-out user sees an auth prompt", () => {
     cy.visit("/activity");
-    cy.location("pathname", { timeout: 20_000 }).should("match", /\/sign-in/);
+    cy.contains(/local authentication|sign in to mission control/i, {
+      timeout: 20_000,
+    }).should("be.visible");
   });
 });

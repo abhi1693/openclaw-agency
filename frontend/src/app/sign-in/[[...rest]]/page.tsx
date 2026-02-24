@@ -3,10 +3,17 @@
 import { useSearchParams } from "next/navigation";
 import { SignIn } from "@clerk/nextjs";
 
+import { isLocalAuthMode } from "@/auth/localAuth";
 import { resolveSignInRedirectUrl } from "@/auth/redirects";
+import { LocalAuthLogin } from "@/components/organisms/LocalAuthLogin";
 
 export default function SignInPage() {
   const searchParams = useSearchParams();
+
+  if (isLocalAuthMode()) {
+    return <LocalAuthLogin />;
+  }
+
   const forceRedirectUrl = resolveSignInRedirectUrl(
     searchParams.get("redirect_url"),
   );

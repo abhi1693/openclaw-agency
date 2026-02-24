@@ -1,22 +1,11 @@
 /// <reference types="cypress" />
 
-// Clerk/Next.js occasionally triggers a hydration mismatch on the SignIn route in CI.
-// This is non-deterministic UI noise for these tests; ignore it so assertions can proceed.
-Cypress.on("uncaught:exception", (err) => {
-  if (err.message?.includes("Hydration failed")) {
-    return false;
-  }
-  return true;
-});
-
 describe("/activity feed", () => {
   const apiBase = "**/api/v1";
-  const email = Cypress.env("CLERK_TEST_EMAIL") || "jane+clerk_test@example.com";
 
   const originalDefaultCommandTimeout = Cypress.config("defaultCommandTimeout");
 
   beforeEach(() => {
-    // Clerk's Cypress helpers perform async work inside `cy.then()`.
     // CI can be slow enough that the default 4s command timeout flakes.
     Cypress.config("defaultCommandTimeout", 20_000);
   });
@@ -49,6 +38,30 @@ describe("/activity feed", () => {
   function stubBoardBootstrap() {
     // Some app bootstraps happen before we get to the /activity call.
     // Keep these stable so the page always reaches the activity request.
+    cy.intercept("GET", `${apiBase}/users/me*`, {
+      statusCode: 200,
+      body: {
+        id: "u1",
+        clerk_user_id: "local-auth-user",
+        email: "local@example.com",
+        name: "Local User",
+        preferred_name: "Local User",
+        timezone: "UTC",
+      },
+    }).as("usersMe");
+
+    cy.intercept("GET", `${apiBase}/organizations/me/list*`, {
+      statusCode: 200,
+      body: [
+        {
+          id: "org1",
+          name: "Testing Org",
+          is_active: true,
+          role: "owner",
+        },
+      ],
+    }).as("orgsList");
+
     cy.intercept("GET", `${apiBase}/organizations/me/member*`, {
       statusCode: 200,
       body: { organization_id: "org1", role: "owner" },
@@ -77,10 +90,11 @@ describe("/activity feed", () => {
     cy.contains(/live feed/i).should("be.visible");
   }
 
-  it("auth negative: signed-out user is redirected to sign-in", () => {
-    // SignedOutPanel runs in redirect mode on this page.
+  it("auth negative: signed-out user sees auth prompt", () => {
     cy.visit("/activity");
-    cy.location("pathname", { timeout: 20_000 }).should("match", /\/sign-in/);
+    cy.contains(/sign in to view the feed|local authentication/i, {
+      timeout: 20_000,
+    }).should("be.visible");
   });
 
   it("happy path: renders task comment cards", () => {
@@ -107,10 +121,7 @@ describe("/activity feed", () => {
 
     stubStreamsEmpty();
 
-    cy.visit("/sign-in");
-    cy.clerkLoaded();
-    cy.clerkSignIn({ strategy: "email_code", identifier: email });
-
+    cy.loginWithLocalAuth();
     cy.visit("/activity");
     assertSignedInAndLanded();
     cy.wait("@activityList", { timeout: 20_000 });
@@ -131,10 +142,7 @@ describe("/activity feed", () => {
 
     stubStreamsEmpty();
 
-    cy.visit("/sign-in");
-    cy.clerkLoaded();
-    cy.clerkSignIn({ strategy: "email_code", identifier: email });
-
+    cy.loginWithLocalAuth();
     cy.visit("/activity");
     assertSignedInAndLanded();
     cy.wait("@activityList", { timeout: 20_000 });
@@ -152,10 +160,7 @@ describe("/activity feed", () => {
 
     stubStreamsEmpty();
 
-    cy.visit("/sign-in");
-    cy.clerkLoaded();
-    cy.clerkSignIn({ strategy: "email_code", identifier: email });
-
+    cy.loginWithLocalAuth();
     cy.visit("/activity");
     assertSignedInAndLanded();
     cy.wait("@activityList", { timeout: 20_000 });
