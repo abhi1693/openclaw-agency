@@ -1,8 +1,8 @@
 services:
   backend:
     build:
-      context: .
-      dockerfile: backend/Dockerfile
+      context: ./backend
+      dockerfile: Dockerfile
     environment:
       DATABASE_URL: ${DATABASE_URL}
       CORS_ORIGINS: ${FRONTEND_URL}
@@ -23,8 +23,8 @@ services:
 
   webhook-worker:
     build:
-      context: .
-      dockerfile: backend/Dockerfile
+      context: ./backend
+      dockerfile: Dockerfile
     command: ["rq", "worker", "-u", "${REDIS_URL}" ]
     environment:
       DATABASE_URL: ${DATABASE_URL}
