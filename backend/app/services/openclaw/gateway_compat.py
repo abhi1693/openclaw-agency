@@ -4,25 +4,23 @@ from __future__ import annotations
 
 import re
 from dataclasses import dataclass
-from typing import Any
 
 from app.core.config import settings
-from app.services.openclaw.gateway_rpc import GatewayConfig, OpenClawGatewayError, openclaw_call
-
-_VERSION_PATTERN = re.compile(r"(?i)v?(?P<version>\d+(?:\.\d+)+)")
-_PRIMARY_VERSION_PATHS: tuple[tuple[str, ...], ...] = (
-    ("version",),
-    ("gatewayVersion",),
-    ("appVersion",),
-    ("buildVersion",),
-    ("gateway", "version"),
-    ("app", "version"),
-    ("server", "version"),
-    ("runtime", "version"),
-    ("meta", "version"),
-    ("build", "version"),
-    ("info", "version"),
+from app.core.logging import get_logger
+from app.services.openclaw.gateway_rpc import (
+    GatewayConfig,
+    OpenClawGatewayError,
+    openclaw_call,
+    openclaw_connect_metadata,
 )
+
+_CALVER_PATTERN = re.compile(
+    r"^v?(?P<year>\d{4})\.(?P<month>\d{1,2})\.(?P<day>\d{1,2})(?:-(?P<rev>\d+))?$",
+    re.IGNORECASE,
+)
+_CONNECT_VERSION_PATH: tuple[str, ...] = ("server", "version")
+_CONFIG_VERSION_PATH: tuple[str, ...] = ("config", "meta", "lastTouchedVersion")
+logger = get_logger(__name__)
 
 
 @dataclass(frozen=True, slots=True)
@@ -41,11 +39,18 @@ def _normalized_minimum_version() -> str:
 
 
 def _parse_version_parts(value: str) -> tuple[int, ...] | None:
-    match = _VERSION_PATTERN.search(value.strip())
+    match = _CALVER_PATTERN.match(value.strip())
     if match is None:
         return None
-    numeric = match.group("version")
-    return tuple(int(part) for part in numeric.split("."))
+    year = int(match.group("year"))
+    month = int(match.group("month"))
+    day = int(match.group("day"))
+    revision = int(match.group("rev") or 0)
+    if month < 1 or month > 12:
+        return None
+    if day < 1 or day > 31:
+        return None
+    return (year, month, day, revision)
 
 
 def _compare_versions(left: tuple[int, ...], right: tuple[int, ...]) -> int:
@@ -79,36 +84,14 @@ def _coerce_version_string(value: object) -> str | None:
     return None
 
 
-def _iter_fallback_version_values(payload: object) -> list[str]:
-    if not isinstance(payload, dict):
-        return []
-    stack: list[dict[str, Any]] = [payload]
-    discovered: list[str] = []
-    while stack:
-        node = stack.pop()
-        for key, value in node.items():
-            if isinstance(value, dict):
-                stack.append(value)
-            key_lower = key.lower()
-            if "version" not in key_lower or "protocol" in key_lower:
-                continue
-            candidate = _coerce_version_string(value)
-            if candidate is not None:
-                discovered.append(candidate)
-    return discovered
+def extract_connect_server_version(payload: object) -> str | None:
+    """Extract the canonical runtime version from connect metadata."""
+    return _coerce_version_string(_value_at_path(payload, _CONNECT_VERSION_PATH))
 
 
-def extract_gateway_version(payload: object) -> str | None:
-    """Extract a gateway runtime version string from status/health payloads."""
-    for path in _PRIMARY_VERSION_PATHS:
-        candidate = _coerce_version_string(_value_at_path(payload, path))
-        if candidate is not None:
-            return candidate
-
-    for candidate in _iter_fallback_version_values(payload):
-        if _parse_version_parts(candidate) is not None:
-            return candidate
-    return None
+def extract_config_last_touched_version(payload: object) -> str | None:
+    """Extract a runtime version hint from config.get payload."""
+    return _coerce_version_string(_value_at_path(payload, _CONFIG_VERSION_PATH))
 
 
 def evaluate_gateway_version(
@@ -122,7 +105,7 @@ def evaluate_gateway_version(
     if min_parts is None:
         msg = (
             "Server configuration error: GATEWAY_MIN_VERSION is invalid. "
-            f"Expected a dotted numeric version, got '{min_version}'."
+            f"Expected CalVer 'YYYY.M.D' or 'YYYY.M.D-REV', got '{min_version}'."
         )
         return GatewayVersionCheckResult(
             compatible=False,
@@ -172,49 +155,26 @@ def evaluate_gateway_version(
     )
 
 
-async def _fetch_runtime_metadata(config: GatewayConfig) -> object:
-    last_error: OpenClawGatewayError | None = None
-    for method in ("status", "health"):
-        try:
-            return await openclaw_call(method, config=config)
-        except OpenClawGatewayError as exc:
-            last_error = exc
-            continue
-    if last_error is not None:
-        raise last_error
-    return {}
-
-
-async def _fetch_schema_metadata(config: GatewayConfig) -> object | None:
-    try:
-        return await openclaw_call("config.schema", config=config)
-    except OpenClawGatewayError:
-        return None
-
-
-async def check_gateway_runtime_compatibility(
+async def check_gateway_version_compatibility(
     config: GatewayConfig,
     *,
     minimum_version: str | None = None,
 ) -> GatewayVersionCheckResult:
-    """Fetch runtime metadata and evaluate gateway version compatibility."""
-    schema_payload = await _fetch_schema_metadata(config)
-    current_version = extract_gateway_version(schema_payload)
-    if current_version is not None:
-        return evaluate_gateway_version(
-            current_version=current_version,
-            minimum_version=minimum_version,
-        )
-
-    payload = await _fetch_runtime_metadata(config)
-    current_version = extract_gateway_version(payload)
-    if current_version is None:
+    """Evaluate gateway compatibility using connect metadata with config fallback."""
+    connect_payload = await openclaw_connect_metadata(config=config)
+    current_version = extract_connect_server_version(connect_payload)
+    if current_version is None or _parse_version_parts(current_version) is None:
         try:
-            health_payload = await openclaw_call("health", config=config)
-        except OpenClawGatewayError:
-            health_payload = None
-        if health_payload is not None:
-            current_version = extract_gateway_version(health_payload)
+            config_payload = await openclaw_call("config.get", config=config)
+        except OpenClawGatewayError as exc:
+            logger.debug(
+                "gateway.compat.config_get_fallback_unavailable reason=%s",
+                str(exc),
+            )
+        else:
+            fallback_version = extract_config_last_touched_version(config_payload)
+            if fallback_version is not None:
+                current_version = fallback_version
     return evaluate_gateway_version(
         current_version=current_version,
         minimum_version=minimum_version,

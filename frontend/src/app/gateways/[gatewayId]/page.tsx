@@ -115,6 +115,7 @@ export default function GatewayDetailPage() {
     ? {
         gateway_url: gateway.url,
         gateway_token: gateway.token ?? undefined,
+        gateway_disable_device_pairing: gateway.disable_device_pairing,
       }
     : {};
 
@@ -230,6 +231,14 @@ export default function GatewayDetailPage() {
                     <p className="text-xs uppercase text-slate-400">Token</p>
                     <p className="mt-1 text-sm font-medium text-slate-900">
                       {maskToken(gateway.token)}
+                    </p>
+                  </div>
+                  <div>
+                    <p className="text-xs uppercase text-slate-400">
+                      Device pairing
+                    </p>
+                    <p className="mt-1 text-sm font-medium text-slate-900">
+                      {gateway.disable_device_pairing ? "Disabled" : "Required"}
                     </p>
                   </div>
                 </div>

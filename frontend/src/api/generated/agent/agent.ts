@@ -22,7 +22,7 @@ import type {
 
 import type {
   AgentCreate,
-  AgentHeartbeatCreate,
+  AgentHealthStatusResponse,
   AgentNudge,
   AgentRead,
   ApprovalCreate,
@@ -66,6 +66,192 @@ import type {
 import { customFetch } from "../../mutator";
 
 type SecondParameter<T extends (...args: never) => unknown> = Parameters<T>[1];
+
+/**
+ * Token-authenticated liveness probe for agent API clients.
+
+Use this endpoint when the caller needs to verify both service availability and agent-token validity in one request.
+ * @summary Agent Auth Health Check
+ */
+export type agentHealthzApiV1AgentHealthzGetResponse200 = {
+  data: AgentHealthStatusResponse;
+  status: 200;
+};
+
+export type agentHealthzApiV1AgentHealthzGetResponse422 = {
+  data: HTTPValidationError;
+  status: 422;
+};
+
+export type agentHealthzApiV1AgentHealthzGetResponseSuccess =
+  agentHealthzApiV1AgentHealthzGetResponse200 & {
+    headers: Headers;
+  };
+export type agentHealthzApiV1AgentHealthzGetResponseError =
+  agentHealthzApiV1AgentHealthzGetResponse422 & {
+    headers: Headers;
+  };
+
+export type agentHealthzApiV1AgentHealthzGetResponse =
+  | agentHealthzApiV1AgentHealthzGetResponseSuccess
+  | agentHealthzApiV1AgentHealthzGetResponseError;
+
+export const getAgentHealthzApiV1AgentHealthzGetUrl = () => {
+  return `/api/v1/agent/healthz`;
+};
+
+export const agentHealthzApiV1AgentHealthzGet = async (
+  options?: RequestInit,
+): Promise<agentHealthzApiV1AgentHealthzGetResponse> => {
+  return customFetch<agentHealthzApiV1AgentHealthzGetResponse>(
+    getAgentHealthzApiV1AgentHealthzGetUrl(),
+    {
+      ...options,
+      method: "GET",
+    },
+  );
+};
+
+export const getAgentHealthzApiV1AgentHealthzGetQueryKey = () => {
+  return [`/api/v1/agent/healthz`] as const;
+};
+
+export const getAgentHealthzApiV1AgentHealthzGetQueryOptions = <
+  TData = Awaited<ReturnType<typeof agentHealthzApiV1AgentHealthzGet>>,
+  TError = HTTPValidationError,
+>(options?: {
+  query?: Partial<
+    UseQueryOptions<
+      Awaited<ReturnType<typeof agentHealthzApiV1AgentHealthzGet>>,
+      TError,
+      TData
+    >
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}) => {
+  const { query: queryOptions, request: requestOptions } = options ?? {};
+
+  const queryKey =
+    queryOptions?.queryKey ?? getAgentHealthzApiV1AgentHealthzGetQueryKey();
+
+  const queryFn: QueryFunction<
+    Awaited<ReturnType<typeof agentHealthzApiV1AgentHealthzGet>>
+  > = ({ signal }) =>
+    agentHealthzApiV1AgentHealthzGet({ signal, ...requestOptions });
+
+  return { queryKey, queryFn, ...queryOptions } as UseQueryOptions<
+    Awaited<ReturnType<typeof agentHealthzApiV1AgentHealthzGet>>,
+    TError,
+    TData
+  > & { queryKey: DataTag<QueryKey, TData, TError> };
+};
+
+export type AgentHealthzApiV1AgentHealthzGetQueryResult = NonNullable<
+  Awaited<ReturnType<typeof agentHealthzApiV1AgentHealthzGet>>
+>;
+export type AgentHealthzApiV1AgentHealthzGetQueryError = HTTPValidationError;
+
+export function useAgentHealthzApiV1AgentHealthzGet<
+  TData = Awaited<ReturnType<typeof agentHealthzApiV1AgentHealthzGet>>,
+  TError = HTTPValidationError,
+>(
+  options: {
+    query: Partial<
+      UseQueryOptions<
+        Awaited<ReturnType<typeof agentHealthzApiV1AgentHealthzGet>>,
+        TError,
+        TData
+      >
+    > &
+      Pick<
+        DefinedInitialDataOptions<
+          Awaited<ReturnType<typeof agentHealthzApiV1AgentHealthzGet>>,
+          TError,
+          Awaited<ReturnType<typeof agentHealthzApiV1AgentHealthzGet>>
+        >,
+        "initialData"
+      >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+  queryClient?: QueryClient,
+): DefinedUseQueryResult<TData, TError> & {
+  queryKey: DataTag<QueryKey, TData, TError>;
+};
+export function useAgentHealthzApiV1AgentHealthzGet<
+  TData = Awaited<ReturnType<typeof agentHealthzApiV1AgentHealthzGet>>,
+  TError = HTTPValidationError,
+>(
+  options?: {
+    query?: Partial<
+      UseQueryOptions<
+        Awaited<ReturnType<typeof agentHealthzApiV1AgentHealthzGet>>,
+        TError,
+        TData
+      >
+    > &
+      Pick<
+        UndefinedInitialDataOptions<
+          Awaited<ReturnType<typeof agentHealthzApiV1AgentHealthzGet>>,
+          TError,
+          Awaited<ReturnType<typeof agentHealthzApiV1AgentHealthzGet>>
+        >,
+        "initialData"
+      >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+  queryClient?: QueryClient,
+): UseQueryResult<TData, TError> & {
+  queryKey: DataTag<QueryKey, TData, TError>;
+};
+export function useAgentHealthzApiV1AgentHealthzGet<
+  TData = Awaited<ReturnType<typeof agentHealthzApiV1AgentHealthzGet>>,
+  TError = HTTPValidationError,
+>(
+  options?: {
+    query?: Partial<
+      UseQueryOptions<
+        Awaited<ReturnType<typeof agentHealthzApiV1AgentHealthzGet>>,
+        TError,
+        TData
+      >
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+  queryClient?: QueryClient,
+): UseQueryResult<TData, TError> & {
+  queryKey: DataTag<QueryKey, TData, TError>;
+};
+/**
+ * @summary Agent Auth Health Check
+ */
+
+export function useAgentHealthzApiV1AgentHealthzGet<
+  TData = Awaited<ReturnType<typeof agentHealthzApiV1AgentHealthzGet>>,
+  TError = HTTPValidationError,
+>(
+  options?: {
+    query?: Partial<
+      UseQueryOptions<
+        Awaited<ReturnType<typeof agentHealthzApiV1AgentHealthzGet>>,
+        TError,
+        TData
+      >
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+  queryClient?: QueryClient,
+): UseQueryResult<TData, TError> & {
+  queryKey: DataTag<QueryKey, TData, TError>;
+} {
+  const queryOptions = getAgentHealthzApiV1AgentHealthzGetQueryOptions(options);
+
+  const query = useQuery(queryOptions, queryClient) as UseQueryResult<
+    TData,
+    TError
+  > & { queryKey: DataTag<QueryKey, TData, TError> };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
 
 /**
  * Return boards the authenticated agent can access.
@@ -3326,9 +3512,9 @@ export const useAgentLeadNudgeAgent = <
   );
 };
 /**
- * Record liveness for the authenticated agent's current status.
+ * Record liveness for the authenticated agent.
 
-Use this when the agent heartbeat loop reports status changes.
+Use this when the agent heartbeat loop checks in.
  * @summary Upsert agent heartbeat
  */
 export type agentHeartbeatApiV1AgentHeartbeatPostResponse200 = {
@@ -3359,7 +3545,6 @@ export const getAgentHeartbeatApiV1AgentHeartbeatPostUrl = () => {
 };
 
 export const agentHeartbeatApiV1AgentHeartbeatPost = async (
-  agentHeartbeatCreate: AgentHeartbeatCreate,
   options?: RequestInit,
 ): Promise<agentHeartbeatApiV1AgentHeartbeatPostResponse> => {
   return customFetch<agentHeartbeatApiV1AgentHeartbeatPostResponse>(
@@ -3367,8 +3552,6 @@ export const agentHeartbeatApiV1AgentHeartbeatPost = async (
     {
       ...options,
       method: "POST",
-      headers: { "Content-Type": "application/json", ...options?.headers },
-      body: JSON.stringify(agentHeartbeatCreate),
     },
   );
 };
@@ -3380,14 +3563,14 @@ export const getAgentHeartbeatApiV1AgentHeartbeatPostMutationOptions = <
   mutation?: UseMutationOptions<
     Awaited<ReturnType<typeof agentHeartbeatApiV1AgentHeartbeatPost>>,
     TError,
-    { data: AgentHeartbeatCreate },
+    void,
     TContext
   >;
   request?: SecondParameter<typeof customFetch>;
 }): UseMutationOptions<
   Awaited<ReturnType<typeof agentHeartbeatApiV1AgentHeartbeatPost>>,
   TError,
-  { data: AgentHeartbeatCreate },
+  void,
   TContext
 > => {
   const mutationKey = ["agentHeartbeatApiV1AgentHeartbeatPost"];
@@ -3401,11 +3584,9 @@ export const getAgentHeartbeatApiV1AgentHeartbeatPostMutationOptions = <
 
   const mutationFn: MutationFunction<
     Awaited<ReturnType<typeof agentHeartbeatApiV1AgentHeartbeatPost>>,
-    { data: AgentHeartbeatCreate }
-  > = (props) => {
-    const { data } = props ?? {};
-
-    return agentHeartbeatApiV1AgentHeartbeatPost(data, requestOptions);
+    void
+  > = () => {
+    return agentHeartbeatApiV1AgentHeartbeatPost(requestOptions);
   };
 
   return { mutationFn, ...mutationOptions };
@@ -3414,8 +3595,7 @@ export const getAgentHeartbeatApiV1AgentHeartbeatPostMutationOptions = <
 export type AgentHeartbeatApiV1AgentHeartbeatPostMutationResult = NonNullable<
   Awaited<ReturnType<typeof agentHeartbeatApiV1AgentHeartbeatPost>>
 >;
-export type AgentHeartbeatApiV1AgentHeartbeatPostMutationBody =
-  AgentHeartbeatCreate;
+
 export type AgentHeartbeatApiV1AgentHeartbeatPostMutationError =
   HTTPValidationError;
 
@@ -3430,7 +3610,7 @@ export const useAgentHeartbeatApiV1AgentHeartbeatPost = <
     mutation?: UseMutationOptions<
       Awaited<ReturnType<typeof agentHeartbeatApiV1AgentHeartbeatPost>>,
       TError,
-      { data: AgentHeartbeatCreate },
+      void,
       TContext
     >;
     request?: SecondParameter<typeof customFetch>;
@@ -3439,7 +3619,7 @@ export const useAgentHeartbeatApiV1AgentHeartbeatPost = <
 ): UseMutationResult<
   Awaited<ReturnType<typeof agentHeartbeatApiV1AgentHeartbeatPost>>,
   TError,
-  { data: AgentHeartbeatCreate },
+  void,
   TContext
 > => {
   return useMutation(

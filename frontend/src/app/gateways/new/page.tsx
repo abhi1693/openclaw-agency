@@ -28,7 +28,9 @@ export default function NewGatewayPage() {
   const [name, setName] = useState("");
   const [gatewayUrl, setGatewayUrl] = useState("");
   const [gatewayToken, setGatewayToken] = useState("");
+  const [disableDevicePairing, setDisableDevicePairing] = useState(false);
   const [workspaceRoot, setWorkspaceRoot] = useState(DEFAULT_WORKSPACE_ROOT);
+  const [allowInsecureTls, setAllowInsecureTls] = useState(false);
 
   const [gatewayUrlError, setGatewayUrlError] = useState<string | null>(null);
   const [gatewayCheckStatus, setGatewayCheckStatus] =
@@ -52,34 +54,15 @@ export default function NewGatewayPage() {
     },
   });
 
-  const isLoading = createMutation.isPending;
+  const isLoading =
+    createMutation.isPending || gatewayCheckStatus === "checking";
 
   const canSubmit =
     Boolean(name.trim()) &&
     Boolean(gatewayUrl.trim()) &&
-    Boolean(workspaceRoot.trim()) &&
-    gatewayCheckStatus === "success";
+    Boolean(workspaceRoot.trim());
 
-  const runGatewayCheck = async () => {
-    const validationError = validateGatewayUrl(gatewayUrl);
-    setGatewayUrlError(validationError);
-    if (validationError) {
-      setGatewayCheckStatus("error");
-      setGatewayCheckMessage(validationError);
-      return;
-    }
-    if (!isSignedIn) return;
-    setGatewayCheckStatus("checking");
-    setGatewayCheckMessage(null);
-    const { ok, message } = await checkGatewayConnection({
-      gatewayUrl,
-      gatewayToken,
-    });
-    setGatewayCheckStatus(ok ? "success" : "error");
-    setGatewayCheckMessage(message);
-  };
-
-  const handleSubmit = (event: React.FormEvent<HTMLFormElement>) => {
+  const handleSubmit = async (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault();
     if (!isSignedIn) return;
 
@@ -99,13 +82,29 @@ export default function NewGatewayPage() {
       return;
     }
 
+    setGatewayCheckStatus("checking");
+    setGatewayCheckMessage(null);
+    const { ok, message } = await checkGatewayConnection({
+      gatewayUrl,
+      gatewayToken,
+      gatewayDisableDevicePairing: disableDevicePairing,
+      gatewayAllowInsecureTls: allowInsecureTls,
+    });
+    setGatewayCheckStatus(ok ? "success" : "error");
+    setGatewayCheckMessage(message);
+    if (!ok) {
+      return;
+    }
+
     setError(null);
     createMutation.mutate({
       data: {
         name: name.trim(),
         url: gatewayUrl.trim(),
         token: gatewayToken.trim() || null,
+        disable_device_pairing: disableDevicePairing,
         workspace_root: workspaceRoot.trim(),
+        allow_insecure_tls: allowInsecureTls,
       },
     });
   };
@@ -125,7 +124,9 @@ export default function NewGatewayPage() {
         name={name}
         gatewayUrl={gatewayUrl}
         gatewayToken={gatewayToken}
+        disableDevicePairing={disableDevicePairing}
         workspaceRoot={workspaceRoot}
+        allowInsecureTls={allowInsecureTls}
         gatewayUrlError={gatewayUrlError}
         gatewayCheckStatus={gatewayCheckStatus}
         gatewayCheckMessage={gatewayCheckMessage}
@@ -138,7 +139,6 @@ export default function NewGatewayPage() {
         submitBusyLabel="Creating…"
         onSubmit={handleSubmit}
         onCancel={() => router.push("/gateways")}
-        onRunGatewayCheck={runGatewayCheck}
         onNameChange={setName}
         onGatewayUrlChange={(next) => {
           setGatewayUrl(next);
@@ -151,7 +151,17 @@ export default function NewGatewayPage() {
           setGatewayCheckStatus("idle");
           setGatewayCheckMessage(null);
         }}
+        onDisableDevicePairingChange={(next) => {
+          setDisableDevicePairing(next);
+          setGatewayCheckStatus("idle");
+          setGatewayCheckMessage(null);
+        }}
         onWorkspaceRootChange={setWorkspaceRoot}
+        onAllowInsecureTlsChange={(next) => {
+          setAllowInsecureTls(next);
+          setGatewayCheckStatus("idle");
+          setGatewayCheckMessage(null);
+        }}
       />
     </DashboardPageLayout>
   );

@@ -285,7 +285,12 @@ class OpenClawProvisioningService(OpenClawDBService):
             return result
 
         control_plane = OpenClawGatewayControlPlane(
-            GatewayClientConfig(url=gateway.url, token=gateway.token),
+            GatewayClientConfig(
+                url=gateway.url,
+                token=gateway.token,
+                allow_insecure_tls=gateway.allow_insecure_tls,
+                disable_device_pairing=gateway.disable_device_pairing,
+            ),
         )
         ctx = _SyncContext(
             session=self.session,

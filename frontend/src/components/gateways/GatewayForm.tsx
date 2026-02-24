@@ -1,5 +1,4 @@
 import type { FormEvent } from "react";
-import { CheckCircle2, RefreshCcw, XCircle } from "lucide-react";
 
 import type { GatewayCheckStatus } from "@/lib/gateway-form";
 import { Button } from "@/components/ui/button";
@@ -9,7 +8,9 @@ type GatewayFormProps = {
   name: string;
   gatewayUrl: string;
   gatewayToken: string;
+  disableDevicePairing: boolean;
   workspaceRoot: string;
+  allowInsecureTls: boolean;
   gatewayUrlError: string | null;
   gatewayCheckStatus: GatewayCheckStatus;
   gatewayCheckMessage: string | null;
@@ -22,18 +23,21 @@ type GatewayFormProps = {
   submitBusyLabel: string;
   onSubmit: (event: FormEvent<HTMLFormElement>) => void;
   onCancel: () => void;
-  onRunGatewayCheck: () => Promise<void>;
   onNameChange: (next: string) => void;
   onGatewayUrlChange: (next: string) => void;
   onGatewayTokenChange: (next: string) => void;
+  onDisableDevicePairingChange: (next: boolean) => void;
   onWorkspaceRootChange: (next: string) => void;
+  onAllowInsecureTlsChange: (next: boolean) => void;
 };
 
 export function GatewayForm({
   name,
   gatewayUrl,
   gatewayToken,
+  disableDevicePairing,
   workspaceRoot,
+  allowInsecureTls,
   gatewayUrlError,
   gatewayCheckStatus,
   gatewayCheckMessage,
@@ -46,11 +50,12 @@ export function GatewayForm({
   submitBusyLabel,
   onSubmit,
   onCancel,
-  onRunGatewayCheck,
   onNameChange,
   onGatewayUrlChange,
   onGatewayTokenChange,
+  onDisableDevicePairingChange,
   onWorkspaceRootChange,
+  onAllowInsecureTlsChange,
 }: GatewayFormProps) {
   return (
     <form
@@ -78,40 +83,15 @@ export function GatewayForm({
             <Input
               value={gatewayUrl}
               onChange={(event) => onGatewayUrlChange(event.target.value)}
-              onBlur={onRunGatewayCheck}
               placeholder="ws://gateway:18789"
               disabled={isLoading}
               className={gatewayUrlError ? "border-red-500" : undefined}
             />
-            <button
-              type="button"
-              onClick={() => void onRunGatewayCheck()}
-              className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600"
-              aria-label="Check gateway connection"
-            >
-              {gatewayCheckStatus === "checking" ? (
-                <RefreshCcw className="h-4 w-4 animate-spin" />
-              ) : gatewayCheckStatus === "success" ? (
-                <CheckCircle2 className="h-4 w-4 text-emerald-500" />
-              ) : gatewayCheckStatus === "error" ? (
-                <XCircle className="h-4 w-4 text-red-500" />
-              ) : (
-                <RefreshCcw className="h-4 w-4" />
-              )}
-            </button>
           </div>
           {gatewayUrlError ? (
             <p className="text-xs text-red-500">{gatewayUrlError}</p>
-          ) : gatewayCheckMessage ? (
-            <p
-              className={
-                gatewayCheckStatus === "success"
-                  ? "text-xs text-emerald-600"
-                  : "text-xs text-red-500"
-              }
-            >
-              {gatewayCheckMessage}
-            </p>
+          ) : gatewayCheckStatus === "error" && gatewayCheckMessage ? (
+            <p className="text-xs text-red-500">{gatewayCheckMessage}</p>
           ) : null}
         </div>
         <div className="space-y-2">
@@ -121,23 +101,80 @@ export function GatewayForm({
           <Input
             value={gatewayToken}
             onChange={(event) => onGatewayTokenChange(event.target.value)}
-            onBlur={onRunGatewayCheck}
             placeholder="Bearer token"
             disabled={isLoading}
           />
         </div>
       </div>
 
+      <div className="grid gap-6 md:grid-cols-2">
+        <div className="space-y-2">
+          <label className="text-sm font-medium text-slate-900">
+            Workspace root <span className="text-red-500">*</span>
+          </label>
+          <Input
+            value={workspaceRoot}
+            onChange={(event) => onWorkspaceRootChange(event.target.value)}
+            placeholder={workspaceRootPlaceholder}
+            disabled={isLoading}
+          />
+        </div>
+
+        <div className="space-y-2">
+          <label className="text-sm font-medium text-slate-900">
+            Disable device pairing
+          </label>
+          <label className="flex h-10 items-center gap-3 px-1 text-sm text-slate-900">
+            <button
+              type="button"
+              role="switch"
+              aria-checked={disableDevicePairing}
+              aria-label="Disable device pairing"
+              onClick={() =>
+                onDisableDevicePairingChange(!disableDevicePairing)
+              }
+              disabled={isLoading}
+              className={`inline-flex h-6 w-11 shrink-0 items-center rounded-full border transition ${
+                disableDevicePairing
+                  ? "border-emerald-600 bg-emerald-600"
+                  : "border-slate-300 bg-slate-200"
+              } ${isLoading ? "cursor-not-allowed opacity-60" : "cursor-pointer"}`}
+            >
+              <span
+                className={`inline-block h-5 w-5 rounded-full bg-white shadow-sm transition ${
+                  disableDevicePairing ? "translate-x-5" : "translate-x-0.5"
+                }`}
+              />
+            </button>
+          </label>
+        </div>
+      </div>
+
       <div className="space-y-2">
         <label className="text-sm font-medium text-slate-900">
-          Workspace root <span className="text-red-500">*</span>
+          Allow self-signed TLS certificates
         </label>
-        <Input
-          value={workspaceRoot}
-          onChange={(event) => onWorkspaceRootChange(event.target.value)}
-          placeholder={workspaceRootPlaceholder}
-          disabled={isLoading}
-        />
+        <label className="flex h-10 items-center gap-3 px-1 text-sm text-slate-900">
+          <button
+            type="button"
+            role="switch"
+            aria-checked={allowInsecureTls}
+            aria-label="Allow self-signed TLS certificates"
+            onClick={() => onAllowInsecureTlsChange(!allowInsecureTls)}
+            disabled={isLoading}
+            className={`inline-flex h-6 w-11 shrink-0 items-center rounded-full border transition ${
+              allowInsecureTls
+                ? "border-emerald-600 bg-emerald-600"
+                : "border-slate-300 bg-slate-200"
+            } ${isLoading ? "cursor-not-allowed opacity-60" : "cursor-pointer"}`}
+          >
+            <span
+              className={`inline-block h-5 w-5 rounded-full bg-white shadow-sm transition ${
+                allowInsecureTls ? "translate-x-5" : "translate-x-0.5"
+              }`}
+            />
+          </button>
+        </label>
       </div>
 
       {errorMessage ? (

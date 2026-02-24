@@ -20,7 +20,8 @@ from app.schemas.gateway_api import (
     GatewaysStatusResponse,
 )
 from app.services.openclaw.db_service import OpenClawDBService
-from app.services.openclaw.gateway_compat import check_gateway_runtime_compatibility
+from app.services.openclaw.error_messages import normalize_gateway_error_message
+from app.services.openclaw.gateway_compat import check_gateway_version_compatibility
 from app.services.openclaw.gateway_resolver import gateway_client_config, require_gateway_for_board
 from app.services.openclaw.gateway_rpc import GatewayConfig as GatewayClientConfig
 from app.services.openclaw.gateway_rpc import (
@@ -64,11 +65,15 @@ class GatewaySessionService(OpenClawDBService):
         board_id: str | None,
         gateway_url: str | None,
         gateway_token: str | None,
+        gateway_disable_device_pairing: bool = False,
+        gateway_allow_insecure_tls: bool = False,
     ) -> GatewayResolveQuery:
         return GatewayResolveQuery(
             board_id=board_id,
             gateway_url=gateway_url,
             gateway_token=gateway_token,
+            gateway_disable_device_pairing=gateway_disable_device_pairing,
+            gateway_allow_insecure_tls=gateway_allow_insecure_tls,
         )
 
     @staticmethod
@@ -109,6 +114,8 @@ class GatewaySessionService(OpenClawDBService):
                 GatewayClientConfig(
                     url=raw_url,
                     token=(params.gateway_token or "").strip() or None,
+                    allow_insecure_tls=params.gateway_allow_insecure_tls,
+                    disable_device_pairing=params.gateway_disable_device_pairing,
                 ),
                 None,
             )
@@ -190,12 +197,12 @@ class GatewaySessionService(OpenClawDBService):
         board, config, main_session = await self.resolve_gateway(params, user=user)
         self._require_same_org(board, organization_id)
         try:
-            compatibility = await check_gateway_runtime_compatibility(config)
+            compatibility = await check_gateway_version_compatibility(config)
         except OpenClawGatewayError as exc:
             return GatewaysStatusResponse(
                 connected=False,
                 gateway_url=config.url,
-                error=str(exc),
+                error=normalize_gateway_error_message(str(exc)),
             )
         if not compatibility.compatible:
             return GatewaysStatusResponse(
@@ -234,7 +241,7 @@ class GatewaySessionService(OpenClawDBService):
             return GatewaysStatusResponse(
                 connected=False,
                 gateway_url=config.url,
-                error=str(exc),
+                error=normalize_gateway_error_message(str(exc)),
             )
 
     async def get_sessions(

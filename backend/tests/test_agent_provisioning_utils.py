@@ -119,6 +119,8 @@ class _GatewayStub:
     url: str
     token: str | None
     workspace_root: str
+    allow_insecure_tls: bool = False
+    disable_device_pairing: bool = False
 
 
 @pytest.mark.asyncio
@@ -229,6 +231,8 @@ async def test_provision_overwrites_user_md_on_first_provision(monkeypatch):
         url: str
         token: str | None
         workspace_root: str
+        allow_insecure_tls: bool = False
+        disable_device_pairing: bool = False
 
     class _Manager(agent_provisioning.BaseAgentLifecycleManager):
         def _agent_id(self, agent):
@@ -296,6 +300,8 @@ async def test_set_agent_files_update_preserves_user_md_even_when_size_zero():
         url: str
         token: str | None
         workspace_root: str
+        allow_insecure_tls: bool = False
+        disable_device_pairing: bool = False
 
     class _Manager(agent_provisioning.BaseAgentLifecycleManager):
         def _agent_id(self, agent):
@@ -360,6 +366,8 @@ async def test_set_agent_files_update_preserves_nonmissing_user_md():
         url: str
         token: str | None
         workspace_root: str
+        allow_insecure_tls: bool = False
+        disable_device_pairing: bool = False
 
     class _Manager(agent_provisioning.BaseAgentLifecycleManager):
         def _agent_id(self, agent):
@@ -424,6 +432,8 @@ async def test_set_agent_files_update_overwrite_writes_preserved_user_md():
         url: str
         token: str | None
         workspace_root: str
+        allow_insecure_tls: bool = False
+        disable_device_pairing: bool = False
 
     class _Manager(agent_provisioning.BaseAgentLifecycleManager):
         def _agent_id(self, agent):

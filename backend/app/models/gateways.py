@@ -23,6 +23,8 @@ class Gateway(QueryModel, table=True):
     name: str
     url: str
     token: str | None = Field(default=None)
+    disable_device_pairing: bool = Field(default=False)
     workspace_root: str
+    allow_insecure_tls: bool = Field(default=False)
     created_at: datetime = Field(default_factory=utcnow)
     updated_at: datetime = Field(default_factory=utcnow)
