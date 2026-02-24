@@ -40,6 +40,7 @@ from app.schemas.agents import (
     AgentCreate,
     AgentHeartbeat,
     AgentHeartbeatCreate,
+    AgentLinkRequest,
     AgentRead,
     AgentUpdate,
 )
@@ -842,6 +843,12 @@ class AgentLifecycleService(OpenClawDBService):
         now = utcnow()
         if agent.status in {"deleting", "updating"}:
             return agent
+        # Linked agents (session ID like "agent:amy" without ":main" suffix)
+        # are managed externally — always treat as online if they were linked.
+        sid = agent.openclaw_session_id or ""
+        if sid.startswith("agent:") and ":main" not in sid and agent.last_seen_at is not None:
+            agent.status = "online"
+            return agent
         if agent.last_seen_at is None:
             agent.status = "provisioning"
         elif now - agent.last_seen_at > OFFLINE_AFTER:
@@ -1577,6 +1584,145 @@ class AgentLifecycleService(OpenClawDBService):
         )
         self.logger.info("agent.create.success agent_id=%s board_id=%s", agent.id, board.id)
         return self.to_agent_read(self.with_computed_status(agent))
+
+    async def link_existing_agent(
+        self,
+        *,
+        payload: AgentLinkRequest,
+        ctx: OrganizationContext,
+    ) -> AgentRead:
+        """Link an existing gateway agent to Mission Control."""
+        from app.services.openclaw.gateway_rpc import openclaw_call
+        
+        self.logger.log(
+            TRACE_LEVEL,
+            "agent.link.start gateway_agent_id=%s board_id=%s",
+            payload.gateway_agent_id,
+            payload.board_id,
+        )
+        
+        # Verify board access
+        board = await self.require_board(
+            payload.board_id,
+            user=None,  # org admin context
+            write=True,
+        )
+        
+        gateway, client_config = await self.require_gateway(board)
+        
+        # Check if agent is already linked
+        session_id = f"agent:{payload.gateway_agent_id}"
+        existing_agent = await Agent.objects.filter_by(
+            gateway_id=gateway.id,
+            openclaw_session_id=session_id,
+        ).first(self.session)
+        
+        if existing_agent is not None:
+            raise HTTPException(
+                status_code=status.HTTP_409_CONFLICT,
+                detail=f"Agent '{payload.gateway_agent_id}' is already linked to Mission Control",
+            )
+        
+        # Verify the agent exists on the gateway
+        try:
+            agents_response = await openclaw_call(
+                "agents.list",
+                config=client_config,
+            )
+        except Exception as exc:
+            raise HTTPException(
+                status_code=status.HTTP_502_BAD_GATEWAY,
+                detail=f"Failed to fetch agents from gateway: {str(exc)}",
+            ) from exc
+            
+        if not isinstance(agents_response, dict):
+            raise HTTPException(
+                status_code=status.HTTP_502_BAD_GATEWAY,
+                detail="Invalid response from gateway",
+            )
+            
+        agents_data = agents_response.get("agents", [])
+        if not isinstance(agents_data, list):
+            raise HTTPException(
+                status_code=status.HTTP_502_BAD_GATEWAY,
+                detail="Invalid agents list from gateway",
+            )
+            
+        # Find the specific agent
+        target_agent = None
+        for agent_data in agents_data:
+            if isinstance(agent_data, dict) and agent_data.get("id") == payload.gateway_agent_id:
+                target_agent = agent_data
+                break
+                
+        if target_agent is None:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail=f"Agent '{payload.gateway_agent_id}' not found on gateway",
+            )
+        
+        # Create the agent record in Mission Control
+        data = {
+            "board_id": payload.board_id,
+            "gateway_id": gateway.id,
+            "name": payload.name,
+            "status": "online",  # Agent is already running
+            "openclaw_session_id": session_id,
+            "identity_profile": {"role": payload.role} if payload.role else None,
+            # Don't set agent_token_hash - this agent already has its own auth
+        }
+        
+        agent, _raw_token = await self.persist_new_agent(data=data)
+        
+        # Override provisioning status and session ID - agent is already running
+        agent.status = "online"
+        agent.openclaw_session_id = session_id
+        agent.last_seen_at = utcnow()
+        self.session.add(agent)
+        await self.session.commit()
+        await self.session.refresh(agent)
+        
+        # Don't provision the agent - it already exists and is running
+        # Just record the activity
+        record_activity(
+            self.session,
+            event_type="agent.link",
+            message=f"Linked existing agent '{payload.gateway_agent_id}' to board.",
+            agent_id=agent.id,
+        )
+        
+        self.logger.info(
+            "agent.link.success agent_id=%s gateway_agent_id=%s board_id=%s",
+            agent.id,
+            payload.gateway_agent_id,
+            board.id,
+        )
+        return self.to_agent_read(self.with_computed_status(agent))
+
+    async def unlink_agent(
+        self,
+        *,
+        agent_id: str,
+        ctx: OrganizationContext,
+    ) -> OkResponse:
+        """Remove an agent record from MC without touching the gateway agent."""
+        agent = await Agent.objects.by_id(agent_id).first(self.session)
+        if agent is None:
+            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND)
+        await self.require_agent_access(agent=agent, ctx=ctx, write=True)
+
+        if agent.is_board_lead:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Cannot unlink a board lead agent.",
+            )
+
+        agent_name = agent.name
+        await self.session.delete(agent)
+        await self.session.commit()
+
+        self.logger.info("agent.unlink agent_id=%s name=%s", agent_id, agent_name)
+        return OkResponse(ok=True)
 
     async def get_agent(
         self,
