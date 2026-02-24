@@ -1,0 +1,55 @@
+# syntax=docker/dockerfile:1
+# Dockerfile for the RQ webhook-worker service.
+# Shares the same build layers as the main backend Dockerfile but starts
+# an `rq worker` process instead of the uvicorn API server.
+# Deploy this as a separate Railway Service using:
+#   Root Directory  : backend
+#   Dockerfile Path : Dockerfile.worker
+
+FROM python:3.12-slim AS base
+
+ENV PYTHONDONTWRITEBYTECODE=1 \
+    PYTHONUNBUFFERED=1
+
+WORKDIR /app
+
+# System deps (keep minimal)
+RUN apt-get update \
+    && apt-get install -y --no-install-recommends curl ca-certificates \
+    && rm -rf /var/lib/apt/lists/*
+
+# Install uv (https://github.com/astral-sh/uv)
+RUN curl -LsSf https://astral.sh/uv/install.sh | sh
+ENV PATH="/root/.local/bin:${PATH}"
+
+# --- deps layer ---
+FROM base AS deps
+
+# Copy only dependency metadata first for better build caching
+COPY pyproject.toml uv.lock ./
+
+# Create venv and sync deps (including runtime)
+RUN uv sync --frozen --no-dev
+
+# --- runtime ---
+FROM base AS runtime
+
+# Copy virtual environment from deps stage
+COPY --from=deps /app/.venv /app/.venv
+ENV PATH="/app/.venv/bin:${PATH}"
+
+# Copy app source
+COPY migrations ./migrations
+COPY alembic.ini ./alembic.ini
+COPY app ./app
+
+# Copy provisioning templates
+COPY templates ./templates
+
+# Railway / platform health check (workers don't expose HTTP; check process instead)
+HEALTHCHECK --interval=30s --timeout=10s --start-period=20s --retries=3 \
+    CMD pgrep -f "rq worker" || exit 1
+
+# RQ worker — reads REDIS_URL or RQ_REDIS_URL from environment.
+# Railway injects REDIS_URL automatically from the Redis plugin.
+CMD rq worker --url ${REDIS_URL:-${RQ_REDIS_URL:-redis://localhost:6379/0}} ${RQ_QUEUE_NAME:-default}
