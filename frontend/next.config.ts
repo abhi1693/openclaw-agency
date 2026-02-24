@@ -6,6 +6,12 @@ const nextConfig: NextConfig = {
   // when users access via http://localhost:3000 or http://127.0.0.1:3000.
   // Keep the LAN IP as well for dev on the local network.
   allowedDevOrigins: ["192.168.1.101", "localhost", "127.0.0.1"],
+
+  // Produces a self-contained output in .next/standalone that includes
+  // a minimal node_modules tree and a standalone server.js.
+  // Required for Railway deployment with the custom entrypoint approach.
+  output: "standalone",
+
   images: {
     remotePatterns: [
       {

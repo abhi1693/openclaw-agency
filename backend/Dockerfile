@@ -45,6 +45,10 @@ COPY templates ./templates
 # Default API port
 EXPOSE 8000
 
+# Railway / platform health check
+HEALTHCHECK --interval=30s --timeout=10s --start-period=20s --retries=3 \
+  CMD curl -f http://localhost:${PORT:-8000}/healthz || exit 1
+
 # Run the API
 # Use shell form to allow variable expansion for $PORT
 CMD uvicorn app.main:app --host 0.0.0.0 --port ${PORT:-8000}
