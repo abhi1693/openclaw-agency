@@ -1,3 +1,7 @@
+# ============================================================
+# Local development compose — NOT used for Railway deployment.
+# Railway deployment: see docs/railway-deployment.md
+# ============================================================
 services:
   backend:
     build:
@@ -14,21 +18,25 @@ services:
   frontend:
     build:
       context: ./frontend
+      # Local builds can pass the real API URL at build time.
+      # On Railway the entrypoint.sh injects it at runtime instead.
       args:
-        NEXT_PUBLIC_API_URL: ${NEXT_PUBLIC_API_URL}
+        NEXT_PUBLIC_API_URL: ${NEXT_PUBLIC_API_URL:-http://localhost:8000}
         NEXT_PUBLIC_AUTH_MODE: ${AUTH_MODE:-local}
     environment:
-      NEXT_PUBLIC_API_URL: ${NEXT_PUBLIC_API_URL}
+      NEXT_PUBLIC_API_URL: ${NEXT_PUBLIC_API_URL:-http://localhost:8000}
       NEXT_PUBLIC_AUTH_MODE: ${AUTH_MODE:-local}
 
   webhook-worker:
     build:
       context: ./backend
-      dockerfile: Dockerfile
-    command: ["rq", "worker", "-u", "${REDIS_URL}" ]
+      # Dedicated Dockerfile for the RQ worker (same deps, different CMD).
+      # Railway uses this same Dockerfile.worker in its webhook-worker Service.
+      dockerfile: Dockerfile.worker
     environment:
       DATABASE_URL: ${DATABASE_URL}
       AUTH_MODE: ${AUTH_MODE:-local}
       LOCAL_AUTH_TOKEN: ${LOCAL_AUTH_TOKEN}
+      REDIS_URL: ${REDIS_URL}
       RQ_REDIS_URL: ${REDIS_URL}
       RQ_QUEUE_NAME: default
