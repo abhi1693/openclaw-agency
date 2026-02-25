@@ -301,22 +301,6 @@ export const translations = {
         org_remove_confirming: "Removing\u2026",
         org_remove_fallback: "this member",
 
-        // ── Tables ────────────────────────────────────────────────
-        table_header_board: "Board",
-        table_header_group: "Group",
-        table_header_updated: "Updated",
-        table_header_gateway: "Gateway",
-        table_header_workspace: "Workspace root",
-        table_header_agent: "Agent",
-        table_header_status: "Status",
-        table_header_session: "Session",
-        table_header_last_seen: "Last seen",
-        table_header_tag: "Tag",
-        table_header_color: "Color",
-        table_header_tasks: "Tasks",
-        table_action_edit: "Edit",
-        table_action_delete: "Delete",
-
         // ── Common ────────────────────────────────────────────────
         common_sign_in: "Sign in",
         common_sign_out: "Sign out",
@@ -609,6 +593,22 @@ export const translations = {
         org_remove_confirm: "移除成员",
         org_remove_confirming: "移除中……",
         org_remove_fallback: "该成员",
+
+        // ── Tables ────────────────────────────────────────────────
+        table_header_board: "看板",
+        table_header_group: "分组",
+        table_header_updated: "更新时间",
+        table_header_gateway: "网关",
+        table_header_workspace: "工作区根目录",
+        table_header_agent: "Agent",
+        table_header_status: "状态",
+        table_header_session: "会话",
+        table_header_last_seen: "最后在线",
+        table_header_tag: "标签",
+        table_header_color: "颜色",
+        table_header_tasks: "任务数",
+        table_action_edit: "编辑",
+        table_action_delete: "删除",
 
         // ── Common ────────────────────────────────────────────────
         common_sign_in: "登录",
