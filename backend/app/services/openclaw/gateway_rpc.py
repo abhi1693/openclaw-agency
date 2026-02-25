@@ -436,7 +436,12 @@ async def _openclaw_call_once(
     connect_kwargs: dict[str, Any] = {"ping_interval": None}
     if origin is not None:
         connect_kwargs["origin"] = origin
-    async with websockets.connect(gateway_url, ssl=ssl_context, **connect_kwargs) as ws:
+    # Only pass ssl= explicitly when using a custom (insecure) context.
+    # For standard wss:// connections let websockets auto-select TLS by scheme;
+    # passing ssl=None explicitly raises ValueError for wss:// URIs.
+    if ssl_context is not None:
+        connect_kwargs["ssl"] = ssl_context
+    async with websockets.connect(gateway_url, **connect_kwargs) as ws:
         first_message = await _recv_first_message_or_none(ws)
         await _ensure_connected(ws, first_message, config)
         return await _send_request(ws, method, params)
@@ -452,7 +457,12 @@ async def _openclaw_connect_metadata_once(
     connect_kwargs: dict[str, Any] = {"ping_interval": None}
     if origin is not None:
         connect_kwargs["origin"] = origin
-    async with websockets.connect(gateway_url, ssl=ssl_context, **connect_kwargs) as ws:
+    # Only pass ssl= explicitly when using a custom (insecure) context.
+    # For standard wss:// connections let websockets auto-select TLS by scheme;
+    # passing ssl=None explicitly raises ValueError for wss:// URIs.
+    if ssl_context is not None:
+        connect_kwargs["ssl"] = ssl_context
+    async with websockets.connect(gateway_url, **connect_kwargs) as ws:
         first_message = await _recv_first_message_or_none(ws)
         return await _ensure_connected(ws, first_message, config)
 
