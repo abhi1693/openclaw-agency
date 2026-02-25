@@ -19,6 +19,8 @@ import {
   pillCell,
 } from "@/components/tables/cell-formatters";
 import { truncateText as truncate } from "@/lib/formatters";
+import { useLanguage } from "@/lib/i18n";
+import { t } from "@/lib/translations";
 
 type AgentsTableEmptyState = {
   title: string;
@@ -76,6 +78,8 @@ export function AgentsTable({
   emptyState,
   onDelete,
 }: AgentsTableProps) {
+  const { language } = useLanguage();
+
   const [internalSorting, setInternalSorting] = useState<SortingState>([
     { id: "name", desc: false },
   ]);
@@ -103,7 +107,7 @@ export function AgentsTable({
     const baseColumns: ColumnDef<AgentRead>[] = [
       {
         accessorKey: "name",
-        header: "Agent",
+        header: t(language, "table_header_agent"),
         cell: ({ row }) =>
           linkifyCell({
             href: `/agents/${row.original.id}`,
@@ -113,12 +117,12 @@ export function AgentsTable({
       },
       {
         accessorKey: "status",
-        header: "Status",
+        header: t(language, "table_header_status"),
         cell: ({ row }) => pillCell(row.original.status),
       },
       {
         accessorKey: "openclaw_session_id",
-        header: "Session",
+        header: t(language, "table_header_session"),
         cell: ({ row }) => (
           <span className="text-sm text-slate-700">
             {truncate(row.original.openclaw_session_id)}
@@ -127,7 +131,7 @@ export function AgentsTable({
       },
       {
         accessorKey: "board_id",
-        header: "Board",
+        header: t(language, "table_header_board"),
         cell: ({ row }) => {
           const boardId = row.original.board_id;
           if (!boardId) {
@@ -143,19 +147,19 @@ export function AgentsTable({
       },
       {
         accessorKey: "last_seen_at",
-        header: "Last seen",
+        header: t(language, "table_header_last_seen"),
         cell: ({ row }) =>
           dateCell(row.original.last_seen_at, { relative: true }),
       },
       {
         accessorKey: "updated_at",
-        header: "Updated",
+        header: t(language, "table_header_updated"),
         cell: ({ row }) => dateCell(row.original.updated_at),
       },
     ];
 
     return baseColumns;
-  }, [boardNameById]);
+  }, [boardNameById, language]);
 
   // eslint-disable-next-line react-hooks/incompatible-library
   const table = useReactTable({
@@ -181,9 +185,11 @@ export function AgentsTable({
       rowActions={
         showActions
           ? {
-              getEditHref: (agent) => `/agents/${agent.id}/edit`,
-              onDelete,
-            }
+            getEditHref: (agent) => `/agents/${agent.id}/edit`,
+            onDelete,
+            editLabel: t(language, "table_action_edit"),
+            deleteLabel: t(language, "table_action_delete"),
+          }
           : undefined
       }
       rowClassName="hover:bg-slate-50"
@@ -191,12 +197,12 @@ export function AgentsTable({
       emptyState={
         emptyState
           ? {
-              icon: emptyState.icon ?? DEFAULT_EMPTY_ICON,
-              title: emptyState.title,
-              description: emptyState.description,
-              actionHref: emptyState.actionHref,
-              actionLabel: emptyState.actionLabel,
-            }
+            icon: emptyState.icon ?? DEFAULT_EMPTY_ICON,
+            title: emptyState.title,
+            description: emptyState.description,
+            actionHref: emptyState.actionHref,
+            actionLabel: emptyState.actionLabel,
+          }
           : undefined
       }
     />

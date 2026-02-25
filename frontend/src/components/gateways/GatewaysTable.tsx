@@ -18,6 +18,8 @@ import {
 } from "@/components/tables/DataTable";
 import { dateCell, linkifyCell } from "@/components/tables/cell-formatters";
 import { truncateText as truncate } from "@/lib/formatters";
+import { useLanguage } from "@/lib/i18n";
+import { t } from "@/lib/translations";
 
 type GatewaysTableProps = {
   gateways: GatewayRead[];
@@ -65,6 +67,8 @@ export function GatewaysTable({
   emptyMessage = "No gateways found.",
   emptyState,
 }: GatewaysTableProps) {
+  const { language } = useLanguage();
+
   const [internalSorting, setInternalSorting] = useState<SortingState>([
     { id: "name", desc: false },
   ]);
@@ -88,7 +92,7 @@ export function GatewaysTable({
     const baseColumns: ColumnDef<GatewayRead>[] = [
       {
         accessorKey: "name",
-        header: "Gateway",
+        header: t(language, "table_header_gateway"),
         cell: ({ row }) =>
           linkifyCell({
             href: `/gateways/${row.original.id}`,
@@ -98,7 +102,7 @@ export function GatewaysTable({
       },
       {
         accessorKey: "workspace_root",
-        header: "Workspace root",
+        header: t(language, "table_header_workspace"),
         cell: ({ row }) => (
           <span className="text-sm text-slate-700">
             {truncate(row.original.workspace_root, 28)}
@@ -107,13 +111,13 @@ export function GatewaysTable({
       },
       {
         accessorKey: "updated_at",
-        header: "Updated",
+        header: t(language, "table_header_updated"),
         cell: ({ row }) => dateCell(row.original.updated_at),
       },
     ];
 
     return baseColumns;
-  }, []);
+  }, [language]);
 
   // eslint-disable-next-line react-hooks/incompatible-library
   const table = useReactTable({
@@ -139,20 +143,22 @@ export function GatewaysTable({
       rowActions={
         showActions
           ? {
-              getEditHref: (gateway) => `/gateways/${gateway.id}/edit`,
-              onDelete,
-            }
+            getEditHref: (gateway) => `/gateways/${gateway.id}/edit`,
+            onDelete,
+            editLabel: t(language, "table_action_edit"),
+            deleteLabel: t(language, "table_action_delete"),
+          }
           : undefined
       }
       emptyState={
         emptyState
           ? {
-              icon: emptyState.icon ?? DEFAULT_EMPTY_ICON,
-              title: emptyState.title,
-              description: emptyState.description,
-              actionHref: emptyState.actionHref,
-              actionLabel: emptyState.actionLabel,
-            }
+            icon: emptyState.icon ?? DEFAULT_EMPTY_ICON,
+            title: emptyState.title,
+            description: emptyState.description,
+            actionHref: emptyState.actionHref,
+            actionLabel: emptyState.actionLabel,
+          }
           : undefined
       }
     />

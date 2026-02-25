@@ -203,6 +203,22 @@ export const translations = {
         tags_delete_desc_prefix: "This will remove ",
         tags_delete_desc_middle: " from all tagged tasks. This action cannot be undone.",
 
+        // ── Tables ────────────────────────────────────────────────
+        table_header_board: "Board",
+        table_header_group: "Group",
+        table_header_updated: "Updated",
+        table_header_gateway: "Gateway",
+        table_header_workspace: "Workspace root",
+        table_header_agent: "Agent",
+        table_header_status: "Status",
+        table_header_session: "Session",
+        table_header_last_seen: "Last seen",
+        table_header_tag: "Tag",
+        table_header_color: "Color",
+        table_header_tasks: "Tasks",
+        table_action_edit: "Edit",
+        table_action_delete: "Delete",
+
         // ── Custom fields page ────────────────────────────────────
         custom_fields_title: "Custom fields",
         custom_fields_desc: "Define extra fields for tasks on your boards.",
@@ -284,6 +300,22 @@ export const translations = {
         org_remove_confirm: "Remove member",
         org_remove_confirming: "Removing\u2026",
         org_remove_fallback: "this member",
+
+        // ── Tables ────────────────────────────────────────────────
+        table_header_board: "Board",
+        table_header_group: "Group",
+        table_header_updated: "Updated",
+        table_header_gateway: "Gateway",
+        table_header_workspace: "Workspace root",
+        table_header_agent: "Agent",
+        table_header_status: "Status",
+        table_header_session: "Session",
+        table_header_last_seen: "Last seen",
+        table_header_tag: "Tag",
+        table_header_color: "Color",
+        table_header_tasks: "Tasks",
+        table_action_edit: "Edit",
+        table_action_delete: "Delete",
 
         // ── Common ────────────────────────────────────────────────
         common_sign_in: "Sign in",
@@ -378,11 +410,11 @@ export const translations = {
         chart_completed_tasks: "已完成任务",
         chart_throughput: "吞吐量",
         chart_avg_hours: "平均审查小时数",
-        chart_cycle_time: "周期时间",
+        chart_cycle_time: "周期时间（按天）",
         chart_failed: "失败事件",
-        chart_error_rate: "错误率",
+        chart_error_rate: "错误率（按天）",
         chart_status_dist: "状态分布",
-        chart_wip: "在制品（WIP）",
+        chart_wip: "在制品 WIP（按天）",
 
         // ── Gateways page ─────────────────────────────────────────
         gateways_title: "网关",
@@ -394,7 +426,7 @@ export const translations = {
         gateways_empty_desc: "创建你的第一个网关，连接看板并开始管理 OpenClaw 连接。",
         gateways_empty_action: "创建第一个网关",
         gateways_delete_title: "删除网关？",
-        gateways_delete_desc: "这将从 Mission Control 中移除该网关连接，使用此网关的看板将需要重新分配网关。",
+        gateways_delete_desc: "这将从 Mission Control 中移除该网关连接，使用此网关的看板将需要重新分配网关。此操作无法撤销。",
 
         // ── Settings page ─────────────────────────────────────────
         settings_title: "个人设置",
@@ -414,7 +446,7 @@ export const translations = {
         settings_name_tz_required: "姓名和时区为必填项。",
         settings_saved: "设置已保存。",
         settings_delete_title: "删除你的账户？",
-        settings_delete_dialog_desc: "你的账户和个人数据将被永久删除。",
+        settings_delete_dialog_desc: "你的账户和个人数据将被永久删除。此操作无法撤销。",
         settings_deleting: "删除账户中……",
 
         // ── Activity page ─────────────────────────────────────────

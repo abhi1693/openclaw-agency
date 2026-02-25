@@ -8,6 +8,8 @@ import {
   TableLoadingRow,
 } from "@/components/ui/table-state";
 import { Button, buttonVariants } from "@/components/ui/button";
+import { useLanguage } from "@/lib/i18n";
+import { t } from "@/lib/translations";
 
 export type DataTableEmptyState = {
   icon: ReactNode;
@@ -64,22 +66,26 @@ export function DataTable<TData>({
   rowClassName = "hover:bg-slate-50",
   cellClassName = "px-6 py-4",
 }: DataTableProps<TData>) {
+  const { language } = useLanguage();
+  const defaultLoadingLabel = loadingLabel === "Loading…" ? t(language, "common_loading") : loadingLabel;
+  const defaultEmptyMessage = emptyMessage === "No rows found." ? (language === "zh" ? "暂无数据" : "No rows found.") : emptyMessage;
+
   const resolvedRowActions = rowActions
     ? (rowActions.actions ??
       [
         rowActions.getEditHref
           ? ({
-              key: "edit",
-              label: "Edit",
-              href: rowActions.getEditHref,
-            } as DataTableRowAction<TData>)
+            key: "edit",
+            label: "Edit",
+            href: rowActions.getEditHref,
+          } as DataTableRowAction<TData>)
           : null,
         rowActions.onDelete
           ? ({
-              key: "delete",
-              label: "Delete",
-              onClick: rowActions.onDelete,
-            } as DataTableRowAction<TData>)
+            key: "delete",
+            label: "Delete",
+            onClick: rowActions.onDelete,
+          } as DataTableRowAction<TData>)
           : null,
       ].filter((value): value is DataTableRowAction<TData> => value !== null))
     : [];
@@ -138,7 +144,7 @@ export function DataTable<TData>({
         </thead>
         <tbody className={bodyClassName}>
           {isLoading ? (
-            <TableLoadingRow colSpan={colSpan} label={loadingLabel} />
+            <TableLoadingRow colSpan={colSpan} label={defaultLoadingLabel} />
           ) : table.getRowModel().rows.length ? (
             table.getRowModel().rows.map((row) => (
               <tr
@@ -208,7 +214,7 @@ export function DataTable<TData>({
                 colSpan={colSpan}
                 className="px-6 py-8 text-sm text-slate-500"
               >
-                {emptyMessage}
+                {defaultEmptyMessage}
               </td>
             </tr>
           )}

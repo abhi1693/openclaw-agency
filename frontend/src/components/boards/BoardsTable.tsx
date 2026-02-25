@@ -17,6 +17,8 @@ import {
   type DataTableEmptyState,
 } from "@/components/tables/DataTable";
 import { dateCell, linkifyCell } from "@/components/tables/cell-formatters";
+import { useLanguage } from "@/lib/i18n";
+import { t } from "@/lib/translations";
 
 type BoardsTableProps = {
   boards: BoardRead[];
@@ -71,6 +73,8 @@ export function BoardsTable({
   emptyMessage = "No boards found.",
   emptyState,
 }: BoardsTableProps) {
+  const { language } = useLanguage();
+
   const [internalSorting, setInternalSorting] = useState<SortingState>([
     { id: "name", desc: false },
   ]);
@@ -99,7 +103,7 @@ export function BoardsTable({
     const baseColumns: ColumnDef<BoardRead>[] = [
       {
         accessorKey: "name",
-        header: "Board",
+        header: t(language, "table_header_board"),
         cell: ({ row }) =>
           linkifyCell({
             href: `/boards/${row.original.id}`,
@@ -113,7 +117,7 @@ export function BoardsTable({
           if (!groupId) return "";
           return groupById.get(groupId)?.name ?? groupId;
         },
-        header: "Group",
+        header: t(language, "table_header_group"),
         cell: ({ row }) => {
           const groupId = row.original.board_group_id;
           if (!groupId) {
@@ -132,13 +136,13 @@ export function BoardsTable({
       },
       {
         accessorKey: "updated_at",
-        header: "Updated",
+        header: t(language, "table_header_updated"),
         cell: ({ row }) => dateCell(row.original.updated_at),
       },
     ];
 
     return baseColumns;
-  }, [groupById]);
+  }, [groupById, language]);
 
   // eslint-disable-next-line react-hooks/incompatible-library
   const table = useReactTable({
@@ -166,20 +170,22 @@ export function BoardsTable({
       rowActions={
         showActions
           ? {
-              getEditHref: (board) => `/boards/${board.id}/edit`,
-              onDelete,
-            }
+            getEditHref: (board) => `/boards/${board.id}/edit`,
+            onDelete,
+            editLabel: t(language, "table_action_edit"),
+            deleteLabel: t(language, "table_action_delete"),
+          }
           : undefined
       }
       emptyState={
         emptyState
           ? {
-              icon: emptyState.icon ?? DEFAULT_EMPTY_ICON,
-              title: emptyState.title,
-              description: emptyState.description,
-              actionHref: emptyState.actionHref,
-              actionLabel: emptyState.actionLabel,
-            }
+            icon: emptyState.icon ?? DEFAULT_EMPTY_ICON,
+            title: emptyState.title,
+            description: emptyState.description,
+            actionHref: emptyState.actionHref,
+            actionLabel: emptyState.actionLabel,
+          }
           : undefined
       }
     />

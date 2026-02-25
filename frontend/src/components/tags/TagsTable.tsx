@@ -16,6 +16,8 @@ import {
   type DataTableEmptyState,
 } from "@/components/tables/DataTable";
 import { dateCell } from "@/components/tables/cell-formatters";
+import { useLanguage } from "@/lib/i18n";
+import { t } from "@/lib/translations";
 
 type TagsTableProps = {
   tags: TagRead[];
@@ -62,6 +64,8 @@ export function TagsTable({
   onDelete,
   emptyState,
 }: TagsTableProps) {
+  const { language } = useLanguage();
+
   const [internalSorting, setInternalSorting] = useState<SortingState>([
     { id: "name", desc: false },
   ]);
@@ -76,7 +80,7 @@ export function TagsTable({
     () => [
       {
         accessorKey: "name",
-        header: "Tag",
+        header: t(language, "table_header_tag"),
         cell: ({ row }) => {
           const color = normalizeColor(row.original.color);
           return (
@@ -100,7 +104,7 @@ export function TagsTable({
       },
       {
         accessorKey: "color",
-        header: "Color",
+        header: t(language, "table_header_color"),
         cell: ({ row }) => {
           const color = normalizeColor(row.original.color);
           return (
@@ -116,7 +120,7 @@ export function TagsTable({
       },
       {
         accessorKey: "task_count",
-        header: "Tasks",
+        header: t(language, "table_header_tasks"),
         cell: ({ row }) => (
           <span className="text-sm font-medium text-slate-700">
             {row.original.task_count ?? 0}
@@ -125,11 +129,11 @@ export function TagsTable({
       },
       {
         accessorKey: "updated_at",
-        header: "Updated",
+        header: t(language, "table_header_updated"),
         cell: ({ row }) => dateCell(row.original.updated_at),
       },
     ],
-    [],
+    [language],
   );
 
   // eslint-disable-next-line react-hooks/incompatible-library
@@ -154,26 +158,26 @@ export function TagsTable({
       rowActions={
         onEdit || onDelete
           ? {
-              actions: [
-                ...(onEdit
-                  ? [{ key: "edit", label: "Edit", onClick: onEdit }]
-                  : []),
-                ...(onDelete
-                  ? [{ key: "delete", label: "Delete", onClick: onDelete }]
-                  : []),
-              ],
-            }
+            actions: [
+              ...(onEdit
+                ? [{ key: "edit", label: t(language, "table_action_edit"), onClick: onEdit }]
+                : []),
+              ...(onDelete
+                ? [{ key: "delete", label: t(language, "table_action_delete"), onClick: onDelete }]
+                : []),
+            ],
+          }
           : undefined
       }
       emptyState={
         emptyState
           ? {
-              icon: emptyState.icon ?? DEFAULT_EMPTY_ICON,
-              title: emptyState.title,
-              description: emptyState.description,
-              actionHref: emptyState.actionHref,
-              actionLabel: emptyState.actionLabel,
-            }
+            icon: emptyState.icon ?? DEFAULT_EMPTY_ICON,
+            title: emptyState.title,
+            description: emptyState.description,
+            actionHref: emptyState.actionHref,
+            actionLabel: emptyState.actionLabel,
+          }
           : undefined
       }
     />
