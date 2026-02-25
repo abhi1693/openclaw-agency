@@ -38,15 +38,25 @@ type IdentityProfile = {
 
 const EMOJI_OPTIONS = [
   { value: ":gear:", label: "Gear", glyph: "⚙️" },
-  { value: ":sparkles:", label: "Sparkles", glyph: "✨" },
-  { value: ":rocket:", label: "Rocket", glyph: "🚀" },
-  { value: ":megaphone:", label: "Megaphone", glyph: "📣" },
+  { value: ":alarm_clock:", label: "Alarm Clock", glyph: "⏰" },
+  { value: ":art:", label: "Art", glyph: "🎨" },
+  { value: ":brain:", label: "Brain", glyph: "🧠" },
+  { value: ":wrench:", label: "Builder", glyph: "🔧" },
+  { value: ":dart:", label: "Bullseye", glyph: "🎯" },
+  { value: ":computer:", label: "Computer", glyph: "💻" },
   { value: ":chart_with_upwards_trend:", label: "Growth", glyph: "📈" },
   { value: ":bulb:", label: "Idea", glyph: "💡" },
-  { value: ":wrench:", label: "Builder", glyph: "🔧" },
-  { value: ":shield:", label: "Shield", glyph: "🛡️" },
+  { value: ":zap:", label: "Lightning", glyph: "⚡" },
+  { value: ":lock:", label: "Lock", glyph: "🔒" },
+  { value: ":mailbox:", label: "Mailbox", glyph: "📬" },
+  { value: ":megaphone:", label: "Megaphone", glyph: "📣" },
   { value: ":memo:", label: "Notes", glyph: "📝" },
-  { value: ":brain:", label: "Brain", glyph: "🧠" },
+  { value: ":owl:", label: "Owl", glyph: "🦉" },
+  { value: ":robot:", label: "Robot", glyph: "🤖" },
+  { value: ":rocket:", label: "Rocket", glyph: "🚀" },
+  { value: ":mag:", label: "Search", glyph: "🔍" },
+  { value: ":shield:", label: "Shield", glyph: "🛡️" },
+  { value: ":sparkles:", label: "Sparkles", glyph: "✨" },
 ];
 
 const getBoardOptions = (boards: BoardRead[]): SearchableSelectOption[] =>
