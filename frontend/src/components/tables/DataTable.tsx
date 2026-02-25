@@ -32,6 +32,8 @@ export type DataTableRowActions<TData> = {
   actions?: DataTableRowAction<TData>[];
   getEditHref?: (row: TData) => string | null;
   onDelete?: (row: TData) => void;
+  editLabel?: string;
+  deleteLabel?: string;
   cellClassName?: string;
 };
 
@@ -76,14 +78,14 @@ export function DataTable<TData>({
         rowActions.getEditHref
           ? ({
             key: "edit",
-            label: "Edit",
+            label: rowActions.editLabel ?? t(language, "table_action_edit"),
             href: rowActions.getEditHref,
           } as DataTableRowAction<TData>)
           : null,
         rowActions.onDelete
           ? ({
             key: "delete",
-            label: "Delete",
+            label: rowActions.deleteLabel ?? t(language, "table_action_delete"),
             onClick: rowActions.onDelete,
           } as DataTableRowAction<TData>)
           : null,
