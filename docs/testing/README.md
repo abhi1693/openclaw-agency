@@ -1,3 +1,3 @@
-# Testing guide
+# 测试指南
 
-Placeholder: see root `README.md` and `CONTRIBUTING.md` for current commands.
+内容占位符 (Placeholder)：关于当前支持的命令，请参阅根目录的 `README.md` 以及 `CONTRIBUTING.md`。

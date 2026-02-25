@@ -1,14 +1,14 @@
-# OpenClaw Baseline Configuration (Getting Started)
+# OpenClaw 基线配置指南 (入门必读)
 
-This guide turns the provided baseline into a practical starting point for local OpenClaw setup and Mission Control integration.
+本指南旨在帮助您将提供的配置基线（Baseline Configuration）转化为在本地部署 OpenClaw 及接入 Mission Control 的实用起点。
 
-For OpenClaw CLI installs, the default config path is:
+对于使用 OpenClaw CLI 的安装，默认配置路径为：
 
 - `~/.openclaw/openclaw.json`
 
-## Baseline Config (Normalized JSON)
+## 配置基线 (规范化的 JSON)
 
-The config below is your provided baseline, normalized into valid JSON.
+以下配置是您所获取的基线设置，已规范化为合法的 JSON 格式。
 
 ```json
 {
@@ -167,333 +167,333 @@ The config below is your provided baseline, normalized into valid JSON.
 }
 ```
 
-## Section-by-Section Reference
+## 按章节参数说明
 
-This is what each section controls and why you would tune it.
+此部分解释了各配置块控制什么，以及为什么要对其进行参数调优。
 
 ### `env`
 
-Controls runtime environment behavior.
+控制运行时环境变量行为。
 
-- `env.shellEnv.enabled`: when `true`, OpenClaw can resolve environment from shell context, which helps tools and model/provider discovery behave consistently with your shell session.
+- `env.shellEnv.enabled`：设为 `true` 时，OpenClaw 会解析宿主机 Shell 终端上下文中的环境变量，这有助于工具调用、大模型及其服务商发现在执行表现上与你的 Shell 会话规则保持一致。
 
-Operational note:
+运维注意：
 
-- If shell startup is heavy or slow, consider also setting `env.shellEnv.timeoutMs` (optional key supported by schema) to cap lookup time.
+- 如果你的 Shell 启动特别重或者缓慢，考虑支持增加并设置 `env.shellEnv.timeoutMs` 选项（预设支持配置键规则内但非必选），从而限制环境变量查询的超时拦截。
 
 ### `update`
 
-Controls update policy for npm/git installs.
+控制 NPM 或 Git 安装源软件更新策略。
 
-- `update.channel`: release track (`stable`, `beta`, `dev`).
+- `update.channel`：发布频道版本 (`stable`, `beta`, `dev`)。
 
-Recommended baseline:
+推荐基线：
 
-- `stable` for production-ish use.
-- Use `beta`/`dev` only when you actively want pre-release behavior.
+- 大部分泛用生产环境选择 `stable`。
+- 如果真的想要预发布版的实验性功能，再去使用 `beta`/`dev` 订阅流。
 
 ### `agents`
 
-Defines default agent runtime behavior plus agent list.
+定义 Agent 列表以及全局运行环境特性默认预设。
 
 #### `agents.defaults.model`
 
-Model routing defaults.
+大语言模型路由（路由分发）默认指定。
 
-- `primary`: main model id for agent turns.
-- `fallbacks`: ordered backup model ids used when primary fails.
+- `primary`：执行 Agent 回合（Turn）的主力提供商或模型 ID。
+- `fallbacks`：如果主力请求中断/宕机了，则按此列表顺序递补调用的备选模型清单。
 
-Important:
+重点：
 
-- Empty `primary` means no explicit default model is selected.
-- Set this before first real use.
+- 空的 `primary` (`""`) 意味着启动后根本没有明确分配大模型能力。
+- 在进行你的第一次真实系统使用前，请务必设置此信息。
 
 #### `agents.defaults.models`
 
-Per-model override map keyed by full model id.
+针对指定大模型 ID（通常是长名称）进行的重写项映射表。
 
-- In your baseline, key is `""`; replace this with a real model id.
-- Value object can hold per-model params in supported versions.
+- 在当前基线提供模板中，这部分的预设键是 `""`，需将其修改为真正存在的模型 ID。
+- 这些映射字典对象会在系统支持其新功能版面迭代时保存相关的特定模型的参数配置项。
 
 #### `agents.defaults.workspace`
 
-Filesystem root for agent state/workspaces.
+这是 Agent 文件状态与工作区的所在物理根路径。
 
-- Must exist and be writable by the runtime.
-- Align this with Mission Control gateway `workspace_root` for consistency.
+- 系统运行时环境必须具有绝对的读写（修改）访问权限与相应的存活能力。
+- 为了保持与 Mission Control 一致，最好跟网关中配置设置相应的 `workspace_root` 取向一致。
 
 #### `agents.defaults.contextPruning`
 
-Controls prompt-history tool-output pruning to keep context size healthy.
+限制上文历史和由于工具产生的过大返回体导致的大模型超容量情况所用机制。
 
-- `mode: "cache-ttl"`: enables pruning extension with TTL-aware behavior.
-- `ttl`: minimum time before pruning runs again (example `45m`).
-- `keepLastAssistants`: protects recent assistant turns from pruning cutoff.
-- `minPrunableToolChars`: only hard-clear when prunable tool output is large enough.
-- `tools.deny`: tool names excluded from pruning.
-- `softTrim`: partial shortening of tool output.
-- `hardClear`: full replacement with placeholder when limits are exceeded.
+- `mode: "cache-ttl"`：提供清理与截短超时处理行为方案启用保护。
+- `ttl`：进行下一轮清理扫描冷却间隔（例如设置 `"45m"` 代表 45 分钟内不要重复清理同一个位置的）。
+- `keepLastAssistants`：绝对保护距离目前会话最近的几个 AI 助手回答回合免除丢弃修剪惩罚。
+- `minPrunableToolChars`：返回的数据字节流足够长（超越边界值）的时候，它只能够由大范围的覆盖式丢弃执行截断。
+- `tools.deny`：屏蔽某些不能或者也不建议丢下工具运行上下文历史记录（免受修饰系统扫描约束影响名称清单）。
+- `softTrim`：对返回的内容长度截去多余内容。
+- `hardClear`：对于越界文本进行强制占位符置换取代策略。
 
-Practical effect:
+实际影响：
 
-- `softTrim` keeps beginning/end context for long outputs.
-- `hardClear` prevents repeated old tool dumps from consuming context.
+- `softTrim` 使长文本在开头和结尾得以部分保留作为有效判断依据。
+- `hardClear` 对于过宽范围且反复倾倒海关数据的工具将能成功遏止以保护模型。
 
 #### `agents.defaults.compaction`
 
-Controls how conversation history is compacted and protected against token overflow.
+由于 AI Token 不断耗竭并超载问题设计的一种历史缩编保护与强制清查策略方案配置区块。
 
-- `mode: "safeguard"`: conservative compaction strategy.
-- `reserveTokensFloor`: hard reserve to avoid running context to exhaustion.
-- `memoryFlush`: pre-compaction memory checkpoint behavior.
+- `mode: "safeguard"`：选择严谨渐近压实的方式来控制令牌越界消耗危险处理。
+- `reserveTokensFloor`：避免强制用尽而特意拦截保障执行留存空地空间值界限预留。
+- `memoryFlush`：如果启用了该模式触发该检查保护前保存的存查方案相关支持设置选项块。
 
-`memoryFlush` keys:
+`memoryFlush` 内部按键：
 
-- `enabled`: turn memory flush on/off.
-- `softThresholdTokens`: triggers flush before compaction line is crossed.
-- `prompt`: user-prompt text for flush turn.
-- `systemPrompt`: system instruction for flush turn.
+- `enabled`：开启/打断对上述特性控制是否继续生效。
+- `softThresholdTokens`：在界点突破进行压实裁剪之前唤醒此清理拦截防线保护设置警告位。
+- `prompt`：触发向当前系统注入人工警示清理指示文本词组句段控制配置项描述提示段。
+- `systemPrompt`：对大模型底部的后台指令。
 
-What this protects:
+受到这部分策略机制直接干涉和起到庇护的作用在于：
 
-- Avoids losing durable context when sessions approach compaction.
+- 以最大化的避免或保障即将面临压实清算节点来临时那些持续生效的事件不被丢失。
 
 #### `agents.defaults.thinkingDefault`
 
-Default reasoning intensity for turns.
+用于指导在不同指令回馈周期下对模型分析及推理要求投入思考强度的默设定选项策略。
 
-- Your baseline uses `medium` as a quality/speed balance.
+- 在这套基准模板方案里选择配置使用 `"medium"` 以寻求推理能力展现质量与处理计算速度两者中间最佳平衡策略。
 
-#### Concurrency Controls
+#### 并发控制选项 (Concurrency Controls)
 
-- `agents.defaults.maxConcurrent`: max parallel top-level runs.
-- `agents.defaults.subagents.maxConcurrent`: max parallel subagent runs.
+- `agents.defaults.maxConcurrent`：在顶部执行管理级别容许最高并行运转数目参数项支持上限控制限制阈值。
+- `agents.defaults.subagents.maxConcurrent`：下发运行任务到分支子单元层面环境可承受的请求负载最高阈值支持限定限制参数定义规范规则设置项。
 
-Use these to control throughput versus host/API pressure.
+通过利用上文说明这些阀值可以在接口高压环境或者平台负荷压力大局域环境中做出限流平衡动作部署决策管理行为目的操作指南规划指引操作设定调节作用要求支持保证实现目标方案设计规划计划意图思路建议参考依据考量衡量基准指标体系建设机制构建完成实现。
 
 #### `agents.list`
 
-Defines configured agents.
+声明已设置及构建完备可配置引用的工作探针 Agent 身份表白名单。
 
-- `[{ "id": "main" }]` creates the primary default agent identity.
+- `[{ "id": "main" }]` 生成启动核心主力身份探针代理单元角色任务操作属性支持组件支持。
 
 ### `messages`
 
-Inbound/outbound messaging behavior.
+对于进出及传入发送方向处理策略方案支持表现规则相关管控系统体系建立机制支持。
 
-- `messages.ackReactionScope`: where ack reactions are emitted.
+- `messages.ackReactionScope`：针对收到的内容反应/认领行为动作散发范围对象广播权限释放边界策略规定约束规范要求设置选项。
 
-Allowed values:
+允许使用的选项：
 
 - `group-mentions`, `group-all`, `direct`, `all`
 
-Baseline intent:
+基准建议的逻辑用意：
 
-- `group-mentions` avoids noisy acks in busy group channels.
+- 限制仅为 `"group-mentions"`，避免在使用人群密集的协同平台上造成大量的消息确认冗余通知风暴。
 
 ### `commands`
 
-Native command registration behavior for supported channels.
+针对不同接入通道对于自带特殊功能或动作映射调用的控制与本地化命令组件行为表现响应决策预加载控制策略说明。
 
-- `commands.native`: command registration mode (`true`/`false`/`auto`).
-- `commands.nativeSkills`: skill command registration mode (`true`/`false`/`auto`).
+- `commands.native`：系统基础能力相关（`true`/`false`/`auto`）。
+- `commands.nativeSkills`：第三方附庸技能相关的映射挂接设置命令注册状态（`true`/`false`/`auto`）。
 
-Baseline intent:
+基准建议的逻辑用意：
 
-- `auto` lets OpenClaw decide based on channel/provider capabilities.
+- 保留采用 `"auto"` 方式使得 OpenClaw 基于客户端的能力去聪明地下放或接管权限分配判断策略表现动作预期实现效果目标任务达成率指标情况说明内容。
 
 ### `hooks`
 
-Internal hook system settings.
+内置系统扩展埋点体系策略设置支持及相关勾子引擎开启激活处理开关控制。
 
-- `hooks.internal.enabled`: turns internal hooks system on/off.
-- `hooks.internal.entries`: per-hook enable/config map.
+- `hooks.internal.enabled`：整体上开启/屏蔽所有勾点内部扩展调用能力的运行大开关。
+- `hooks.internal.entries`：列出明确开启支持引用的各别配置名单属性参数设置选项策略规范指引管理规则机制清单配置内容。
 
-Your baseline entries:
+您获得的基线中记录的激活列表及其对应情况：
 
-- `boot-md`: runs BOOT.md startup checklist hook.
-- `command-logger`: writes command audit logs.
-- `session-memory`: stores context when `/new` is used.
-- `bootstrap-extra-files`: custom/optional hook id.
+- `boot-md`：挂载和读取 `BOOT.md` 系统在开始执行时的前排清单任务加载准备事件环境处理规则项说明说明。
+- `command-logger`：记录下每个独立动作以及被触发命令所造成的对应后台留档追踪调用分析操作审计审查稽核日记内容文件归档处理动作流程支持方案意向表述。
+- `session-memory`：一旦利用 `/new` 构建出下一段隔离讨论主题分支后自动保留此前的关键回忆数据缓存池的系统内嵌引擎干预处理规则要求说明说明。
+- `bootstrap-extra-files`：这是预留的自定义增强型附带补充文件相关功能装载器行为参数。
 
-Important:
+重点提醒注意：
 
-- Hook IDs not installed on the runtime are ignored or reported missing.
-- Verify available hooks with `openclaw hooks list`.
+- 未正式安装或者在包目录系统未检索到的挂钩，无论是否有配置激活项都一律无视并抛出其未能激活的提示。
+- 利用输入指令：`openclaw hooks list` 对已经存续在线备战的钩点进行有效审查管理操作任务处理操作步骤。
 
 ### `channels`
 
-Cross-channel defaults.
+在各通道通信渠道间保持相同的全局设置属性默认模态基础定义行为配置环境参数指标标准说明内容。
 
 #### `channels.defaults.heartbeat`
 
-Controls heartbeat visibility behavior (global default layer).
+这是用于管理连接状态心跳活动是否需要明确对使用群体发出消息事件告知机制的统一全局环境部署处理策略控制层参数设定位置。
 
-- `showOk`: emit explicit OK heartbeat messages.
-- `showAlerts`: emit non-OK/alert heartbeat content.
-- `useIndicator`: emit indicator events alongside heartbeat behavior.
+- `showOk`：强制产生确凿无误心率反馈事件通知发出的标识行为触发项控制指标管理规定动作开关要求指标设置选项配置规范指导要求。
+- `showAlerts`：一旦环境监控未处在 OK 指标下及发生警报反馈相关活动情况事件异常提示内容广播通知推送提醒播报操作开关支持选项控制策略设定参数说明。
+- `useIndicator`：使提示表现不单纯局限于回复还能联动平台独属组件功能指示状态呈现提示通知提示状态同步反映信息推送要求管理标准说明定义。
 
-Baseline intent:
+基准建议的逻辑用意：
 
-- Everything on (`true`) gives explicit operational visibility.
+- 全开状态的预设 `"true"` 选项使得您对整体系统能够有极为出色的透明追踪管理表现情况反馈支持机制保证作用预期。
 
 ### `gateway`
 
-Core gateway server behavior.
+在连接主场服务端环境构建网关通讯接口控制大局层面协议交互体系参数调节预设置要求范围约束定义规则表说明管理指南内容规范指引体系建设规则要求管理标准设置。
 
-#### Network & Mode
+#### Network & Mode (网络协议部署及安全认证运作状态)
 
-- `port`: gateway WebSocket port.
-- `mode`: `local` or `remote` behavior mode.
-- `bind`: exposure strategy (`loopback`, `lan`, `tailnet`, `auto`, `custom`).
+- `port`：承载和暴漏给 WebSocket 用以通信侦听工作的接口端号通道。
+- `mode`：区分局域与泛外网域端远距离支持处理模态预设 (`local` 或 `remote`)。
+- `bind`：指定服务端口应该吸附到哪些虚拟或实体网络监听层上面（可以配置的选择包括：`loopback`, `lan`, `tailnet`, `auto`, `custom` 等）。
 
-Baseline choice:
+基准建议的逻辑用意：
 
-- `bind: "lan"` makes gateway reachable on local network interfaces.
+- `"bind": "lan"` 意味着可以让挂靠此通道的主流本地网络或相关工作组网能够访问介入网关服务架构内部管理接口。
 
-#### Control UI Security
+#### Control UI Security (控制终端访问控制接口操作协议通信加密认证放权限制处理管理说明指标设定约束指引)
 
-- `controlUi.allowInsecureAuth: true` allows token-only auth over insecure HTTP.
+- `controlUi.allowInsecureAuth: true` 是一个非常关键的限制豁免设定。它在未挂载 https 等加密底层包裹的情况支持使用仅仅只有基础 Token 请求即可登入通讯授权管理的特权下放策略条款允许通行许可设置开关选项参数说明。
 
-Security implication:
+安全使用提示：
 
-- Good for local development convenience.
-- Not recommended for exposed environments.
+- 虽说这对测试或自己用的私有实验室非常有便利辅助快速跑通价值。
+- 绝不适合暴露给任何复杂或者是缺乏保护伞的网络服务场景之上。
 
-#### Auth
+#### Auth (访问防卫机制设定控制设置选项)
 
-- `gateway.auth.mode`: `token` or `password`.
-- With `token` mode, set `gateway.auth.token` (or provide via env/CLI override) before non-local usage.
+- `gateway.auth.mode`：目前可接受的权限控制门鉴检验方案策略：`token` 和 `password` 等等选项机制要求控制方案指引标准设定定义指引说明规范条款内容设置管理。
+- 一旦锁定并在采用 `token` 的前提模态下，请必须要自行配置相关 `gateway.auth.token` (可以在这个环境配置文件声明或用运行时外部临时覆盖参数变量设定法取代传入操作执行验证) 以满足离开本地工作网络通信测试场景的必要防护措施准备规范策略设定标准指南引导要求原则规范流程机制说明。
 
-#### Reverse Proxy Awareness
+#### Reverse Proxy Awareness (面向挂靠服务端反代配置环境认知适应防越界规则策略规范参数指引配置要求管理说明定义提示支持)
 
-- `gateway.trustedProxies`: proxy IP allowlist used for client IP/local detection behind reverse proxies.
+- `gateway.trustedProxies`：被授权准许直接连接而不会被怀疑恶意顶替篡改流量信息的代理系统转发白名单IP网段信任放行准入通道记录配置参数规范管理列表项管理内容机制规定标准内容要求指标参数设置选项定义说明。
 
-Why it matters:
+这很重要，因为：
 
-- Prevents false local-trust behavior when proxied traffic is present.
+- 如果缺乏上述判断和授权标识防卫阻隔拦截网，经过代理混入环境请求操作时有可能触发虚假的同本地主机权限防穿透漏洞风险暴露情况发生管控缺位处理机制失调反应问题。
 
 #### Tailscale
 
-- `gateway.tailscale.mode`: `off`, `serve`, or `funnel`.
-- `resetOnExit`: whether to revert serve/funnel wiring on shutdown.
+- `gateway.tailscale.mode`：挂载或者融入其内网域或穿透特性的不同状态响应选项参数设置：`off`, `serve`, 或 `funnel` 等。
+- `resetOnExit`：在整个进程消亡和退出释放时需不需要清理撤销服务注入状态网络隧道映射支持逻辑控制处理开关选项设定。
 
-#### Config Reload
+#### Config Reload (配置文件刷新重载机制设定控制规则配置参数)
 
-- `gateway.reload.mode`: reload strategy (`off`, `restart`, `hot`, `hybrid`).
-- `gateway.reload.debounceMs`: debounce before applying config changes.
+- `gateway.reload.mode`：应对监测修改文件变动以后的热重启支持行为状态反映策略控制表现触发操作规则：`off`, `restart`, `hot`, `hybrid` 等。
+- `gateway.reload.debounceMs`：防止修改过于频繁导致重复错误读取或者防抖缓冲延时执行阈值设定动作控制执行时间差操作限流选项指标参数设置要求管理定义说明规则指南规范内容支持参数设定表项内容控制规范机制体系指导设定原则等说明方案内容指引标准规范机制建设说明管理规定参数指引配置设置。
 
-#### Node Command Policy
+#### Node Command Policy (执行单元终端对下控制请求拦截过滤约束限流防抖白名单安全防卫控制防护配置隔离区策略安全指标设置控制体系选项)
 
-- `gateway.nodes.denyCommands`: hard denylist for node-exposed commands.
+- `gateway.nodes.denyCommands`：强制禁止或封锁掉一些危险敏感终端执行系统层级系统资源调用的强制禁闭命令选项池规则拦截设置黑名单隔离管理功能。
 
-Baseline intent:
+基准建议的逻辑用意：
 
-- Blocks risky device/system actions from remote node invocations.
+- 对于某些脱离本地中心控制的危险系统端设备环境命令发出能够实行一票否决控制切断操作屏蔽过滤网控制管理防护防卫防护作用阻拦动作干预要求体系安全门控卡口设置拦截功能机制部署防御防护体系策略防卫控制防护控制机制屏蔽拦截功能机制手段隔离防御体系管理防护网阻绝屏蔽隔离切断功能说明策略防卫保护功能保障措施防护动作手段安全预案防护机制卡控体系。
 
 ### `memory`
 
-`memory` in your baseline appears to be plugin-style configuration (for `qmd`).
+在您获得的基准表里，`memory` 区块看起来像是插件预设体系或者预制外挂能力组件预设置选项（看起来专属于 `qmd` 核心架构等处理环境相关的配置控制区块）。
 
-Compatibility warning:
+相关的兼容警告提示注意：
 
-- In OpenClaw `2026.1.30` core schema, top-level `memory` is not a built-in key.
-- Without a plugin that extends schema for this section, config validation reports:
-  `Unrecognized key: "memory"`.
+- 根据现存 OpenClaw `2026.1.30` 中坚系统参数的内核骨架来说，`memory` 本身根本并不是原有的合法挂载结构。
+- 要是你这里缺少这个名字的外部增强支持模块拓展插件服务环境基础配合工作，则检测核心验证的时候立刻抛错阻拦并警示：
+  `Unrecognized key: "memory"` (无法读取此标识)。
 
-What to do:
+怎么做？可以参考下面的决策行为应对方案处理解决处置应对方式行动动作方案建议建议：
 
-1. If you use a plugin that defines this block, keep it and validate with your plugin set.
-2. If not, remove this block and use core `agents.defaults.memorySearch` + plugin slots/entries for memory behavior.
+1. 如果您系统和部署的配置库刚好满足了引入此类挂靠应用能力组件资源支持框架环境则请将其稳妥保存不动使用且依靠特定工具加以进行环境核验查工作机制确认保障体系管理任务落实。
+2. 不满足以上环境时直接强制割离斩断或者移除这套非法超界标识，且务必更换引用或者采用原本的源计划标准中的 `agents.defaults.memorySearch` 以保障主程序的健气兼容核查放行运作指标系统核心组件防卫正常检验工作顺利通关管理实施规范策略操作建议指南指导工作行为动作执行规范指导。
 
 ### `skills`
 
-Skill install/runtime behavior.
+执行任务动作脚本组件以及安装工作预置策略环境机制和表现反映环境配置支持设定参数指标标准规范说明规范控制选项控制策略设定参数说明。
 
-- `skills.install.nodeManager`: package manager used for skill installation workflows.
+- `skills.install.nodeManager`：安装依赖支持等扩展动作功能调用的脚本执行包管理器工作引擎选用。
 
-Allowed values:
+允许使用的选项：
 
 - `npm`, `pnpm`, `yarn`, `bun`
 
-Baseline choice:
+基准建议的逻辑用意：
 
-- `npm` for highest compatibility.
+- 保守并选用泛化最高的标准体系环境套件即为 `"npm"` 以确保能最高质量兼容通过安装检查动作处理工作标准参数。
 
-## Validation Before Use
+## 正式发车前请完成核心系统配置验证检查核查复核机制操作流程规范指南确认建议保障工作指南指引等操作
 
-Do a schema check before running production workloads:
+不要带着未知上路，永远建议你在开赴前线之前核对是否还有遗漏或致命缺陷没过：
 
 ```bash
 openclaw config get gateway.port
 ```
 
-If invalid, OpenClaw reports exact keys/paths and remediation.
+如没有顺利通过该安全审计关卡，控制中枢大体会向管理员通报是那些目录层级错误且能够迅速排查解决排除异常管理机制工作顺利开展防卫排雷指引规范操作说明控制指引动作指导保障指南等预设防御机制动作规范保障措施系统防卫能力体系支持运作功能保障。
 
-## Required Edits Before First Run
+## 您必须要修改和调整的关键选项
 
-These fields should be set before using this in production-like workflows:
+要在真实或者接近实际投入业务线运作生产环境下运转之前务必要做掉以下关键工作步骤以保证稳定安全系统运转业务部署等规划目标要求达成规范管理动作执行落地：
 
 1. `agents.defaults.model.primary`
-   Set a concrete model id, for example `openai-codex/gpt-5.2`.
+   必须要亲自设定出真实存在的调用参数值并写入正确信息，比如配置出 `openai-codex/gpt-5.2` 作为核心计算枢纽中心支撑点引擎保障等。
 2. `agents.defaults.models`
-   Replace the empty key (`""`) with your model id so per-model config is mapped correctly.
+   必须要把空的 `" "` 给清除或者是替换改掉，从而让具体的每一个定制配置内容等资源都获得有效载荷并准确归属配置给对的模型模块中挂接完成映射组装构建机制功能关联要求。
 3. `gateway.auth`
-   If token auth is enabled, provide the token value (for example `gateway.auth.token`) via your preferred secret handling approach.
-4. `memory` (top-level)
-   Keep only if your runtime/plugin set supports it. Otherwise remove to pass core schema validation.
+   假设你需要并坚持准备使用 token 进行保护操作时，请预置填写配置相应的内容密码数值并且保存起来确保机密机制妥善封存保障。
+4. `memory` (最高级的那个独立设置区块体系)
+   如果不确实你是否有外接并满足配套工作环境扩展，请即刻做砍单移除控制动作指令行为防卫拦截操作隔离处理处置防御防卫拦截操作手段执行屏蔽操作防护机制反应。
 
-## Quick Start
+## 极速起航向导手册指南操作流
 
-1. Create the config file:
+1. 开始给应用框架搭建出必要的生存存放配置文件依赖位置存放区域：
 
 ```bash
 mkdir -p ~/.openclaw
 ```
 
-2. Save the JSON above to:
+2. 仔细检查前面确认修改完成后复制上面一整个大块的原始代码将其全盘接手放入文件目录结构指定区域内保存建档保存完成记录工作：
 
 - `~/.openclaw/openclaw.json`
 
-3. Start the gateway:
+3. 点燃引信触发执行网关底层工作模块启动加载开启运行状态激活工作系统防线防卫机制运作体系部署机制操作指南支持：
 
 ```bash
 openclaw gateway
 ```
 
-4. Verify health:
+4. 进行系统工作生理心跳自诊断自检查杀毒确认系统没有隐患运行自测检查机制安全保障防御部署保障监控检测确认机制说明支持功能等排查控制体系管理防线机制监测保障行动：
 
 ```bash
 openclaw health
 ```
 
-5. Open the control UI:
+5. 放开所有面板接入最高界面接口指令中枢面板总督察管理仪表板进入界面后台控制大屏管控平台操作权限中台控制管理：
 
 ```bash
 openclaw dashboard
 ```
 
-## Mission Control Connection (This Repo)
+## 加入接入至本仓库构建的最终管理总控中枢 (Mission Control)
 
-When adding a gateway in Mission Control:
+如果你完成了上面并要把本地节点接回核心服务器面板大屏上控制进行管控纳管系统集中统一管辖统一部署统战等控制任务处理要求配置参数：
 
-- URL: `ws://127.0.0.1:18789` (or your host/IP with explicit port)
-- Token: provide only if your gateway requires token auth
-- Device pairing: enabled by default and recommended
-  - Keep pairing enabled for normal operation.
-  - Optional bypass: enable `Disable device pairing` per gateway only when the gateway is explicitly configured for control UI auth bypass (for example `gateway.controlUi.dangerouslyDisableDeviceAuth: true` plus appropriate `gateway.controlUi.allowedOrigins`).
-- Workspace root (in Mission Control gateway config): align with `agents.defaults.workspace` when possible
+- URL (通讯连接大本营回传链接通信基站网络端口协议位置指标坐标路径): 这里必须要配置并指明对应参数信息，类似这样 `ws://127.0.0.1:18789` （或者是其他自己开放能够顺畅访问的专用直达专线通信局域信道接口地址及附带连接网络协议口号标记信息）。
+- Token (令牌授权通讯接入证明凭证机制授权秘钥权限核发校验口令令牌许可指令口令确认信息提供者): 若有需要则填入，无加密状态即可免予填写控制要求选项设置操作操作。
+- 设备结对匹配管理绑定关联授权功能安全验证关联要求安全授权策略体系：强烈推荐平时保持并执行此保护模式不可撤国防线拦截隔离安全审查核发。
+  - 大都时候一定要长期并严格把守着开启的状态，非迫不得已不可取消掉授权绑定结对工作安全底线防卫控制机制约束。
+  - 极为稀缺的免检放行绕过许可特殊授权管理设置设定特权（谨慎评估操作，并且是必须要结合且配套打开特定的 `gateway.controlUi.dangerouslyDisableDeviceAuth: true` 环境加之准确过滤阻隔来源判断参数设置项 `gateway.controlUi.allowedOrigins` 后才能使用特权放行通过核查验证检验等安防屏障授权许可放权通道安全白名单控制限制系统防卫解除工作等处理动作支持手段）。
+- Workspace root (面板预设工作区总调度物理环境地址根系定义预设计划分配根路径管理位置): 在有可能或存在条件下请务必和之前大核心中的那个参数 `agents.defaults.workspace` 对齐匹配，这样不容易翻车产生不一致控制权限问题报错提示控制防错防空警告说明要求控制限制。
 
-## Security Notes
+## 生理保护安全底线忠告指导指南说明管理体系防卫预案安全要求控制规定防御规则指示纪律说明条款操作建议控制操作指南指导操作守则防卫指引防雷安全守纪规范安全红线防卫安全原则要求说明防区说明警示建议提议预警告告提示纪律规范管理
 
-- `gateway.bind: "lan"` exposes the gateway on your local network.
-- `controlUi.allowInsecureAuth: true` is development-friendly and not recommended for exposed environments.
-- Use a strong token if `gateway.auth.mode` is `token`.
+- `gateway.bind: "lan"` 这操作能够非常放纵的让任何与你相连的设备顺畅通过你的电脑直接沟通和利用你内部大后台。
+- `controlUi.allowInsecureAuth: true` 就是纯自己方便自己的配置，不建议公开拿去展示或使用以防被恶意拿取了权限。
+- 若 `gateway.auth.mode` 被设置成了使用 `token` 的前提下千万选个难度爆表的组合来作为其屏障门锁保险柜密码防御措施手段进行加持防卫操作保护动作安全手段加密增强控制防线安全保险箱安全手段保障。
 
-## Why This Baseline Works
+## 您能拿着这份基准走天下的硬底气来源为何？优势优势体现价值价值赋能体系分析解构透析解析结论提要说明内容简介概括分析说明：
 
-- Sensible concurrency defaults for both primary and subagents.
-- Context-pruning + compaction settings tuned to reduce context bloat.
-- Memory flush before compaction to preserve durable notes.
-- Conservative command deny-list for risky node capabilities.
-- Stable update channel and predictable local gateway behavior.
+- 精妙绝伦的做到了合理并发同时制衡主次任务运行执行资源防越界平衡压舱石配置支持架构控制策略设定控制系统资源压榨利用防闲置支持防撞车安全管理。
+- 以防内存溢出与浪费为目的，精确组合的文段切割大刀配合收尾丢包处理防御保护缩水机制设定拦截垃圾占用拦截屏障防波堤防洪水溢流处理应对减压阀操作。
+- 大清洗防洪水前进行记忆深潜刻入记录防丢失系统。
+- 设置非常保守安全底线保护极高的不准随意放行调度的终端禁止敏感操作黑板黑名单大拦截网命令阻断体系支持架构控制体系防御盾防守系统体系保障控制机制保障支撑。
+- 能非常非常踏实的，给你一个能够信任且持续升级安稳在本地挂机的工作网络体系支持保证安全环境框架支撑底层地盘防线管理规划布局策略。
