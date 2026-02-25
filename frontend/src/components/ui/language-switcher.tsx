@@ -1,8 +1,8 @@
 "use client";
 
 import { Globe, Check, ChevronDown } from "lucide-react";
-import { useLanguage } from "@/lib/i18n";
-import { t, type Language } from "@/lib/translations";
+import { useLanguage, type Language } from "@/lib/i18n";
+import { t } from "@/lib/translations";
 import {
     Popover,
     PopoverContent,
