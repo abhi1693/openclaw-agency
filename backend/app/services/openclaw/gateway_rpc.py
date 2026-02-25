@@ -503,11 +503,14 @@ async def openclaw_call(
         ValueError,
         WebSocketException,
     ) as exc:  # pragma: no cover - network/protocol errors
+        import traceback
         logger.error(
-            "gateway.rpc.call.transport_error method=%s duration_ms=%s error_type=%s",
+            "gateway.rpc.call.transport_error method=%s duration_ms=%s error_type=%s exception=%s\n%s",
             method,
             int((perf_counter() - started_at) * 1000),
             exc.__class__.__name__,
+            str(exc),
+            traceback.format_exc(),
         )
         raise OpenClawGatewayError(str(exc)) from exc
 
@@ -543,10 +546,13 @@ async def openclaw_connect_metadata(*, config: GatewayConfig) -> object:
         ValueError,
         WebSocketException,
     ) as exc:  # pragma: no cover - network/protocol errors
+        import traceback
         logger.error(
-            "gateway.rpc.connect_metadata.transport_error duration_ms=%s error_type=%s",
+            "gateway.rpc.connect_metadata.transport_error duration_ms=%s error_type=%s exception=%s\n%s",
             int((perf_counter() - started_at) * 1000),
             exc.__class__.__name__,
+            str(exc),
+            traceback.format_exc(),
         )
         raise OpenClawGatewayError(str(exc)) from exc
 
