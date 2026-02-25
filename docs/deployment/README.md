@@ -1,3 +1,3 @@
-# 部署指南
+# Deployment guide
 
-内容占位符 (Placeholder)。
+Placeholder.

@@ -1,3 +1,3 @@
-# 故障排除指南
+# Troubleshooting
 
-内容占位符 (Placeholder)。
+Placeholder.

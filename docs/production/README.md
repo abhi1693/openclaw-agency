@@ -1,3 +1,3 @@
-# 生产环境注意事项
+# Production notes
 
-内容占位符 (Placeholder)。
+Placeholder.
