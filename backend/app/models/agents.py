@@ -44,5 +44,6 @@ class Agent(QueryModel, table=True):
     delete_confirm_token_hash: str | None = Field(default=None, index=True)
     last_seen_at: datetime | None = Field(default=None)
     is_board_lead: bool = Field(default=False, index=True)
+    is_linked: bool = Field(default=False, index=True)
     created_at: datetime = Field(default_factory=utcnow)
     updated_at: datetime = Field(default_factory=utcnow)

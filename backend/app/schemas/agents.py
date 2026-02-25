@@ -236,6 +236,10 @@ class AgentRead(AgentBase):
         default=False,
         description="Whether this agent is the primary gateway agent.",
     )
+    is_linked: bool = Field(
+        default=False,
+        description="Whether this agent was linked from an existing gateway agent.",
+    )
     openclaw_session_id: str | None = Field(
         default=None,
         description="Optional openclaw session token.",

@@ -779,6 +779,23 @@ class AgentLifecycleService(OpenClawDBService):
         root = workspace_root.rstrip("/")
         return f"{root}/workspace-{cls.slugify(agent_name)}"
 
+    async def _find_linked_agent_by_name(
+        self,
+        name: str,
+        board_id: UUID | None,
+    ) -> Agent | None:
+        """Find an existing linked agent by name to prevent overwrite."""
+        if not name:
+            return None
+        statement = (
+            select(Agent)
+            .where(col(Agent.is_linked).is_(True))
+            .where(col(Agent.name).ilike(name))
+        )
+        if board_id is not None:
+            statement = statement.where(Agent.board_id == board_id)
+        return (await self.session.exec(statement)).first()
+
     async def require_board(
         self,
         board_id: UUID | str | None,
@@ -843,10 +860,8 @@ class AgentLifecycleService(OpenClawDBService):
         now = utcnow()
         if agent.status in {"deleting", "updating"}:
             return agent
-        # Linked agents (session ID like "agent:amy" without ":main" suffix)
-        # are managed externally — always treat as online if they were linked.
-        sid = agent.openclaw_session_id or ""
-        if sid.startswith("agent:") and ":main" not in sid and agent.last_seen_at is not None:
+        # Linked agents are managed externally — always treat as online.
+        if agent.is_linked and agent.last_seen_at is not None:
             agent.status = "online"
             return agent
         if agent.last_seen_at is None:
@@ -1565,9 +1580,20 @@ class AgentLifecycleService(OpenClawDBService):
         )
         await self.enforce_board_spawn_limit_for_lead(board=board, actor=actor)
         gateway, _client_config = await self.require_gateway(board)
+
+        # Prevent overwriting linked agents
+        requested_name = (payload.name or "").strip()
+        linked = await self._find_linked_agent_by_name(requested_name, board.id)
+        if linked is not None:
+            self.logger.info(
+                "agent.create.skipped_linked agent_id=%s name=%s",
+                linked.id,
+                requested_name,
+            )
+            return self.to_agent_read(self.with_computed_status(linked))
+
         data = payload.model_dump()
         data["gateway_id"] = gateway.id
-        requested_name = (data.get("name") or "").strip()
         await self.ensure_unique_agent_name(
             board=board,
             gateway=gateway,
@@ -1669,21 +1695,31 @@ class AgentLifecycleService(OpenClawDBService):
             "status": "online",  # Agent is already running
             "openclaw_session_id": session_id,
             "identity_profile": {"role": payload.role} if payload.role else None,
-            # Don't set agent_token_hash - this agent already has its own auth
+            "is_linked": True,
         }
         
-        agent, _raw_token = await self.persist_new_agent(data=data)
+        agent, raw_token = await self.persist_new_agent(data=data)
         
         # Override provisioning status and session ID - agent is already running
         agent.status = "online"
+        agent.is_linked = True
         agent.openclaw_session_id = session_id
         agent.last_seen_at = utcnow()
         self.session.add(agent)
         await self.session.commit()
         await self.session.refresh(agent)
         
-        # Don't provision the agent - it already exists and is running
-        # Just record the activity
+        # Push MISSION_CONTROL.md template into the agent's existing workspace
+        await self._inject_mc_template_for_linked_agent(
+            agent=agent,
+            board=board,
+            gateway=gateway,
+            client_config=client_config,
+            gateway_agent_id=payload.gateway_agent_id,
+            agent_token=raw_token,
+            target_agent=target_agent,
+        )
+        
         record_activity(
             self.session,
             event_type="agent.link",
@@ -1698,6 +1734,75 @@ class AgentLifecycleService(OpenClawDBService):
             board.id,
         )
         return self.to_agent_read(self.with_computed_status(agent))
+
+    async def _inject_mc_template_for_linked_agent(
+        self,
+        *,
+        agent: Agent,
+        board: Board,
+        gateway: Gateway,
+        client_config: GatewayClientConfig,
+        gateway_agent_id: str,
+        agent_token: str,
+        target_agent: dict[str, Any],
+    ) -> None:
+        """Render and push MISSION_CONTROL.md into a linked agent's workspace."""
+        from pathlib import Path
+
+        from jinja2 import Environment, FileSystemLoader, StrictUndefined
+
+        templates_root = Path(__file__).resolve().parents[3] / "templates"
+        env = Environment(
+            loader=FileSystemLoader(templates_root),
+            autoescape=False,
+            undefined=StrictUndefined,
+            keep_trailing_newline=True,
+        )
+
+        import os
+        mc_url = os.environ.get("MC_PUBLIC_URL", "http://localhost:8000")
+
+        # Org admin token from environment (for task CRUD)
+        org_token = os.environ.get("MC_ORG_TOKEN", "<ORG_ADMIN_TOKEN>")
+
+        template = env.get_template("LINKED_MISSION_CONTROL.md.j2")
+        content = template.render(
+            mc_url=mc_url,
+            board_id=str(board.id),
+            board_name=board.name or "Operations",
+            agent_name=agent.name,
+            agent_token=agent_token,
+            org_token=org_token,
+        ).strip()
+
+        # Deliver MC config to the agent via session message
+        session_key = agent.openclaw_session_id or f"agent:{gateway_agent_id}:main"
+        try:
+            # Session already exists for linked agents — skip ensure_session
+            setup_message = (
+                "Mission Control has linked you to a board. "
+                "Please save the following configuration to your MISSION_CONTROL.md file "
+                "(create it if it doesn't exist):\n\n"
+                f"```markdown\n{content}\n```\n\n"
+                "Save this file now, then reply NO_REPLY."
+            )
+            await send_message(
+                setup_message,
+                session_key=session_key,
+                config=client_config,
+                deliver=True,
+            )
+            self.logger.info(
+                "agent.link.mc_config_delivered agent_id=%s session=%s",
+                agent.id,
+                session_key,
+            )
+        except (OpenClawGatewayError, OSError) as exc:
+            self.logger.warning(
+                "agent.link.mc_config_delivery_failed agent_id=%s error=%s",
+                agent.id,
+                str(exc),
+            )
 
     async def unlink_agent(
         self,
@@ -1718,6 +1823,40 @@ class AgentLifecycleService(OpenClawDBService):
             )
 
         agent_name = agent.name
+        now = utcnow()
+
+        # Clean up FK references before deleting
+        await crud.update_where(
+            self.session,
+            Task,
+            col(Task.assigned_agent_id) == agent.id,
+            assigned_agent_id=None,
+            updated_at=now,
+            commit=False,
+        )
+        await crud.update_where(
+            self.session,
+            ActivityEvent,
+            col(ActivityEvent.agent_id) == agent.id,
+            agent_id=None,
+            commit=False,
+        )
+        await crud.update_where(
+            self.session,
+            Approval,
+            col(Approval.agent_id) == agent.id,
+            agent_id=None,
+            commit=False,
+        )
+        await crud.update_where(
+            self.session,
+            BoardWebhook,
+            col(BoardWebhook.agent_id) == agent.id,
+            agent_id=None,
+            updated_at=now,
+            commit=False,
+        )
+
         await self.session.delete(agent)
         await self.session.commit()
 
@@ -1842,10 +1981,16 @@ class AgentLifecycleService(OpenClawDBService):
 
         agent = (await self.session.exec(self.heartbeat_lookup_statement(payload))).first()
         if agent is None:
-            agent = await self.create_agent_from_heartbeat(
-                payload=payload,
-                actor=actor,
-            )
+            # Check if a linked agent with matching session key already exists
+            # to prevent overwriting externally-managed agents
+            linked_check = await self._find_linked_agent_by_name(payload.name, payload.board_id)
+            if linked_check is not None:
+                agent = linked_check
+            else:
+                agent = await self.create_agent_from_heartbeat(
+                    payload=payload,
+                    actor=actor,
+                )
         elif actor.actor_type == "user":
             await self.handle_existing_user_heartbeat_agent(
                 agent=agent,
