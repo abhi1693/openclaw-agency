@@ -10,13 +10,13 @@ import {
   CheckCircle2,
   Folder,
   Building2,
-  Globe,
   LayoutGrid,
   Network,
   Settings,
   Store,
   Tags,
 } from "lucide-react";
+import { LanguageSwitcher } from "@/components/ui/language-switcher";
 
 import { useAuth } from "@/auth/clerk";
 import { ApiError } from "@/api/mutator";
@@ -269,17 +269,8 @@ export function DashboardSidebar() {
             />
             {statusLabel}
           </div>
-          {/* Language toggle button */}
-          <button
-            type="button"
-            onClick={toggleLanguage}
-            className="flex items-center gap-1 rounded-md border border-slate-200 bg-white px-2 py-1 text-xs font-medium text-slate-600 transition hover:border-slate-300 hover:bg-slate-50 hover:text-slate-900 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:ring-offset-1"
-            aria-label="Toggle language"
-            title={language === "en" ? "切换到中文" : "Switch to English"}
-          >
-            <Globe className="h-3 w-3" />
-            {t(language, "language_toggle")}
-          </button>
+          {/* Language switcher dropdown */}
+          <LanguageSwitcher />
         </div>
       </div>
     </aside>

@@ -44,6 +44,8 @@ import {
 } from "@/api/generated/metrics/metrics";
 import type { DashboardMetricsApiV1MetricsDashboardGetRangeKey } from "@/api/generated/model/dashboardMetricsApiV1MetricsDashboardGetRangeKey";
 import { parseApiDatetime } from "@/lib/datetime";
+import { useLanguage } from "@/lib/i18n";
+import { t } from "@/lib/translations";
 
 type RangeKey = DashboardMetricsApiV1MetricsDashboardGetRangeKey;
 type BucketKey = "hour" | "day" | "week" | "month";
@@ -83,19 +85,11 @@ const monthFormatter = new Intl.DateTimeFormat("en-US", {
   year: "numeric",
 });
 
-const DASHBOARD_RANGE_OPTIONS: Array<{ value: RangeKey; label: string }> = [
-  { value: "24h", label: "24 hours" },
-  { value: "3d", label: "3 days" },
-  { value: "7d", label: "7 days" },
-  { value: "14d", label: "14 days" },
-  { value: "1m", label: "1 month" },
-  { value: "3m", label: "3 months" },
-  { value: "6m", label: "6 months" },
-  { value: "1y", label: "1 year" },
-];
-const DASHBOARD_RANGE_SET = new Set<RangeKey>(
-  DASHBOARD_RANGE_OPTIONS.map((option) => option.value),
-);
+// Range options are built inside the component to support i18n.
+const RANGE_KEYS: RangeKey[] = [
+  "24h", "3d", "7d", "14d", "1m", "3m", "6m", "1y",
+] as const;
+const DASHBOARD_RANGE_SET = new Set<RangeKey>(RANGE_KEYS);
 const ALL_FILTER_VALUE = "all";
 const DEFAULT_RANGE: RangeKey = "7d";
 
@@ -258,6 +252,7 @@ function ChartCard({
 }
 
 export default function DashboardPage() {
+  const { language } = useLanguage();
   const { isSignedIn } = useAuth();
   const pathname = usePathname();
   const router = useRouter();
@@ -267,7 +262,7 @@ export default function DashboardPage() {
   const selectedBoardParam = searchParams.get("board");
   const selectedRange: RangeKey =
     selectedRangeParam &&
-    DASHBOARD_RANGE_SET.has(selectedRangeParam as RangeKey)
+      DASHBOARD_RANGE_SET.has(selectedRangeParam as RangeKey)
       ? (selectedRangeParam as RangeKey)
       : DEFAULT_RANGE;
   const selectedGroupId =
@@ -310,8 +305,8 @@ export default function DashboardPage() {
     () =>
       boardsQuery.data?.status === 200
         ? [...(boardsQuery.data.data.items ?? [])].sort((a, b) =>
-            a.name.localeCompare(b.name),
-          )
+          a.name.localeCompare(b.name),
+        )
         : [],
     [boardsQuery.data],
   );
@@ -319,8 +314,8 @@ export default function DashboardPage() {
     () =>
       boardGroupsQuery.data?.status === 200
         ? [...(boardGroupsQuery.data.data.items ?? [])].sort((a, b) =>
-            a.name.localeCompare(b.name),
-          )
+          a.name.localeCompare(b.name),
+        )
         : [],
     [boardGroupsQuery.data],
   );
@@ -341,22 +336,30 @@ export default function DashboardPage() {
     [boardGroups, selectedGroupId],
   );
 
+  const DASHBOARD_RANGE_OPTIONS = useMemo(
+    () => RANGE_KEYS.map((value) => ({
+      value,
+      label: t(language, `dashboard_range_${value.replace("-", "")}` as Parameters<typeof t>[1]),
+    })),
+    [language],
+  );
+
   const boardGroupOptions = useMemo<DropdownSelectOption[]>(
     () => [
-      { value: ALL_FILTER_VALUE, label: "All groups" },
+      { value: ALL_FILTER_VALUE, label: t(language, "dashboard_all_groups") },
       ...boardGroups.map((group) => ({ value: group.id, label: group.name })),
     ],
-    [boardGroups],
+    [boardGroups, language],
   );
   const boardOptions = useMemo<DropdownSelectOption[]>(
     () => [
-      { value: ALL_FILTER_VALUE, label: "All boards" },
+      { value: ALL_FILTER_VALUE, label: t(language, "dashboard_all_boards") },
       ...filteredBoards.map((board) => ({
         value: board.id,
         label: board.name,
       })),
     ],
-    [filteredBoards],
+    [filteredBoards, language],
   );
 
   const metricsQuery = useDashboardMetricsApiV1MetricsDashboardGet<
@@ -429,7 +432,7 @@ export default function DashboardPage() {
     <DashboardShell>
       <SignedOut>
         <SignedOutPanel
-          message="Sign in to access the dashboard."
+          message={t(language, "boards_sign_in")}
           forceRedirectUrl="/onboarding"
           signUpForceRedirectUrl="/onboarding"
         />
@@ -441,10 +444,10 @@ export default function DashboardPage() {
             <div className="flex items-center justify-between gap-4">
               <div>
                 <h2 className="font-heading text-2xl font-semibold text-slate-900 tracking-tight">
-                  Dashboard
+                  {t(language, "dashboard_title")}
                 </h2>
                 <p className="mt-1 text-sm text-slate-500">
-                  Monitor your mission control operations
+                  {t(language, "dashboard_subtitle")}
                 </p>
               </div>
               <div className="flex flex-wrap items-center justify-end gap-3">
@@ -521,7 +524,7 @@ export default function DashboardPage() {
                     href={`/board-groups/${selectedGroup.id}`}
                     className="inline-flex h-9 items-center rounded-lg border border-slate-300 bg-white px-3 text-sm font-medium text-slate-700 shadow-sm transition hover:bg-slate-50"
                   >
-                    Open group
+                    {t(language, "dashboard_open_group")}
                   </Link>
                 ) : null}
                 {selectedBoard ? (
@@ -529,7 +532,7 @@ export default function DashboardPage() {
                     href={`/boards/${selectedBoard.id}`}
                     className="inline-flex h-9 items-center rounded-lg border border-slate-300 bg-white px-3 text-sm font-medium text-slate-700 shadow-sm transition hover:bg-slate-50"
                   >
-                    Open board
+                    {t(language, "dashboard_open_board")}
                   </Link>
                 ) : null}
               </div>
@@ -544,7 +547,7 @@ export default function DashboardPage() {
 
             {metricsQuery.isLoading && !metrics ? (
               <div className="rounded-xl border border-slate-200 bg-white p-6 text-sm text-slate-500 shadow-sm">
-                Loading dashboard metrics…
+                {t(language, "dashboard_loading")}
               </div>
             ) : null}
 
@@ -552,25 +555,25 @@ export default function DashboardPage() {
               <>
                 <div className="grid grid-cols-1 gap-6 md:grid-cols-2 lg:grid-cols-4">
                   <KpiCard
-                    label="Active agents"
+                    label={t(language, "kpi_active_agents")}
                     value={formatNumber(metrics.kpis.active_agents)}
                     icon={<Users className="h-4 w-4" />}
                     progress={activeProgress}
                   />
                   <KpiCard
-                    label="Tasks in progress"
+                    label={t(language, "kpi_tasks_in_progress")}
                     value={formatNumber(metrics.kpis.tasks_in_progress)}
                     icon={<PenSquare className="h-4 w-4" />}
                     progress={wipProgress}
                   />
                   <KpiCard
-                    label="Error rate"
+                    label={t(language, "kpi_error_rate")}
                     value={formatPercent(metrics.kpis.error_rate_pct)}
                     icon={<Activity className="h-4 w-4" />}
                     progress={errorProgress}
                   />
                   <KpiCard
-                    label="Median cycle time"
+                    label={t(language, "kpi_median_cycle")}
                     value={formatHours(metrics.kpis.median_cycle_time_hours_7d)}
                     icon={<Timer className="h-4 w-4" />}
                     progress={cycleProgress}
@@ -578,7 +581,7 @@ export default function DashboardPage() {
                 </div>
 
                 <div className="mt-8 grid grid-cols-1 gap-6 lg:grid-cols-2">
-                  <ChartCard title="Completed Tasks" subtitle="Throughput">
+                  <ChartCard title={t(language, "chart_completed_tasks")} subtitle={t(language, "chart_throughput")}>
                     <ResponsiveContainer width="100%" height="100%">
                       <BarChart
                         data={throughputSeries}
@@ -623,7 +626,7 @@ export default function DashboardPage() {
                     </ResponsiveContainer>
                   </ChartCard>
 
-                  <ChartCard title="Avg Hours to Review" subtitle="Cycle time">
+                  <ChartCard title={t(language, "chart_avg_hours")} subtitle={t(language, "chart_cycle_time")}>
                     <ResponsiveContainer width="100%" height="100%">
                       <LineChart
                         data={cycleSeries}
@@ -672,7 +675,7 @@ export default function DashboardPage() {
                     </ResponsiveContainer>
                   </ChartCard>
 
-                  <ChartCard title="Failed Events" subtitle="Error rate">
+                  <ChartCard title={t(language, "chart_failed")} subtitle={t(language, "chart_error_rate")}>
                     <ResponsiveContainer width="100%" height="100%">
                       <LineChart
                         data={errorSeries}
@@ -720,8 +723,8 @@ export default function DashboardPage() {
                   </ChartCard>
 
                   <ChartCard
-                    title="Status Distribution"
-                    subtitle="Work in progress"
+                    title={t(language, "chart_status_dist")}
+                    subtitle={t(language, "chart_wip")}
                   >
                     <ResponsiveContainer width="100%" height="100%">
                       <AreaChart

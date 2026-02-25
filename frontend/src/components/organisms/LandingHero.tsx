@@ -9,6 +9,9 @@ import {
   isClerkEnabled,
 } from "@/auth/clerk";
 
+import { useLanguage } from "@/lib/i18n";
+import { t } from "@/lib/translations";
+
 const ArrowIcon = () => (
   <svg
     width="16"
@@ -29,22 +32,33 @@ const ArrowIcon = () => (
 
 export function LandingHero() {
   const clerkEnabled = isClerkEnabled();
+  const { language } = useLanguage();
+
+  const FEATURES = [
+    t(language, "landing_feature_1_title"),
+    t(language, "landing_feature_2_title"),
+    t(language, "landing_feature_3_title"),
+  ];
+
+  const FEATURE_CARDS = [
+    { title: t(language, "feat_boards_title"), description: t(language, "feat_boards_desc") },
+    { title: t(language, "feat_approvals_title"), description: t(language, "feat_approvals_desc") },
+    { title: t(language, "feat_signals_title"), description: t(language, "feat_signals_desc") },
+    { title: t(language, "feat_audit_title"), description: t(language, "feat_audit_desc") },
+  ];
 
   return (
     <>
       <section className="hero">
         <div className="hero-content">
-          <div className="hero-label">OpenClaw Mission Control</div>
+          <div className="hero-label">{t(language, "landing_label")}</div>
           <h1>
-            Command <span className="hero-highlight">autonomous work.</span>
+            {t(language, "landing_h1_1")}
+            <span className="hero-highlight">{t(language, "landing_h1_highlight")}</span>
             <br />
-            Keep human oversight.
+            {t(language, "landing_h1_2")}
           </h1>
-          <p>
-            Track tasks, approvals, and agent health in one unified command
-            center. Get real-time signals when work changes, without losing the
-            thread of execution.
-          </p>
+          <p>{t(language, "landing_p")}</p>
 
           <div className="hero-actions">
             <SignedOut>
@@ -56,7 +70,7 @@ export function LandingHero() {
                     signUpForceRedirectUrl="/boards"
                   >
                     <button type="button" className="btn-large primary">
-                      Open Boards <ArrowIcon />
+                      {t(language, "landing_open_boards")} <ArrowIcon />
                     </button>
                   </SignInButton>
                   <SignInButton
@@ -65,17 +79,17 @@ export function LandingHero() {
                     signUpForceRedirectUrl="/boards/new"
                   >
                     <button type="button" className="btn-large secondary">
-                      Create Board
+                      {t(language, "landing_create_board")}
                     </button>
                   </SignInButton>
                 </>
               ) : (
                 <>
                   <Link href="/boards" className="btn-large primary">
-                    Open Boards <ArrowIcon />
+                    {t(language, "landing_open_boards")} <ArrowIcon />
                   </Link>
                   <Link href="/boards/new" className="btn-large secondary">
-                    Create Board
+                    {t(language, "landing_create_board")}
                   </Link>
                 </>
               )}
@@ -83,45 +97,41 @@ export function LandingHero() {
 
             <SignedIn>
               <Link href="/boards" className="btn-large primary">
-                Open Boards <ArrowIcon />
+                {t(language, "landing_open_boards")} <ArrowIcon />
               </Link>
               <Link href="/boards/new" className="btn-large secondary">
-                Create Board
+                {t(language, "landing_create_board")}
               </Link>
             </SignedIn>
           </div>
 
           <div className="hero-features">
-            {["Agent-First Operations", "Approval Queues", "Live Signals"].map(
-              (label) => (
-                <div key={label} className="hero-feature">
-                  <div className="feature-icon">✓</div>
-                  <span>{label}</span>
-                </div>
-              ),
-            )}
+            {FEATURES.map((label) => (
+              <div key={label} className="hero-feature">
+                <div className="feature-icon">✓</div>
+                <span>{label}</span>
+              </div>
+            ))}
           </div>
         </div>
 
         <div className="command-surface">
           <div className="surface-header">
-            <div className="surface-title">Command Surface</div>
+            <div className="surface-title">{t(language, "landing_cmd_surface")}</div>
             <div className="live-indicator">
               <div className="live-dot" />
-              LIVE
+              {t(language, "landing_live")}
             </div>
           </div>
           <div className="surface-subtitle">
-            <h3>Ship work without losing the thread.</h3>
-            <p>
-              Tasks, approvals, and agent status stay synced across the board.
-            </p>
+            <h3>{t(language, "landing_ship")}</h3>
+            <p>{t(language, "landing_ship_p")}</p>
           </div>
           <div className="metrics-row">
             {[
-              { label: "Boards", value: "12" },
-              { label: "Agents", value: "08" },
-              { label: "Tasks", value: "46" },
+              { label: t(language, "boards"), value: "12" },
+              { label: t(language, "agents"), value: "08" },
+              { label: language === "zh" ? "任务" : "Tasks", value: "46" },
             ].map((item) => (
               <div key={item.label} className="metric">
                 <div className="metric-value">{item.value}</div>
@@ -131,11 +141,11 @@ export function LandingHero() {
           </div>
           <div className="surface-content">
             <div className="content-section">
-              <h4>Board — In Progress</h4>
+              <h4>{t(language, "landing_board_in_progress")}</h4>
               {[
-                "Cut release candidate",
-                "Triage approvals backlog",
-                "Stabilize agent handoffs",
+                language === "zh" ? "准备候选发布版本" : "Cut release candidate",
+                language === "zh" ? "处理审批积压" : "Triage approvals backlog",
+                language === "zh" ? "稳定 Agent 交接流程" : "Stabilize agent handoffs",
               ].map((title) => (
                 <div key={title} className="status-item">
                   <div className="status-icon progress">⊙</div>
@@ -147,11 +157,11 @@ export function LandingHero() {
             </div>
 
             <div className="content-section">
-              <h4>Approvals — 3 Pending</h4>
+              <h4>{t(language, "landing_approvals_pending")}</h4>
               {[
-                { title: "Deploy window confirmed", status: "ready" as const },
-                { title: "Copy reviewed", status: "waiting" as const },
-                { title: "Security sign-off", status: "waiting" as const },
+                { title: language === "zh" ? "部署窗口已确认" : "Deploy window confirmed", status: "ready" as const },
+                { title: language === "zh" ? "文案已审核" : "Copy reviewed", status: "waiting" as const },
+                { title: language === "zh" ? "安全签字" : "Security sign-off", status: "waiting" as const },
               ].map((item) => (
                 <div key={item.title} className="approval-item">
                   <div className="approval-title">{item.title}</div>
@@ -170,11 +180,11 @@ export function LandingHero() {
             }}
           >
             <div className="content-section">
-              <h4>Signals — Updated Moments Ago</h4>
+              <h4>{t(language, "landing_signals")}</h4>
               {[
-                { text: "Agent Delta moved task to review", time: "Now" },
-                { text: "Growth Ops hit WIP limit", time: "5m" },
-                { text: "Release pipeline stabilized", time: "12m" },
+                { text: language === "zh" ? "Agent Delta 将任务移入审核" : "Agent Delta moved task to review", time: language === "zh" ? "刚刚" : "Now" },
+                { text: language === "zh" ? "Growth Ops 触及 WIP 上限" : "Growth Ops hit WIP limit", time: "5m" },
+                { text: language === "zh" ? "发布流水线已稳定" : "Release pipeline stabilized", time: "12m" },
               ].map((signal) => (
                 <div key={signal.text} className="signal-item">
                   <div className="signal-text">{signal.text}</div>
@@ -188,28 +198,7 @@ export function LandingHero() {
 
       <section className="features-section" id="capabilities">
         <div className="features-grid">
-          {[
-            {
-              title: "Boards as ops maps",
-              description:
-                "Keep tasks, priorities, dependencies, and ownership visible at a glance.",
-            },
-            {
-              title: "Approvals that move",
-              description:
-                "Queue, comment, and approve without losing context or slowing execution.",
-            },
-            {
-              title: "Realtime signals",
-              description:
-                "See work change as it happens: tasks, agent status, and approvals update live.",
-            },
-            {
-              title: "Audit trail built in",
-              description:
-                "Every decision leaves a trail, so the board stays explainable and reviewable.",
-            },
-          ].map((feature, idx) => (
+          {FEATURE_CARDS.map((feature, idx) => (
             <div key={feature.title} className="feature-card">
               <div className="feature-number">
                 {String(idx + 1).padStart(2, "0")}
@@ -223,11 +212,8 @@ export function LandingHero() {
 
       <section className="cta-section">
         <div className="cta-content">
-          <h2>Start with one board. Grow into a control room.</h2>
-          <p>
-            Onboard a board, name a lead agent, and keep approvals and signals
-            visible from day one.
-          </p>
+          <h2>{t(language, "landing_cta_h2")}</h2>
+          <p>{t(language, "landing_cta_p")}</p>
           <div className="cta-actions">
             <SignedOut>
               {clerkEnabled ? (
@@ -238,7 +224,7 @@ export function LandingHero() {
                     signUpForceRedirectUrl="/boards/new"
                   >
                     <button type="button" className="btn-large white">
-                      Create Board
+                      {t(language, "landing_create_board")}
                     </button>
                   </SignInButton>
                   <SignInButton
@@ -247,17 +233,17 @@ export function LandingHero() {
                     signUpForceRedirectUrl="/boards"
                   >
                     <button type="button" className="btn-large outline">
-                      View Boards
+                      {t(language, "landing_view_boards")}
                     </button>
                   </SignInButton>
                 </>
               ) : (
                 <>
                   <Link href="/boards/new" className="btn-large white">
-                    Create Board
+                    {t(language, "landing_create_board")}
                   </Link>
                   <Link href="/boards" className="btn-large outline">
-                    View Boards
+                    {t(language, "landing_view_boards")}
                   </Link>
                 </>
               )}
@@ -265,10 +251,10 @@ export function LandingHero() {
 
             <SignedIn>
               <Link href="/boards/new" className="btn-large white">
-                Create Board
+                {t(language, "landing_create_board")}
               </Link>
               <Link href="/boards" className="btn-large outline">
-                View Boards
+                {t(language, "landing_view_boards")}
               </Link>
             </SignedIn>
           </div>
