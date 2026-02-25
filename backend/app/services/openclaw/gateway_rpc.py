@@ -176,11 +176,41 @@ class GatewayConfig:
     disable_device_pairing: bool = False
 
 
+_WS_SCHEME_MAP = {"https": "wss", "http": "ws"}
+_WS_DEFAULT_PORTS = {"wss": 443, "ws": 80}
+
+
+def _normalize_gateway_url(url: str) -> str:
+    """Normalize a gateway URL for use with websockets.connect().
+
+    Handles two common user-input problems:
+    1. Wrong scheme: converts ``https://`` -> ``wss://`` and ``http://`` -> ``ws://``.
+    2. Explicit default port: RFC 6455 §3 forbids explicit default ports in
+       WebSocket URIs (e.g. ``wss://host:443``).  The ``websockets`` library
+       enforces this and raises ``ValueError`` when such a URL is supplied.
+       Strip the port when it matches the scheme default.
+    """
+    parsed = urlparse(url)
+    scheme = _WS_SCHEME_MAP.get(parsed.scheme, parsed.scheme)
+    hostname = parsed.hostname or ""
+    port = parsed.port  # int | None
+
+    if port is not None and port != _WS_DEFAULT_PORTS.get(scheme):
+        # Non-default port — preserve it.
+        netloc = f"[{hostname}]:{port}" if ":" in hostname else f"{hostname}:{port}"
+    else:
+        # Default (or absent) port — omit it; wrap IPv6 literals in brackets.
+        netloc = f"[{hostname}]" if ":" in hostname else hostname
+
+    return str(urlunparse(parsed._replace(scheme=scheme, netloc=netloc)))
+
+
 def _build_gateway_url(config: GatewayConfig) -> str:
     base_url: str = (config.url or "").strip()
     if not base_url:
         message = "Gateway URL is not configured."
         raise OpenClawGatewayError(message)
+    base_url = _normalize_gateway_url(base_url)
     token = config.token
     if not token:
         return base_url
