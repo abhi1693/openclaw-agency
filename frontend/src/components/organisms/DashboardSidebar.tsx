@@ -10,6 +10,7 @@ import {
   CheckCircle2,
   Folder,
   Building2,
+  Globe,
   LayoutGrid,
   Network,
   Settings,
@@ -25,11 +26,14 @@ import {
   useHealthzHealthzGet,
 } from "@/api/generated/default/default";
 import { cn } from "@/lib/utils";
+import { useLanguage } from "@/lib/i18n";
+import { t } from "@/lib/translations";
 
 export function DashboardSidebar() {
   const pathname = usePathname();
   const { isSignedIn } = useAuth();
   const { isAdmin } = useOrganizationMembership(isSignedIn);
+  const { language, toggleLanguage } = useLanguage();
   const healthQuery = useHealthzHealthzGet<healthzHealthzGetResponse, ApiError>(
     {
       query: {
@@ -52,21 +56,21 @@ export function DashboardSidebar() {
           : "unknown";
   const statusLabel =
     systemStatus === "operational"
-      ? "All systems operational"
+      ? t(language, "status_operational")
       : systemStatus === "unknown"
-        ? "System status unavailable"
-        : "System degraded";
+        ? t(language, "status_unknown")
+        : t(language, "status_degraded");
 
   return (
     <aside className="flex h-full w-64 flex-col border-r border-slate-200 bg-white">
       <div className="flex-1 px-3 py-4">
         <p className="px-3 text-xs font-semibold uppercase tracking-wider text-slate-500">
-          Navigation
+          {t(language, "navigation")}
         </p>
         <nav className="mt-3 space-y-4 text-sm">
           <div>
             <p className="px-3 text-[11px] font-semibold uppercase tracking-wider text-slate-400">
-              Overview
+              {t(language, "overview")}
             </p>
             <div className="mt-1 space-y-1">
               <Link
@@ -79,7 +83,7 @@ export function DashboardSidebar() {
                 )}
               >
                 <BarChart3 className="h-4 w-4" />
-                Dashboard
+                {t(language, "dashboard")}
               </Link>
               <Link
                 href="/activity"
@@ -91,14 +95,14 @@ export function DashboardSidebar() {
                 )}
               >
                 <Activity className="h-4 w-4" />
-                Live feed
+                {t(language, "live_feed")}
               </Link>
             </div>
           </div>
 
           <div>
             <p className="px-3 text-[11px] font-semibold uppercase tracking-wider text-slate-400">
-              Boards
+              {t(language, "boards_section")}
             </p>
             <div className="mt-1 space-y-1">
               <Link
@@ -111,7 +115,7 @@ export function DashboardSidebar() {
                 )}
               >
                 <Folder className="h-4 w-4" />
-                Board groups
+                {t(language, "board_groups")}
               </Link>
               <Link
                 href="/boards"
@@ -123,7 +127,7 @@ export function DashboardSidebar() {
                 )}
               >
                 <LayoutGrid className="h-4 w-4" />
-                Boards
+                {t(language, "boards")}
               </Link>
               <Link
                 href="/tags"
@@ -135,7 +139,7 @@ export function DashboardSidebar() {
                 )}
               >
                 <Tags className="h-4 w-4" />
-                Tags
+                {t(language, "tags")}
               </Link>
               <Link
                 href="/approvals"
@@ -147,7 +151,7 @@ export function DashboardSidebar() {
                 )}
               >
                 <CheckCircle2 className="h-4 w-4" />
-                Approvals
+                {t(language, "approvals")}
               </Link>
               {isAdmin ? (
                 <Link
@@ -160,7 +164,7 @@ export function DashboardSidebar() {
                   )}
                 >
                   <Settings className="h-4 w-4" />
-                  Custom fields
+                  {t(language, "custom_fields")}
                 </Link>
               ) : null}
             </div>
@@ -170,7 +174,7 @@ export function DashboardSidebar() {
             {isAdmin ? (
               <>
                 <p className="px-3 text-[11px] font-semibold uppercase tracking-wider text-slate-400">
-                  Skills
+                  {t(language, "skills_section")}
                 </p>
                 <div className="mt-1 space-y-1">
                   <Link
@@ -184,7 +188,7 @@ export function DashboardSidebar() {
                     )}
                   >
                     <Store className="h-4 w-4" />
-                    Marketplace
+                    {t(language, "marketplace")}
                   </Link>
                   <Link
                     href="/skills/packs"
@@ -196,7 +200,7 @@ export function DashboardSidebar() {
                     )}
                   >
                     <Boxes className="h-4 w-4" />
-                    Packs
+                    {t(language, "packs")}
                   </Link>
                 </div>
               </>
@@ -205,7 +209,7 @@ export function DashboardSidebar() {
 
           <div>
             <p className="px-3 text-[11px] font-semibold uppercase tracking-wider text-slate-400">
-              Administration
+              {t(language, "administration")}
             </p>
             <div className="mt-1 space-y-1">
               <Link
@@ -218,7 +222,7 @@ export function DashboardSidebar() {
                 )}
               >
                 <Building2 className="h-4 w-4" />
-                Organization
+                {t(language, "organization")}
               </Link>
               {isAdmin ? (
                 <Link
@@ -231,7 +235,7 @@ export function DashboardSidebar() {
                   )}
                 >
                   <Network className="h-4 w-4" />
-                  Gateways
+                  {t(language, "gateways")}
                 </Link>
               ) : null}
               {isAdmin ? (
@@ -245,7 +249,7 @@ export function DashboardSidebar() {
                   )}
                 >
                   <Bot className="h-4 w-4" />
-                  Agents
+                  {t(language, "agents")}
                 </Link>
               ) : null}
             </div>
@@ -253,16 +257,29 @@ export function DashboardSidebar() {
         </nav>
       </div>
       <div className="border-t border-slate-200 p-4">
-        <div className="flex items-center gap-2 text-xs text-slate-500">
-          <span
-            className={cn(
-              "h-2 w-2 rounded-full",
-              systemStatus === "operational" && "bg-emerald-500",
-              systemStatus === "degraded" && "bg-rose-500",
-              systemStatus === "unknown" && "bg-slate-300",
-            )}
-          />
-          {statusLabel}
+        <div className="flex items-center justify-between gap-2">
+          <div className="flex items-center gap-2 text-xs text-slate-500">
+            <span
+              className={cn(
+                "h-2 w-2 rounded-full",
+                systemStatus === "operational" && "bg-emerald-500",
+                systemStatus === "degraded" && "bg-rose-500",
+                systemStatus === "unknown" && "bg-slate-300",
+              )}
+            />
+            {statusLabel}
+          </div>
+          {/* Language toggle button */}
+          <button
+            type="button"
+            onClick={toggleLanguage}
+            className="flex items-center gap-1 rounded-md border border-slate-200 bg-white px-2 py-1 text-xs font-medium text-slate-600 transition hover:border-slate-300 hover:bg-slate-50 hover:text-slate-900 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:ring-offset-1"
+            aria-label="Toggle language"
+            title={language === "en" ? "切换到中文" : "Switch to English"}
+          >
+            <Globe className="h-3 w-3" />
+            {t(language, "language_toggle")}
+          </button>
         </div>
       </div>
     </aside>
