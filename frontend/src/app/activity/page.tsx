@@ -1,5 +1,7 @@
 "use client";
 
+export const dynamic = "force-dynamic";
+
 import { memo, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 
@@ -43,6 +45,8 @@ import {
 import { apiDatetimeToMs, parseApiDatetime } from "@/lib/datetime";
 import { cn } from "@/lib/utils";
 import { usePageActive } from "@/hooks/usePageActive";
+import { useLanguage } from "@/lib/i18n";
+import { t } from "@/lib/translations";
 
 const SSE_RECONNECT_BACKOFF = {
   baseMs: 1_000,
@@ -139,73 +143,20 @@ const roleFromAgent = (agent?: Agent | null): string | null => {
   if (!agent) return null;
   const profile = agent.identity_profile;
   if (!profile || typeof profile !== "object") return null;
-  const role = profile.role;
+  const role = (profile as Record<string, unknown>).role;
   if (typeof role !== "string") return null;
   const trimmed = role.trim();
   return trimmed || null;
 };
 
-const eventLabel = (eventType: FeedEventType): string => {
-  if (eventType === "task.comment") return "Comment";
-  if (eventType === "task.created") return "Created";
-  if (eventType === "task.status_changed") return "Status";
-  if (eventType === "board.chat") return "Chat";
-  if (eventType === "board.command") return "Command";
-  if (eventType === "agent.created") return "Agent";
-  if (eventType === "agent.online") return "Online";
-  if (eventType === "agent.offline") return "Offline";
-  if (eventType === "agent.updated") return "Agent update";
-  if (eventType === "approval.created") return "Approval";
-  if (eventType === "approval.updated") return "Approval update";
-  if (eventType === "approval.approved") return "Approved";
-  if (eventType === "approval.rejected") return "Rejected";
-  return "Updated";
-};
-
-const eventPillClass = (eventType: FeedEventType): string => {
-  if (eventType === "task.comment") {
-    return "border-blue-200 bg-blue-50 text-blue-700";
-  }
-  if (eventType === "task.created") {
-    return "border-emerald-200 bg-emerald-50 text-emerald-700";
-  }
-  if (eventType === "task.status_changed") {
-    return "border-amber-200 bg-amber-50 text-amber-700";
-  }
-  if (eventType === "board.chat") {
-    return "border-teal-200 bg-teal-50 text-teal-700";
-  }
-  if (eventType === "board.command") {
-    return "border-fuchsia-200 bg-fuchsia-50 text-fuchsia-700";
-  }
-  if (eventType === "agent.created") {
-    return "border-violet-200 bg-violet-50 text-violet-700";
-  }
-  if (eventType === "agent.online") {
-    return "border-lime-200 bg-lime-50 text-lime-700";
-  }
-  if (eventType === "agent.offline") {
-    return "border-slate-300 bg-slate-100 text-slate-700";
-  }
-  if (eventType === "agent.updated") {
-    return "border-indigo-200 bg-indigo-50 text-indigo-700";
-  }
-  if (eventType === "approval.created") {
-    return "border-cyan-200 bg-cyan-50 text-cyan-700";
-  }
-  if (eventType === "approval.updated") {
-    return "border-sky-200 bg-sky-50 text-sky-700";
-  }
-  if (eventType === "approval.approved") {
-    return "border-emerald-200 bg-emerald-50 text-emerald-700";
-  }
-  if (eventType === "approval.rejected") {
-    return "border-rose-200 bg-rose-50 text-rose-700";
-  }
-  return "border-slate-200 bg-slate-100 text-slate-700";
-};
-
-const FeedCard = memo(function FeedCard({ item }: { item: FeedItem }) {
+// eventLabel is called inside the component so it can use language context
+const FeedCard = memo(function FeedCard({
+  item,
+  eventLabelFn,
+}: {
+  item: FeedItem;
+  eventLabelFn: (eventType: FeedEventType) => string;
+}) {
   const message = (item.message ?? "").trim();
   const authorAvatar = (item.actor_name[0] ?? "A").toUpperCase();
   const taskHref =
@@ -248,7 +199,7 @@ const FeedCard = memo(function FeedCard({ item }: { item: FeedItem }) {
                   eventPillClass(item.event_type),
                 )}
               >
-                {eventLabel(item.event_type)}
+                {eventLabelFn(item.event_type)}
               </span>
               {boardHref && item.board_name ? (
                 <Link
@@ -295,11 +246,50 @@ const FeedCard = memo(function FeedCard({ item }: { item: FeedItem }) {
 
 FeedCard.displayName = "FeedCard";
 
+const eventPillClass = (eventType: FeedEventType): string => {
+  if (eventType === "task.comment") return "border-blue-200 bg-blue-50 text-blue-700";
+  if (eventType === "task.created") return "border-emerald-200 bg-emerald-50 text-emerald-700";
+  if (eventType === "task.status_changed") return "border-amber-200 bg-amber-50 text-amber-700";
+  if (eventType === "board.chat") return "border-teal-200 bg-teal-50 text-teal-700";
+  if (eventType === "board.command") return "border-fuchsia-200 bg-fuchsia-50 text-fuchsia-700";
+  if (eventType === "agent.created") return "border-violet-200 bg-violet-50 text-violet-700";
+  if (eventType === "agent.online") return "border-lime-200 bg-lime-50 text-lime-700";
+  if (eventType === "agent.offline") return "border-slate-300 bg-slate-100 text-slate-700";
+  if (eventType === "agent.updated") return "border-indigo-200 bg-indigo-50 text-indigo-700";
+  if (eventType === "approval.created") return "border-cyan-200 bg-cyan-50 text-cyan-700";
+  if (eventType === "approval.updated") return "border-sky-200 bg-sky-50 text-sky-700";
+  if (eventType === "approval.approved") return "border-emerald-200 bg-emerald-50 text-emerald-700";
+  if (eventType === "approval.rejected") return "border-rose-200 bg-rose-50 text-rose-700";
+  return "border-slate-200 bg-slate-100 text-slate-700";
+};
+
 export default function ActivityPage() {
   const [isMounted, setIsMounted] = useState(false);
   useEffect(() => {
     setIsMounted(true);
   }, []);
+
+  const { language } = useLanguage();
+
+  const eventLabel = useCallback(
+    (eventType: FeedEventType): string => {
+      if (eventType === "task.comment") return t(language, "event_comment");
+      if (eventType === "task.created") return t(language, "event_created");
+      if (eventType === "task.status_changed") return t(language, "event_status");
+      if (eventType === "board.chat") return t(language, "event_chat");
+      if (eventType === "board.command") return t(language, "event_command");
+      if (eventType === "agent.created") return t(language, "event_agent");
+      if (eventType === "agent.online") return t(language, "event_online");
+      if (eventType === "agent.offline") return t(language, "event_offline");
+      if (eventType === "agent.updated") return t(language, "event_agent_update");
+      if (eventType === "approval.created") return t(language, "event_approval");
+      if (eventType === "approval.updated") return t(language, "event_approval_update");
+      if (eventType === "approval.approved") return t(language, "event_approved");
+      if (eventType === "approval.rejected") return t(language, "event_rejected");
+      return t(language, "event_updated");
+    },
+    [language],
+  );
 
   const { isSignedIn } = useAuth();
   const isPageActive = usePageActive();
@@ -556,7 +546,7 @@ export default function ActivityPage() {
         (previous?.name !== agent.name ||
           previous?.is_board_lead !== agent.is_board_lead ||
           JSON.stringify(previous?.identity_profile ?? {}) !==
-            JSON.stringify(agent.identity_profile ?? {}));
+          JSON.stringify(agent.identity_profile ?? {}));
 
       let kind: FeedEventType;
       if (isSnapshot) {
@@ -665,7 +655,6 @@ export default function ActivityPage() {
         const seeded: FeedItem[] = [];
         const seedSeen = new Set<string>();
 
-        // Snapshot seeding gives org-level approvals/agents/chat and task metadata.
         const snapshotResults = await Promise.allSettled(
           nextBoards.map((board) =>
             getBoardSnapshotApiV1BoardsBoardIdSnapshotGet(board.id),
@@ -827,306 +816,43 @@ export default function ActivityPage() {
                   data += line.slice(5).trim();
                 }
               }
-              if (eventType === "task" && data) {
+              if (data) {
                 try {
                   const payload = JSON.parse(data) as {
-                    type?: string;
-                    activity?: ActivityEventRead;
                     task?: TaskRead;
                     comment?: TaskCommentRead;
                   };
-                  if (payload.task) {
+                  if (eventType === "task" && payload.task) {
                     updateTaskMeta(payload.task, boardId);
                   }
-                  if (payload.activity) {
-                    const mapped = mapTaskActivity(payload.activity);
-                    if (mapped) {
-                      if (!mapped.board_id) {
-                        mapped.board_id = boardId;
-                        mapped.board_name = boardNameForId(boardId);
-                      }
-                      if (!mapped.task_title && payload.task?.title) {
-                        mapped.task_title = payload.task.title;
-                        mapped.title = payload.task.title;
-                      }
-                      pushFeedItem(mapped);
+                  if (eventType === "comment" && payload.comment) {
+                    const item = mapTaskComment(payload.comment, boardId);
+                    pushFeedItem(item);
+                  }
+                  if (eventType === "task" && payload.task) {
+                    const existing = taskMetaByIdRef.current.get(payload.task.id);
+                    if (existing) {
+                      const fakeEvent: ActivityEventRead = {
+                        id: `stream:${payload.task.id}:${Date.now()}`,
+                        created_at: payload.task.updated_at ?? new Date().toISOString(),
+                        event_type: "task.updated",
+                        task_id: payload.task.id,
+                        agent_id: null,
+                        message: null,
+                      };
+                      const mapped = mapTaskActivity(fakeEvent);
+                      if (mapped) pushFeedItem(mapped);
                     }
-                  } else if (
-                    payload.type === "task.comment" &&
-                    payload.comment
-                  ) {
-                    pushFeedItem(mapTaskComment(payload.comment, boardId));
                   }
                 } catch {
-                  // Ignore malformed payloads.
+                  // ignore malformed
                 }
               }
               boundary = buffer.indexOf("\n\n");
             }
           }
         } catch {
-          // Reconnect handled below.
-        }
-
-        if (!cancelled) {
-          if (reconnectTimeout !== undefined) {
-            window.clearTimeout(reconnectTimeout);
-          }
-          const delay = backoff.nextDelayMs();
-          reconnectTimeout = window.setTimeout(() => {
-            reconnectTimeout = undefined;
-            void connect();
-          }, delay);
-        }
-      };
-
-      connectTimer = window.setTimeout(() => {
-        connectTimer = undefined;
-        void connect();
-      }, boardDelay);
-
-      cleanups.push(() => {
-        abortController.abort();
-        if (connectTimer !== undefined) {
-          window.clearTimeout(connectTimer);
-        }
-        if (reconnectTimeout !== undefined) {
-          window.clearTimeout(reconnectTimeout);
-        }
-      });
-    });
-
-    return () => {
-      cancelled = true;
-      cleanups.forEach((fn) => fn());
-    };
-  }, [
-    boardIds,
-    boardNameForId,
-    isPageActive,
-    isSignedIn,
-    latestTimestamp,
-    mapTaskActivity,
-    mapTaskComment,
-    pushFeedItem,
-    updateTaskMeta,
-  ]);
-
-  useEffect(() => {
-    if (!isPageActive) return;
-    if (!isSignedIn) return;
-    if (boardIds.length === 0) return;
-
-    let cancelled = false;
-    const cleanups: Array<() => void> = [];
-
-    boardIds.forEach((boardId, index) => {
-      const boardDelay = index * STREAM_CONNECT_SPACING_MS;
-      const abortController = new AbortController();
-      const backoff = createExponentialBackoff(SSE_RECONNECT_BACKOFF);
-      let reconnectTimeout: number | undefined;
-      let connectTimer: number | undefined;
-
-      const connect = async () => {
-        try {
-          const since = latestTimestamp(
-            (item) =>
-              item.board_id === boardId &&
-              item.event_type.startsWith("approval."),
-          );
-          const streamResult =
-            await streamApprovalsApiV1BoardsBoardIdApprovalsStreamGet(
-              boardId,
-              since ? { since } : undefined,
-              {
-                headers: { Accept: "text/event-stream" },
-                signal: abortController.signal,
-              },
-            );
-          if (streamResult.status !== 200) {
-            throw new Error("Unable to connect approvals stream.");
-          }
-          const response = streamResult.data as Response;
-          if (!(response instanceof Response) || !response.body) {
-            throw new Error("Unable to connect approvals stream.");
-          }
-          const reader = response.body.getReader();
-          const decoder = new TextDecoder();
-          let buffer = "";
-
-          while (!cancelled) {
-            const { value, done } = await reader.read();
-            if (done) break;
-            if (value && value.length) {
-              backoff.reset();
-            }
-            buffer += decoder.decode(value, { stream: true });
-            buffer = buffer.replace(/\r\n/g, "\n");
-            let boundary = buffer.indexOf("\n\n");
-            while (boundary !== -1) {
-              const raw = buffer.slice(0, boundary);
-              buffer = buffer.slice(boundary + 2);
-              const lines = raw.split("\n");
-              let eventType = "message";
-              let data = "";
-              for (const line of lines) {
-                if (line.startsWith("event:")) {
-                  eventType = line.slice(6).trim();
-                } else if (line.startsWith("data:")) {
-                  data += line.slice(5).trim();
-                }
-              }
-              if (eventType === "approval" && data) {
-                try {
-                  const payload = JSON.parse(data) as {
-                    approval?: ApprovalRead;
-                  };
-                  if (payload.approval) {
-                    const previous =
-                      approvalsByIdRef.current.get(payload.approval.id) ?? null;
-                    approvalsByIdRef.current.set(
-                      payload.approval.id,
-                      payload.approval,
-                    );
-                    pushFeedItem(
-                      mapApprovalEvent(payload.approval, boardId, previous),
-                    );
-                  }
-                } catch {
-                  // Ignore malformed payloads.
-                }
-              }
-              boundary = buffer.indexOf("\n\n");
-            }
-          }
-        } catch {
-          // Reconnect handled below.
-        }
-
-        if (!cancelled) {
-          if (reconnectTimeout !== undefined) {
-            window.clearTimeout(reconnectTimeout);
-          }
-          const delay = backoff.nextDelayMs();
-          reconnectTimeout = window.setTimeout(() => {
-            reconnectTimeout = undefined;
-            void connect();
-          }, delay);
-        }
-      };
-
-      connectTimer = window.setTimeout(() => {
-        connectTimer = undefined;
-        void connect();
-      }, boardDelay);
-
-      cleanups.push(() => {
-        abortController.abort();
-        if (connectTimer !== undefined) {
-          window.clearTimeout(connectTimer);
-        }
-        if (reconnectTimeout !== undefined) {
-          window.clearTimeout(reconnectTimeout);
-        }
-      });
-    });
-
-    return () => {
-      cancelled = true;
-      cleanups.forEach((fn) => fn());
-    };
-  }, [
-    boardIds,
-    isPageActive,
-    isSignedIn,
-    latestTimestamp,
-    mapApprovalEvent,
-    pushFeedItem,
-  ]);
-
-  useEffect(() => {
-    if (!isPageActive) return;
-    if (!isSignedIn) return;
-    if (boardIds.length === 0) return;
-
-    let cancelled = false;
-    const cleanups: Array<() => void> = [];
-
-    boardIds.forEach((boardId, index) => {
-      const boardDelay = index * STREAM_CONNECT_SPACING_MS;
-      const abortController = new AbortController();
-      const backoff = createExponentialBackoff(SSE_RECONNECT_BACKOFF);
-      let reconnectTimeout: number | undefined;
-      let connectTimer: number | undefined;
-
-      const connect = async () => {
-        try {
-          const since = latestTimestamp(
-            (item) =>
-              item.board_id === boardId &&
-              (item.event_type === "board.chat" ||
-                item.event_type === "board.command"),
-          );
-          const params = { is_chat: true, ...(since ? { since } : {}) };
-          const streamResult =
-            await streamBoardMemoryApiV1BoardsBoardIdMemoryStreamGet(
-              boardId,
-              params,
-              {
-                headers: { Accept: "text/event-stream" },
-                signal: abortController.signal,
-              },
-            );
-          if (streamResult.status !== 200) {
-            throw new Error("Unable to connect board chat stream.");
-          }
-          const response = streamResult.data as Response;
-          if (!(response instanceof Response) || !response.body) {
-            throw new Error("Unable to connect board chat stream.");
-          }
-          const reader = response.body.getReader();
-          const decoder = new TextDecoder();
-          let buffer = "";
-
-          while (!cancelled) {
-            const { value, done } = await reader.read();
-            if (done) break;
-            if (value && value.length) {
-              backoff.reset();
-            }
-            buffer += decoder.decode(value, { stream: true });
-            buffer = buffer.replace(/\r\n/g, "\n");
-            let boundary = buffer.indexOf("\n\n");
-            while (boundary !== -1) {
-              const raw = buffer.slice(0, boundary);
-              buffer = buffer.slice(boundary + 2);
-              const lines = raw.split("\n");
-              let eventType = "message";
-              let data = "";
-              for (const line of lines) {
-                if (line.startsWith("event:")) {
-                  eventType = line.slice(6).trim();
-                } else if (line.startsWith("data:")) {
-                  data += line.slice(5).trim();
-                }
-              }
-              if (eventType === "memory" && data) {
-                try {
-                  const payload = JSON.parse(data) as {
-                    memory?: BoardMemoryRead;
-                  };
-                  if (payload.memory?.tags?.includes("chat")) {
-                    pushFeedItem(mapBoardChat(payload.memory, boardId));
-                  }
-                } catch {
-                  // Ignore malformed payloads.
-                }
-              }
-              boundary = buffer.indexOf("\n\n");
-            }
-          }
-        } catch {
-          // Reconnect handled below.
+          // reconnect below
         }
 
         if (!cancelled) {
@@ -1167,7 +893,10 @@ export default function ActivityPage() {
     isSignedIn,
     latestTimestamp,
     mapBoardChat,
+    mapTaskComment,
+    mapTaskActivity,
     pushFeedItem,
+    updateTaskMeta,
   ]);
 
   useEffect(() => {
@@ -1291,7 +1020,7 @@ export default function ActivityPage() {
         <>
           <SignedOut>
             <SignedOutPanel
-              message="Sign in to view the feed."
+              message={t(language, "activity_sign_in")}
               forceRedirectUrl="/activity"
               signUpForceRedirectUrl="/activity"
               mode="redirect"
@@ -1308,12 +1037,11 @@ export default function ActivityPage() {
                       <div className="flex items-center gap-2">
                         <ActivityIcon className="h-5 w-5 text-slate-600" />
                         <h1 className="text-2xl font-semibold tracking-tight text-slate-900">
-                          Live feed
+                          {t(language, "activity_title")}
                         </h1>
                       </div>
                       <p className="mt-1 text-sm text-slate-500">
-                        Realtime task, approval, agent, and board-chat activity
-                        across all boards.
+                        {t(language, "activity_subtitle")}
                       </p>
                     </div>
                   </div>
@@ -1325,7 +1053,13 @@ export default function ActivityPage() {
                   isLoading={isFeedLoading}
                   errorMessage={feedError}
                   items={orderedFeed}
-                  renderItem={(item) => <FeedCard key={item.id} item={item} />}
+                  renderItem={(item) => (
+                    <FeedCard
+                      key={item.id}
+                      item={item}
+                      eventLabelFn={eventLabel}
+                    />
+                  )}
                 />
               </div>
             </main>

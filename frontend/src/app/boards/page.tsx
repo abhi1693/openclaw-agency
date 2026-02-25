@@ -27,12 +27,15 @@ import { BoardsTable } from "@/components/boards/BoardsTable";
 import { DashboardPageLayout } from "@/components/templates/DashboardPageLayout";
 import { buttonVariants } from "@/components/ui/button";
 import { ConfirmActionDialog } from "@/components/ui/confirm-action-dialog";
+import { useLanguage } from "@/lib/i18n";
+import { t } from "@/lib/translations";
 
 const BOARD_SORTABLE_COLUMNS = ["name", "group", "updated_at"];
 
 export default function BoardsPage() {
   const { isSignedIn } = useAuth();
   const queryClient = useQueryClient();
+  const { language } = useLanguage();
   const { sorting, onSortingChange } = useUrlSorting({
     allowedColumnIds: BOARD_SORTABLE_COLUMNS,
     defaultSorting: [{ id: "name", desc: false }],
@@ -109,16 +112,22 @@ export default function BoardsPage() {
     deleteMutation.mutate({ boardId: deleteTarget.id });
   };
 
+  const boardCount = boards.length;
+  const description =
+    language === "zh"
+      ? `${t(language, "boards_desc_prefix")}${boardCount}${t(language, "boards_desc_suffix_many")}`
+      : `${t(language, "boards_desc_prefix")}${boardCount} ${boardCount === 1 ? t(language, "boards_desc_suffix_one") : t(language, "boards_desc_suffix_many")}`;
+
   return (
     <>
       <DashboardPageLayout
         signedOut={{
-          message: "Sign in to view boards.",
+          message: t(language, "boards_sign_in"),
           forceRedirectUrl: "/boards",
           signUpForceRedirectUrl: "/boards",
         }}
-        title="Boards"
-        description={`Manage boards and task workflows. ${boards.length} board${boards.length === 1 ? "" : "s"} total.`}
+        title={t(language, "boards_title")}
+        description={description}
         headerActions={
           boards.length > 0 && isAdmin ? (
             <Link
@@ -128,7 +137,7 @@ export default function BoardsPage() {
                 variant: "primary",
               })}
             >
-              Create board
+              {t(language, "boards_create")}
             </Link>
           ) : null
         }
@@ -145,11 +154,10 @@ export default function BoardsPage() {
             stickyHeader
             onDelete={setDeleteTarget}
             emptyState={{
-              title: "No boards yet",
-              description:
-                "Create your first board to start routing tasks and monitoring work across agents.",
+              title: t(language, "boards_empty_title"),
+              description: t(language, "boards_empty_desc"),
               actionHref: "/boards/new",
-              actionLabel: "Create your first board",
+              actionLabel: t(language, "boards_empty_action"),
             }}
           />
         </div>
@@ -167,11 +175,13 @@ export default function BoardsPage() {
             setDeleteTarget(null);
           }
         }}
-        ariaLabel="Delete board"
-        title="Delete board"
+        ariaLabel={t(language, "boards_delete_title")}
+        title={t(language, "boards_delete_title")}
         description={
           <>
-            This will remove {deleteTarget?.name}. This action cannot be undone.
+            {t(language, "boards_delete_desc_prefix")}
+            {deleteTarget?.name}
+            {t(language, "boards_delete_desc_suffix")}
           </>
         }
         errorMessage={deleteMutation.error?.message}

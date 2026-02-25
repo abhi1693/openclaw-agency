@@ -29,6 +29,8 @@ import { type AgentRead } from "@/api/generated/model";
 import { createOptimisticListDeleteMutation } from "@/lib/list-delete";
 import { useOrganizationMembership } from "@/lib/use-organization-membership";
 import { useUrlSorting } from "@/lib/use-url-sorting";
+import { useLanguage } from "@/lib/i18n";
+import { t } from "@/lib/translations";
 
 const AGENT_SORTABLE_COLUMNS = [
   "name",
@@ -43,6 +45,7 @@ export default function AgentsPage() {
   const { isSignedIn } = useAuth();
   const queryClient = useQueryClient();
   const router = useRouter();
+  const { language } = useLanguage();
 
   const { isAdmin } = useOrganizationMembership(isSignedIn);
   const { sorting, onSortingChange } = useUrlSorting({
@@ -121,25 +124,31 @@ export default function AgentsPage() {
     deleteMutation.mutate({ agentId: deleteTarget.id });
   };
 
+  const agentCount = agents.length;
+  const descSuffix =
+    language === "zh"
+      ? `${t(language, "agents_desc_prefix")}${agentCount}${t(language, "agents_desc_suffix_many")}`
+      : `${agentCount} ${agentCount === 1 ? t(language, "agents_desc_suffix_one") : t(language, "agents_desc_suffix_many")}`;
+
   return (
     <>
       <DashboardPageLayout
         signedOut={{
-          message: "Sign in to view agents.",
+          message: t(language, "agents_sign_in"),
           forceRedirectUrl: "/agents",
           signUpForceRedirectUrl: "/agents",
         }}
-        title="Agents"
-        description={`${agents.length} agent${agents.length === 1 ? "" : "s"} total.`}
+        title={t(language, "agents_title")}
+        description={descSuffix}
         headerActions={
           agents.length > 0 ? (
             <Button onClick={() => router.push("/agents/new")}>
-              New agent
+              {t(language, "agents_new")}
             </Button>
           ) : null
         }
         isAdmin={isAdmin}
-        adminOnlyMessage="Only organization owners and admins can access agents."
+        adminOnlyMessage={t(language, "agents_admin_only")}
         stickyHeader
       >
         <div className="overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm">
@@ -153,11 +162,10 @@ export default function AgentsPage() {
             stickyHeader
             onDelete={setDeleteTarget}
             emptyState={{
-              title: "No agents yet",
-              description:
-                "Create your first agent to start executing tasks on this board.",
+              title: t(language, "agents_empty_title"),
+              description: t(language, "agents_empty_desc"),
               actionHref: "/agents/new",
-              actionLabel: "Create your first agent",
+              actionLabel: t(language, "agents_empty_action"),
             }}
           />
         </div>
@@ -176,11 +184,13 @@ export default function AgentsPage() {
             setDeleteTarget(null);
           }
         }}
-        ariaLabel="Delete agent"
-        title="Delete agent"
+        ariaLabel={t(language, "agents_delete_title")}
+        title={t(language, "agents_delete_title")}
         description={
           <>
-            This will remove {deleteTarget?.name}. This action cannot be undone.
+            {t(language, "agents_delete_desc_prefix")}
+            {deleteTarget?.name}
+            {t(language, "agents_delete_desc_suffix")}
           </>
         }
         errorMessage={deleteMutation.error?.message}

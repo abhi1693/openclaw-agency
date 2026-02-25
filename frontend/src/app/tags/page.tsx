@@ -23,6 +23,8 @@ import { buttonVariants } from "@/components/ui/button";
 import { ConfirmActionDialog } from "@/components/ui/confirm-action-dialog";
 import { useOrganizationMembership } from "@/lib/use-organization-membership";
 import { useUrlSorting } from "@/lib/use-url-sorting";
+import { useLanguage } from "@/lib/i18n";
+import { t } from "@/lib/translations";
 
 const TAG_SORTABLE_COLUMNS = ["name", "task_count", "updated_at"];
 
@@ -37,6 +39,7 @@ export default function TagsPage() {
   const { isAdmin } = useOrganizationMembership(isSignedIn);
   const router = useRouter();
   const queryClient = useQueryClient();
+  const { language } = useLanguage();
   const { sorting, onSortingChange } = useUrlSorting({
     allowedColumnIds: TAG_SORTABLE_COLUMNS,
     defaultSorting: [{ id: "name", desc: false }],
@@ -76,28 +79,34 @@ export default function TagsPage() {
     deleteMutation.mutate({ tagId: deleteTarget.id });
   };
 
+  const tagCount = tags.length;
+  const description =
+    language === "zh"
+      ? `${tagCount}${t(language, "tags_desc_suffix_many")}`
+      : `${tagCount} ${tagCount === 1 ? t(language, "tags_desc_suffix_one") : t(language, "tags_desc_suffix_many")}`;
+
   return (
     <>
       <DashboardPageLayout
         signedOut={{
-          message: "Sign in to manage tags.",
+          message: t(language, "tags_sign_in"),
           forceRedirectUrl: "/tags",
           signUpForceRedirectUrl: "/tags",
         }}
-        title="Tags"
-        description={`${tags.length} tag${tags.length === 1 ? "" : "s"} configured.`}
+        title={t(language, "tags_title")}
+        description={description}
         headerActions={
           isAdmin ? (
             <Link
               href="/tags/add"
               className={buttonVariants({ size: "md", variant: "primary" })}
             >
-              New tag
+              {t(language, "tags_new")}
             </Link>
           ) : null
         }
         isAdmin={isAdmin}
-        adminOnlyMessage="Only organization owners and admins can manage tags."
+        adminOnlyMessage={t(language, "tags_admin_only")}
         stickyHeader
       >
         <div className="overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm">
@@ -110,17 +119,16 @@ export default function TagsPage() {
             onEdit={
               isAdmin
                 ? (tag) => {
-                    router.push(`/tags/${tag.id}/edit`);
-                  }
+                  router.push(`/tags/${tag.id}/edit`);
+                }
                 : undefined
             }
             onDelete={isAdmin ? setDeleteTarget : undefined}
             emptyState={{
-              title: "No tags yet",
-              description:
-                "Create tags to classify and group tasks across your boards.",
+              title: t(language, "tags_empty_title"),
+              description: t(language, "tags_empty_desc"),
               actionHref: isAdmin ? "/tags/add" : undefined,
-              actionLabel: isAdmin ? "Create your first tag" : undefined,
+              actionLabel: isAdmin ? t(language, "tags_empty_action") : undefined,
             }}
           />
         </div>
@@ -136,12 +144,13 @@ export default function TagsPage() {
         onOpenChange={(open) => {
           if (!open) setDeleteTarget(null);
         }}
-        ariaLabel="Delete tag"
-        title="Delete tag"
+        ariaLabel={t(language, "tags_delete_title")}
+        title={t(language, "tags_delete_title")}
         description={
           <>
-            This will remove <strong>{deleteTarget?.name}</strong> from all
-            tagged tasks. This action cannot be undone.
+            {t(language, "tags_delete_desc_prefix")}
+            <strong>{deleteTarget?.name}</strong>
+            {t(language, "tags_delete_desc_middle")}
           </>
         }
         errorMessage={
