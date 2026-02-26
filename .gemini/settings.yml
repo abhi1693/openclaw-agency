@@ -1,0 +1,26 @@
+# Gemini Code Assist configuration
+# GitHub App: https://github.com/apps/gemini-code-assist
+# Free tier: unlimited public repos, 1500 PR reviews/day on private repos
+#
+# SETUP (one-time, Claw action needed):
+#   1. Visit https://github.com/apps/gemini-code-assist
+#   2. Install on: jacksclaw/openclaw-mission-control
+#   3. No further config needed — Gemini will comment on PRs automatically
+
+code_review:
+  # Only flag MEDIUM+ severity issues (skip minor style nits — ESLint/ruff handle those)
+  comment_severity_threshold: MEDIUM
+
+  # Focus areas
+  review_style:
+    - correctness
+    - security
+    - performance
+    - error_handling
+    - api_contracts
+
+  # Suppress noisy low-signal categories
+  suppress:
+    - whitespace_changes
+    - comment_only_changes
+    - import_ordering   # handled by ruff/eslint
