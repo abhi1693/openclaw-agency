@@ -184,6 +184,17 @@ jobs:
           if [ -f .install-logs/frontend.pid ]; then kill "$(cat .install-logs/frontend.pid)" || true; fi
           docker compose -f compose.yml --env-file .env down -v --remove-orphans || true
 
+  installer-macos:
+    runs-on: macos-latest
+    needs: [check]
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Validate installer shell syntax (macOS)
+        run: bash -n install.sh
+
   e2e:
     runs-on: ubuntu-latest
     needs: [check]

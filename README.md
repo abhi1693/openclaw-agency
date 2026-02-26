@@ -76,6 +76,7 @@ Installer support matrix: [`docs/installer-support.md`](./docs/installer-support
 
 ### Prerequisites
 
+- **Supported platforms**: Linux and macOS. On macOS, Docker mode requires [Docker Desktop](https://www.docker.com/products/docker-desktop/); local mode requires [Homebrew](https://brew.sh) and Node.js 22+.
 - Docker Engine
 - Docker Compose v2 (`docker compose`)
 
