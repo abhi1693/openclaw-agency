@@ -866,8 +866,14 @@ class AgentLifecycleService(OpenClawDBService):
 
     @classmethod
     def with_computed_status(cls, agent: Agent) -> Agent:
+        from datetime import timedelta
+
         now = utcnow()
-        if agent.status in {"deleting", "updating"}:
+        if agent.status == "deleting":
+            return agent
+        if agent.status == "updating":
+            if agent.updated_at and now - agent.updated_at > timedelta(minutes=2):
+                agent.status = "offline"
             return agent
         if agent.last_seen_at is None:
             agent.status = "provisioning"
@@ -1161,17 +1167,88 @@ class AgentLifecycleService(OpenClawDBService):
         auth_token: str,
         user: User | None,
         force_bootstrap: bool,
+        _retry_count: int = 0,
+        _max_retries: int = 3,
     ) -> None:
-        await self._apply_gateway_provisioning(
-            agent=agent,
-            target=AgentUpdateProvisionTarget(is_main_agent=False, board=board, gateway=gateway),
-            auth_token=auth_token,
-            user=user,
-            action="provision",
-            wakeup_verb="provisioned",
-            force_bootstrap=force_bootstrap,
-            raise_gateway_errors=True,
-        )
+        try:
+            await self._apply_gateway_provisioning(
+                agent=agent,
+                target=AgentUpdateProvisionTarget(is_main_agent=False, board=board, gateway=gateway),
+                auth_token=auth_token,
+                user=user,
+                action="provision",
+                wakeup_verb="provisioned",
+                force_bootstrap=force_bootstrap,
+                raise_gateway_errors=True,
+            )
+        except HTTPException as exc:
+            if exc.status_code == status.HTTP_502_BAD_GATEWAY and _retry_count < _max_retries:
+                self.logger.warning(
+                    "agent.provision.502_retry agent_id=%s attempt=%d/%d",
+                    agent.id,
+                    _retry_count + 1,
+                    _max_retries,
+                )
+                asyncio.get_running_loop().call_later(
+                    20,
+                    lambda: asyncio.ensure_future(
+                        self._deferred_provision_retry(
+                            agent_id=agent.id,
+                            board_id=board.id,
+                            gateway_id=gateway.id,
+                            auth_token=auth_token,
+                            user=user,
+                            force_bootstrap=force_bootstrap,
+                            retry_count=_retry_count + 1,
+                            max_retries=_max_retries,
+                        ),
+                    ),
+                )
+            else:
+                raise
+
+    async def _deferred_provision_retry(
+        self,
+        *,
+        agent_id: UUID,
+        board_id: UUID,
+        gateway_id: UUID,
+        auth_token: str,
+        user: User | None,
+        force_bootstrap: bool,
+        retry_count: int,
+        max_retries: int,
+    ) -> None:
+        """Background retry for provisioning after a 502 race condition."""
+        try:
+            async with async_session_maker() as session:
+                service = AgentLifecycleService(session)
+                agent = await Agent.objects.by_id(agent_id).first(session)
+                if agent is None:
+                    return
+                # Only retry if still stuck in provisioning
+                if agent.status not in {"provisioning", None} and agent.last_seen_at is not None:
+                    return
+                board = await Board.objects.by_id(board_id).first(session)
+                gateway = await Gateway.objects.by_id(gateway_id).first(session)
+                if board is None or gateway is None:
+                    return
+                await service.provision_new_agent(
+                    agent=agent,
+                    board=board,
+                    gateway=gateway,
+                    auth_token=auth_token,
+                    user=user,
+                    force_bootstrap=force_bootstrap,
+                    _retry_count=retry_count,
+                    _max_retries=max_retries,
+                )
+        except Exception:
+            self.logger.exception(
+                "agent.provision.deferred_retry_failed agent_id=%s attempt=%d",
+                agent_id,
+                retry_count,
+            )
 
     async def validate_agent_update_inputs(
         self,
@@ -1668,6 +1745,29 @@ class AgentLifecycleService(OpenClawDBService):
             ctx = await self.require_user_context(actor.user)
             OpenClawAuthorizationPolicy.require_org_admin(is_admin=is_org_admin(ctx.member))
             await self.require_agent_access(agent=agent, ctx=ctx, write=True)
+
+        # Bug 4: Don't accept heartbeat if agent was never properly provisioned
+        if agent.agent_token_hash is None or agent.last_provision_error:
+            self.logger.warning(
+                "agent.heartbeat.needs_provisioning agent_id=%s token_hash=%s provision_error=%s",
+                agent.id,
+                "missing" if agent.agent_token_hash is None else "present",
+                agent.last_provision_error,
+            )
+            if agent.board_id is not None:
+                board = await self.require_board(str(agent.board_id))
+                gateway, _config = await self.require_gateway(board)
+                raw_token = mint_agent_token(agent)
+                await self.add_commit_refresh(agent)
+                await self.provision_new_agent(
+                    agent=agent,
+                    board=board,
+                    gateway=gateway,
+                    auth_token=raw_token,
+                    user=actor.user if actor.actor_type == "user" else None,
+                    force_bootstrap=False,
+                )
+
         return await self.commit_heartbeat(
             agent=agent,
             status_value=payload.status,
