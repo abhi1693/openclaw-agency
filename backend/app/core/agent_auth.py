@@ -168,11 +168,12 @@ async def get_agent_auth_context_optional(
         return None
     agent = await _find_agent_for_token(session, resolved)
     if agent is None:
-        logger.warning(
-            "agent auth optional invalid token path=%s token_prefix=%s",
-            request.url.path,
-            resolved[:6],
-        )
-        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED)
+        if agent_token:
+            logger.warning(
+                "agent auth optional invalid token path=%s token_prefix=%s",
+                request.url.path,
+                resolved[:6],
+            )
+        return None
     await _touch_agent_presence(request, session, agent)
     return AgentAuthContext(actor_type="agent", agent=agent)
