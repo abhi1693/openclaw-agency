@@ -522,7 +522,10 @@ ensure_nodejs() {
   fi
 
   if [[ "$PLATFORM" == "darwin" ]]; then
-    brew install node
+    brew upgrade node@22 2>/dev/null || brew install node@22
+    if [[ -d "$(brew --prefix node@22 2>/dev/null)/bin" ]]; then
+      export PATH="$(brew --prefix node@22)/bin:$PATH"
+    fi
     if ! command_exists node || ! command_exists npm; then
       die 'Node.js/npm installation failed. Ensure Homebrew bin is in PATH (e.g. eval "$(brew shellenv)").'
     fi
@@ -531,7 +534,7 @@ ensure_nodejs() {
     node_major="${node_version#v}"
     node_major="${node_major%%.*}"
     if [[ ! "$node_major" =~ ^[0-9]+$ ]] || ((node_major < 22)); then
-      die "Detected Node.js $node_version. Node.js >= 22 is required. Install with: brew install node@22 and link or adjust PATH."
+      die "Detected Node.js $node_version. Node.js >= 22 is required. Install with: brew install node@22 and ensure $(brew --prefix node@22 2>/dev/null || echo '/opt/homebrew/opt/node@22')/bin is in PATH."
     fi
     return
   fi
