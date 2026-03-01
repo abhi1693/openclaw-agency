@@ -17,6 +17,7 @@ This document defines current support status for `./install.sh`.
 | openSUSE | `zypper` | **Scaffolded** | Detection + actionable commands present; auto-install path is TODO. |
 | Arch Linux | `pacman` | **Scaffolded** | Detection + actionable commands present; auto-install path is TODO. |
 | Other Linux distros | unknown | **Unsupported** | Installer exits with package-manager guidance requirement. |
+| macOS (Darwin) | Homebrew | **Stable** | Docker mode requires Docker Desktop. Local mode uses Homebrew for curl, git, make, openssl, Node.js. |
 
 ## Guard rails
 
