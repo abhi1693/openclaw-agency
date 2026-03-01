@@ -521,15 +521,25 @@ const statusOptions = [
 
 const EMOJI_GLYPHS: Record<string, string> = {
   ":gear:": "⚙️",
-  ":sparkles:": "✨",
-  ":rocket:": "🚀",
-  ":megaphone:": "📣",
+  ":alarm_clock:": "⏰",
+  ":art:": "🎨",
+  ":brain:": "🧠",
+  ":wrench:": "🔧",
+  ":dart:": "🎯",
+  ":computer:": "💻",
   ":chart_with_upwards_trend:": "📈",
   ":bulb:": "💡",
-  ":wrench:": "🔧",
-  ":shield:": "🛡️",
+  ":zap:": "⚡",
+  ":lock:": "🔒",
+  ":mailbox:": "📬",
+  ":megaphone:": "📣",
   ":memo:": "📝",
-  ":brain:": "🧠",
+  ":owl:": "🦉",
+  ":robot:": "🤖",
+  ":rocket:": "🚀",
+  ":mag:": "🔍",
+  ":shield:": "🛡️",
+  ":sparkles:": "✨",
 };
 
 const SSE_RECONNECT_BACKOFF = {
