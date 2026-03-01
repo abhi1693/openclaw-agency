@@ -7,6 +7,7 @@ DB-backed workflows (template sync, lead-agent record creation) live in
 
 from __future__ import annotations
 
+import asyncio
 import json
 import re
 from abc import ABC, abstractmethod
@@ -17,6 +18,7 @@ from typing import TYPE_CHECKING, Any
 from jinja2 import Environment, FileSystemLoader, StrictUndefined, select_autoescape
 
 from app.core.config import settings
+from app.core.logging import get_logger
 from app.models.agents import Agent
 from app.models.boards import Board
 from app.models.gateways import Gateway
@@ -53,6 +55,8 @@ from app.services.openclaw.shared import GatewayAgentIdentity
 
 if TYPE_CHECKING:
     from app.models.users import User
+
+logger = get_logger(__name__)
 
 
 @dataclass(frozen=True, slots=True)
@@ -107,6 +111,25 @@ def _heartbeat_config(agent: Agent) -> dict[str, Any]:
     if isinstance(agent.heartbeat_config, dict):
         merged.update(agent.heartbeat_config)
     return merged
+
+
+def _tools_exec_host_patch(config_data: dict[str, Any]) -> dict[str, Any] | None:
+    """Ensure ``tools.exec.host`` is set to ``"gateway"`` so agents can run commands.
+
+    Without this, heartbeat-driven agents cannot execute ``curl``, ``bash``, or
+    any other shell command — making HEARTBEAT.md instructions unexecutable.
+    Returns a partial ``tools`` dict to merge into ``config.patch``, or ``None``
+    if the setting is already present.
+    """
+    tools = config_data.get("tools")
+    if not isinstance(tools, dict):
+        return {"exec": {"host": "gateway"}}
+    exec_cfg = tools.get("exec")
+    if not isinstance(exec_cfg, dict):
+        return {"exec": {"host": "gateway"}}
+    if exec_cfg.get("host"):
+        return None  # Already configured — don't override user choice.
+    return {"exec": {"host": "gateway"}}
 
 
 def _channel_heartbeat_visibility_patch(config_data: dict[str, Any]) -> dict[str, Any] | None:
@@ -554,6 +577,7 @@ class OpenClawGatewayControlPlane(GatewayControlPlane):
         # Prefer an idempotent "create then update" flow.
         # - Avoids enumerating gateway agents for existence checks.
         # - Ensures we always hit the "create" RPC first, per lifecycle expectations.
+        agent_just_created = False
         try:
             await openclaw_call(
                 "agents.create",
@@ -563,21 +587,41 @@ class OpenClawGatewayControlPlane(GatewayControlPlane):
                 },
                 config=self._config,
             )
+            agent_just_created = True
         except OpenClawGatewayError as exc:
             message = str(exc).lower()
             if not any(
                 marker in message for marker in ("already", "exist", "duplicate", "conflict")
             ):
                 raise
-        await openclaw_call(
-            "agents.update",
-            {
-                "agentId": registration.agent_id,
-                "name": registration.name,
-                "workspace": registration.workspace_path,
-            },
-            config=self._config,
-        )
+
+        # Gateway hot-reload has a ~500ms debounce after agents.create writes to disk.
+        # agents.update arriving before the reload completes returns "agent not found".
+        # Wait for the reload window before attempting the update.
+        if agent_just_created:
+            await asyncio.sleep(0.75)
+
+        # Retry agents.update a few times to handle gateway hot-reload race.
+        _update_retries = 5
+        _update_delay = 0.5
+        for _attempt in range(_update_retries):
+            try:
+                await openclaw_call(
+                    "agents.update",
+                    {
+                        "agentId": registration.agent_id,
+                        "name": registration.name,
+                        "workspace": registration.workspace_path,
+                    },
+                    config=self._config,
+                )
+                break
+            except OpenClawGatewayError as exc:
+                if _is_missing_agent_error(exc) and _attempt < _update_retries - 1:
+                    await asyncio.sleep(_update_delay)
+                    _update_delay = min(_update_delay * 2, 4.0)
+                    continue
+                raise
         await self.patch_agent_heartbeats(
             [(registration.agent_id, registration.workspace_path, registration.heartbeat)],
         )
@@ -640,10 +684,20 @@ class OpenClawGatewayControlPlane(GatewayControlPlane):
         entry_by_id = _heartbeat_entry_map(entries)
         new_list = _updated_agent_list(raw_list, entry_by_id)
 
-        patch: dict[str, Any] = {"agents": {"list": new_list}}
         channels_patch = _channel_heartbeat_visibility_patch(config_data)
+        tools_patch = _tools_exec_host_patch(config_data)
+
+        # Skip config.patch entirely when nothing changed — avoids an unnecessary
+        # gateway SIGUSR1 restart that rotates agent tokens and breaks active sessions.
+        if new_list == raw_list and channels_patch is None and tools_patch is None:
+            logger.debug("patch_agent_heartbeats: no changes detected, skipping config.patch")
+            return
+
+        patch: dict[str, Any] = {"agents": {"list": new_list}}
         if channels_patch is not None:
             patch["channels"] = channels_patch
+        if tools_patch is not None:
+            patch["tools"] = tools_patch
         params = {"raw": json.dumps(patch)}
         if base_hash:
             params["baseHash"] = base_hash
