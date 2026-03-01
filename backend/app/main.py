@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import asyncio
 from contextlib import asynccontextmanager
 from typing import TYPE_CHECKING, Any
 
@@ -437,10 +438,23 @@ async def lifespan(_: FastAPI) -> AsyncIterator[None]:
         settings.db_auto_migrate,
     )
     await init_db()
+
+    governor_task = None
+    if settings.auto_heartbeat_governor_enabled:
+        from app.services.auto_heartbeat_governor import governor_loop
+
+        governor_task = asyncio.create_task(governor_loop())
+        logger.info(
+            "app.auto_heartbeat.enabled",
+            extra={"interval_seconds": settings.auto_heartbeat_governor_interval_seconds},
+        )
+
     logger.info("app.lifecycle.started")
     try:
         yield
     finally:
+        if governor_task is not None:
+            governor_task.cancel()
         logger.info("app.lifecycle.stopped")
 
 
