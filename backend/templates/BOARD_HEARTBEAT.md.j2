@@ -31,7 +31,7 @@ jq -r '
 
 ## Mission Control Response Protocol
 - All outputs must be sent to Mission Control via HTTP.
-- Always include: `X-Agent-Token: {{ auth_token }}`
+- Always include: `X-Agent-Token: $(bash get_token.sh)` — never hardcode the token value.
 
 ## Schedule
 - If a heartbeat schedule is configured, send a lightweight check-in only.
@@ -80,10 +80,15 @@ Do real work with low noise while sharing useful knowledge across the board.
 
 ## Required Inputs
 - `BASE_URL`: `{{ base_url }}`
-- `AUTH_TOKEN`: `{{ auth_token }}`
+- `AUTH_TOKEN`: **always read fresh** — run `bash get_token.sh` before every API call. Never use the value written in this file; it becomes stale after gateway restarts.
 - `AGENT_NAME`
 - `AGENT_ID`
 - `BOARD_ID`
+
+```bash
+# Use this pattern for every curl call — never hardcode the token
+curl -H "X-Agent-Token: $(bash get_token.sh)" "{{ base_url }}/..."
+```
 
 If any required input is missing, stop and request a provisioning update.
 
@@ -136,18 +141,30 @@ jq -r '
 - If pre-flight fails due to 5xx/network, do not write memory or task updates.
 
 ## Pre-Flight Checks (Every Heartbeat)
-1) Confirm `BASE_URL`, `AUTH_TOKEN`, and `BOARD_ID` from `TOOLS.md` match this workspace.
-2) Verify API access:
-- `GET {{ base_url }}/healthz`
-- `GET {{ base_url }}/api/v1/agent/boards`
-- `GET {{ base_url }}/api/v1/agent/boards/{{ board_id }}/tasks`
+1) Run `bash get_token.sh` to get the current token — confirm it returns a non-empty value.
+2) Verify API access using the fresh token:
+   - `GET {{ base_url }}/healthz`
+   - `GET {{ base_url }}/api/v1/agent/boards`
+   - `GET {{ base_url }}/api/v1/agent/boards/{{ board_id }}/tasks`
 3) If any check fails, stop and retry next heartbeat.
 
 ## Shared Context Pull
-Before execution:
-- Pull current task set (`inbox`, `in_progress`, `review` as relevant).
-- Pull non-chat board memory.
-- Pull group memory if board is grouped.
+Before execution, pull ALL of the following:
+
+1. **Task list** — `GET {{ base_url }}/api/v1/agent/boards/{{ board_id }}/tasks`
+2. **Board memory** (includes board chat, mentions, and handoffs)
+   `GET {{ base_url }}/api/v1/agent/boards/{{ board_id }}/memory`
+3. **Task comments for every `in_progress` and `review` task** — operators post instructions and feedback here.
+   `GET {{ base_url }}/api/v1/agent/boards/{{ board_id }}/tasks/{task_id}/comments`
+   Fetch comments for each active task individually. Do not skip this step.
+4. **Group memory** if board is grouped.
+
+### Responding to task comment mentions
+When you find a mention (`@lead`, `@{{ agent_name }}`, or your name) inside a task comment thread:
+1. **Reply in that task's comment thread first** — `POST {{ base_url }}/api/v1/agent/boards/{{ board_id }}/tasks/{task_id}/comments` with your response.
+2. **Then post a short summary in board chat** — so the operator sees it without opening the task. Keep it brief: task name, what you answered, and a link or task ID.
+
+Never reply only in board chat. The task comment thread is the source of truth for task context.
 
 ## Role-Specific Loop
 {% if is_lead %}
@@ -166,6 +183,25 @@ Before execution:
 - `block_status_changes_with_pending_approval`: `{{ board_rule_block_status_changes_with_pending_approval }}`
 - `only_lead_can_change_status`: `{{ board_rule_only_lead_can_change_status }}`
 - `max_agents`: `{{ board_rule_max_agents }}`
+
+### Agent Assignment — Always Use UUIDs
+Never use an agent name string in `assigned_agent_id`. The API requires a UUID.
+
+Before assigning any task, fetch the board agent list to get current UUIDs:
+
+```bash
+curl -fsS -H "X-Agent-Token: $(bash get_token.sh)" \
+  "{{ base_url }}/api/v1/agent/boards/{{ board_id }}/agents" \
+  | jq -r '.items[] | "\(.id)\t\(.name)"'
+```
+
+Use the UUID from that output in your PATCH payload:
+
+```json
+{ "assigned_agent_id": "<uuid-from-above>" }
+```
+
+Never pass `assigned_agent_id` and `status` in the same PATCH — assign first, then change status in a separate call.
 {% else %}
 ### Board Worker Loop
 1) Check in via heartbeat endpoint.
