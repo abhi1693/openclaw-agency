@@ -7,7 +7,7 @@
 - `backend/templates/`: backend-shipped templates used by gateway flows.
 - `frontend/`: Next.js app. Routes under `frontend/src/app/`, shared components under `frontend/src/components/`, utilities under `frontend/src/lib/`.
 - `frontend/src/api/generated/`: generated API client; regenerate instead of editing by hand.
-- `docs/`: contributor and operations docs (start at `docs/README.md`).
+- `docs/`: contributor and operations docs, organized by language — `docs/en/` (English) and `docs/zh/` (Chinese). Start at `docs/en/README.md`.
 
 ## Build, Test, and Development Commands
 - `make setup`: install/sync backend and frontend dependencies.

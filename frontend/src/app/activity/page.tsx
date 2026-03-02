@@ -1,5 +1,9 @@
 "use client";
 
+// Force dynamic rendering on every request: this page opens multiple SSE
+// streams (tasks, agents, approvals, board memory) and must not be statically
+// pre-rendered or served from a stale cache. Removing this directive will break
+// the live feed because Next.js would cache a build-time snapshot instead.
 export const dynamic = "force-dynamic";
 
 import { memo, useCallback, useEffect, useMemo, useRef, useState } from "react";

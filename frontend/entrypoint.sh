@@ -3,8 +3,18 @@
 
 set -e
 
-# 这里我将占位符真正扩充到了 64 个字符长度！
+# The placeholder must be exactly 64 characters and must match the string baked
+# into the Next.js build by frontend/Dockerfile. If they diverge, the sed
+# replacement below will silently fail and the API URL will not be injected.
+EXPECTED_PLACEHOLDER_LEN=64
 PLACEHOLDER="__NEXT_PUBLIC_API_URL_PLACEHOLDER_XXXXXXXXXXXXXXXXXXXXXXXXXXXXXX"
+
+if [ "${#PLACEHOLDER}" -ne "$EXPECTED_PLACEHOLDER_LEN" ]; then
+  echo "[entrypoint] ERROR: Placeholder length (${#PLACEHOLDER}) does not match expected length ($EXPECTED_PLACEHOLDER_LEN)."
+  echo "[entrypoint] Ensure frontend/entrypoint.sh and frontend/Dockerfile use the same 64-character placeholder string."
+  exit 1
+fi
+
 PLACEHOLDER_LEN=${#PLACEHOLDER}
 
 ACTUAL_URL="${NEXT_PUBLIC_API_URL:-}"

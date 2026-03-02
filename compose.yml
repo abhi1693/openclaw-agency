@@ -1,19 +1,62 @@
 # ============================================================
 # Local development compose — NOT used for Railway deployment.
-# Railway deployment: see docs/railway-deployment.md
+# Railway deployment: see docs/en/railway-deployment.md
+#
+# This file starts Postgres and Redis as local containers for
+# convenience. If you prefer to supply external instances,
+# override DATABASE_URL and REDIS_URL in your .env and remove
+# (or comment out) the db and redis services below.
 # ============================================================
+name: openclaw-mission-control
 services:
+  db:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB:-mission_control}
+      POSTGRES_USER: ${POSTGRES_USER:-postgres}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-postgres}
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    ports:
+      - "${POSTGRES_PORT:-5432}:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U $$POSTGRES_USER -d $$POSTGRES_DB"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+
+  redis:
+    image: redis:7-alpine
+    ports:
+      - "${REDIS_PORT:-6379}:6379"
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 5
+
   backend:
     build:
-      context: ./backend
-      dockerfile: Dockerfile
+      # Build from repo root so the backend image can include repo-level assets
+      # like backend/templates/.
+      context: .
+      dockerfile: backend/Dockerfile
+    env_file:
+      - ./backend/.env
     environment:
-      DATABASE_URL: ${DATABASE_URL}
-      CORS_ORIGINS: ${FRONTEND_URL}
+      DATABASE_URL: ${DATABASE_URL:-postgresql://postgres:postgres@db:5432/mission_control}
+      CORS_ORIGINS: ${FRONTEND_URL:-http://localhost:3000}
       DB_AUTO_MIGRATE: "true"
       AUTH_MODE: ${AUTH_MODE:-local}
       LOCAL_AUTH_TOKEN: ${LOCAL_AUTH_TOKEN}
-      RQ_REDIS_URL: ${REDIS_URL}
+      RQ_REDIS_URL: ${REDIS_URL:-redis://redis:6379/0}
+    depends_on:
+      db:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    ports:
+      - "${BACKEND_PORT:-8000}:8000"
 
   frontend:
     build:
@@ -29,14 +72,26 @@ services:
 
   webhook-worker:
     build:
-      context: ./backend
-      # Dedicated Dockerfile for the RQ worker (same deps, different CMD).
-      # Railway uses this same Dockerfile.worker in its webhook-worker Service.
-      dockerfile: Dockerfile.worker
+      # Build from repo root — same reason as backend (templates access).
+      # Railway uses backend/Dockerfile with a command override in its
+      # webhook-worker Service settings.
+      context: .
+      dockerfile: backend/Dockerfile
+    command: ["rq", "worker", "-u", "${REDIS_URL:-redis://redis:6379/0}"]
+    env_file:
+      - ./backend/.env
     environment:
-      DATABASE_URL: ${DATABASE_URL}
+      DATABASE_URL: ${DATABASE_URL:-postgresql://postgres:postgres@db:5432/mission_control}
       AUTH_MODE: ${AUTH_MODE:-local}
       LOCAL_AUTH_TOKEN: ${LOCAL_AUTH_TOKEN}
-      REDIS_URL: ${REDIS_URL}
-      RQ_REDIS_URL: ${REDIS_URL}
+      REDIS_URL: ${REDIS_URL:-redis://redis:6379/0}
+      RQ_REDIS_URL: ${REDIS_URL:-redis://redis:6379/0}
       RQ_QUEUE_NAME: default
+    depends_on:
+      redis:
+        condition: service_healthy
+      db:
+        condition: service_healthy
+
+volumes:
+  postgres_data:

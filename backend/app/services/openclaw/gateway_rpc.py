@@ -8,8 +8,10 @@ operate within a single scope (no `app.integrations.*` plumbing).
 from __future__ import annotations
 
 import asyncio
+import ipaddress
 import json
 import ssl
+import traceback
 from dataclasses import dataclass
 from time import perf_counter, time
 from typing import Any, Literal
@@ -197,10 +199,18 @@ def _normalize_gateway_url(url: str) -> str:
 
     if port is not None and port != _WS_DEFAULT_PORTS.get(scheme):
         # Non-default port — preserve it.
-        netloc = f"[{hostname}]:{port}" if ":" in hostname else f"{hostname}:{port}"
+        try:
+            ipaddress.IPv6Address(hostname)
+            netloc = f"[{hostname}]:{port}"
+        except ValueError:
+            netloc = f"{hostname}:{port}"
     else:
         # Default (or absent) port — omit it; wrap IPv6 literals in brackets.
-        netloc = f"[{hostname}]" if ":" in hostname else hostname
+        try:
+            ipaddress.IPv6Address(hostname)
+            netloc = f"[{hostname}]"
+        except ValueError:
+            netloc = hostname
 
     return str(urlunparse(parsed._replace(scheme=scheme, netloc=netloc)))
 
@@ -365,7 +375,9 @@ def _build_connect_params(
             "id": CONTROL_UI_CLIENT_ID if use_control_ui else DEFAULT_GATEWAY_CLIENT_ID,
             "version": "1.0.0",
             "platform": "python",
-            "mode": CONTROL_UI_CLIENT_MODE if use_control_ui else DEFAULT_GATEWAY_CLIENT_MODE,
+            "mode": CONTROL_UI_CLIENT_MODE
+            if use_control_ui
+            else DEFAULT_GATEWAY_CLIENT_MODE,
         },
     }
     if not use_control_ui:
@@ -431,7 +443,9 @@ async def _openclaw_call_once(
     config: GatewayConfig,
     gateway_url: str,
 ) -> object:
-    origin = _build_control_ui_origin(gateway_url) if config.disable_device_pairing else None
+    origin = (
+        _build_control_ui_origin(gateway_url) if config.disable_device_pairing else None
+    )
     ssl_context = _create_ssl_context(config)
     connect_kwargs: dict[str, Any] = {"ping_interval": None}
     if origin is not None:
@@ -452,7 +466,9 @@ async def _openclaw_connect_metadata_once(
     config: GatewayConfig,
     gateway_url: str,
 ) -> object:
-    origin = _build_control_ui_origin(gateway_url) if config.disable_device_pairing else None
+    origin = (
+        _build_control_ui_origin(gateway_url) if config.disable_device_pairing else None
+    )
     ssl_context = _create_ssl_context(config)
     connect_kwargs: dict[str, Any] = {"ping_interval": None}
     if origin is not None:
@@ -513,7 +529,6 @@ async def openclaw_call(
         ValueError,
         WebSocketException,
     ) as exc:  # pragma: no cover - network/protocol errors
-        import traceback
         logger.error(
             "gateway.rpc.call.transport_error method=%s duration_ms=%s error_type=%s exception=%s\n%s",
             method,
@@ -556,7 +571,6 @@ async def openclaw_connect_metadata(*, config: GatewayConfig) -> object:
         ValueError,
         WebSocketException,
     ) as exc:  # pragma: no cover - network/protocol errors
-        import traceback
         logger.error(
             "gateway.rpc.connect_metadata.transport_error duration_ms=%s error_type=%s exception=%s\n%s",
             int((perf_counter() - started_at) * 1000),

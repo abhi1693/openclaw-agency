@@ -10,9 +10,9 @@ This repo welcomes contributions in three broad categories:
 
 ## Where to start
 
-- Docs landing page: [Docs landing](./docs/README.md)
-- Development workflow: [Development workflow](./docs/03-development.md)
-- Testing guide: [Testing guide](./docs/testing/README.md)
+- Docs landing page: [Docs landing](./docs/en/README.md)
+- Development workflow: [Development workflow](./docs/en/03-development.md)
+- Testing guide: [Testing guide](./docs/en/testing/README.md)
 
 ## Filing issues
 
@@ -57,7 +57,7 @@ If you’re iterating on a specific area, the Makefile also provides targeted co
 
 ## Docs contribution guidelines
 
-- The numbered pages under `docs/` are **entrypoints**. Prefer linking to deeper pages instead of duplicating large blocks of content.
+- Docs are organized by language under `docs/en/` (English) and `docs/zh/` (Chinese). Prefer linking to deeper pages instead of duplicating large blocks of content.
 - Use concise language and concrete examples.
 - When documenting operational behavior, call out risk areas (secrets, data loss, migrations).
 

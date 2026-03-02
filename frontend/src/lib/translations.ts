@@ -626,5 +626,5 @@ export const translations = {
 } satisfies Record<Language, Record<string, string>>;
 
 export function t(lang: Language, key: TranslationKey): string {
-    return translations[lang][key];
+    return translations[lang][key] ?? translations["en"][key] ?? `[Missing: ${key}]`;
 }
