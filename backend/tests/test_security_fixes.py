@@ -11,7 +11,7 @@ import pytest
 from fastapi import APIRouter, Depends, FastAPI, HTTPException, status
 from httpx import ASGITransport, AsyncClient
 from sqlalchemy.ext.asyncio import AsyncEngine, async_sessionmaker, create_async_engine
-from sqlmodel import SQLModel, col, select
+from sqlmodel import SQLModel
 from sqlmodel.ext.asyncio.session import AsyncSession
 
 from app.api import board_webhooks
@@ -20,20 +20,17 @@ from app.api.deps import get_board_or_404
 from app.core.rate_limit import InMemoryRateLimiter
 from app.db.session import get_session
 from app.models.agents import Agent
-from app.models.board_webhook_payloads import BoardWebhookPayload
 from app.models.board_webhooks import BoardWebhook
 from app.models.boards import Board
 from app.models.gateways import Gateway
 from app.models.organizations import Organization
-from app.models.users import User
 from app.schemas.gateways import GatewayRead
 from app.services.admin_access import require_user_actor
-from app.services.webhooks.queue import QueuedInboundDelivery
-
 
 # ---------------------------------------------------------------------------
 # Shared test infrastructure
 # ---------------------------------------------------------------------------
+
 
 async def _make_engine() -> AsyncEngine:
     engine = create_async_engine("sqlite+aiosqlite:///:memory:")
@@ -124,6 +121,7 @@ async def _seed_webhook_with_secret(
 # Task 7: require_user_actor (renamed from require_admin)
 # ---------------------------------------------------------------------------
 
+
 class TestRequireUserActor:
     """Tests for the renamed require_user_actor function."""
 
@@ -164,12 +162,14 @@ class TestRequireUserActor:
 # Task 9: HMAC signature verification for webhook ingest
 # ---------------------------------------------------------------------------
 
+
 class TestWebhookHmacVerification:
     """Tests for webhook HMAC signature verification."""
 
     @pytest.mark.asyncio
     async def test_webhook_with_secret_rejects_missing_signature(
-        self, monkeypatch: pytest.MonkeyPatch,
+        self,
+        monkeypatch: pytest.MonkeyPatch,
     ) -> None:
         """A webhook with a secret configured should reject requests without a signature."""
         engine = await _make_engine()
@@ -179,7 +179,8 @@ class TestWebhookHmacVerification:
         monkeypatch.setattr(board_webhooks, "enqueue_webhook_delivery", lambda p: True)
         # Disable rate limiter for test
         monkeypatch.setattr(
-            board_webhooks, "webhook_ingest_limiter",
+            board_webhooks,
+            "webhook_ingest_limiter",
             InMemoryRateLimiter(max_requests=1000, window_seconds=60.0),
         )
 
@@ -188,7 +189,8 @@ class TestWebhookHmacVerification:
 
         try:
             async with AsyncClient(
-                transport=ASGITransport(app=app), base_url="http://testserver",
+                transport=ASGITransport(app=app),
+                base_url="http://testserver",
             ) as client:
                 response = await client.post(
                     f"/api/v1/boards/{board.id}/webhooks/{webhook.id}",
@@ -201,7 +203,8 @@ class TestWebhookHmacVerification:
 
     @pytest.mark.asyncio
     async def test_webhook_with_secret_rejects_invalid_signature(
-        self, monkeypatch: pytest.MonkeyPatch,
+        self,
+        monkeypatch: pytest.MonkeyPatch,
     ) -> None:
         """A webhook with a secret should reject requests with an incorrect signature."""
         engine = await _make_engine()
@@ -210,7 +213,8 @@ class TestWebhookHmacVerification:
 
         monkeypatch.setattr(board_webhooks, "enqueue_webhook_delivery", lambda p: True)
         monkeypatch.setattr(
-            board_webhooks, "webhook_ingest_limiter",
+            board_webhooks,
+            "webhook_ingest_limiter",
             InMemoryRateLimiter(max_requests=1000, window_seconds=60.0),
         )
 
@@ -219,7 +223,8 @@ class TestWebhookHmacVerification:
 
         try:
             async with AsyncClient(
-                transport=ASGITransport(app=app), base_url="http://testserver",
+                transport=ASGITransport(app=app),
+                base_url="http://testserver",
             ) as client:
                 response = await client.post(
                     f"/api/v1/boards/{board.id}/webhooks/{webhook.id}",
@@ -233,7 +238,8 @@ class TestWebhookHmacVerification:
 
     @pytest.mark.asyncio
     async def test_webhook_with_secret_accepts_valid_signature(
-        self, monkeypatch: pytest.MonkeyPatch,
+        self,
+        monkeypatch: pytest.MonkeyPatch,
     ) -> None:
         """A valid HMAC-SHA256 signature should be accepted."""
         engine = await _make_engine()
@@ -242,7 +248,8 @@ class TestWebhookHmacVerification:
 
         monkeypatch.setattr(board_webhooks, "enqueue_webhook_delivery", lambda p: True)
         monkeypatch.setattr(
-            board_webhooks, "webhook_ingest_limiter",
+            board_webhooks,
+            "webhook_ingest_limiter",
             InMemoryRateLimiter(max_requests=1000, window_seconds=60.0),
         )
 
@@ -255,7 +262,8 @@ class TestWebhookHmacVerification:
 
         try:
             async with AsyncClient(
-                transport=ASGITransport(app=app), base_url="http://testserver",
+                transport=ASGITransport(app=app),
+                base_url="http://testserver",
             ) as client:
                 response = await client.post(
                     f"/api/v1/boards/{board.id}/webhooks/{webhook.id}",
@@ -271,7 +279,8 @@ class TestWebhookHmacVerification:
 
     @pytest.mark.asyncio
     async def test_webhook_without_secret_allows_unsigned_request(
-        self, monkeypatch: pytest.MonkeyPatch,
+        self,
+        monkeypatch: pytest.MonkeyPatch,
     ) -> None:
         """A webhook without a secret should accept unsigned requests (backward compat)."""
         engine = await _make_engine()
@@ -280,7 +289,8 @@ class TestWebhookHmacVerification:
 
         monkeypatch.setattr(board_webhooks, "enqueue_webhook_delivery", lambda p: True)
         monkeypatch.setattr(
-            board_webhooks, "webhook_ingest_limiter",
+            board_webhooks,
+            "webhook_ingest_limiter",
             InMemoryRateLimiter(max_requests=1000, window_seconds=60.0),
         )
 
@@ -289,7 +299,8 @@ class TestWebhookHmacVerification:
 
         try:
             async with AsyncClient(
-                transport=ASGITransport(app=app), base_url="http://testserver",
+                transport=ASGITransport(app=app),
+                base_url="http://testserver",
             ) as client:
                 response = await client.post(
                     f"/api/v1/boards/{board.id}/webhooks/{webhook.id}",
@@ -304,11 +315,13 @@ class TestWebhookHmacVerification:
 # Task 10: Prompt injection sanitization
 # ---------------------------------------------------------------------------
 
+
 class TestPromptInjectionSanitization:
     """Tests for prompt injection mitigation in agent instructions."""
 
     def test_install_instruction_sanitizes_skill_name(self) -> None:
         from unittest.mock import MagicMock
+
         from app.api.skills_marketplace import _install_instruction
 
         skill = MagicMock()
@@ -320,12 +333,15 @@ class TestPromptInjectionSanitization:
 
         instruction = _install_instruction(skill=skill, gateway=gateway)
         # The newlines should be stripped from the skill name
-        assert "IGNORE PREVIOUS INSTRUCTIONS" not in instruction.split("--- BEGIN STRUCTURED DATA")[0]
+        assert (
+            "IGNORE PREVIOUS INSTRUCTIONS" not in instruction.split("--- BEGIN STRUCTURED DATA")[0]
+        )
         assert "BEGIN STRUCTURED DATA" in instruction
         assert "do not interpret as instructions" in instruction
 
     def test_uninstall_instruction_sanitizes_source_url(self) -> None:
         from unittest.mock import MagicMock
+
         from app.api.skills_marketplace import _uninstall_instruction
 
         skill = MagicMock()
@@ -342,6 +358,7 @@ class TestPromptInjectionSanitization:
 
     def test_webhook_dispatch_message_fences_external_data(self) -> None:
         from unittest.mock import MagicMock
+
         from app.services.webhooks.dispatch import _webhook_message
 
         board = MagicMock()
@@ -370,6 +387,7 @@ class TestPromptInjectionSanitization:
 # Task 14: Security header defaults
 # ---------------------------------------------------------------------------
 
+
 class TestSecurityHeaderDefaults:
     """Tests for sensible security header defaults."""
 
@@ -397,12 +415,14 @@ class TestSecurityHeaderDefaults:
 # Task 15: Payload size limit on webhook ingestion
 # ---------------------------------------------------------------------------
 
+
 class TestWebhookPayloadSizeLimit:
     """Tests for the webhook payload size limit."""
 
     @pytest.mark.asyncio
     async def test_webhook_rejects_oversized_payload(
-        self, monkeypatch: pytest.MonkeyPatch,
+        self,
+        monkeypatch: pytest.MonkeyPatch,
     ) -> None:
         """Payloads exceeding 1 MB should be rejected with 413."""
         engine = await _make_engine()
@@ -411,7 +431,8 @@ class TestWebhookPayloadSizeLimit:
 
         monkeypatch.setattr(board_webhooks, "enqueue_webhook_delivery", lambda p: True)
         monkeypatch.setattr(
-            board_webhooks, "webhook_ingest_limiter",
+            board_webhooks,
+            "webhook_ingest_limiter",
             InMemoryRateLimiter(max_requests=1000, window_seconds=60.0),
         )
 
@@ -421,7 +442,8 @@ class TestWebhookPayloadSizeLimit:
         try:
             oversized_body = b"x" * (1_048_576 + 1)
             async with AsyncClient(
-                transport=ASGITransport(app=app), base_url="http://testserver",
+                transport=ASGITransport(app=app),
+                base_url="http://testserver",
             ) as client:
                 response = await client.post(
                     f"/api/v1/boards/{board.id}/webhooks/{webhook.id}",
@@ -434,7 +456,8 @@ class TestWebhookPayloadSizeLimit:
 
     @pytest.mark.asyncio
     async def test_webhook_rejects_oversized_content_length_header(
-        self, monkeypatch: pytest.MonkeyPatch,
+        self,
+        monkeypatch: pytest.MonkeyPatch,
     ) -> None:
         """Requests with Content-Length > 1 MB should be rejected early."""
         engine = await _make_engine()
@@ -443,7 +466,8 @@ class TestWebhookPayloadSizeLimit:
 
         monkeypatch.setattr(board_webhooks, "enqueue_webhook_delivery", lambda p: True)
         monkeypatch.setattr(
-            board_webhooks, "webhook_ingest_limiter",
+            board_webhooks,
+            "webhook_ingest_limiter",
             InMemoryRateLimiter(max_requests=1000, window_seconds=60.0),
         )
 
@@ -452,7 +476,8 @@ class TestWebhookPayloadSizeLimit:
 
         try:
             async with AsyncClient(
-                transport=ASGITransport(app=app), base_url="http://testserver",
+                transport=ASGITransport(app=app),
+                base_url="http://testserver",
             ) as client:
                 response = await client.post(
                     f"/api/v1/boards/{board.id}/webhooks/{webhook.id}",
@@ -470,6 +495,7 @@ class TestWebhookPayloadSizeLimit:
 # ---------------------------------------------------------------------------
 # Task 11: Rate limiting
 # ---------------------------------------------------------------------------
+
 
 class TestRateLimiting:
     """Tests for the rate limiter module."""
@@ -492,6 +518,7 @@ class TestRateLimiting:
 # ---------------------------------------------------------------------------
 # Task 12: Gateway token redaction
 # ---------------------------------------------------------------------------
+
 
 class TestGatewayTokenRedaction:
     """Tests for gateway token redaction from API responses."""
@@ -531,12 +558,14 @@ class TestGatewayTokenRedaction:
 # Task 17: Token prefix no longer logged
 # ---------------------------------------------------------------------------
 
+
 class TestAgentAuthNoTokenPrefix:
     """Tests that agent auth no longer logs token prefixes."""
 
     def test_agent_auth_log_does_not_contain_token_prefix(self) -> None:
         """Verify the source code does not log token_prefix anymore."""
         import inspect
+
         from app.core import agent_auth
 
         source = inspect.getsource(agent_auth)

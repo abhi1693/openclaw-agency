@@ -50,6 +50,7 @@ def _to_gateway_read(gateway: Gateway) -> GatewayRead:
         updated_at=gateway.updated_at,
     )
 
+
 router = APIRouter(prefix="/gateways", tags=["gateways"])
 SESSION_DEP = Depends(get_session)
 AUTH_DEP = Depends(get_auth_context)

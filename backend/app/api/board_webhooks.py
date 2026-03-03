@@ -13,8 +13,8 @@ from sqlmodel import col, select
 
 from app.api.deps import get_board_for_user_read, get_board_for_user_write, get_board_or_404
 from app.core.config import settings
-from app.core.rate_limit import webhook_ingest_limiter
 from app.core.logging import get_logger
+from app.core.rate_limit import webhook_ingest_limiter
 from app.core.time import utcnow
 from app.db import crud
 from app.db.pagination import paginate
@@ -178,9 +178,8 @@ def _verify_webhook_signature(
     """
     if not webhook.secret:
         return
-    sig_header = (
-        request.headers.get("x-hub-signature-256")
-        or request.headers.get("x-webhook-signature")
+    sig_header = request.headers.get("x-hub-signature-256") or request.headers.get(
+        "x-webhook-signature"
     )
     if not sig_header:
         raise HTTPException(

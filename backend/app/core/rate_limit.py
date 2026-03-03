@@ -28,8 +28,7 @@ class InMemoryRateLimiter:
     def _sweep_expired(self, cutoff: float) -> None:
         """Remove keys whose timestamps have all expired."""
         expired_keys = [
-            k for k, ts_deque in self._buckets.items()
-            if not ts_deque or ts_deque[-1] <= cutoff
+            k for k, ts_deque in self._buckets.items() if not ts_deque or ts_deque[-1] <= cutoff
         ]
         for k in expired_keys:
             del self._buckets[k]
