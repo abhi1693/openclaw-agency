@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import hashlib
+import hmac
 import json
 from typing import TYPE_CHECKING
 from uuid import UUID
@@ -67,6 +69,7 @@ def _to_webhook_read(webhook: BoardWebhook) -> BoardWebhookRead:
         agent_id=webhook.agent_id,
         description=webhook.description,
         enabled=webhook.enabled,
+        has_secret=webhook.secret is not None,
         endpoint_path=endpoint_path,
         endpoint_url=_webhook_endpoint_url(endpoint_path),
         created_at=webhook.created_at,
@@ -158,6 +161,43 @@ def _decode_payload(
         if isinstance(parsed, (dict, list, str, int, float, bool)) or parsed is None:
             return parsed
     return body_text
+
+
+def _verify_webhook_signature(
+    webhook: BoardWebhook,
+    raw_body: bytes,
+    request: Request,
+) -> None:
+    """Verify HMAC-SHA256 signature if the webhook has a secret configured.
+
+    When a secret is set, the sender must include a valid signature in one of:
+      X-Hub-Signature-256: sha256=<hex-digest>   (GitHub-style)
+      X-Webhook-Signature: sha256=<hex-digest>
+    If no secret is configured, signature verification is skipped.
+    """
+    if not webhook.secret:
+        return
+    sig_header = (
+        request.headers.get("x-hub-signature-256")
+        or request.headers.get("x-webhook-signature")
+    )
+    if not sig_header:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Missing webhook signature header.",
+        )
+    if sig_header.startswith("sha256="):
+        sig_header = sig_header[7:]
+    expected = hmac.new(
+        webhook.secret.encode("utf-8"),
+        raw_body,
+        hashlib.sha256,
+    ).hexdigest()
+    if not hmac.compare_digest(sig_header, expected):
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Invalid webhook signature.",
+        )
 
 
 def _captured_headers(request: Request) -> dict[str, str] | None:
@@ -454,10 +494,13 @@ async def ingest_board_webhook(
             detail="Webhook is disabled.",
         )
 
+    raw_body = await request.body()
+    _verify_webhook_signature(webhook, raw_body, request)
+
     content_type = request.headers.get("content-type")
     headers = _captured_headers(request)
     payload_value = _decode_payload(
-        await request.body(),
+        raw_body,
         content_type=content_type,
     )
     payload = BoardWebhookPayload(
