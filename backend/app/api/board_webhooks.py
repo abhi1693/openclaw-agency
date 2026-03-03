@@ -505,13 +505,13 @@ async def ingest_board_webhook(
     content_length = request.headers.get("content-length")
     if content_length and int(content_length) > max_payload_bytes:
         raise HTTPException(
-            status_code=status.HTTP_413_REQUEST_ENTITY_TOO_LARGE,
+            status_code=status.HTTP_413_CONTENT_TOO_LARGE,
             detail=f"Payload exceeds maximum size of {max_payload_bytes} bytes.",
         )
     raw_body = await request.body()
     if len(raw_body) > max_payload_bytes:
         raise HTTPException(
-            status_code=status.HTTP_413_REQUEST_ENTITY_TOO_LARGE,
+            status_code=status.HTTP_413_CONTENT_TOO_LARGE,
             detail=f"Payload exceeds maximum size of {max_payload_bytes} bytes.",
         )
     _verify_webhook_signature(webhook, raw_body, request)
