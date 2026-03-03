@@ -46,6 +46,11 @@ COPY backend/templates ./templates
 # In-repo these live at `scripts/`; runtime path is `/app/scripts`.
 COPY scripts ./scripts
 
+# Run as non-root user
+RUN groupadd --system appgroup && useradd --system --gid appgroup appuser \
+  && chown -R appuser:appgroup /app
+USER appuser
+
 # Default API port
 EXPOSE 8000
 
