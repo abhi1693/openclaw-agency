@@ -34,6 +34,10 @@ Key variables (from `.env.example` / `compose.yml`):
 - Backend:
   - `DB_AUTO_MIGRATE` (default `true` in compose)
   - `CORS_ORIGINS` (default `http://localhost:3000`)
+- Security headers (see [configuration reference](../reference/configuration.md)):
+  - `SECURITY_HEADER_X_CONTENT_TYPE_OPTIONS` (default `nosniff`)
+  - `SECURITY_HEADER_X_FRAME_OPTIONS` (default `DENY`)
+  - `SECURITY_HEADER_REFERRER_POLICY` (default `strict-origin-when-cross-origin`)
 
 ### 2) Start the stack
 
@@ -88,6 +92,16 @@ If you want more control, set `DB_AUTO_MIGRATE=false` and run migrations explici
 ```bash
 cd backend
 uv run alembic upgrade head
+```
+
+## Container security
+
+Both the backend and frontend Docker containers run as a **non-root user** (`appuser`). This is a security hardening measure.
+
+If you bind-mount host directories into the containers, ensure the mounted paths are readable (and writable, if needed) by the container's non-root user. You can check the UID/GID with:
+
+```bash
+docker compose exec backend id
 ```
 
 ## Reverse proxy / TLS

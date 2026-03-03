@@ -73,6 +73,19 @@ Rollback typically means deploying a previous image/commit.
 > **Warning**
 > If you applied non-backward-compatible DB migrations, rolling back the app may require restoring the database.
 
+## Rate limiting
+
+The backend applies in-memory per-IP rate limits on sensitive endpoints:
+
+| Endpoint | Limit | Window |
+| --- | --- | --- |
+| Agent authentication | 20 requests | 60 seconds |
+| Webhook ingest | 60 requests | 60 seconds |
+
+Rate-limited requests receive HTTP `429 Too Many Requests`.
+
+The limiter is in-memory and per-process. If running multiple backend processes behind a load balancer, each process tracks limits independently. For production multi-process deployments, also apply rate limiting at the reverse proxy layer (nginx `limit_req`, Caddy rate limiting, etc.).
+
 ## Common issues
 
 ### Frontend loads but API calls fail
@@ -84,3 +97,16 @@ Rollback typically means deploying a previous image/commit.
 
 - Backend: `AUTH_MODE` (`local` or `clerk`)
 - Frontend: `NEXT_PUBLIC_AUTH_MODE` should match
+
+### Webhook signature errors (403)
+
+If a webhook has a `secret` configured, inbound payloads must include a valid HMAC-SHA256 signature in one of these headers:
+
+- `X-Hub-Signature-256: sha256=<hex-digest>` (GitHub-style)
+- `X-Webhook-Signature: sha256=<hex-digest>`
+
+Missing or invalid signatures return `403 Forbidden`. If you see unexpected 403s on webhook ingest, verify that the sending service is computing the HMAC correctly using the webhook's secret.
+
+### Webhook payload too large (413)
+
+Webhook ingest enforces a **1 MB** payload size limit. Payloads exceeding this return `413 Content Too Large`. If you need to send larger payloads, consider sending a URL reference instead of inline content.

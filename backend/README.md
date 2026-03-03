@@ -65,6 +65,15 @@ A starter file exists at `backend/.env.example`.
   - If `true`: on startup, the backend attempts to run Alembic migrations (`alembic upgrade head`).
   - If there are **no** Alembic revision files yet, it falls back to `SQLModel.metadata.create_all`.
 
+### Security headers
+
+Security response headers added to every API response. Set any variable to blank to disable the corresponding header.
+
+- `SECURITY_HEADER_X_CONTENT_TYPE_OPTIONS` (default: `nosniff`)
+- `SECURITY_HEADER_X_FRAME_OPTIONS` (default: `DENY`)
+- `SECURITY_HEADER_REFERRER_POLICY` (default: `strict-origin-when-cross-origin`)
+- `SECURITY_HEADER_PERMISSIONS_POLICY` (default: blank — disabled)
+
 ### Auth (Clerk)
 
 Clerk is used for user authentication (optional for local/self-host in many setups).

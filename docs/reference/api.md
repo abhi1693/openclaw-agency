@@ -47,6 +47,8 @@ X-Agent-Token: <agent-token>
 
 In the backend, these are enforced via the “agent auth” context. When in doubt, consult the route’s dependencies (e.g., `require_admin_or_agent`).
 
+Agent authentication is rate-limited to **20 requests per 60 seconds per IP**. Exceeding this limit returns `429 Too Many Requests`.
+
 ## Authorization / permissions model (high level)
 
 The backend distinguishes between:
@@ -56,11 +58,37 @@ The backend distinguishes between:
 
 Common patterns:
 
-- **Admin-only** user endpoints: require an authenticated user with admin privileges.
-- **Admin or agent** endpoints: allow either an admin user or an authenticated agent.
+- **User-only** endpoints: require an authenticated human user (not an agent). Organization-level admin checks are enforced separately where needed (`require_org_admin`).
+- **User or agent** endpoints: allow either an authenticated human user or an authenticated agent.
 - **Board-scoped access**: user/agent access may be restricted to a specific board.
 
 > SOC2 note: the API produces an audit-friendly request id (see below), but role/permission policy should be documented per endpoint as we stabilize.
+
+## Security headers
+
+All API responses include the following security headers by default:
+
+| Header | Default |
+| --- | --- |
+| `X-Content-Type-Options` | `nosniff` |
+| `X-Frame-Options` | `DENY` |
+| `Referrer-Policy` | `strict-origin-when-cross-origin` |
+| `Permissions-Policy` | _(disabled)_ |
+
+Each header is configurable via `SECURITY_HEADER_*` environment variables. Set a variable to blank to disable the corresponding header (see [configuration reference](configuration.md)).
+
+## Rate limits
+
+The following per-IP rate limits are enforced in-memory per backend process:
+
+| Endpoint | Limit | Window |
+| --- | --- | --- |
+| Agent authentication (`X-Agent-Token`) | 20 requests | 60 seconds |
+| Webhook ingest (`POST .../webhooks/{id}`) | 60 requests | 60 seconds |
+
+When a rate limit is exceeded, the API returns `429 Too Many Requests`.
+
+> **Note:** These limits are per-process. Multi-process deployments should also apply rate limiting at the reverse proxy layer (nginx `limit_req`, Caddy, etc.).
 
 ## Request IDs
 
@@ -85,7 +113,9 @@ Common status codes:
 - `401 Unauthorized`: missing/invalid credentials
 - `403 Forbidden`: authenticated but not allowed
 - `404 Not Found`: resource missing (or not visible)
+- `413 Content Too Large`: request payload exceeds size limit (e.g. webhook ingest 1 MB cap)
 - `422 Unprocessable Entity`: request validation error
+- `429 Too Many Requests`: per-IP rate limit exceeded
 - `500 Internal Server Error`: unhandled server errors
 
 Validation errors (`422`) typically return `detail` as a list of structured field errors (FastAPI/Pydantic style).
@@ -134,7 +164,7 @@ curl -s "http://localhost:8000/api/v1/agent/boards/<board-id>/tasks?status=inbox
   - required auth header (`Authorization` vs `X-Agent-Token`)
   - required role (admin vs member vs agent)
   - common error responses per endpoint
-- Rate limits are not currently specified in the docs; if enforced, document them here and in OpenAPI.
+- Rate limits are documented above; consider exposing them via OpenAPI `x-ratelimit-*` extensions.
 - Add canonical examples for:
   - creating/updating tasks + comments
   - board memory streaming

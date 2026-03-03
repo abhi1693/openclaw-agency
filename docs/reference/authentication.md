@@ -28,3 +28,12 @@ Frontend:
 
 - `NEXT_PUBLIC_AUTH_MODE=clerk`
 - `NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY=<key>`
+
+## Agent authentication
+
+Autonomous agents authenticate via an `X-Agent-Token` header (not the bearer token used by human users). See [API reference](api.md) for details.
+
+Security notes:
+
+- Agent auth is rate-limited to **20 requests per 60 seconds per IP**. Exceeding this returns `429 Too Many Requests`.
+- Agent tokens are **not logged** on authentication failure — not even partially. If debugging agent auth issues, verify the token value at the source rather than looking for it in server logs.
