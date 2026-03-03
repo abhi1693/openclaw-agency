@@ -127,6 +127,7 @@ async def send_gateway_session_message(
     board_id: str | None = BOARD_ID_QUERY,
     session: AsyncSession = SESSION_DEP,
     auth: AuthContext = AUTH_DEP,
+    ctx: OrganizationContext = ORG_ADMIN_DEP,
 ) -> OkResponse:
     """Send a message into a specific gateway session."""
     service = GatewaySessionService(session)
@@ -134,6 +135,7 @@ async def send_gateway_session_message(
         session_id=session_id,
         payload=payload,
         board_id=board_id,
+        organization_id=ctx.organization.id,
         user=auth.user,
     )
     return OkResponse()
