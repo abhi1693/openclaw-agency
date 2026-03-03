@@ -1,6 +1,10 @@
-"""Simple in-memory token-bucket rate limiter for abuse prevention.
+"""Simple in-memory sliding-window rate limiter for abuse prevention.
 
 This provides per-IP rate limiting without external dependencies.
+Each key maintains a sliding window of recent request timestamps;
+a request is allowed only when the number of timestamps within the
+window is below the configured maximum.
+
 For multi-process or distributed deployments, a Redis-based limiter
 should be used instead.
 """
@@ -16,7 +20,7 @@ _CLEANUP_INTERVAL = 128
 
 
 class InMemoryRateLimiter:
-    """Token-bucket rate limiter keyed by arbitrary string (typically client IP)."""
+    """Sliding-window rate limiter keyed by arbitrary string (typically client IP)."""
 
     def __init__(self, *, max_requests: int, window_seconds: float) -> None:
         self._max_requests = max_requests
