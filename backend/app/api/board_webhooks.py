@@ -186,14 +186,17 @@ def _verify_webhook_signature(
             status_code=status.HTTP_403_FORBIDDEN,
             detail="Missing webhook signature header.",
         )
-    if sig_header.startswith("sha256="):
-        sig_header = sig_header[7:]
+    sig_value = sig_header
+    if sig_value.lower().startswith("sha256="):
+        sig_value = sig_value[7:]
+    sig_value = sig_value.strip().lower()
     expected = hmac.new(
         webhook.secret.encode("utf-8"),
         raw_body,
         hashlib.sha256,
     ).hexdigest()
-    if not hmac.compare_digest(sig_header, expected):
+    expected = expected.strip().lower()
+    if not hmac.compare_digest(sig_value, expected):
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
             detail="Invalid webhook signature.",
