@@ -8,7 +8,7 @@ should be used instead.
 from __future__ import annotations
 
 import time
-from collections import defaultdict
+from collections import deque
 from threading import Lock
 
 # Run a full sweep of all keys every 128 calls to is_allowed.
@@ -21,15 +21,15 @@ class InMemoryRateLimiter:
     def __init__(self, *, max_requests: int, window_seconds: float) -> None:
         self._max_requests = max_requests
         self._window_seconds = window_seconds
-        self._buckets: dict[str, list[float]] = defaultdict(list)
+        self._buckets: dict[str, deque[float]] = {}
         self._lock = Lock()
         self._call_count = 0
 
     def _sweep_expired(self, cutoff: float) -> None:
         """Remove keys whose timestamps have all expired."""
         expired_keys = [
-            k for k, ts_list in self._buckets.items()
-            if not ts_list or ts_list[-1] <= cutoff
+            k for k, ts_deque in self._buckets.items()
+            if not ts_deque or ts_deque[-1] <= cutoff
         ]
         for k in expired_keys:
             del self._buckets[k]
@@ -45,12 +45,16 @@ class InMemoryRateLimiter:
             if self._call_count % _CLEANUP_INTERVAL == 0:
                 self._sweep_expired(cutoff)
 
-            timestamps = self._buckets[key]
-            # Prune expired entries for the current key
-            self._buckets[key] = [ts for ts in timestamps if ts > cutoff]
-            if len(self._buckets[key]) >= self._max_requests:
+            timestamps = self._buckets.get(key)
+            if timestamps is None:
+                timestamps = deque()
+                self._buckets[key] = timestamps
+            # Prune expired entries from the front (timestamps are monotonic)
+            while timestamps and timestamps[0] <= cutoff:
+                timestamps.popleft()
+            if len(timestamps) >= self._max_requests:
                 return False
-            self._buckets[key].append(now)
+            timestamps.append(now)
             return True
 
 

@@ -23,6 +23,17 @@ from app.schemas.gateways import (
     GatewayTemplatesSyncResult,
     GatewayUpdate,
 )
+from app.schemas.pagination import DefaultLimitOffsetPage
+from app.services.openclaw.admin_service import GatewayAdminLifecycleService
+from app.services.openclaw.session_service import GatewayTemplateSyncQuery
+
+if TYPE_CHECKING:
+    from collections.abc import Sequence
+
+    from fastapi_pagination.limit_offset import LimitOffsetPage
+    from sqlmodel.ext.asyncio.session import AsyncSession
+
+    from app.services.organizations import OrganizationContext
 
 
 def _to_gateway_read(gateway: Gateway) -> GatewayRead:
@@ -38,17 +49,6 @@ def _to_gateway_read(gateway: Gateway) -> GatewayRead:
         created_at=gateway.created_at,
         updated_at=gateway.updated_at,
     )
-from app.schemas.pagination import DefaultLimitOffsetPage
-from app.services.openclaw.admin_service import GatewayAdminLifecycleService
-from app.services.openclaw.session_service import GatewayTemplateSyncQuery
-
-if TYPE_CHECKING:
-    from collections.abc import Sequence
-
-    from fastapi_pagination.limit_offset import LimitOffsetPage
-    from sqlmodel.ext.asyncio.session import AsyncSession
-
-    from app.services.organizations import OrganizationContext
 
 router = APIRouter(prefix="/gateways", tags=["gateways"])
 SESSION_DEP = Depends(get_session)
@@ -100,8 +100,8 @@ async def list_gateways(
         .statement
     )
 
-    def _transform(items: Sequence[object]) -> Sequence[object]:
-        return [_to_gateway_read(item) for item in items if isinstance(item, Gateway)]
+    def _transform(items: Sequence[Gateway]) -> list[GatewayRead]:
+        return [_to_gateway_read(item) for item in items]
 
     return await paginate(session, statement, transformer=_transform)
 
