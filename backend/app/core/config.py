@@ -49,11 +49,12 @@ class Settings(BaseSettings):
     clerk_leeway: float = 10.0
 
     cors_origins: str = ""
-    base_url: str
-    # Security response headers (blank disables header injection)
-    security_header_x_content_type_options: str = ""
-    security_header_x_frame_options: str = ""
-    security_header_referrer_policy: str = ""
+    base_url: str = ""
+
+    # Security response headers (set to blank to disable a specific header)
+    security_header_x_content_type_options: str = "nosniff"
+    security_header_x_frame_options: str = "DENY"
+    security_header_referrer_policy: str = "strict-origin-when-cross-origin"
     security_header_permissions_policy: str = ""
 
     # Database lifecycle
