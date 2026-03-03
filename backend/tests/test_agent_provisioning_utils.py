@@ -681,3 +681,86 @@ async def test_delete_agent_lifecycle_raises_on_non_missing_agent_error(monkeypa
             delete_files=True,
             delete_session=True,
         )
+
+
+@pytest.mark.asyncio
+async def test_upsert_agent_retries_update_after_create_race(monkeypatch):
+    """agents.create succeeds but the first agents.update raises 'not found' due to
+    a gateway race condition.  upsert_agent should retry once and succeed."""
+    calls: list[tuple[str, dict[str, object] | None]] = []
+    update_attempt = 0
+
+    async def _fake_openclaw_call(method, params=None, config=None):
+        nonlocal update_attempt
+        _ = config
+        calls.append((method, params))
+        if method == "agents.create":
+            return {"ok": True}
+        if method == "agents.update":
+            update_attempt += 1
+            if update_attempt == 1:
+                raise agent_provisioning.OpenClawGatewayError('agent "lead-abc" not found')
+            return {"ok": True}
+        if method == "config.get":
+            return {"hash": None, "config": {"agents": {"list": []}}}
+        if method == "config.patch":
+            return {"ok": True}
+        raise AssertionError(f"Unexpected method: {method}")
+
+    # Eliminate the 0.5s sleep in tests
+    async def _noop_sleep(_):
+        pass
+
+    monkeypatch.setattr(agent_provisioning.asyncio, "sleep", _noop_sleep)
+    monkeypatch.setattr(agent_provisioning, "openclaw_call", _fake_openclaw_call)
+
+    cp = agent_provisioning.OpenClawGatewayControlPlane(
+        agent_provisioning.GatewayClientConfig(url="ws://gateway.example/ws", token=None),
+    )
+    await cp.upsert_agent(
+        agent_provisioning.GatewayAgentRegistration(
+            agent_id="lead-abc",
+            name="Lead Agent",
+            workspace_path="/tmp/workspace-lead-abc",
+            heartbeat={"every": "10m", "target": "last", "includeReasoning": False},
+        ),
+    )
+
+    method_names = [c[0] for c in calls]
+    assert method_names.count("agents.create") == 1
+    assert method_names.count("agents.update") == 2
+
+
+@pytest.mark.asyncio
+async def test_upsert_agent_no_retry_when_already_existed(monkeypatch):
+    """If agents.create raised 'already exists' (agent was NOT just created),
+    an agents.update 'not found' error should propagate without retry."""
+    calls: list[tuple[str, dict[str, object] | None]] = []
+
+    async def _fake_openclaw_call(method, params=None, config=None):
+        _ = config
+        calls.append((method, params))
+        if method == "agents.create":
+            raise agent_provisioning.OpenClawGatewayError("already exists")
+        if method == "agents.update":
+            raise agent_provisioning.OpenClawGatewayError('agent "lead-abc" not found')
+        raise AssertionError(f"Unexpected method: {method}")
+
+    monkeypatch.setattr(agent_provisioning, "openclaw_call", _fake_openclaw_call)
+
+    cp = agent_provisioning.OpenClawGatewayControlPlane(
+        agent_provisioning.GatewayClientConfig(url="ws://gateway.example/ws", token=None),
+    )
+    with pytest.raises(agent_provisioning.OpenClawGatewayError, match="not found"):
+        await cp.upsert_agent(
+            agent_provisioning.GatewayAgentRegistration(
+                agent_id="lead-abc",
+                name="Lead Agent",
+                workspace_path="/tmp/workspace-lead-abc",
+                heartbeat={"every": "10m", "target": "last", "includeReasoning": False},
+            ),
+        )
+
+    method_names = [c[0] for c in calls]
+    assert method_names.count("agents.create") == 1
+    assert method_names.count("agents.update") == 1

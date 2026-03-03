@@ -185,6 +185,31 @@ class OpenClawProvisioningService(OpenClawDBService):
                 self.session.add(existing)
                 await self.session.commit()
                 await self.session.refresh(existing)
+
+            # If the agent has a prior provisioning error (e.g. gateway race
+            # condition on the first attempt), re-run the lifecycle instead of
+            # returning the broken record.  This is safe for concurrent clicks
+            # because ``run_lifecycle`` acquires a ``FOR UPDATE`` lock.
+            if existing.last_provision_error:
+                raw_token = mint_agent_token(existing)
+                await self.session.commit()
+                await self.session.refresh(existing)
+                existing = await AgentLifecycleOrchestrator(self.session).run_lifecycle(
+                    gateway=request.gateway,
+                    agent_id=existing.id,
+                    board=board,
+                    user=request.user,
+                    action=config_options.action,
+                    auth_token=raw_token,
+                    force_bootstrap=False,
+                    reset_session=False,
+                    wake=True,
+                    deliver_wakeup=True,
+                    wakeup_verb=None,
+                    clear_confirm_token=False,
+                    raise_gateway_errors=True,
+                )
+
             return existing, False
 
         merged_identity_profile: dict[str, Any] = {

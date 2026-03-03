@@ -7,6 +7,7 @@ DB-backed workflows (template sync, lead-agent record creation) live in
 
 from __future__ import annotations
 
+import asyncio
 import json
 import re
 from abc import ABC, abstractmethod
@@ -554,6 +555,7 @@ class OpenClawGatewayControlPlane(GatewayControlPlane):
         # Prefer an idempotent "create then update" flow.
         # - Avoids enumerating gateway agents for existence checks.
         # - Ensures we always hit the "create" RPC first, per lifecycle expectations.
+        created = False
         try:
             await openclaw_call(
                 "agents.create",
@@ -563,21 +565,30 @@ class OpenClawGatewayControlPlane(GatewayControlPlane):
                 },
                 config=self._config,
             )
+            created = True
         except OpenClawGatewayError as exc:
             message = str(exc).lower()
             if not any(
                 marker in message for marker in ("already", "exist", "duplicate", "conflict")
             ):
                 raise
-        await openclaw_call(
-            "agents.update",
-            {
-                "agentId": registration.agent_id,
-                "name": registration.name,
-                "workspace": registration.workspace_path,
-            },
-            config=self._config,
-        )
+
+        update_params = {
+            "agentId": registration.agent_id,
+            "name": registration.name,
+            "workspace": registration.workspace_path,
+        }
+        try:
+            await openclaw_call("agents.update", update_params, config=self._config)
+        except OpenClawGatewayError as exc:
+            # Gateway race condition: agents.create succeeds but the agent
+            # isn't visible yet when agents.update runs immediately after.
+            # Retry once after a short delay only when we just created it.
+            if not (created and _is_missing_agent_error(exc)):
+                raise
+            await asyncio.sleep(0.5)
+            await openclaw_call("agents.update", update_params, config=self._config)
+
         await self.patch_agent_heartbeats(
             [(registration.agent_id, registration.workspace_path, registration.heartbeat)],
         )
