@@ -496,7 +496,20 @@ async def ingest_board_webhook(
             detail="Webhook is disabled.",
         )
 
+    # Enforce a 1 MB payload size limit to prevent memory exhaustion.
+    max_payload_bytes = 1_048_576
+    content_length = request.headers.get("content-length")
+    if content_length and int(content_length) > max_payload_bytes:
+        raise HTTPException(
+            status_code=status.HTTP_413_REQUEST_ENTITY_TOO_LARGE,
+            detail=f"Payload exceeds maximum size of {max_payload_bytes} bytes.",
+        )
     raw_body = await request.body()
+    if len(raw_body) > max_payload_bytes:
+        raise HTTPException(
+            status_code=status.HTTP_413_REQUEST_ENTITY_TOO_LARGE,
+            detail=f"Payload exceeds maximum size of {max_payload_bytes} bytes.",
+        )
     _verify_webhook_signature(webhook, raw_body, request)
 
     content_type = request.headers.get("content-type")
