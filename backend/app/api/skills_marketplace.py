@@ -687,9 +687,7 @@ def _sanitize_field(value: str) -> str:
     Prevents prompt injection via skill name or URL fields that could
     break out of the structured data section into the instruction section.
     """
-    sanitized = "".join(
-        ch if ch.isprintable() and ch not in {"\n", "\r"} else " " for ch in value
-    )
+    sanitized = "".join(ch if ch.isprintable() and ch not in {"\n", "\r"} else " " for ch in value)
     # Normalize any runs of whitespace (including tabs) down to single spaces.
     sanitized = re.sub(r"\s+", " ", sanitized)
     return sanitized.strip()

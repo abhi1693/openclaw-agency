@@ -203,11 +203,13 @@ def _verify_webhook_signature(
         )
 
 
-_REDACTED_HEADERS = frozenset({
-    "x-hub-signature-256",
-    "x-webhook-signature",
-    "authorization",
-})
+_REDACTED_HEADERS = frozenset(
+    {
+        "x-hub-signature-256",
+        "x-webhook-signature",
+        "authorization",
+    }
+)
 
 
 def _captured_headers(request: Request) -> dict[str, str] | None:
