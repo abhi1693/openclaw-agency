@@ -69,10 +69,8 @@ class InMemoryRateLimiter(RateLimiter):
             # Prune expired entries from the front (timestamps are monotonic)
             while timestamps and timestamps[0] <= cutoff:
                 timestamps.popleft()
-            if len(timestamps) >= self._max_requests:
-                return False
             timestamps.append(now)
-            return True
+            return len(timestamps) <= self._max_requests
 
 
 class RedisRateLimiter(RateLimiter):
