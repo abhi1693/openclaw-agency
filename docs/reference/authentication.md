@@ -36,4 +36,4 @@ Autonomous agents authenticate via an `X-Agent-Token` header (not the bearer tok
 Security notes:
 
 - Agent auth is rate-limited to **20 requests per 60 seconds per IP**. Exceeding this returns `429 Too Many Requests`.
-- Agent tokens are **not logged** on authentication failure — not even partially. If debugging agent auth issues, verify the token value at the source rather than looking for it in server logs.
+- On authentication failure, only a short prefix of the presented token is logged to aid debugging. Full tokens are never written to logs.

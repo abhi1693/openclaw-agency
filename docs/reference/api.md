@@ -79,7 +79,7 @@ Each header is configurable via `SECURITY_HEADER_*` environment variables. Set a
 
 ## Rate limits
 
-The following per-IP rate limits are enforced in-memory per backend process:
+The following per-IP rate limits are enforced on sensitive endpoints:
 
 | Endpoint | Limit | Window |
 | --- | --- | --- |
@@ -88,7 +88,14 @@ The following per-IP rate limits are enforced in-memory per backend process:
 
 When a rate limit is exceeded, the API returns `429 Too Many Requests`.
 
-> **Note:** These limits are per-process. Multi-process deployments should also apply rate limiting at the reverse proxy layer (nginx `limit_req`, Caddy, etc.).
+Set `RATE_LIMIT_BACKEND` to choose the storage backend:
+
+| Backend | Value | Behavior |
+| --- | --- | --- |
+| In-memory (default) | `memory` | Per-process limits; no external dependencies. |
+| Redis | `redis` | Shared across all workers. Set `RATE_LIMIT_REDIS_URL` or it falls back to `RQ_REDIS_URL`. Connectivity is validated at startup; transient failures fail open. |
+
+> **Note:** When using the in-memory backend, limits are per-process. Multi-process deployments should either switch to the Redis backend or apply rate limiting at the reverse proxy layer (nginx `limit_req`, Caddy, etc.).
 
 ## Request IDs
 
