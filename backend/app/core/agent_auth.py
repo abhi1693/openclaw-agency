@@ -115,7 +115,7 @@ async def get_agent_auth_context(
 ) -> AgentAuthContext:
     """Require and validate agent auth token from request headers."""
     client_ip = get_client_ip(request)
-    if not agent_auth_limiter.is_allowed(client_ip):
+    if not await agent_auth_limiter.is_allowed(client_ip):
         raise HTTPException(status_code=status.HTTP_429_TOO_MANY_REQUESTS)
     resolved = _resolve_agent_token(
         agent_token,
@@ -176,7 +176,7 @@ async def get_agent_auth_context_optional(
     # normal user Authorization headers are not throttled.
     if agent_token:
         client_ip = get_client_ip(request)
-        if not agent_auth_limiter.is_allowed(client_ip):
+        if not await agent_auth_limiter.is_allowed(client_ip):
             raise HTTPException(status_code=status.HTTP_429_TOO_MANY_REQUESTS)
     agent = await _find_agent_for_token(session, resolved)
     if agent is None:

@@ -14,6 +14,7 @@ from collections import deque
 from threading import Lock
 
 import redis as redis_lib
+import redis.asyncio as aioredis
 
 from app.core.logging import get_logger
 from app.core.rate_limit_backend import RateLimitBackend
@@ -28,7 +29,7 @@ class RateLimiter(ABC):
     """Base interface for sliding-window rate limiters."""
 
     @abstractmethod
-    def is_allowed(self, key: str) -> bool:
+    async def is_allowed(self, key: str) -> bool:
         """Return True if the request should be allowed, False if rate-limited."""
 
 
@@ -50,7 +51,7 @@ class InMemoryRateLimiter(RateLimiter):
         for k in expired_keys:
             del self._buckets[k]
 
-    def is_allowed(self, key: str) -> bool:
+    async def is_allowed(self, key: str) -> bool:
         """Return True if the request should be allowed, False if rate-limited."""
         now = time.monotonic()
         cutoff = now - self._window_seconds
@@ -78,9 +79,9 @@ class RedisRateLimiter(RateLimiter):
     """Redis-backed sliding-window rate limiter using sorted sets.
 
     Each key is stored as a Redis sorted set where members are unique
-    request identifiers and scores are wall-clock timestamps.  A pipeline
-    prunes expired entries, adds the new request, counts the window, and
-    sets a TTL — all in a single round-trip.
+    request identifiers and scores are wall-clock timestamps.  An async
+    pipeline prunes expired entries, adds the new request, counts the
+    window, and sets a TTL — all in a single round-trip.
 
     Fail-open: if Redis is unreachable during a request, the request is
     allowed and a warning is logged.
@@ -97,9 +98,9 @@ class RedisRateLimiter(RateLimiter):
         self._namespace = namespace
         self._max_requests = max_requests
         self._window_seconds = window_seconds
-        self._client: redis_lib.Redis = redis_lib.Redis.from_url(redis_url)
+        self._client: aioredis.Redis = aioredis.from_url(redis_url)
 
-    def is_allowed(self, key: str) -> bool:
+    async def is_allowed(self, key: str) -> bool:
         """Return True if the request should be allowed, False if rate-limited."""
         redis_key = f"ratelimit:{self._namespace}:{key}"
         now = time.time()
@@ -112,7 +113,7 @@ class RedisRateLimiter(RateLimiter):
             pipe.zadd(redis_key, {member: now})
             pipe.zcard(redis_key)
             pipe.expire(redis_key, int(self._window_seconds) + 1)
-            results = pipe.execute()
+            results = await pipe.execute()
             count: int = results[2]
         except Exception:
             logger.warning(

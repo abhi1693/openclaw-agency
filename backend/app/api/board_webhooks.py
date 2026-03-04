@@ -509,7 +509,7 @@ async def ingest_board_webhook(
 ) -> BoardWebhookIngestResponse:
     """Open inbound webhook endpoint that stores payloads and nudges the board lead."""
     client_ip = get_client_ip(request)
-    if not webhook_ingest_limiter.is_allowed(client_ip):
+    if not await webhook_ingest_limiter.is_allowed(client_ip):
         raise HTTPException(status_code=status.HTTP_429_TOO_MANY_REQUESTS)
     webhook = await _require_board_webhook(
         session,
