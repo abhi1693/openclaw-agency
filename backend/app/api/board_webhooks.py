@@ -71,6 +71,7 @@ def _to_webhook_read(webhook: BoardWebhook) -> BoardWebhookRead:
         description=webhook.description,
         enabled=webhook.enabled,
         has_secret=bool(webhook.secret),
+        signature_header=webhook.signature_header,
         endpoint_path=endpoint_path,
         endpoint_url=_webhook_endpoint_url(endpoint_path),
         created_at=webhook.created_at,
@@ -171,16 +172,21 @@ def _verify_webhook_signature(
 ) -> None:
     """Verify HMAC-SHA256 signature if the webhook has a secret configured.
 
-    When a secret is set, the sender must include a valid signature in one of:
-      X-Hub-Signature-256: sha256=<hex-digest>   (GitHub-style)
-      X-Webhook-Signature: sha256=<hex-digest>
-    If no secret is configured, signature verification is skipped.
+    When a secret is set, the sender must include a valid signature header.
+    The header to check is determined by ``webhook.signature_header`` if set,
+    otherwise the following well-known headers are tried in order:
+      X-Hub-Signature-256  (GitHub-style)
+      X-Webhook-Signature
+    If no secret is configured, signature verification is skipped entirely.
     """
     if not webhook.secret:
         return
-    sig_header = request.headers.get("x-hub-signature-256") or request.headers.get(
-        "x-webhook-signature"
-    )
+    if webhook.signature_header:
+        sig_header = request.headers.get(webhook.signature_header.lower())
+    else:
+        sig_header = request.headers.get("x-hub-signature-256") or request.headers.get(
+            "x-webhook-signature"
+        )
     if not sig_header:
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
@@ -212,11 +218,18 @@ _REDACTED_HEADERS = frozenset(
 )
 
 
-def _captured_headers(request: Request) -> dict[str, str] | None:
+def _captured_headers(
+    request: Request,
+    *,
+    extra_redacted: str | None = None,
+) -> dict[str, str] | None:
+    redacted = _REDACTED_HEADERS
+    if extra_redacted:
+        redacted = redacted | {extra_redacted.lower()}
     captured: dict[str, str] = {}
     for header, value in request.headers.items():
         normalized = header.lower()
-        if normalized in _REDACTED_HEADERS:
+        if normalized in redacted:
             continue
         if normalized in {"content-type", "user-agent"} or normalized.startswith("x-"):
             captured[normalized] = value
@@ -362,6 +375,7 @@ async def create_board_webhook(
         description=payload.description,
         enabled=payload.enabled,
         secret=payload.secret,
+        signature_header=payload.signature_header,
     )
     await crud.save(session, webhook)
     return _to_webhook_read(webhook)
@@ -544,7 +558,7 @@ async def ingest_board_webhook(
     _verify_webhook_signature(webhook, raw_body, request)
 
     content_type = request.headers.get("content-type")
-    headers = _captured_headers(request)
+    headers = _captured_headers(request, extra_redacted=webhook.signature_header)
     payload_value = _decode_payload(
         raw_body,
         content_type=content_type,

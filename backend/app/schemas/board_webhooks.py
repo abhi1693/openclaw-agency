@@ -32,6 +32,7 @@ class BoardWebhookCreate(SQLModel):
     enabled: bool = True
     agent_id: UUID | None = None
     secret: NormalizedSecret = None
+    signature_header: str | None = None
 
 
 class BoardWebhookUpdate(SQLModel):
@@ -41,6 +42,7 @@ class BoardWebhookUpdate(SQLModel):
     enabled: bool | None = None
     agent_id: UUID | None = None
     secret: NormalizedSecret = None
+    signature_header: str | None = None
 
 
 class BoardWebhookRead(SQLModel):
@@ -52,6 +54,7 @@ class BoardWebhookRead(SQLModel):
     description: str
     enabled: bool
     has_secret: bool = False
+    signature_header: str | None = None
     endpoint_path: str
     endpoint_url: str | None = None
     created_at: datetime
