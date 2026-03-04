@@ -144,9 +144,11 @@ jobs:
       matrix:
         include:
           - os: ubuntu-latest
-            run_smoke_tests: true
+            run_linux_smoke_tests: true
+            run_macos_local_smoke_test: false
           - os: macos-latest
-            run_smoke_tests: false
+            run_linux_smoke_tests: false
+            run_macos_local_smoke_test: true
 
     steps:
       - name: Checkout
@@ -155,8 +157,52 @@ jobs:
       - name: Validate installer shell syntax
         run: bash -n install.sh
 
+      - name: Set up Python for macOS installer smoke test
+        if: ${{ matrix.run_macos_local_smoke_test }}
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install uv for macOS installer smoke test
+        if: ${{ matrix.run_macos_local_smoke_test }}
+        run: python -m pip install --upgrade pip uv
+
+      - name: Set up Node for macOS installer smoke test
+        if: ${{ matrix.run_macos_local_smoke_test }}
+        uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+
+      - name: Start PostgreSQL for macOS installer smoke test
+        if: ${{ matrix.run_macos_local_smoke_test }}
+        run: |
+          brew install postgresql@16
+          PG_BIN="$(brew --prefix postgresql@16)/bin"
+          "$PG_BIN/initdb" -D "$RUNNER_TEMP/pgdata"
+          "$PG_BIN/pg_ctl" -D "$RUNNER_TEMP/pgdata" -l "$RUNNER_TEMP/postgres.log" -o "-p 55432" start
+          "$PG_BIN/createdb" -p 55432 mission_control
+
+      - name: Installer smoke test (macOS local mode + external db)
+        if: ${{ matrix.run_macos_local_smoke_test }}
+        run: |
+          PGUSER="$(whoami)"
+          ./install.sh \
+            --mode local \
+            --backend-port 18002 \
+            --frontend-port 13002 \
+            --public-host localhost \
+            --api-url http://localhost:18002 \
+            --token-mode generate \
+            --db-mode external \
+            --database-url "postgresql+psycopg://${PGUSER}@localhost:55432/mission_control" \
+            --start-services no
+          test -f .env
+          test -f backend/.env
+          test -f frontend/.env
+          test -f frontend/.next/BUILD_ID
+
       - name: Installer smoke test (docker mode)
-        if: ${{ matrix.run_smoke_tests }}
+        if: ${{ matrix.run_linux_smoke_tests }}
         run: |
           ./install.sh \
             --mode docker \
@@ -165,16 +211,41 @@ jobs:
             --public-host localhost \
             --api-url http://localhost:18000 \
             --token-mode generate
-          curl -fsS http://127.0.0.1:18000/healthz >/dev/null
-          curl -fsS http://127.0.0.1:13000 >/dev/null
+
+          backend_ready=0
+          for _ in {1..120}; do
+            if curl -fsS http://127.0.0.1:18000/healthz >/dev/null; then
+              backend_ready=1
+              break
+            fi
+            sleep 2
+          done
+
+          frontend_ready=0
+          for _ in {1..120}; do
+            if curl -fsS http://127.0.0.1:13000 >/dev/null; then
+              frontend_ready=1
+              break
+            fi
+            sleep 2
+          done
+
+          if [ "$backend_ready" -ne 1 ] || [ "$frontend_ready" -ne 1 ]; then
+            echo "Installer docker smoke readiness failed: backend_ready=$backend_ready frontend_ready=$frontend_ready"
+            docker compose -f compose.yml --env-file .env ps || true
+            docker compose -f compose.yml --env-file .env logs --no-color --tail=200 backend db redis frontend webhook-worker || true
+            exit 1
+          fi
 
       - name: Cleanup docker stack after docker mode
-        if: ${{ always() && matrix.run_smoke_tests }}
+        if: ${{ always() && matrix.run_linux_smoke_tests }}
         run: |
           docker compose -f compose.yml --env-file .env down -v --remove-orphans || true
 
       - name: Installer smoke test (local mode)
-        if: ${{ matrix.run_smoke_tests }}
+        if: ${{ matrix.run_linux_smoke_tests }}
+        env:
+          XDG_STATE_HOME: ${{ github.workspace }}/.installer-state
         run: |
           ./install.sh \
             --mode local \
@@ -185,15 +256,65 @@ jobs:
             --token-mode generate \
             --db-mode docker \
             --start-services yes
-          curl -fsS http://127.0.0.1:18001/healthz >/dev/null
-          curl -fsS http://127.0.0.1:13001 >/dev/null
+
+          backend_ready=0
+          for _ in {1..120}; do
+            if curl -fsS http://127.0.0.1:18001/healthz >/dev/null; then
+              backend_ready=1
+              break
+            fi
+            sleep 2
+          done
+
+          frontend_ready=0
+          for _ in {1..120}; do
+            if curl -fsS http://127.0.0.1:13001 >/dev/null; then
+              frontend_ready=1
+              break
+            fi
+            sleep 2
+          done
+
+          if [ "$backend_ready" -ne 1 ] || [ "$frontend_ready" -ne 1 ]; then
+            echo "Installer local smoke readiness failed: backend_ready=$backend_ready frontend_ready=$frontend_ready"
+            LOG_DIR="$XDG_STATE_HOME/openclaw-mission-control-install"
+            if [ -f "$LOG_DIR/backend.log" ]; then
+              echo "----- backend log (tail) -----"
+              tail -n 200 "$LOG_DIR/backend.log" || true
+            fi
+            if [ -f "$LOG_DIR/frontend.log" ]; then
+              echo "----- frontend log (tail) -----"
+              tail -n 200 "$LOG_DIR/frontend.log" || true
+            fi
+            exit 1
+          fi
 
       - name: Cleanup local processes and docker resources
-        if: ${{ always() && matrix.run_smoke_tests }}
+        if: ${{ always() && matrix.run_linux_smoke_tests }}
+        env:
+          XDG_STATE_HOME: ${{ github.workspace }}/.installer-state
         run: |
-          if [ -f .install-logs/backend.pid ]; then kill "$(cat .install-logs/backend.pid)" || true; fi
-          if [ -f .install-logs/frontend.pid ]; then kill "$(cat .install-logs/frontend.pid)" || true; fi
+          LOG_DIR="$XDG_STATE_HOME/openclaw-mission-control-install"
+          if [ -f "$LOG_DIR/backend.pid" ]; then kill "$(cat "$LOG_DIR/backend.pid")" || true; fi
+          if [ -f "$LOG_DIR/frontend.pid" ]; then kill "$(cat "$LOG_DIR/frontend.pid")" || true; fi
           docker compose -f compose.yml --env-file .env down -v --remove-orphans || true
+
+      - name: Cleanup macOS PostgreSQL
+        if: ${{ always() && matrix.run_macos_local_smoke_test }}
+        run: |
+          if ! command -v brew >/dev/null 2>&1; then
+            exit 0
+          fi
+
+          PG_PREFIX="$(brew --prefix postgresql@16 2>/dev/null || true)"
+          if [ -z "$PG_PREFIX" ] || [ ! -d "$PG_PREFIX" ]; then
+            exit 0
+          fi
+
+          PG_BIN="$PG_PREFIX/bin"
+          if [ -d "$RUNNER_TEMP/pgdata" ] && [ -x "$PG_BIN/pg_ctl" ]; then
+            "$PG_BIN/pg_ctl" -D "$RUNNER_TEMP/pgdata" -m fast stop || true
+          fi
 
   e2e:
     runs-on: ubuntu-latest

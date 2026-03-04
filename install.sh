@@ -879,6 +879,14 @@ main() {
   if [[ "$deployment_mode" == "docker" ]]; then
     ensure_file_from_example "$REPO_ROOT/backend/.env" "$REPO_ROOT/backend/.env.example"
 
+    # Docker services load backend/.env; ensure required runtime values are populated.
+    upsert_env_value "$REPO_ROOT/backend/.env" "ENVIRONMENT" "prod"
+    upsert_env_value "$REPO_ROOT/backend/.env" "AUTH_MODE" "local"
+    upsert_env_value "$REPO_ROOT/backend/.env" "LOCAL_AUTH_TOKEN" "$local_auth_token"
+    upsert_env_value "$REPO_ROOT/backend/.env" "CORS_ORIGINS" "http://$public_host:$frontend_port"
+    upsert_env_value "$REPO_ROOT/backend/.env" "BASE_URL" "http://$public_host:$backend_port"
+    upsert_env_value "$REPO_ROOT/backend/.env" "DB_AUTO_MIGRATE" "true"
+
     upsert_env_value "$REPO_ROOT/.env" "DB_AUTO_MIGRATE" "true"
 
     info "Starting production-like Docker stack..."
