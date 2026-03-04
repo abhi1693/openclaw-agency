@@ -1,7 +1,7 @@
 """Add optional secret column to board_webhooks for HMAC signature verification.
 
 Revision ID: a1b2c3d4e5f6
-Revises: fa6e83f8d9a1
+Revises: f1b2c3d4e5a6
 Create Date: 2026-03-03 00:00:00.000000
 
 """
