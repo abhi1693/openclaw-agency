@@ -516,10 +516,10 @@ async def ingest_board_webhook(
             detail="Webhook is disabled.",
         )
 
-    # Enforce a 1 MB payload size limit to prevent memory exhaustion.
+    # Enforce payload size limit to prevent memory exhaustion.
     # Read the body in chunks via request.stream() so an attacker cannot
     # cause OOM by sending a huge body with a missing/spoofed Content-Length.
-    max_payload_bytes = 1_048_576
+    max_payload_bytes = settings.webhook_max_payload_bytes
     content_length = request.headers.get("content-length")
     try:
         cl = int(content_length) if content_length else 0

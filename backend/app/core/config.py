@@ -57,6 +57,9 @@ class Settings(BaseSettings):
     security_header_referrer_policy: str = "strict-origin-when-cross-origin"
     security_header_permissions_policy: str = ""
 
+    # Webhook payload size limit in bytes (default 1 MB).
+    webhook_max_payload_bytes: int = 1_048_576
+
     # Database lifecycle
     db_auto_migrate: bool = False
 
