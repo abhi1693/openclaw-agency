@@ -39,11 +39,11 @@ Missing or invalid signatures return `403 Forbidden`. If no secret is configured
 
 ## Webhook payload size limit
 
-Webhook ingest enforces a **1 MB** (1,048,576 bytes) payload size limit. Both the `Content-Length` header and the actual streamed body size are checked. Payloads exceeding this limit return `413 Content Too Large`.
+Webhook ingest enforces a payload size limit (default **1 MB** / 1,048,576 bytes, configurable via `WEBHOOK_MAX_PAYLOAD_BYTES`). Both the `Content-Length` header and the actual streamed body size are checked. Payloads exceeding this limit return `413 Content Too Large`.
 
-## Gateway token redaction
+## Gateway tokens
 
-Gateway tokens are never returned in API responses. The `GET /api/v1/gateways/*` endpoints return `has_token: true/false` instead of the raw token value. Store tokens securely at creation time; they cannot be retrieved later.
+Gateway tokens are currently returned in API responses. A future release will redact them from read endpoints (replacing the raw value with a `has_token` boolean). Until then, treat gateway API responses as sensitive.
 
 ## Container security
 
