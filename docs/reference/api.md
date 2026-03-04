@@ -45,7 +45,7 @@ Some endpoints are designed for autonomous agents and use an agent token header:
 X-Agent-Token: <agent-token>
 ```
 
-In the backend, these are enforced via the “agent auth” context. When in doubt, consult the route’s dependencies (e.g., `require_admin_or_agent`).
+In the backend, these are enforced via the “agent auth” context. When in doubt, consult the route’s dependencies (e.g., `require_user_or_agent`).
 
 Agent authentication is rate-limited to **20 requests per 60 seconds per IP**. Exceeding this limit returns `429 Too Many Requests`.
 
