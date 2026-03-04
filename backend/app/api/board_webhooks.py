@@ -359,7 +359,7 @@ async def create_board_webhook(
         agent_id=payload.agent_id,
         description=payload.description,
         enabled=payload.enabled,
-        secret=payload.secret or None,
+        secret=payload.secret,
     )
     await crud.save(session, webhook)
     return _to_webhook_read(webhook)
@@ -394,8 +394,6 @@ async def update_board_webhook(
         webhook_id=webhook_id,
     )
     updates = payload.model_dump(exclude_unset=True)
-    if "secret" in updates:
-        updates["secret"] = updates["secret"] or None
     if updates:
         await _validate_agent_id(
             session=session,

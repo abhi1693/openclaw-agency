@@ -5,11 +5,20 @@ from __future__ import annotations
 from datetime import datetime
 from uuid import UUID
 
+from pydantic import field_validator
 from sqlmodel import SQLModel
 
 from app.schemas.common import NonEmptyStr
 
 RUNTIME_ANNOTATION_TYPES = (datetime, UUID, NonEmptyStr)
+
+
+def _normalize_secret(v: str | None) -> str | None:
+    """Normalize blank/whitespace-only secrets to None."""
+    if v is None:
+        return None
+    stripped = v.strip()
+    return stripped or None
 
 
 class BoardWebhookCreate(SQLModel):
@@ -20,6 +29,8 @@ class BoardWebhookCreate(SQLModel):
     agent_id: UUID | None = None
     secret: str | None = None
 
+    _normalize_secret = field_validator("secret", mode="before")(_normalize_secret)
+
 
 class BoardWebhookUpdate(SQLModel):
     """Payload for updating a board webhook."""
@@ -28,6 +39,8 @@ class BoardWebhookUpdate(SQLModel):
     enabled: bool | None = None
     agent_id: UUID | None = None
     secret: str | None = None
+
+    _normalize_secret = field_validator("secret", mode="before")(_normalize_secret)
 
 
 class BoardWebhookRead(SQLModel):
