@@ -10,6 +10,7 @@ from pydantic import Field, model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 from app.core.auth_mode import AuthMode
+from app.core.rate_limit_backend import RateLimitBackend
 
 BACKEND_ROOT = Path(__file__).resolve().parents[2]
 DEFAULT_ENV_FILE = BACKEND_ROOT / ".env"
@@ -60,6 +61,10 @@ class Settings(BaseSettings):
     # Webhook payload size limit in bytes (default 1 MB).
     webhook_max_payload_bytes: int = 1_048_576
 
+    # Rate limiting
+    rate_limit_backend: RateLimitBackend = RateLimitBackend.MEMORY
+    rate_limit_redis_url: str = ""
+
     # Database lifecycle
     db_auto_migrate: bool = False
 
@@ -98,6 +103,7 @@ class Settings(BaseSettings):
                 raise ValueError(
                     "LOCAL_AUTH_TOKEN must be at least 50 characters and non-placeholder when AUTH_MODE=local.",
                 )
+
         base_url = self.base_url.strip()
         if not base_url:
             raise ValueError("BASE_URL must be set and non-empty.")
@@ -107,6 +113,15 @@ class Settings(BaseSettings):
                 "BASE_URL must be an absolute http(s) URL (e.g. http://localhost:8000).",
             )
         self.base_url = base_url.rstrip("/")
+
+        # Rate-limit: fall back to rq_redis_url if using redis backend
+        # with no explicit rate-limit URL.
+        if (
+            self.rate_limit_backend == RateLimitBackend.REDIS
+            and not self.rate_limit_redis_url.strip()
+        ):
+            self.rate_limit_redis_url = self.rq_redis_url
+
         # In dev, default to applying Alembic migrations at startup to avoid
         # schema drift (e.g. missing newly-added columns).
         if "db_auto_migrate" not in self.model_fields_set and self.environment == "dev":
