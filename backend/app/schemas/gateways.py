@@ -65,7 +65,7 @@ class GatewayRead(GatewayBase):
 
     id: UUID
     organization_id: UUID
-    has_token: bool = False
+    token: str | None = None
     created_at: datetime
     updated_at: datetime
 

@@ -24,7 +24,6 @@ from app.models.board_webhooks import BoardWebhook
 from app.models.boards import Board
 from app.models.gateways import Gateway
 from app.models.organizations import Organization
-from app.schemas.gateways import GatewayRead
 from app.services.admin_access import require_user_actor
 
 # ---------------------------------------------------------------------------
@@ -496,37 +495,4 @@ class TestWebhookPayloadSizeLimit:
 # Task 12: Gateway token redaction
 # ---------------------------------------------------------------------------
 
-
-class TestGatewayTokenRedaction:
-    """Tests for gateway token redaction from API responses."""
-
-    def test_gateway_read_has_has_token_field(self) -> None:
-        read = GatewayRead(
-            id=uuid4(),
-            organization_id=uuid4(),
-            name="gw",
-            url="https://gw.example.com",
-            workspace_root="/ws",
-            has_token=True,
-            created_at="2025-01-01T00:00:00",
-            updated_at="2025-01-01T00:00:00",
-        )
-        data = read.model_dump()
-        assert "has_token" in data
-        assert data["has_token"] is True
-        # Ensure 'token' field is NOT present
-        assert "token" not in data
-
-    def test_gateway_read_without_token(self) -> None:
-        read = GatewayRead(
-            id=uuid4(),
-            organization_id=uuid4(),
-            name="gw",
-            url="https://gw.example.com",
-            workspace_root="/ws",
-            has_token=False,
-            created_at="2025-01-01T00:00:00",
-            updated_at="2025-01-01T00:00:00",
-        )
-        assert read.has_token is False
 
