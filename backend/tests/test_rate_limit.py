@@ -171,7 +171,7 @@ def _make_redis_limiter(
     window_seconds: float = 60.0,
 ) -> RedisRateLimiter:
     """Build a RedisRateLimiter wired to a _FakeRedis instance."""
-    with patch("redis.asyncio.from_url", return_value=fake):
+    with patch("app.core.rate_limit._get_async_redis", return_value=fake):
         return RedisRateLimiter(
             namespace=namespace,
             max_requests=max_requests,
@@ -285,7 +285,7 @@ def test_factory_returns_redis_when_configured(monkeypatch: pytest.MonkeyPatch) 
     monkeypatch.setattr("app.core.config.settings.rate_limit_backend", RateLimitBackend.REDIS)
     monkeypatch.setattr("app.core.config.settings.rate_limit_redis_url", "redis://localhost:6379/0")
     fake = _FakeRedis()
-    with patch("redis.asyncio.from_url", return_value=fake):
+    with patch("app.core.rate_limit._get_async_redis", return_value=fake):
         limiter = create_rate_limiter(namespace="test", max_requests=10, window_seconds=60.0)
     assert isinstance(limiter, RedisRateLimiter)
 

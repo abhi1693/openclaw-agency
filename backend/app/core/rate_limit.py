@@ -24,6 +24,18 @@ logger = get_logger(__name__)
 # Run a full sweep of all keys every 128 calls to is_allowed.
 _CLEANUP_INTERVAL = 128
 
+# Shared async Redis clients keyed by URL to avoid duplicate connection pools.
+_async_redis_clients: dict[str, aioredis.Redis] = {}
+
+
+def _get_async_redis(redis_url: str) -> aioredis.Redis:
+    """Return a shared async Redis client for *redis_url*, creating one if needed."""
+    client = _async_redis_clients.get(redis_url)
+    if client is None:
+        client = aioredis.from_url(redis_url)
+        _async_redis_clients[redis_url] = client
+    return client
+
 
 class RateLimiter(ABC):
     """Base interface for sliding-window rate limiters."""
@@ -96,7 +108,7 @@ class RedisRateLimiter(RateLimiter):
         self._namespace = namespace
         self._max_requests = max_requests
         self._window_seconds = window_seconds
-        self._client: aioredis.Redis = aioredis.from_url(redis_url)
+        self._client: aioredis.Redis = _get_async_redis(redis_url)
 
     async def is_allowed(self, key: str) -> bool:
         """Return True if the request should be allowed, False if rate-limited."""
