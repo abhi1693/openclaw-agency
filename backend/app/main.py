@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import asyncio
 from contextlib import asynccontextmanager
 from typing import TYPE_CHECKING, Any
 
@@ -428,6 +429,67 @@ class MissionControlFastAPI(FastAPI):
         return _build_custom_openapi(self)
 
 
+async def _reconcile_stale_provisioning_agents() -> None:
+    """Periodic task: retry provisioning for agents stuck in 'provisioning' for >5min."""
+    from datetime import timedelta
+
+    from sqlmodel import col, select
+
+    from app.core.time import utcnow
+    from app.db.session import async_session_maker
+    from app.models.agents import Agent
+    from app.models.boards import Board
+    from app.models.gateways import Gateway
+    from app.services.openclaw.db_agent_state import mint_agent_token
+    from app.services.openclaw.provisioning_db import AgentLifecycleService
+
+    while True:
+        await asyncio.sleep(120)  # every 2 minutes
+        try:
+            async with async_session_maker() as session:
+                cutoff = utcnow() - timedelta(minutes=5)
+                statement = (
+                    select(Agent)
+                    .where(col(Agent.status) == "provisioning")
+                    .where(col(Agent.created_at) < cutoff)
+                )
+                stale_agents = list(await session.exec(statement))
+                for agent in stale_agents:
+                    if agent.board_id is None:
+                        continue
+                    board = await Board.objects.by_id(agent.board_id).first(session)
+                    if board is None:
+                        continue
+                    gateway = await Gateway.objects.by_id(agent.gateway_id).first(session)
+                    if gateway is None:
+                        continue
+                    try:
+                        service = AgentLifecycleService(session)
+                        raw_token = mint_agent_token(agent)
+                        session.add(agent)
+                        await session.commit()
+                        await session.refresh(agent)
+                        await service.provision_new_agent(
+                            agent=agent,
+                            board=board,
+                            gateway=gateway,
+                            auth_token=raw_token,
+                            user=None,
+                            force_bootstrap=False,
+                        )
+                        logger.info(
+                            "reconcile.stale_provisioning.retried agent_id=%s",
+                            agent.id,
+                        )
+                    except Exception:
+                        logger.exception(
+                            "reconcile.stale_provisioning.failed agent_id=%s",
+                            agent.id,
+                        )
+        except Exception:
+            logger.exception("reconcile.stale_provisioning.loop_error")
+
+
 @asynccontextmanager
 async def lifespan(_: FastAPI) -> AsyncIterator[None]:
     """Initialize application resources before serving requests."""
@@ -437,10 +499,12 @@ async def lifespan(_: FastAPI) -> AsyncIterator[None]:
         settings.db_auto_migrate,
     )
     await init_db()
+    reconcile_task = asyncio.create_task(_reconcile_stale_provisioning_agents())
     logger.info("app.lifecycle.started")
     try:
         yield
     finally:
+        reconcile_task.cancel()
         logger.info("app.lifecycle.stopped")
 
 
