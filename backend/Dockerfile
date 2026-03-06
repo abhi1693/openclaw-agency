@@ -8,9 +8,11 @@ ENV PYTHONDONTWRITEBYTECODE=1 \
 WORKDIR /app
 
 # System deps (keep minimal)
-RUN apt-get update \
-  && apt-get install -y --no-install-recommends curl ca-certificates git \
-  && rm -rf /var/lib/apt/lists/*
+RUN apt-get update 
+
+RUN apt-get install -y --no-install-recommends curl ca-certificates git 
+
+RUN rm -rf /var/lib/apt/lists/*
 
 # Install uv (https://github.com/astral-sh/uv)
 RUN curl -LsSf https://astral.sh/uv/install.sh | sh
