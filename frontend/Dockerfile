@@ -30,19 +30,24 @@ ARG NEXT_PUBLIC_AUTH_MODE
 # (but note some values may be baked at build time).
 ENV NEXT_PUBLIC_API_URL=auto
 ENV NEXT_PUBLIC_AUTH_MODE=${NEXT_PUBLIC_AUTH_MODE}
+# Standalone server binds to hostname by default; bind to all interfaces in Docker.
+ENV HOSTNAME=0.0.0.0
+ENV PORT=3000
 
-COPY --from=builder /app/.next ./.next
+# Create non-root user before COPY so --chown can reference it.
+# Using COPY --chown avoids a slow recursive chown on overlay2 (docker/for-linux#388).
+RUN addgroup -S appgroup && adduser -S -G appgroup appuser
+
+# Next.js standalone output bundles only the required node_modules (~50 MB vs
+# ~500 MB+), eliminating the need to copy the full node_modules tree.
+COPY --from=builder --chown=appuser:appgroup /app/.next/standalone ./
+COPY --from=builder --chown=appuser:appgroup /app/.next/static ./.next/static
 # `public/` is optional in Next.js apps; repo may not have it.
-# Avoid failing the build when the directory is absent.
-COPY --from=builder /app/package.json ./package.json
-COPY --from=builder /app/node_modules ./node_modules
-COPY --from=builder /app/next.config.ts ./next.config.ts
+# Uncomment the next line if a public/ directory exists:
+# COPY --from=builder --chown=appuser:appgroup /app/public ./public
 
-# Run as non-root user
-RUN addgroup -S appgroup && adduser -S -G appgroup appuser \
-  && chown -R appuser:appgroup /app
 USER appuser
 
 EXPOSE 3000
 
-CMD ["npm", "run", "start"]
+CMD ["node", "server.js"]
