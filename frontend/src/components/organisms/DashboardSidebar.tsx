@@ -58,7 +58,7 @@ export function DashboardSidebar() {
         : "System degraded";
 
   return (
-    <aside className="flex h-full w-64 flex-col border-r border-slate-200 bg-white">
+    <aside className="flex w-full flex-col border-b border-slate-200 bg-white md:h-full md:w-64 md:border-b-0 md:border-r">
       <div className="flex-1 px-3 py-4">
         <p className="px-3 text-xs font-semibold uppercase tracking-wider text-slate-500">
           Navigation
