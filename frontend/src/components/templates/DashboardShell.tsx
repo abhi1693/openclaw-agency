@@ -71,19 +71,19 @@ export function DashboardShell({ children }: { children: ReactNode }) {
   return (
     <div className="min-h-screen bg-app text-strong">
       <header className="sticky top-0 z-40 border-b border-slate-200 bg-white shadow-sm">
-        <div className="grid grid-cols-[260px_1fr_auto] items-center gap-0 py-3">
-          <div className="flex items-center px-6">
+        <div className="grid grid-cols-1 items-center gap-3 px-4 py-3 sm:grid-cols-[220px_1fr_auto] sm:gap-0 sm:px-0 lg:grid-cols-[260px_1fr_auto]">
+          <div className="flex items-center sm:px-6">
             <BrandMark />
           </div>
           <SignedIn>
-            <div className="flex items-center">
-              <div className="max-w-[220px]">
+            <div className="flex items-center sm:min-w-0">
+              <div className="max-w-[220px] sm:w-full">
                 <OrgSwitcher />
               </div>
             </div>
           </SignedIn>
           <SignedIn>
-            <div className="flex items-center gap-3 px-6">
+            <div className="flex items-center gap-3 sm:px-6">
               <div className="hidden text-right lg:block">
                 <p className="text-sm font-semibold text-slate-900">
                   {displayName}
@@ -95,7 +95,7 @@ export function DashboardShell({ children }: { children: ReactNode }) {
           </SignedIn>
         </div>
       </header>
-      <div className="grid min-h-[calc(100vh-64px)] grid-cols-[260px_1fr] bg-slate-50">
+      <div className="grid min-h-[calc(100vh-64px)] grid-cols-1 bg-slate-50 md:grid-cols-[260px_minmax(0,1fr)]">
         {children}
       </div>
     </div>
