@@ -1193,86 +1193,28 @@ export default function InventoryStatusPage() {
 
   // ── Header Actions ────────────────────────────────────────────────────────
   const headerActions = (
-    <div className="flex flex-wrap items-center gap-2">
-      {/* Tab toggle */}
-      <div className="inline-flex rounded-md border border-slate-200 bg-slate-50 p-0.5">
-        <button
-          className={cn(
-            'rounded px-2.5 py-1 text-xs font-medium transition-colors',
-            activeTab === 'inventory'
-              ? 'bg-white text-slate-900 shadow-sm'
-              : 'text-slate-500 hover:text-slate-700'
-          )}
-          onClick={() => setActiveTab('inventory')}
-        >
-          Inventory
-        </button>
-        <button
-          className={cn(
-            'rounded px-2.5 py-1 text-xs font-medium transition-colors',
-            activeTab === 'fc'
-              ? 'bg-white text-slate-900 shadow-sm'
-              : 'text-slate-500 hover:text-slate-700'
-          )}
-          onClick={() => setActiveTab('fc')}
-        >
-          FC Distribution
-        </button>
-      </div>
-
-      {/* Cache status */}
-      {data?.cachedAt && (
-        <span className="text-xs text-slate-400">
-          {data.fromCache ? '🗃 缓存' : '🔄 实时'} · 数据更新于 {formatCacheAge(data.cachedAt)}
-        </span>
-      )}
-
-      {/* Filters — only on inventory tab */}
-      {activeTab === 'inventory' && (
-        <>
-          <input
-            type="text"
-            placeholder="Filter by SKU..."
-            value={skuFilter}
-            onChange={e => setSkuFilter(e.target.value)}
-            onKeyDown={e => e.key === 'Enter' && handleApply()}
-            className="rounded-lg border border-slate-200 px-3 py-1.5 text-sm placeholder:text-slate-400 focus:outline-none focus:ring-1 focus:ring-blue-500/50 text-slate-900 bg-white"
-          />
-          <input
-            type="text"
-            placeholder="Filter by ASIN..."
-            value={asinFilter}
-            onChange={e => setAsinFilter(e.target.value)}
-            onKeyDown={e => e.key === 'Enter' && handleApply()}
-            className="rounded-lg border border-slate-200 px-3 py-1.5 text-sm placeholder:text-slate-400 focus:outline-none focus:ring-1 focus:ring-blue-500/50 text-slate-900 bg-white"
-          />
-          <button
-            onClick={handleApply}
-            disabled={loading}
-            className="rounded-lg bg-blue-600 px-3 py-1.5 text-sm font-medium text-white hover:bg-blue-700 disabled:opacity-50"
-          >
-            {loading ? 'Loading…' : 'Apply'}
-          </button>
-          {(skuFilter || asinFilter) && (
-            <button
-              onClick={handleClear}
-              className="inline-flex items-center gap-1 rounded-lg border border-slate-200 px-3 py-1.5 text-sm font-medium text-slate-700 hover:bg-slate-50"
-            >
-              <X className="h-3 w-3" /> Clear
-            </button>
-          )}
-        </>
-      )}
-
-      {/* Refresh button */}
+    <div className="inline-flex rounded-md border border-slate-200 bg-slate-50 p-0.5">
       <button
-        onClick={forceRefresh}
-        disabled={loading || refreshing}
-        className="inline-flex items-center gap-1.5 rounded-lg border border-slate-200 px-3 py-1.5 text-sm font-medium text-slate-700 hover:bg-slate-50 disabled:opacity-50"
-        title="强制刷新（忽略缓存）"
+        className={cn(
+          'rounded px-2.5 py-1 text-xs font-medium transition-colors',
+          activeTab === 'inventory'
+            ? 'bg-white text-slate-900 shadow-sm'
+            : 'text-slate-500 hover:text-slate-700'
+        )}
+        onClick={() => setActiveTab('inventory')}
       >
-        <RefreshCw className={cn('h-3.5 w-3.5', refreshing && 'animate-spin')} />
-        {refreshing ? '刷新中…' : '刷新数据'}
+        Inventory
+      </button>
+      <button
+        className={cn(
+          'rounded px-2.5 py-1 text-xs font-medium transition-colors',
+          activeTab === 'fc'
+            ? 'bg-white text-slate-900 shadow-sm'
+            : 'text-slate-500 hover:text-slate-700'
+        )}
+        onClick={() => setActiveTab('fc')}
+      >
+        FC Distribution
       </button>
     </div>
   )
@@ -1289,6 +1231,61 @@ export default function InventoryStatusPage() {
         {/* ── TAB 1: Inventory ── */}
         {activeTab === 'inventory' && (
           <>
+            {/* Filter bar */}
+            <section className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
+              <div className="grid grid-cols-1 md:grid-cols-[1fr_200px_200px_auto_auto] items-end gap-4">
+                <div>
+                  <label className="mb-1.5 block text-xs font-medium text-slate-700">Search SKU</label>
+                  <div className="relative">
+                    <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
+                    <input
+                      value={skuFilter}
+                      onChange={e => setSkuFilter(e.target.value)}
+                      onKeyDown={e => e.key === 'Enter' && handleApply()}
+                      className="w-full rounded-lg border border-slate-200 bg-white py-2 pl-9 pr-3 text-sm placeholder:text-slate-400 focus:outline-none focus:ring-1 focus:ring-blue-500/50"
+                      placeholder="Search by SKU, FNSKU..."
+                    />
+                  </div>
+                </div>
+                <div>
+                  <label className="mb-1.5 block text-xs font-medium text-slate-700">ASIN</label>
+                  <input
+                    value={asinFilter}
+                    onChange={e => setAsinFilter(e.target.value)}
+                    onKeyDown={e => e.key === 'Enter' && handleApply()}
+                    className="w-full rounded-lg border border-slate-200 bg-white py-2 px-3 text-sm placeholder:text-slate-400 focus:outline-none focus:ring-1 focus:ring-blue-500/50"
+                    placeholder="Filter by ASIN..."
+                  />
+                </div>
+                <div className="flex items-end gap-2">
+                  <button
+                    onClick={handleApply}
+                    disabled={loading}
+                    className="rounded-lg bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700 disabled:opacity-50"
+                  >Apply</button>
+                  {(skuFilter || asinFilter) && (
+                    <button onClick={handleClear} className="rounded-lg border border-slate-200 px-4 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50">Clear</button>
+                  )}
+                </div>
+                <div className="flex items-end">
+                  <button
+                    onClick={forceRefresh}
+                    disabled={loading || refreshing}
+                    className="inline-flex items-center gap-1.5 rounded-lg border border-slate-200 px-4 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50 disabled:opacity-50"
+                  >
+                    <RefreshCw className={cn('h-3.5 w-3.5', refreshing && 'animate-spin')} />
+                    刷新数据
+                  </button>
+                </div>
+              </div>
+              {/* Cache status */}
+              {data?.cachedAt && (
+                <p className="mt-2 text-xs text-slate-400">
+                  {data.fromCache ? '🗃 缓存' : '🔄 实时'} · 数据更新于 {formatCacheAge(data.cachedAt)}
+                </p>
+              )}
+            </section>
+
             {/* Loading */}
             {loading && !data && (
               <div className="flex flex-col items-center justify-center gap-3 p-12">
