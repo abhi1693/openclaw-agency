@@ -1,54 +1,58 @@
 import { NextResponse } from 'next/server'
-import { exec } from 'child_process'
-import { promisify } from 'util'
-import path from 'path'
 
-const execAsync = promisify(exec)
-const SP_API_PATH = path.resolve(process.env.HOME || '', '.openclaw/skills/amazon-sp-api/index.js')
+import { fetchBackend } from '../_backend'
+
+type BackendInventoryResponse = {
+  items?: Array<{
+    sku: string
+    asin?: string | null
+    product_name?: string | null
+    available?: number
+    inbound?: number
+    reserved?: number
+    status?: string
+  }>
+  summary?: {
+    total?: number
+    critical?: number
+    low_stock?: number
+    overstock?: number
+    restock?: number
+    healthy?: number
+  }
+  alerts?: {
+    critical?: unknown[]
+    low_stock?: unknown[]
+    overstock?: unknown[]
+    restock?: unknown[]
+  }
+}
 
 export async function GET() {
   try {
-    // Fetch directly from SP-API for full inventory
-    const { stdout } = await execAsync(`node ${SP_API_PATH} inventory`)
-    const json = stdout.split('\n').filter(l => !l.startsWith('[dotenv')).join('\n')
-    const data = JSON.parse(json)
-    
-    // Filter to only FBA SKUs
-    const items = (data.items || []).filter((item: { sku: string }) => item.sku.endsWith('-FBA'))
-    
-    // Categorize by stock level
-    const critical = items.filter((i: { totalSupply: number }) => (i.totalSupply ?? 0) <= 10)
-    const lowStock = items.filter((i: { totalSupply: number }) => (i.totalSupply ?? 0) > 10 && (i.totalSupply ?? 0) <= 50)
-    const overstock = items.filter((i: { totalSupply: number }) => (i.totalSupply ?? 0) > 500)
-    const healthy = items.filter((i: { totalSupply: number }) => (i.totalSupply ?? 0) > 50 && (i.totalSupply ?? 0) <= 500)
-    
-    const result = {
-      items: items.map((item: { sku: string; asin?: string; productName?: string; totalSupply?: number }) => ({
+    const response = await fetchBackend('/api/v1/amazon/inventory')
+    if (!response.ok) throw new Error(`Backend responded ${response.status}`)
+    const data = (await response.json()) as BackendInventoryResponse
+    return NextResponse.json({
+      ...data,
+      summary: {
+        total: data.summary?.total ?? 0,
+        critical: data.summary?.critical ?? 0,
+        lowStock: data.summary?.low_stock ?? 0,
+        overstock: data.summary?.overstock ?? 0,
+        restock: data.summary?.restock ?? 0,
+        healthy: data.summary?.healthy ?? 0,
+      },
+      items: (data.items || []).map((item) => ({
         sku: item.sku,
         asin: item.asin,
-        productName: item.productName || item.sku,
-        available: item.totalSupply || 0,
-        inbound: 0,
-        reserved: 0,
-        status: (item.totalSupply ?? 0) <= 10 ? 'critical' : (item.totalSupply ?? 0) <= 50 ? 'lowStock' : (item.totalSupply ?? 0) > 500 ? 'overstock' : 'healthy',
+        productName: item.product_name || item.sku,
+        available: item.available || 0,
+        inbound: item.inbound || 0,
+        reserved: item.reserved || 0,
+        status: item.status,
       })),
-      summary: {
-        total: items.length,
-        critical: critical.length,
-        lowStock: lowStock.length,
-        overstock: overstock.length,
-        restock: 0,
-        healthy: healthy.length,
-      },
-      alerts: {
-        critical: critical.slice(0, 10).map((i: any) => ({ ...i, priority: 'high', message: `${i.totalSupply} units left` })),
-        lowStock: lowStock.slice(0, 15),
-        overstock: overstock.slice(0, 10),
-        restock: [],
-      }
-    }
-    
-    return NextResponse.json(result)
+    })
   } catch (err) {
     console.error('Inventory API error:', err)
     return NextResponse.json({ items: [], summary: { total: 0, critical: 0 }, alerts: { critical: [], lowStock: [] }, error: true, mock: true })
