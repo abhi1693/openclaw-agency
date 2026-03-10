@@ -12,6 +12,7 @@ from app.models.amazon_orders import (
     Campaign,
     DailySales,
     FinancialEvent,
+    InventorySnapshot,
     PricingSnapshot,
     ProductSales,
     ReturnEvent,
@@ -28,7 +29,9 @@ async def _make_session() -> AsyncSession:
 
 
 @pytest.mark.asyncio
-async def test_sync_phase3_domains(monkeypatch, tmp_path) -> None:
+async def test_sync_phase3_domains_upsert_and_parse_details(monkeypatch) -> None:
+    pricing_calls: list[tuple[str, ...]] = []
+
     async def fake_sp_api(*args: str):
         if args[:2] == ("sales", "--days"):
             return {
@@ -86,7 +89,37 @@ async def test_sync_phase3_domains(monkeypatch, tmp_path) -> None:
         if args[:2] == ("returns", "--days"):
             return {
                 "period": "Last 30 days",
-                "topReasons": [{"reason": "DEFECTIVE", "count": 2}],
+                "returns": [
+                    {
+                        "returnDate": "2026-03-10T00:00:00Z",
+                        "orderId": "ORDER-9",
+                        "sku": "SKU-1",
+                        "asin": "ASIN-1",
+                        "reason": "DEFECTIVE",
+                        "status": "Completed",
+                        "quantity": 2,
+                        "fulfillmentCenter": "ABE8",
+                    }
+                ],
+            }
+        if args[:2] == ("pricing", "--skus"):
+            pricing_calls.append(args)
+            assert args[2] == "SKU-1"
+            return {
+                "skus": ["SKU-1"],
+                "pricing": [
+                    {
+                        "status": "Success",
+                        "competitivePrices": [
+                            {
+                                "Price": {
+                                    "ListingPrice": {"amount": 24.99, "currencyCode": "USD"}
+                                }
+                            }
+                        ],
+                        "numberOfOffers": [{"count": 2}],
+                    }
+                ],
             }
         raise AssertionError(args)
 
@@ -129,35 +162,63 @@ async def test_sync_phase3_domains(monkeypatch, tmp_path) -> None:
 
     monkeypatch.setattr(amazon_sync, "_run_sp_api", fake_sp_api)
     monkeypatch.setattr(amazon_sync, "_run_ads_api", fake_ads_api)
-    monkeypatch.setattr(amazon_sync, "SP_API_REPORTS", tmp_path)
-    pricing_path = amazon_sync.SP_API_REPORTS
-    pricing_path.mkdir(exist_ok=True)
-    (pricing_path / "pricing-999.json").write_text(
-        '{"period":"2026-03-10T00:00:00Z","alerts":{"stable":[{"asin":"ASIN-1","sku":"SKU-1","price":24.99,"currency":"USD","competitorOffers":2,"buyBoxWinner":true}]}}'
-    )
 
     async with await _make_session() as session:
-        sales_result = await amazon_sync.sync_sales(session, days=14)
-        top_products_result = await amazon_sync.sync_top_products(session, days=14)
-        finance_result = await amazon_sync.sync_finances(session, days=30)
-        campaigns_result = await amazon_sync.sync_campaigns_and_budget(
-            session, days=7, campaign_type="sp"
-        )
-        pricing_result = await amazon_sync.sync_pricing(session)
-        returns_result = await amazon_sync.sync_returns(session, days=30)
+        session.add(InventorySnapshot(sku="SKU-1", asin="ASIN-1", total_supply=20))
+        await session.commit()
 
-        assert sales_result.daily_sales_synced == 1
-        assert top_products_result.product_sales_synced == 1
-        assert finance_result.financial_events_synced == 5
-        assert campaigns_result.campaigns_synced == 1
-        assert campaigns_result.ad_metrics_synced == 1
-        assert pricing_result.pricing_snapshots_synced == 1
-        assert returns_result.return_events_synced == 1
+        for _ in range(2):
+            sales_result = await amazon_sync.sync_sales(session, days=14)
+            top_products_result = await amazon_sync.sync_top_products(session, days=14)
+            finance_result = await amazon_sync.sync_finances(session, days=30)
+            campaigns_result = await amazon_sync.sync_campaigns_and_budget(
+                session, days=7, campaign_type="sp"
+            )
+            pricing_result = await amazon_sync.sync_pricing(session)
+            returns_result = await amazon_sync.sync_returns(session, days=30)
 
+            assert sales_result.daily_sales_synced == 1
+            assert top_products_result.product_sales_synced == 1
+            assert finance_result.financial_events_synced == 5
+            assert campaigns_result.campaigns_synced == 1
+            assert campaigns_result.ad_metrics_synced == 1
+            assert pricing_result.pricing_snapshots_synced == 1
+            assert returns_result.return_events_synced == 1
+
+        assert pricing_calls == [("pricing", "--skus", "SKU-1"), ("pricing", "--skus", "SKU-1")]
         assert len((await session.exec(select(DailySales))).all()) == 1
         assert len((await session.exec(select(ProductSales))).all()) == 1
         assert len((await session.exec(select(FinancialEvent))).all()) == 5
         assert len((await session.exec(select(Campaign))).all()) == 1
         assert len((await session.exec(select(AdMetric))).all()) == 1
-        assert len((await session.exec(select(PricingSnapshot))).all()) == 1
-        assert len((await session.exec(select(ReturnEvent))).all()) == 1
+        pricing_rows = (await session.exec(select(PricingSnapshot))).all()
+        assert len(pricing_rows) == 2
+        assert pricing_rows[0].sku == "SKU-1"
+        assert pricing_rows[0].asin == "ASIN-1"
+        assert pricing_rows[0].competitor_offers == 2
+        returns_rows = (await session.exec(select(ReturnEvent))).all()
+        assert len(returns_rows) == 1
+        assert returns_rows[0].order_id == "ORDER-9"
+        assert returns_rows[0].sku == "SKU-1"
+        assert returns_rows[0].status == "Completed"
+
+
+@pytest.mark.asyncio
+async def test_sync_returns_falls_back_to_aggregates_when_no_details(monkeypatch) -> None:
+    async def fake_sp_api(*args: str):
+        assert args[:2] == ("returns", "--days")
+        return {
+            "period": "Last 30 days",
+            "returns": [],
+            "topReasons": [{"reason": "TOO_SMALL", "count": 3}],
+        }
+
+    monkeypatch.setattr(amazon_sync, "_run_sp_api", fake_sp_api)
+
+    async with await _make_session() as session:
+        result = await amazon_sync.sync_returns(session, days=30)
+        assert result.return_events_synced == 1
+        rows = (await session.exec(select(ReturnEvent))).all()
+        assert len(rows) == 1
+        assert rows[0].reason == "TOO_SMALL"
+        assert rows[0].status == "aggregated"

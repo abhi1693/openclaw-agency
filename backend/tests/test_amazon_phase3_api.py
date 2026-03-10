@@ -70,6 +70,7 @@ async def test_phase3_endpoints_return_persisted_rows() -> None:
         session.add(
             ProductSales(
                 id=uuid4(),
+                identity_key="Last 14 days|SKU-1|ASIN-1|Product 1",
                 period="Last 14 days",
                 sku="SKU-1",
                 asin="ASIN-1",
@@ -83,6 +84,7 @@ async def test_phase3_endpoints_return_persisted_rows() -> None:
         session.add(
             FinancialEvent(
                 id=uuid4(),
+                identity_key="Last 30 days|refund|ORDER-1|SKU-1|Principal|-|-19.99",
                 period="Last 30 days",
                 event_group="refund",
                 reference_id="ORDER-1",
@@ -107,6 +109,7 @@ async def test_phase3_endpoints_return_persisted_rows() -> None:
         session.add(
             AdMetric(
                 id=uuid4(),
+                identity_key="Last 7 days|123|-",
                 campaign_id="123",
                 period="Last 7 days",
                 spend=Decimal("5.00"),
@@ -124,6 +127,7 @@ async def test_phase3_endpoints_return_persisted_rows() -> None:
         session.add(
             PricingSnapshot(
                 id=uuid4(),
+                identity_key="2026-03-10T00:00:00Z|SKU-1|ASIN-1",
                 period="2026-03-10T00:00:00Z",
                 asin="ASIN-1",
                 sku="SKU-1",
@@ -137,6 +141,7 @@ async def test_phase3_endpoints_return_persisted_rows() -> None:
         session.add(
             ReturnEvent(
                 id=uuid4(),
+                identity_key="Last 30 days|ORDER-2|SKU-1|-|-|DEFECTIVE|aggregated",
                 period="Last 30 days",
                 order_id="ORDER-2",
                 sku="SKU-1",

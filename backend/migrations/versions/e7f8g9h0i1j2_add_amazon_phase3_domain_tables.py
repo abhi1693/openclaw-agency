@@ -43,6 +43,7 @@ def upgrade() -> None:
     op.create_table(
         'product_sales',
         sa.Column('id', sa.Uuid(), nullable=False),
+        sa.Column('identity_key', sa.String(), nullable=False),
         sa.Column('period', sa.String(), nullable=False),
         sa.Column('sku', sa.String(), nullable=True),
         sa.Column('asin', sa.String(), nullable=True),
@@ -56,7 +57,9 @@ def upgrade() -> None:
         sa.Column('created_at', sa.DateTime(), nullable=False),
         sa.Column('updated_at', sa.DateTime(), nullable=False),
         sa.PrimaryKeyConstraint('id'),
+        sa.UniqueConstraint('identity_key', name='uq_product_sales_identity_key'),
     )
+    op.create_index('ix_product_sales_identity_key', 'product_sales', ['identity_key'])
     op.create_index('ix_product_sales_period', 'product_sales', ['period'])
     op.create_index('ix_product_sales_sku', 'product_sales', ['sku'])
     op.create_index('ix_product_sales_asin', 'product_sales', ['asin'])
@@ -65,6 +68,7 @@ def upgrade() -> None:
     op.create_table(
         'financial_events',
         sa.Column('id', sa.Uuid(), nullable=False),
+        sa.Column('identity_key', sa.String(), nullable=False),
         sa.Column('period', sa.String(), nullable=False),
         sa.Column('event_group', sa.String(), nullable=False),
         sa.Column('reference_id', sa.String(), nullable=True),
@@ -78,7 +82,9 @@ def upgrade() -> None:
         sa.Column('created_at', sa.DateTime(), nullable=False),
         sa.Column('updated_at', sa.DateTime(), nullable=False),
         sa.PrimaryKeyConstraint('id'),
+        sa.UniqueConstraint('identity_key', name='uq_financial_events_identity_key'),
     )
+    op.create_index('ix_financial_events_identity_key', 'financial_events', ['identity_key'])
     op.create_index('ix_financial_events_period', 'financial_events', ['period'])
     op.create_index('ix_financial_events_event_group', 'financial_events', ['event_group'])
     op.create_index('ix_financial_events_reference_id', 'financial_events', ['reference_id'])
@@ -116,6 +122,7 @@ def upgrade() -> None:
     op.create_table(
         'ad_metrics',
         sa.Column('id', sa.Uuid(), nullable=False),
+        sa.Column('identity_key', sa.String(), nullable=False),
         sa.Column('campaign_id', sa.String(), nullable=False),
         sa.Column('period', sa.String(), nullable=False),
         sa.Column('report_date', sa.Date(), nullable=True),
@@ -134,7 +141,9 @@ def upgrade() -> None:
         sa.Column('created_at', sa.DateTime(), nullable=False),
         sa.Column('updated_at', sa.DateTime(), nullable=False),
         sa.PrimaryKeyConstraint('id'),
+        sa.UniqueConstraint('identity_key', name='uq_ad_metrics_identity_key'),
     )
+    op.create_index('ix_ad_metrics_identity_key', 'ad_metrics', ['identity_key'])
     op.create_index('ix_ad_metrics_campaign_id', 'ad_metrics', ['campaign_id'])
     op.create_index('ix_ad_metrics_period', 'ad_metrics', ['period'])
     op.create_index('ix_ad_metrics_report_date', 'ad_metrics', ['report_date'])
@@ -143,6 +152,7 @@ def upgrade() -> None:
     op.create_table(
         'pricing_snapshots',
         sa.Column('id', sa.Uuid(), nullable=False),
+        sa.Column('identity_key', sa.String(), nullable=False),
         sa.Column('period', sa.String(), nullable=False),
         sa.Column('asin', sa.String(), nullable=True),
         sa.Column('sku', sa.String(), nullable=True),
@@ -158,7 +168,9 @@ def upgrade() -> None:
         sa.Column('created_at', sa.DateTime(), nullable=False),
         sa.Column('updated_at', sa.DateTime(), nullable=False),
         sa.PrimaryKeyConstraint('id'),
+        sa.UniqueConstraint('identity_key', name='uq_pricing_snapshots_identity_key'),
     )
+    op.create_index('ix_pricing_snapshots_identity_key', 'pricing_snapshots', ['identity_key'])
     op.create_index('ix_pricing_snapshots_period', 'pricing_snapshots', ['period'])
     op.create_index('ix_pricing_snapshots_asin', 'pricing_snapshots', ['asin'])
     op.create_index('ix_pricing_snapshots_sku', 'pricing_snapshots', ['sku'])
@@ -168,6 +180,7 @@ def upgrade() -> None:
     op.create_table(
         'return_events',
         sa.Column('id', sa.Uuid(), nullable=False),
+        sa.Column('identity_key', sa.String(), nullable=False),
         sa.Column('period', sa.String(), nullable=False),
         sa.Column('order_id', sa.String(), nullable=True),
         sa.Column('sku', sa.String(), nullable=True),
@@ -180,7 +193,9 @@ def upgrade() -> None:
         sa.Column('created_at', sa.DateTime(), nullable=False),
         sa.Column('updated_at', sa.DateTime(), nullable=False),
         sa.PrimaryKeyConstraint('id'),
+        sa.UniqueConstraint('identity_key', name='uq_return_events_identity_key'),
     )
+    op.create_index('ix_return_events_identity_key', 'return_events', ['identity_key'])
     op.create_index('ix_return_events_period', 'return_events', ['period'])
     op.create_index('ix_return_events_order_id', 'return_events', ['order_id'])
     op.create_index('ix_return_events_sku', 'return_events', ['sku'])

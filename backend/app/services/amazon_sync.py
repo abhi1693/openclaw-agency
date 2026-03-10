@@ -9,9 +9,8 @@ from dataclasses import dataclass
 from datetime import date, datetime
 from decimal import Decimal, InvalidOperation
 from pathlib import Path
-from typing import Any
+from typing import Any, Iterable, Sequence
 
-from sqlalchemy import delete
 from sqlmodel import col, select
 from sqlmodel.ext.asyncio.session import AsyncSession
 
@@ -30,8 +29,8 @@ from app.models.amazon_orders import (
 )
 
 SP_API_SCRIPT = Path.home() / ".openclaw" / "skills" / "amazon-sp-api" / "index.js"
-ADS_SCRIPT = Path.home() / ".openclaw" / "skills" / "amazon-advertising" / "guard.js"
-SP_API_REPORTS = Path.home() / ".openclaw" / "skills" / "amazon-sp-api" / "reports"
+ADS_API_SCRIPT = Path.home() / ".openclaw" / "skills" / "amazon-advertising" / "index.js"
+PRICING_BATCH_SIZE = 20
 
 
 @dataclass
@@ -81,7 +80,7 @@ async def _run_sp_api(*args: str) -> dict[str, Any]:
 
 
 async def _run_ads_api(*args: str) -> dict[str, Any]:
-    return await _run_json_script(ADS_SCRIPT, *args)
+    return await _run_json_script(ADS_API_SCRIPT, *args)
 
 
 def _to_decimal(value: Any) -> Decimal | None:
@@ -118,6 +117,132 @@ def _to_date(value: Any) -> date | None:
     if isinstance(value, str) and value:
         return date.fromisoformat(value[:10])
     return None
+
+
+def _chunked(values: Sequence[str], size: int) -> Iterable[list[str]]:
+    for index in range(0, len(values), size):
+        yield list(values[index : index + size])
+
+
+async def _get_existing_by_identity(
+    session: AsyncSession, model: type[Any], identity_key: str
+) -> Any | None:
+    rows = await session.exec(select(model).where(col(model.identity_key) == identity_key))
+    return rows.one_or_none()
+
+
+def _pricing_status(item: dict[str, Any]) -> str | None:
+    status = item.get("status")
+    if status:
+        return str(status)
+    if item.get("competitivePrices"):
+        return "competitive"
+    return None
+
+
+def _extract_competitor_offers(item: dict[str, Any]) -> int:
+    offers = item.get("numberOfOffers") or []
+    if isinstance(offers, int):
+        return offers
+    if not isinstance(offers, list):
+        return 0
+    total = 0
+    for offer in offers:
+        if isinstance(offer, dict):
+            total += _to_int(offer.get("count") or offer.get("Count") or offer.get("quantity"))
+        else:
+            total += _to_int(offer)
+    return total
+
+
+def _extract_price(item: dict[str, Any]) -> tuple[Decimal | None, str | None]:
+    for candidate in item.get("competitivePrices") or []:
+        if not isinstance(candidate, dict):
+            continue
+        price = candidate.get("Price") or candidate.get("price") or {}
+        landed = price.get("LandedPrice") or price.get("landedPrice") or {}
+        listing = price.get("ListingPrice") or price.get("listingPrice") or {}
+        shipping = price.get("Shipping") or price.get("shipping") or {}
+        for node in (landed, listing, shipping, price):
+            amount = _to_decimal(node)
+            currency = node.get("CurrencyCode") or node.get("currencyCode") if isinstance(node, dict) else None
+            if amount is not None:
+                return amount, currency
+    return None, None
+
+
+def _identity_for_product_sales(period: str, product: dict[str, Any]) -> str:
+    sku = str(product.get("sku") or "").strip()
+    asin = str(product.get("asin") or "").strip()
+    title = str(product.get("title") or product.get("productName") or product.get("name") or "").strip()
+    return f"{period}|{sku or '-'}|{asin or '-'}|{title or '-'}"
+
+
+def _identity_for_financial_event(
+    period: str,
+    event_group: str,
+    reference_id: str | None,
+    sku: str | None,
+    description: str | None,
+    posted_date: datetime | None,
+    amount: Decimal | None,
+) -> str:
+    return "|".join(
+        [
+            period,
+            event_group,
+            reference_id or "-",
+            sku or "-",
+            description or "-",
+            posted_date.isoformat() if posted_date else "-",
+            str(amount) if amount is not None else "-",
+        ]
+    )
+
+
+def _identity_for_ad_metric(period: str, item: dict[str, Any]) -> str:
+    campaign_id = str(item.get("campaignId") or item.get("campaignName") or "").strip()
+    report_date = str(item.get("date") or "").strip()
+    return f"{period}|{campaign_id}|{report_date or '-'}"
+
+
+def _identity_for_pricing(period: str, sku: str | None, asin: str | None) -> str:
+    return f"{period}|{(sku or '-').strip()}|{(asin or '-').strip()}"
+
+
+def _identity_for_return(item: dict[str, Any], period: str) -> str:
+    return "|".join(
+        [
+            period,
+            str(item.get("orderId") or "-").strip(),
+            str(item.get("sku") or "-").strip(),
+            str(item.get("asin") or "-").strip(),
+            str(item.get("returnDate") or "-").strip(),
+            str(item.get("reason") or "-").strip(),
+            str(item.get("status") or "-").strip(),
+        ]
+    )
+
+
+async def _collect_pricing_targets(session: AsyncSession) -> list[tuple[str, str | None]]:
+    targets: list[tuple[str, str | None]] = []
+    seen: set[str] = set()
+
+    inventory_rows = list(await session.exec(select(InventorySnapshot).order_by(col(InventorySnapshot.updated_at).desc())))
+    for row in inventory_rows:
+        sku = (row.sku or "").strip()
+        if sku and sku not in seen:
+            targets.append((sku, row.asin))
+            seen.add(sku)
+
+    order_items = list(await session.exec(select(AmazonOrderItem).order_by(col(AmazonOrderItem.updated_at).desc())))
+    for row in order_items:
+        sku = (row.sku or "").strip()
+        if sku and sku not in seen:
+            targets.append((sku, row.asin))
+            seen.add(sku)
+
+    return targets
 
 
 def inventory_status(total_supply: int) -> str:
@@ -162,27 +287,33 @@ async def sync_orders_and_inventory(session: AsyncSession, *, days: int = 7) -> 
         order.raw_payload = order_payload
         order.synced_at = synced_at
         order.updated_at = synced_at
-        await session.exec(delete(AmazonOrderItem).where(col(AmazonOrderItem.order_id) == order.id))
 
         item_payload = await _run_sp_api("order-items", "--order-id", amazon_order_id)
         for item in list(item_payload.get("items") or []):
-            session.add(
-                AmazonOrderItem(
-                    order_id=order.id,
-                    asin=item.get("asin"),
-                    sku=item.get("sku"),
-                    title=item.get("title"),
-                    quantity_ordered=_to_int(item.get("quantityOrdered")),
-                    quantity_shipped=_to_int(item.get("quantityShipped")),
-                    item_price=_to_decimal(item.get("itemPrice")),
-                    item_tax=_to_decimal(item.get("itemTax")),
-                    promo_discount=_to_decimal(item.get("promoDiscount")),
-                    currency=item.get("currency"),
-                    raw_payload=item,
-                    synced_at=synced_at,
-                    updated_at=synced_at,
+            existing_item_rows = await session.exec(
+                select(AmazonOrderItem).where(
+                    col(AmazonOrderItem.order_id) == order.id,
+                    col(AmazonOrderItem.sku) == (item.get("sku") if item.get("sku") is not None else None),
+                    col(AmazonOrderItem.asin) == (item.get("asin") if item.get("asin") is not None else None),
+                    col(AmazonOrderItem.title) == (item.get("title") if item.get("title") is not None else None),
                 )
             )
+            order_item = existing_item_rows.one_or_none()
+            if order_item is None:
+                order_item = AmazonOrderItem(order_id=order.id)
+                session.add(order_item)
+            order_item.asin = item.get("asin")
+            order_item.sku = item.get("sku")
+            order_item.title = item.get("title")
+            order_item.quantity_ordered = _to_int(item.get("quantityOrdered"))
+            order_item.quantity_shipped = _to_int(item.get("quantityShipped"))
+            order_item.item_price = _to_decimal(item.get("itemPrice"))
+            order_item.item_tax = _to_decimal(item.get("itemTax"))
+            order_item.promo_discount = _to_decimal(item.get("promoDiscount"))
+            order_item.currency = item.get("currency")
+            order_item.raw_payload = item
+            order_item.synced_at = synced_at
+            order_item.updated_at = synced_at
             order_items_total += 1
 
     inventory_payload = await _run_sp_api("inventory")
@@ -223,7 +354,6 @@ async def sync_sales(session: AsyncSession, *, days: int = 14) -> AmazonSyncResu
     synced_at = utcnow()
     payload = await _run_sp_api("sales", "--days", str(days))
     metrics = list(payload.get("metrics") or [])
-    await session.exec(delete(DailySales))
     count = 0
     for metric in metrics:
         interval = str(metric.get("interval") or "")
@@ -232,23 +362,24 @@ async def sync_sales(session: AsyncSession, *, days: int = 14) -> AmazonSyncResu
         sales_date = _to_date(interval.split("--")[0])
         if sales_date is None:
             continue
+        existing = await session.exec(select(DailySales).where(col(DailySales.interval) == interval))
+        row = existing.one_or_none()
+        if row is None:
+            row = DailySales(sales_date=sales_date, interval=interval)
+            session.add(row)
         total_sales = metric.get("totalSales") or {}
         average_unit_price = metric.get("averageUnitPrice") or {}
-        session.add(
-            DailySales(
-                sales_date=sales_date,
-                interval=interval,
-                order_count=_to_int(metric.get("orderCount")),
-                order_item_count=_to_int(metric.get("orderItemCount")),
-                unit_count=_to_int(metric.get("unitCount")),
-                average_unit_price=_to_decimal(average_unit_price),
-                total_sales=_to_decimal(total_sales),
-                currency=total_sales.get("currencyCode") if isinstance(total_sales, dict) else None,
-                raw_payload=metric,
-                synced_at=synced_at,
-                updated_at=synced_at,
-            )
-        )
+        row.sales_date = sales_date
+        row.interval = interval
+        row.order_count = _to_int(metric.get("orderCount"))
+        row.order_item_count = _to_int(metric.get("orderItemCount"))
+        row.unit_count = _to_int(metric.get("unitCount"))
+        row.average_unit_price = _to_decimal(average_unit_price)
+        row.total_sales = _to_decimal(total_sales)
+        row.currency = total_sales.get("currencyCode") if isinstance(total_sales, dict) else None
+        row.raw_payload = metric
+        row.synced_at = synced_at
+        row.updated_at = synced_at
         count += 1
     await session.commit()
     return AmazonSyncResult(daily_sales_synced=count, synced_at=synced_at)
@@ -259,30 +390,27 @@ async def sync_top_products(session: AsyncSession, *, days: int = 14) -> AmazonS
     payload = await _run_sp_api("top-products", "--days", str(days))
     products = list(payload.get("products") or [])
     period = str(payload.get("period") or f"Last {days} days")
-    await session.exec(delete(ProductSales))
     count = 0
     for product in products:
-        session.add(
-            ProductSales(
-                period=period,
-                sku=product.get("sku"),
-                asin=product.get("asin"),
-                title=product.get("title") or product.get("productName") or product.get("name"),
-                quantity_sold=_to_int(
-                    product.get("quantitySold")
-                    or product.get("quantity")
-                    or product.get("unitsSold")
-                ),
-                order_count=_to_int(product.get("orderCount")),
-                revenue=_to_decimal(
-                    product.get("revenue") or product.get("sales") or product.get("totalRevenue")
-                ),
-                currency=product.get("currency") or "USD",
-                raw_payload=product,
-                synced_at=synced_at,
-                updated_at=synced_at,
-            )
+        identity_key = _identity_for_product_sales(period, product)
+        row = await _get_existing_by_identity(session, ProductSales, identity_key)
+        if row is None:
+            row = ProductSales(identity_key=identity_key, period=period)
+            session.add(row)
+        row.identity_key = identity_key
+        row.period = period
+        row.sku = product.get("sku")
+        row.asin = product.get("asin")
+        row.title = product.get("title") or product.get("productName") or product.get("name")
+        row.quantity_sold = _to_int(
+            product.get("quantitySold") or product.get("quantity") or product.get("unitsSold")
         )
+        row.order_count = _to_int(product.get("orderCount"))
+        row.revenue = _to_decimal(product.get("revenue") or product.get("sales") or product.get("totalRevenue"))
+        row.currency = product.get("currency") or "USD"
+        row.raw_payload = product
+        row.synced_at = synced_at
+        row.updated_at = synced_at
         count += 1
     await session.commit()
     return AmazonSyncResult(product_sales_synced=count, synced_at=synced_at)
@@ -292,7 +420,6 @@ async def sync_finances(session: AsyncSession, *, days: int = 30) -> AmazonSyncR
     synced_at = utcnow()
     payload = await _run_sp_api("finances", "--days", str(days))
     period = str(payload.get("period") or f"Last {days} days")
-    await session.exec(delete(FinancialEvent))
     count = 0
 
     for charge in list(payload.get("productCharges") or []):
@@ -303,20 +430,23 @@ async def sync_finances(session: AsyncSession, *, days: int = 30) -> AmazonSyncR
             ("promotions", "Promotions"),
             ("netRevenue", "Net Revenue"),
         ]:
-            session.add(
-                FinancialEvent(
-                    period=period,
-                    event_group="product_charge",
-                    reference_id=sku,
-                    sku=sku,
-                    amount=_to_decimal(charge.get(key)),
-                    currency="USD",
-                    description=label,
-                    raw_payload=charge,
-                    synced_at=synced_at,
-                    updated_at=synced_at,
-                )
-            )
+            amount = _to_decimal(charge.get(key))
+            identity_key = _identity_for_financial_event(period, "product_charge", sku, sku, label, None, amount)
+            row = await _get_existing_by_identity(session, FinancialEvent, identity_key)
+            if row is None:
+                row = FinancialEvent(identity_key=identity_key, period=period, event_group="product_charge")
+                session.add(row)
+            row.identity_key = identity_key
+            row.period = period
+            row.event_group = "product_charge"
+            row.reference_id = sku
+            row.sku = sku
+            row.amount = amount
+            row.currency = "USD"
+            row.description = label
+            row.raw_payload = charge
+            row.synced_at = synced_at
+            row.updated_at = synced_at
             count += 1
 
     for refund in list(payload.get("refundSummary") or []):
@@ -324,25 +454,37 @@ async def sync_finances(session: AsyncSession, *, days: int = 30) -> AmazonSyncR
         posted_date = _to_datetime(refund.get("postedDate")) if refund.get("postedDate") else None
         for item in list(refund.get("items") or []):
             for adjustment in list(item.get("adjustments") or []):
-                session.add(
-                    FinancialEvent(
-                        period=period,
-                        event_group="refund",
-                        reference_id=order_id,
-                        posted_date=posted_date,
-                        sku=item.get("sku"),
-                        amount=_to_decimal(adjustment.get("amount")),
-                        currency="USD",
-                        description=str(adjustment.get("type") or "Adjustment"),
-                        raw_payload={
-                            "refund": refund,
-                            "item": item,
-                            "adjustment": adjustment,
-                        },
-                        synced_at=synced_at,
-                        updated_at=synced_at,
-                    )
+                amount = _to_decimal(adjustment.get("amount"))
+                description = str(adjustment.get("type") or "Adjustment")
+                identity_key = _identity_for_financial_event(
+                    period,
+                    "refund",
+                    order_id,
+                    item.get("sku"),
+                    description,
+                    posted_date,
+                    amount,
                 )
+                row = await _get_existing_by_identity(session, FinancialEvent, identity_key)
+                if row is None:
+                    row = FinancialEvent(identity_key=identity_key, period=period, event_group="refund")
+                    session.add(row)
+                row.identity_key = identity_key
+                row.period = period
+                row.event_group = "refund"
+                row.reference_id = order_id
+                row.posted_date = posted_date
+                row.sku = item.get("sku")
+                row.amount = amount
+                row.currency = "USD"
+                row.description = description
+                row.raw_payload = {
+                    "refund": refund,
+                    "item": item,
+                    "adjustment": adjustment,
+                }
+                row.synced_at = synced_at
+                row.updated_at = synced_at
                 count += 1
 
     await session.commit()
@@ -358,54 +500,58 @@ async def sync_campaigns_and_budget(
     synced_at = utcnow()
     campaigns_payload = await _run_ads_api("campaigns", "--type", campaign_type)
     campaigns = list(campaigns_payload.get("campaigns") or [])
-    await session.exec(delete(Campaign))
     campaign_count = 0
     for item in campaigns:
+        campaign_id = str(item.get("campaignId") or "").strip()
+        if not campaign_id:
+            continue
+        existing = await session.exec(select(Campaign).where(col(Campaign.campaign_id) == campaign_id))
+        row = existing.one_or_none()
+        if row is None:
+            row = Campaign(campaign_id=campaign_id, campaign_type=str(campaigns_payload.get("campaignType") or campaign_type), name=str(item.get("name") or ""))
+            session.add(row)
         budget = item.get("budget") or {}
-        session.add(
-            Campaign(
-                campaign_id=str(item.get("campaignId") or ""),
-                campaign_type=str(campaigns_payload.get("campaignType") or campaign_type),
-                name=str(item.get("name") or ""),
-                state=item.get("state"),
-                targeting_type=item.get("targetingType"),
-                budget_amount=_to_decimal(budget.get("budget")),
-                budget_type=budget.get("budgetType"),
-                start_date=_to_date(item.get("startDate")),
-                end_date=_to_date(item.get("endDate")),
-                raw_payload=item,
-                synced_at=synced_at,
-                updated_at=synced_at,
-            )
-        )
+        row.campaign_id = campaign_id
+        row.campaign_type = str(campaigns_payload.get("campaignType") or campaign_type)
+        row.name = str(item.get("name") or row.name or "")
+        row.state = item.get("state")
+        row.targeting_type = item.get("targetingType")
+        row.budget_amount = _to_decimal(budget.get("budget"))
+        row.budget_type = budget.get("budgetType")
+        row.start_date = _to_date(item.get("startDate"))
+        row.end_date = _to_date(item.get("endDate"))
+        row.raw_payload = item
+        row.synced_at = synced_at
+        row.updated_at = synced_at
         campaign_count += 1
 
     metrics_payload = await _run_ads_api("performance", "--days", str(days), "--campaigns")
     metrics = list(metrics_payload.get("records") or metrics_payload.get("campaigns") or [])
-    await session.exec(delete(AdMetric))
     metric_count = 0
     period = str(metrics_payload.get("period") or f"Last {days} days")
     for item in metrics:
-        session.add(
-            AdMetric(
-                campaign_id=str(item.get("campaignId") or item.get("campaignName") or ""),
-                period=period,
-                report_date=_to_date(item.get("date")),
-                spend=_to_decimal(item.get("spend")),
-                sales=_to_decimal(item.get("sales")),
-                impressions=_to_int(item.get("impressions")),
-                clicks=_to_int(item.get("clicks")),
-                orders=_to_int(item.get("orders")),
-                units=_to_int(item.get("units")),
-                ctr=_to_decimal(item.get("ctr")),
-                cpc=_to_decimal(item.get("cpc")),
-                acos=_to_decimal(item.get("acos")),
-                roas=_to_decimal(item.get("roas")),
-                raw_payload=item,
-                synced_at=synced_at,
-                updated_at=synced_at,
-            )
-        )
+        identity_key = _identity_for_ad_metric(period, item)
+        row = await _get_existing_by_identity(session, AdMetric, identity_key)
+        if row is None:
+            row = AdMetric(identity_key=identity_key, campaign_id=str(item.get("campaignId") or item.get("campaignName") or ""), period=period)
+            session.add(row)
+        row.identity_key = identity_key
+        row.campaign_id = str(item.get("campaignId") or item.get("campaignName") or "")
+        row.period = period
+        row.report_date = _to_date(item.get("date"))
+        row.spend = _to_decimal(item.get("spend"))
+        row.sales = _to_decimal(item.get("sales"))
+        row.impressions = _to_int(item.get("impressions"))
+        row.clicks = _to_int(item.get("clicks"))
+        row.orders = _to_int(item.get("orders"))
+        row.units = _to_int(item.get("units"))
+        row.ctr = _to_decimal(item.get("ctr"))
+        row.cpc = _to_decimal(item.get("cpc"))
+        row.acos = _to_decimal(item.get("acos"))
+        row.roas = _to_decimal(item.get("roas"))
+        row.raw_payload = item
+        row.synced_at = synced_at
+        row.updated_at = synced_at
         metric_count += 1
 
     await session.commit()
@@ -418,40 +564,43 @@ async def sync_campaigns_and_budget(
 
 async def sync_pricing(session: AsyncSession) -> AmazonSyncResult:
     synced_at = utcnow()
-    latest_files = sorted(
-        [path for path in SP_API_REPORTS.glob("pricing-*.json") if "history" not in path.name],
-        reverse=True,
-    )
-    if not latest_files:
-        raise FileNotFoundError("No pricing report found in amazon-sp-api reports directory")
-    payload = json.loads(latest_files[0].read_text())
-    period = str(payload.get("period") or synced_at.isoformat())
-    records: list[dict[str, Any]] = []
-    alerts = payload.get("alerts") or {}
-    for status in ("priceDrops", "priceIncreases", "stable"):
-        for item in list(alerts.get(status) or []):
-            records.append({**item, "status": status})
+    targets = await _collect_pricing_targets(session)
+    if not targets:
+        await session.commit()
+        return AmazonSyncResult(pricing_snapshots_synced=0, synced_at=synced_at)
 
-    await session.exec(delete(PricingSnapshot))
+    records: list[tuple[str, str | None, dict[str, Any]]] = []
+    for batch in _chunked([sku for sku, _asin in targets], PRICING_BATCH_SIZE):
+        payload = await _run_sp_api("pricing", "--skus", ",".join(batch))
+        pricing_rows = list(payload.get("pricing") or [])
+        for index, sku in enumerate(batch):
+            row = pricing_rows[index] if index < len(pricing_rows) and isinstance(pricing_rows[index], dict) else {}
+            asin = next((target_asin for target_sku, target_asin in targets if target_sku == sku), None)
+            records.append((sku, asin or row.get("asin"), row))
+
+    period = synced_at.isoformat()
     count = 0
-    for item in records:
-        session.add(
-            PricingSnapshot(
-                period=period,
-                asin=item.get("asin"),
-                sku=item.get("sku"),
-                status=item.get("status"),
-                price=_to_decimal(item.get("price") or item.get("currentPrice")),
-                currency=item.get("currency") or "USD",
-                change_amount=_to_decimal(item.get("changeAmount")),
-                change_percent=_to_decimal(item.get("changePercent")),
-                competitor_offers=_to_int(item.get("competitorOffers")),
-                buy_box_winner=item.get("buyBoxWinner"),
-                raw_payload=item,
-                synced_at=synced_at,
-                updated_at=synced_at,
-            )
-        )
+    for sku, asin, item in records:
+        identity_key = _identity_for_pricing(period, sku, asin)
+        row = await _get_existing_by_identity(session, PricingSnapshot, identity_key)
+        if row is None:
+            row = PricingSnapshot(identity_key=identity_key, period=period)
+            session.add(row)
+        price, currency = _extract_price(item)
+        row.identity_key = identity_key
+        row.period = period
+        row.asin = asin
+        row.sku = sku
+        row.status = _pricing_status(item)
+        row.price = price
+        row.currency = currency or item.get("currency") or "USD"
+        row.change_amount = _to_decimal(item.get("changeAmount"))
+        row.change_percent = _to_decimal(item.get("changePercent"))
+        row.competitor_offers = _extract_competitor_offers(item)
+        row.buy_box_winner = item.get("buyBoxWinner")
+        row.raw_payload = item
+        row.synced_at = synced_at
+        row.updated_at = synced_at
         count += 1
 
     await session.commit()
@@ -462,20 +611,50 @@ async def sync_returns(session: AsyncSession, *, days: int = 30) -> AmazonSyncRe
     synced_at = utcnow()
     payload = await _run_sp_api("returns", "--days", str(days))
     period = str(payload.get("period") or f"Last {days} days")
-    await session.exec(delete(ReturnEvent))
+    detailed_returns = list(payload.get("returns") or [])
+    if detailed_returns:
+        count = 0
+        for item in detailed_returns:
+            identity_key = _identity_for_return(item, period)
+            row = await _get_existing_by_identity(session, ReturnEvent, identity_key)
+            if row is None:
+                row = ReturnEvent(identity_key=identity_key, period=period)
+                session.add(row)
+            row.identity_key = identity_key
+            row.period = period
+            row.order_id = item.get("orderId")
+            row.sku = item.get("sku")
+            row.reason = item.get("reason")
+            row.quantity = _to_int(item.get("quantity") or 1)
+            row.status = item.get("status")
+            row.event_date = _to_datetime(item.get("returnDate")) if item.get("returnDate") else None
+            row.raw_payload = item
+            row.synced_at = synced_at
+            row.updated_at = synced_at
+            count += 1
+        await session.commit()
+        return AmazonSyncResult(return_events_synced=count, synced_at=synced_at)
+
     count = 0
     for reason in list(payload.get("topReasons") or []):
-        session.add(
-            ReturnEvent(
-                period=period,
-                reason=reason.get("reason"),
-                quantity=_to_int(reason.get("count")),
-                status="aggregated",
-                raw_payload=reason,
-                synced_at=synced_at,
-                updated_at=synced_at,
-            )
-        )
+        item = {
+            "reason": reason.get("reason"),
+            "status": "aggregated",
+            "quantity": reason.get("count"),
+        }
+        identity_key = _identity_for_return(item, period)
+        row = await _get_existing_by_identity(session, ReturnEvent, identity_key)
+        if row is None:
+            row = ReturnEvent(identity_key=identity_key, period=period)
+            session.add(row)
+        row.identity_key = identity_key
+        row.period = period
+        row.reason = reason.get("reason")
+        row.quantity = _to_int(reason.get("count"))
+        row.status = "aggregated"
+        row.raw_payload = reason
+        row.synced_at = synced_at
+        row.updated_at = synced_at
         count += 1
     await session.commit()
     return AmazonSyncResult(return_events_synced=count, synced_at=synced_at)
