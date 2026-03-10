@@ -14,6 +14,7 @@ from typing import Any, Iterable, Sequence
 from sqlmodel import col, select
 from sqlmodel.ext.asyncio.session import AsyncSession
 
+from app.core.logging import get_logger
 from app.core.time import utcnow
 from app.models.amazon_orders import (
     AdMetric,
@@ -31,6 +32,7 @@ from app.models.amazon_orders import (
 SP_API_SCRIPT = Path.home() / ".openclaw" / "skills" / "amazon-sp-api" / "index.js"
 ADS_API_SCRIPT = Path.home() / ".openclaw" / "skills" / "amazon-advertising" / "index.js"
 PRICING_BATCH_SIZE = 20
+logger = get_logger(__name__)
 
 
 @dataclass
@@ -525,10 +527,15 @@ async def sync_campaigns_and_budget(
         row.updated_at = synced_at
         campaign_count += 1
 
-    metrics_payload = await _run_ads_api("performance", "--days", str(days), "--campaigns")
-    metrics = list(metrics_payload.get("records") or metrics_payload.get("campaigns") or [])
     metric_count = 0
-    period = str(metrics_payload.get("period") or f"Last {days} days")
+    period = f"Last {days} days"
+    try:
+        metrics_payload = await _run_ads_api("performance", "--days", str(days), "--campaigns")
+        metrics = list(metrics_payload.get("records") or metrics_payload.get("campaigns") or [])
+        period = str(metrics_payload.get("period") or period)
+    except RuntimeError as exc:
+        logger.warning("Ad performance fetch failed (skipping metrics): %s", exc)
+        metrics = []
     for item in metrics:
         identity_key = _identity_for_ad_metric(period, item)
         row = await _get_existing_by_identity(session, AdMetric, identity_key)
