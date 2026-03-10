@@ -10,9 +10,11 @@ from app.models.amazon_orders import (
     DailySales,
     FinancialEvent,
     InventorySnapshot,
+    PpcAnalysisSnapshot,
     PricingSnapshot,
     ProductSales,
     ReturnEvent,
+    SearchTermReport,
 )
 from app.models.approval_task_links import ApprovalTaskLink
 from app.models.approvals import Approval
@@ -73,9 +75,11 @@ __all__ = [
     "OrganizationBoardAccess",
     "OrganizationInvite",
     "OrganizationInviteBoardAccess",
+    "PpcAnalysisSnapshot",
     "PricingSnapshot",
     "ProductSales",
     "ReturnEvent",
+    "SearchTermReport",
     "TaskDependency",
     "Task",
     "TaskFingerprint",

@@ -24,9 +24,11 @@ from app.models.amazon_orders import (
     DailySales,
     FinancialEvent,
     InventorySnapshot,
+    PpcAnalysisSnapshot,
     PricingSnapshot,
     ProductSales,
     ReturnEvent,
+    SearchTermReport,
 )
 
 SP_API_SCRIPT = Path.home() / ".openclaw" / "skills" / "amazon-sp-api" / "index.js"
@@ -665,3 +667,206 @@ async def sync_returns(session: AsyncSession, *, days: int = 30) -> AmazonSyncRe
         count += 1
     await session.commit()
     return AmazonSyncResult(return_events_synced=count, synced_at=synced_at)
+
+
+async def sync_search_terms(session: AsyncSession) -> tuple[int, datetime]:
+    """Sync search terms from Amazon Advertising API into DB.
+
+    Returns (count_synced, synced_at).
+    """
+    GUARD = Path.home() / ".openclaw" / "skills" / "amazon-advertising" / "guard.js"
+
+    proc = await asyncio.create_subprocess_exec(
+        "node", str(GUARD), "search-terms", "--days", "30",
+        stdout=asyncio.subprocess.PIPE,
+        stderr=asyncio.subprocess.PIPE,
+    )
+    stdout, stderr = await proc.communicate()
+    if proc.returncode != 0:
+        raise RuntimeError(f"search-terms script failed: {stderr.decode().strip()}")
+
+    raw = _clean_json_stdout(stdout.decode())
+    data = json.loads(raw)
+    rows = data.get("rows", [])
+    start_date = data.get("startDate", "")
+    end_date = data.get("endDate", "")
+    period = f"{start_date}_{end_date}"
+    now = utcnow()
+    synced = 0
+
+    for row in rows:
+        search_term = row.get("searchTerm") or ""
+        if not search_term:
+            continue
+
+        campaign_name = row.get("campaignName") or None
+        match_type = row.get("matchType") or None
+        spend_val = _to_decimal(row.get("cost"))
+        sales_val = _to_decimal(row.get("sales7d"))
+        clicks_val = _to_int(row.get("clicks"))
+        impressions_val = _to_int(row.get("impressions"))
+        orders_val = _to_int(row.get("purchases7d"))
+        units_val = _to_int(row.get("unitsSoldClicks7d"))
+        cpc_val = _to_decimal(row.get("costPerClick"))
+        acos_val = _to_decimal(row.get("acosClicks7d"))
+
+        roas_val: Decimal | None = None
+        if spend_val and spend_val > 0 and sales_val:
+            try:
+                roas_val = Decimal(str(float(sales_val) / float(spend_val)))
+            except Exception:
+                pass
+
+        ctr_val: Decimal | None = None
+        if impressions_val > 0:
+            try:
+                ctr_val = Decimal(str(clicks_val / impressions_val))
+            except Exception:
+                pass
+
+        report_date_val: date | None = None
+        if end_date:
+            try:
+                report_date_val = date.fromisoformat(end_date)
+            except ValueError:
+                pass
+
+        existing = await session.exec(
+            select(SearchTermReport).where(
+                SearchTermReport.period == period,
+                SearchTermReport.search_term == search_term,
+                SearchTermReport.campaign_name == campaign_name,
+                SearchTermReport.match_type == match_type,
+                SearchTermReport.report_date == report_date_val,
+            )
+        )
+        record = existing.first()
+        if record is None:
+            record = SearchTermReport(
+                search_term=search_term,
+                campaign_name=campaign_name,
+                ad_group_name=row.get("adGroupName") or None,
+                keyword=row.get("targeting") or None,
+                match_type=match_type,
+                impressions=impressions_val,
+                clicks=clicks_val,
+                spend=spend_val,
+                sales=sales_val,
+                orders=orders_val,
+                units=units_val,
+                acos=acos_val,
+                roas=roas_val,
+                ctr=ctr_val,
+                cpc=cpc_val,
+                report_date=report_date_val,
+                period=period,
+                raw_payload=dict(row),
+                synced_at=now,
+            )
+            session.add(record)
+        else:
+            record.impressions = impressions_val
+            record.clicks = clicks_val
+            record.spend = spend_val
+            record.sales = sales_val
+            record.orders = orders_val
+            record.units = units_val
+            record.acos = acos_val
+            record.roas = roas_val
+            record.ctr = ctr_val
+            record.cpc = cpc_val
+            record.raw_payload = dict(row)
+            record.synced_at = now
+            record.updated_at = now
+
+        synced += 1
+        if synced % 500 == 0:
+            await session.commit()
+
+    await session.commit()
+    return synced, now
+
+
+async def sync_ppc_analyses(session: AsyncSession) -> tuple[int, datetime]:
+    """Sync PPC analysis result files from ads skill cache into DB.
+
+    Returns (count_synced, synced_at).
+    """
+    import re as _re
+
+    CACHE_DIR = Path.home() / ".openclaw" / "skills" / "amazon-advertising" / "cache"
+
+    PATTERNS: list[tuple[str, str]] = [
+        ("keyword", "keyword-analysis-*.json"),
+        ("bid", "bid-analysis-*.json"),
+        ("campaign", "campaign-analysis-*.json"),
+        ("weekly", "weekly-report-*.json"),
+        ("ai-insights", "ai-insights-result-*.json"),
+    ]
+
+    now = utcnow()
+    synced = 0
+
+    for analysis_type, pattern in PATTERNS:
+        files = sorted(CACHE_DIR.glob(pattern))
+        for fpath in files:
+            try:
+                content: Any = json.loads(fpath.read_text(encoding="utf-8"))
+            except Exception:
+                continue
+
+            stem = fpath.stem
+            date_match = _re.search(r"(\d{4}-\d{2}-\d{2})", stem)
+            if not date_match:
+                continue
+            report_date_str = date_match.group(1)
+            try:
+                report_date_val = date.fromisoformat(report_date_str)
+            except ValueError:
+                continue
+
+            all_dates = _re.findall(r"\d{4}-\d{2}-\d{2}", stem)
+            period_val = (
+                f"{all_dates[0]}_{all_dates[-1]}" if len(all_dates) >= 2 else report_date_str
+            )
+
+            summary_val = f"{analysis_type} {report_date_str}"
+            if isinstance(content, dict):
+                for key in ("summary", "title", "period", "reportDate"):
+                    if key in content and isinstance(content[key], str):
+                        summary_val = str(content[key])[:200]
+                        break
+
+            existing = await session.exec(
+                select(PpcAnalysisSnapshot).where(
+                    PpcAnalysisSnapshot.analysis_type == analysis_type,
+                    PpcAnalysisSnapshot.report_date == report_date_val,
+                )
+            )
+            record = existing.first()
+            data_val: dict[str, Any] = (
+                content if isinstance(content, dict) else {"rows": content}
+            )
+            if record is None:
+                record = PpcAnalysisSnapshot(
+                    analysis_type=analysis_type,
+                    report_date=report_date_val,
+                    period=period_val,
+                    data=data_val,
+                    summary=summary_val,
+                    raw_payload=data_val,
+                    synced_at=now,
+                )
+                session.add(record)
+            else:
+                record.data = data_val
+                record.summary = summary_val
+                record.period = period_val
+                record.raw_payload = data_val
+                record.synced_at = now
+                record.updated_at = now
+
+            synced += 1
+
+    await session.commit()
+    return synced, now

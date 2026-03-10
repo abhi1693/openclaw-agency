@@ -18,9 +18,11 @@ from app.models.amazon_orders import (
     DailySales,
     FinancialEvent,
     InventorySnapshot,
+    PpcAnalysisSnapshot,
     PricingSnapshot,
     ProductSales,
     ReturnEvent,
+    SearchTermReport,
 )
 from app.schemas.amazon import (
     AdMetricRead,
@@ -39,12 +41,18 @@ from app.schemas.amazon import (
     DailySalesRead,
     FinanceResponse,
     FinancialEventRead,
+    PpcAnalysesResponse,
+    PpcAnalysesSyncResponse,
+    PpcAnalysisSnapshotRead,
     PricingResponse,
     PricingSnapshotRead,
     ProductSalesRead,
     ReturnsResponse,
     ReturnEventRead,
     SalesResponse,
+    SearchTermReportRead,
+    SearchTermsResponse,
+    SearchTermsSyncResponse,
     TopProductsResponse,
 )
 from app.services.amazon_sync import (
@@ -52,9 +60,11 @@ from app.services.amazon_sync import (
     sync_campaigns_and_budget,
     sync_finances,
     sync_orders_and_inventory,
+    sync_ppc_analyses,
     sync_pricing,
     sync_returns,
     sync_sales,
+    sync_search_terms,
     sync_top_products,
 )
 
@@ -460,4 +470,90 @@ async def list_returns(
             )
             for row in rows
         ],
+    )
+
+
+# ── Search Terms ──────────────────────────────────────────────────────────────
+
+@router.post("/search-terms/sync", response_model=SearchTermsSyncResponse)
+async def sync_search_terms_endpoint(
+    session: AsyncSession = SESSION_DEP,
+) -> SearchTermsSyncResponse:
+    count, synced_at = await sync_search_terms(session)
+    return SearchTermsSyncResponse(search_terms_synced=count, synced_at=synced_at)
+
+
+@router.get("/search-terms", response_model=SearchTermsResponse)
+async def get_search_terms(
+    campaign_id: str | None = Query(default=None),
+    days: int = Query(default=30, ge=1, le=365),
+    limit: int = Query(default=500, ge=1, le=5000),
+    session: AsyncSession = SESSION_DEP,
+) -> SearchTermsResponse:
+    cutoff = utcnow() - timedelta(days=days)
+    stmt = select(SearchTermReport).where(col(SearchTermReport.synced_at) >= cutoff)
+    if campaign_id:
+        stmt = stmt.where(SearchTermReport.campaign_id == campaign_id)
+    stmt = stmt.order_by(col(SearchTermReport.synced_at).desc()).limit(limit)
+    rows = await session.exec(stmt)
+    items = rows.all()
+    last_synced = items[0].synced_at if items else None
+    return SearchTermsResponse(
+        total=len(items),
+        period=f"last {days}d",
+        last_synced_at=last_synced,
+        terms=[SearchTermReportRead(**item.model_dump()) for item in items],
+    )
+
+
+# ── PPC Analyses ──────────────────────────────────────────────────────────────
+
+@router.post("/ppc-analyses/sync", response_model=PpcAnalysesSyncResponse)
+async def sync_ppc_analyses_endpoint(
+    session: AsyncSession = SESSION_DEP,
+) -> PpcAnalysesSyncResponse:
+    count, synced_at = await sync_ppc_analyses(session)
+    return PpcAnalysesSyncResponse(analyses_synced=count, synced_at=synced_at)
+
+
+@router.get("/ppc-analyses/latest", response_model=PpcAnalysesResponse)
+async def get_ppc_analyses_latest(
+    session: AsyncSession = SESSION_DEP,
+) -> PpcAnalysesResponse:
+    types = ["keyword", "bid", "campaign", "weekly", "ai-insights"]
+    results = []
+    for analysis_type in types:
+        stmt = (
+            select(PpcAnalysisSnapshot)
+            .where(PpcAnalysisSnapshot.analysis_type == analysis_type)
+            .order_by(col(PpcAnalysisSnapshot.report_date).desc())
+            .limit(1)
+        )
+        rows = await session.exec(stmt)
+        item = rows.first()
+        if item:
+            results.append(PpcAnalysisSnapshotRead(**item.model_dump()))
+    return PpcAnalysesResponse(total=len(results), snapshots=results)
+
+
+@router.get("/ppc-analyses", response_model=PpcAnalysesResponse)
+async def get_ppc_analyses(
+    type: str | None = Query(default=None),
+    days: int = Query(default=90, ge=1, le=365),
+    limit: int = Query(default=50, ge=1, le=200),
+    session: AsyncSession = SESSION_DEP,
+) -> PpcAnalysesResponse:
+    from datetime import date as _date, timedelta as _td
+    cutoff_date = _date.today() - _td(days=days)
+    stmt = select(PpcAnalysisSnapshot).where(
+        col(PpcAnalysisSnapshot.report_date) >= cutoff_date
+    )
+    if type:
+        stmt = stmt.where(PpcAnalysisSnapshot.analysis_type == type)
+    stmt = stmt.order_by(col(PpcAnalysisSnapshot.report_date).desc()).limit(limit)
+    rows = await session.exec(stmt)
+    items = rows.all()
+    return PpcAnalysesResponse(
+        total=len(items),
+        snapshots=[PpcAnalysisSnapshotRead(**item.model_dump()) for item in items],
     )

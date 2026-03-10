@@ -240,3 +240,59 @@ class ReturnsResponse(SQLModel):
     period: str
     last_synced_at: datetime | None = None
     events: list[ReturnEventRead]
+
+
+class SearchTermReportRead(SQLModel):
+    id: UUID
+    search_term: str
+    campaign_id: str | None = None
+    campaign_name: str | None = None
+    ad_group_id: str | None = None
+    ad_group_name: str | None = None
+    keyword: str | None = None
+    match_type: str | None = None
+    impressions: int
+    clicks: int
+    spend: Decimal | None = None
+    sales: Decimal | None = None
+    orders: int
+    units: int
+    acos: Decimal | None = None
+    roas: Decimal | None = None
+    ctr: Decimal | None = None
+    cpc: Decimal | None = None
+    report_date: date | None = None
+    period: str
+    synced_at: datetime
+
+
+class SearchTermsResponse(SQLModel):
+    total: int
+    period: str
+    last_synced_at: datetime | None = None
+    terms: list[SearchTermReportRead]
+
+
+class SearchTermsSyncResponse(SQLModel):
+    search_terms_synced: int = 0
+    synced_at: datetime
+
+
+class PpcAnalysisSnapshotRead(SQLModel):
+    id: UUID
+    analysis_type: str
+    report_date: date
+    period: str | None = None
+    data: dict | None = None
+    summary: str | None = None
+    synced_at: datetime
+
+
+class PpcAnalysesResponse(SQLModel):
+    total: int
+    snapshots: list[PpcAnalysisSnapshotRead]
+
+
+class PpcAnalysesSyncResponse(SQLModel):
+    analyses_synced: int = 0
+    synced_at: datetime
