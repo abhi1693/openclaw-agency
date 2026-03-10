@@ -1,8 +1,7 @@
 'use client'
 
 import { useEffect, useState, useCallback } from 'react'
-import ReactMarkdown from 'react-markdown'
-import remarkGfm from 'remark-gfm'
+import { Markdown } from '@/components/atoms/Markdown'
 import {
   FileText, RefreshCw, ChevronRight, ChevronLeft, ChevronDown, ChevronUp, X, Calendar,
   Package, BarChart2, Search, TrendingUp,
@@ -68,38 +67,11 @@ function saveReadSet(key: string, set: Set<string>) {
   localStorage.setItem(key, JSON.stringify(Array.from(set)))
 }
 
-// ─── Shared Markdown Renderer ─────────────────────────────────────────────────
-
-function MarkdownView({ content }: { content: string }) {
-  return (
-    <article className="prose dark:prose-invert prose-base max-w-none overflow-x-auto
-      prose-headings:text-[hsl(var(--foreground))]
-      prose-h1:text-2xl prose-h1:font-bold prose-h1:mb-4
-      prose-h2:text-lg prose-h2:font-semibold prose-h2:mt-6 prose-h2:mb-3
-      prose-h3:text-base prose-h3:font-semibold prose-h3:mt-4 prose-h3:mb-2
-      prose-p:text-[hsl(var(--muted-foreground))] prose-p:leading-relaxed
-      prose-li:text-[hsl(var(--muted-foreground))]
-      prose-strong:text-[hsl(var(--foreground))]
-      prose-code:text-[hsl(var(--primary))] prose-code:bg-[hsl(var(--secondary))] prose-code:px-1 prose-code:rounded
-      prose-pre:bg-[hsl(var(--secondary))] prose-pre:border prose-pre:border-[hsl(var(--border))]
-      prose-table:w-full
-      prose-th:px-3 prose-th:py-2 prose-th:text-left prose-th:border prose-th:border-[hsl(var(--border))]
-      prose-th:text-[hsl(var(--foreground))] prose-th:bg-[hsl(var(--secondary))]
-      prose-td:px-3 prose-td:py-2 prose-td:border prose-td:border-[hsl(var(--border))]
-      prose-td:text-[hsl(var(--muted-foreground))]
-      prose-hr:border-[hsl(var(--border))]
-      prose-blockquote:border-[hsl(var(--primary))] prose-blockquote:text-[hsl(var(--muted-foreground))]
-    ">
-      <ReactMarkdown remarkPlugins={[remarkGfm]}>{content}</ReactMarkdown>
-    </article>
-  )
-}
-
 // ─── Coming Soon ──────────────────────────────────────────────────────────────
 
 function ComingSoon({ label }: { label: string }) {
   return (
-    <div className="flex flex-col items-center justify-center py-32 gap-4 opacity-40">
+    <div className="flex flex-col items-center justify-center py-32 gap-4 text-muted-foreground">
       <Clock className="w-12 h-12" />
       <p className="text-xl font-semibold text-[hsl(var(--foreground))]">{label}</p>
       <p className="text-base text-[hsl(var(--muted-foreground))]">Coming Soon — 即将上线</p>
@@ -122,10 +94,10 @@ interface ListingReportFile {
 
 const LISTING_READ_KEY = 'listing-reports-read'
 
-function listingTypeLabel(type: string): { label: string; color: string } {
-  if (type.includes('search-term')) return { label: 'Search Terms', color: 'bg-blue-500/15 text-blue-600 border-blue-500/30' }
-  if (type.includes('listing'))    return { label: 'Listing',       color: 'bg-amber-500/15 text-amber-600 border-amber-500/30' }
-  return { label: type || 'Report', color: 'bg-zinc-500/15 text-slate-500 border-zinc-500/30' }
+function listingTypeLabel(type: string): { label: string; variant: 'default' | 'outline' | 'accent' | 'success' | 'warning' | 'danger' } {
+  if (type.includes('search-term')) return { label: 'Search Terms', variant: 'accent' }
+  if (type.includes('listing'))    return { label: 'Listing',       variant: 'warning' }
+  return { label: type || 'Report', variant: 'outline' }
 }
 
 function fmtDate(d: string): string {
@@ -153,20 +125,20 @@ function ListingDetail({
       .finally(() => setLoading(false))
   }, [file.filename]) // eslint-disable-line react-hooks/exhaustive-deps
 
-  const { label, color } = listingTypeLabel(file.type)
+  const { label, variant } = listingTypeLabel(file.type)
 
   return (
     <div className="flex flex-col gap-4">
       <div className="flex items-center gap-3">
-        <Badge className={`text-[10px] font-semibold border flex-shrink-0 ${color}`} variant="outline">{label}</Badge>
+        <Badge className="text-[10px] font-semibold flex-shrink-0" variant={variant}>{label}</Badge>
         <p className="text-base font-mono text-[hsl(var(--muted-foreground))] truncate flex-1">{file.filename.replace(/\.md$/, '')}</p>
         <span className="text-sm text-[hsl(var(--muted-foreground))]">{file.sizeKb} KB</span>
       </div>
       <Card>
         <CardContent className="pt-6 max-h-[70vh] overflow-y-auto">
           {loading && <div className="space-y-3">{[1,2,3,4].map(i=><Skeleton key={i} className="h-4"/>)}</div>}
-          {error && <div className="flex items-center gap-2 text-rose-600"><X className="w-4 h-4"/><span>{error}</span></div>}
-          {content && <MarkdownView content={content} />}
+          {error && <div className="flex items-center gap-2 text-destructive"><X className="w-4 h-4"/><span>{error}</span></div>}
+          {content && <Markdown content={content} variant="description" />}
         </CardContent>
       </Card>
     </div>
@@ -286,7 +258,7 @@ function ListingTab() {
           <Card key={i}><CardContent className="pt-4"><Skeleton className="h-4 w-48 mb-2"/><Skeleton className="h-3 w-32"/></CardContent></Card>
         ))}</div>
       ) : files.length === 0 ? (
-        <div className="flex flex-col items-center justify-center py-20 gap-3 opacity-50">
+        <div className="flex flex-col items-center justify-center py-20 gap-3">
           <FileText className="w-10 h-10"/>
           <p className="text-base text-[hsl(var(--muted-foreground))]">暂无报告</p>
           <p className="text-sm text-[hsl(var(--muted-foreground))]">
@@ -322,7 +294,7 @@ function ListingTab() {
                         className={`w-full flex items-center justify-center p-2 rounded-lg transition-colors relative ${isActive ? 'bg-[hsl(var(--primary)/0.15)]' : 'hover:bg-[hsl(var(--secondary))]'}`}
                       >
                         <Package className={`w-4 h-4 ${isActive ? 'text-[hsl(var(--primary))]' : 'text-[hsl(var(--muted-foreground))]'}`}/>
-                        {!isRead && <div className="absolute top-1 right-1 w-1.5 h-1.5 rounded-full bg-blue-500"/>}
+                        {!isRead && <div className="absolute top-1 right-1 w-1.5 h-1.5 rounded-full bg-[hsl(var(--primary))]"/>}
                       </button>
                     )
                   })
@@ -366,7 +338,7 @@ function ListingTab() {
                         {!isCollapsed && (
                           <div className="space-y-1.5">
                             {asinFiles.map(f => {
-                              const { label, color } = listingTypeLabel(f.type)
+                              const { label, variant } = listingTypeLabel(f.type)
                               const isRead = readSet.has(f.filename)
                               const isActive = selected?.filename === f.filename
                               return (
@@ -379,18 +351,18 @@ function ListingTab() {
                                       <div className="min-w-0">
                                         <p className={`text-xs font-medium truncate ${isRead ? 'text-[hsl(var(--muted-foreground))]' : 'text-[hsl(var(--foreground))]'}`}>{nickname ?? asin}</p>
                                       </div>
-                                      <Badge className={`text-[10px] font-semibold border flex-shrink-0 ${color}`} variant="outline">{label}</Badge>
+                                      <Badge className="text-[10px] font-semibold flex-shrink-0" variant={variant}>{label}</Badge>
                                     </div>
                                     <div className="flex items-center gap-2 mt-1 text-[10px] text-[hsl(var(--muted-foreground))]">
                                       <Calendar className="w-3 h-3"/>
                                       <span>{fmtDate(f.modifiedAt)}</span>
                                       <span>·</span>
-                                      <span className={isRead ? 'text-[hsl(var(--muted-foreground))]' : 'text-blue-600'}>{isRead ? '已读' : '未读'}</span>
+                                      <span className={isRead ? 'text-[hsl(var(--muted-foreground))]' : 'text-[hsl(var(--primary))]'}>{isRead ? '已读' : '未读'}</span>
                                     </div>
                                   </button>
                                   <button
                                     onClick={(e) => handleDelete(e, f)}
-                                    className="mt-1 text-[10px] text-[hsl(var(--muted-foreground))] hover:text-rose-600 opacity-0 group-hover:opacity-100 transition-opacity"
+                                    className="mt-1 text-[10px] text-[hsl(var(--muted-foreground))] hover:text-destructive opacity-0 group-hover:opacity-100 transition-opacity"
                                   >删除</button>
                                 </div>
                               )
@@ -437,16 +409,16 @@ interface DiscoveryFile {
 
 const DISCOVERY_READ_KEY = 'discovery-reports-read'
 
-const DISCOVERY_BADGE: Record<string, { label: string; color: string; icon: React.ComponentType<{ className?: string }> }> = {
-  trends:        { label: '趋势研究', color: 'bg-blue-500/15 text-blue-600 border-blue-500/30',     icon: TrendingUp },
-  'trends-deep': { label: '深度趋势', color: 'bg-cyan-500/15 text-cyan-400 border-cyan-500/30',    icon: TrendingUp },
-  competitors:   { label: '竞品对比', color: 'bg-rose-500/15 text-rose-600 border-rose-500/30',        icon: Users },
-  voc:           { label: '客户之声', color: 'bg-emerald-500/15 text-emerald-600 border-emerald-500/30',  icon: Megaphone },
-  industry:      { label: '行业动态', color: 'bg-purple-500/15 text-purple-400 border-purple-500/30', icon: LayoutGrid },
+const DISCOVERY_BADGE: Record<string, { label: string; variant: 'default' | 'outline' | 'accent' | 'success' | 'warning' | 'danger'; icon: React.ComponentType<{ className?: string }> }> = {
+  trends:        { label: '趋势研究', variant: 'accent',  icon: TrendingUp },
+  'trends-deep': { label: '深度趋势', variant: 'accent',  icon: TrendingUp },
+  competitors:   { label: '竞品对比', variant: 'danger',  icon: Users },
+  voc:           { label: '客户之声', variant: 'success', icon: Megaphone },
+  industry:      { label: '行业动态', variant: 'accent',  icon: LayoutGrid },
 }
 
 function discoveryBadge(prefix: string) {
-  return DISCOVERY_BADGE[prefix] ?? { label: prefix || '报告', color: 'bg-zinc-500/15 text-slate-500 border-zinc-500/30', icon: FileText }
+  return DISCOVERY_BADGE[prefix] ?? { label: prefix || '报告', variant: 'outline' as const satisfies 'default' | 'outline' | 'accent' | 'success' | 'warning' | 'danger', icon: FileText }
 }
 
 function DiscoveryDetail({
@@ -469,20 +441,20 @@ function DiscoveryDetail({
       .finally(() => setLoading(false))
   }, [file.filename]) // eslint-disable-line react-hooks/exhaustive-deps
 
-  const { label, color } = discoveryBadge(file.prefix)
+  const { label, variant } = discoveryBadge(file.prefix)
 
   return (
     <div className="flex flex-col gap-4">
       <div className="flex items-center gap-3">
-        <Badge className={`text-[10px] font-semibold border flex-shrink-0 ${color}`} variant="outline">{label}</Badge>
-        <p className="text-base font-mono text-[hsl(var(--muted-foreground))] truncate flex-1">{file.filename}</p>
+        <Badge className="text-[10px] font-semibold flex-shrink-0" variant={variant}>{label}</Badge>
+        <p className="text-base font-mono text-[hsl(var(--muted-foreground))] truncate flex-1">{file.filename.replace(/\.md$/, '')}</p>
         <span className="text-sm text-[hsl(var(--muted-foreground))]">{file.sizeKb} KB</span>
       </div>
       <Card>
         <CardContent className="pt-6 max-h-[70vh] overflow-y-auto">
           {loading && <div className="space-y-3">{[1,2,3,4].map(i=><Skeleton key={i} className="h-4"/>)}</div>}
-          {error && <div className="flex items-center gap-2 text-rose-600"><X className="w-4 h-4"/><span>{error}</span></div>}
-          {content && <MarkdownView content={content} />}
+          {error && <div className="flex items-center gap-2 text-destructive"><X className="w-4 h-4"/><span>{error}</span></div>}
+          {content && <Markdown content={content} variant="description" />}
         </CardContent>
       </Card>
     </div>
@@ -577,7 +549,7 @@ function DiscoveryTab() {
           <Card key={i}><CardContent className="pt-4"><Skeleton className="h-4 w-48 mb-2"/><Skeleton className="h-3 w-32"/></CardContent></Card>
         ))}</div>
       ) : files.length === 0 ? (
-        <div className="flex flex-col items-center justify-center py-20 gap-3 opacity-50">
+        <div className="flex flex-col items-center justify-center py-20 gap-3">
           <FileText className="w-10 h-10"/>
           <p className="text-base text-[hsl(var(--muted-foreground))]">暂无报告</p>
           <p className="text-sm text-[hsl(var(--muted-foreground))]">
@@ -610,7 +582,7 @@ function DiscoveryTab() {
                       className={`w-full flex items-center justify-center p-2 rounded-lg transition-colors relative ${isActive ? 'bg-[hsl(var(--primary)/0.15)]' : 'hover:bg-[hsl(var(--secondary))]'}`}
                     >
                       <Icon className={`w-4 h-4 ${isActive ? 'text-[hsl(var(--primary))]' : 'text-[hsl(var(--muted-foreground))]'}`}/>
-                      {!isRead && <div className="absolute top-1 right-1 w-1.5 h-1.5 rounded-full bg-blue-500"/>}
+                      {!isRead && <div className="absolute top-1 right-1 w-1.5 h-1.5 rounded-full bg-[hsl(var(--primary))]"/>}
                     </button>
                   )
                 })}
@@ -645,11 +617,11 @@ function DiscoveryTab() {
                 )}
                 <div className="h-[calc(100vh-280px)] overflow-y-auto pr-1 space-y-2">
                   {filtered.length === 0 ? (
-                    <div className="flex items-center justify-center py-10 opacity-50">
+                    <div className="flex items-center justify-center py-10">
                       <p className="text-sm text-[hsl(var(--muted-foreground))]">没有匹配的报告</p>
                     </div>
                   ) : filtered.map(f => {
-                    const { label, color, icon: Icon } = discoveryBadge(f.prefix)
+                    const { label, variant, icon: Icon } = discoveryBadge(f.prefix)
                     const isRead = readSet.has(f.filename)
                     const isActive = selected?.filename === f.filename
                     return (
@@ -664,7 +636,7 @@ function DiscoveryTab() {
                               <Icon className={`w-3.5 h-3.5 flex-shrink-0 transition-colors ${isActive ? 'text-[hsl(var(--primary))]' : 'text-[hsl(var(--muted-foreground))]'}`}/>
                               <p className={`text-xs font-medium truncate ${isRead ? 'text-[hsl(var(--muted-foreground))]' : 'text-[hsl(var(--foreground))]'}`}>{f.filename.replace('.md','')}</p>
                             </div>
-                            <Badge className={`text-[10px] font-semibold border flex-shrink-0 ${color}`} variant="outline">{label}</Badge>
+                            <Badge className="text-[10px] font-semibold flex-shrink-0" variant={variant}>{label}</Badge>
                           </div>
                           <div className="flex items-center gap-2 mt-1 text-[10px] text-[hsl(var(--muted-foreground))]">
                             <Calendar className="w-3 h-3"/>
@@ -672,12 +644,12 @@ function DiscoveryTab() {
                             <span>·</span>
                             <span>{f.sizeKb} KB</span>
                             <span>·</span>
-                            <span className={isRead ? 'text-[hsl(var(--muted-foreground))]' : 'text-blue-600'}>{isRead ? '已读' : '未读'}</span>
+                            <span className={isRead ? 'text-[hsl(var(--muted-foreground))]' : 'text-[hsl(var(--primary))]'}>{isRead ? '已读' : '未读'}</span>
                           </div>
                         </button>
                         <button
                           onClick={(e) => handleDelete(e, f)}
-                          className="mt-1 text-[10px] text-[hsl(var(--muted-foreground))] hover:text-rose-600 opacity-0 group-hover:opacity-100 transition-opacity"
+                          className="mt-1 text-[10px] text-[hsl(var(--muted-foreground))] hover:text-destructive opacity-0 group-hover:opacity-100 transition-opacity"
                         >删除</button>
                       </div>
                     )
@@ -719,16 +691,16 @@ interface PpcReportFile {
 
 const PPC_READ_KEY = 'ppc-reports-read'
 
-const PPC_BADGE: Record<string, { label: string; color: string; icon: React.ComponentType<{ className?: string }> }> = {
-  'ai-insights':       { label: 'AI 洞察',   color: 'bg-blue-500/15 text-blue-600 border-blue-500/30',     icon: Zap },
-  'weekly-report':     { label: '周报',       color: 'bg-purple-500/15 text-purple-400 border-purple-500/30', icon: BarChart2 },
-  'bid-analysis':      { label: '出价分析',   color: 'bg-amber-500/15 text-amber-600 border-amber-500/30', icon: TrendingUp },
-  'campaign-analysis': { label: '广告活动',   color: 'bg-emerald-500/15 text-emerald-600 border-emerald-500/30',  icon: Megaphone },
-  'search-terms':      { label: '搜索词',     color: 'bg-orange-500/15 text-orange-400 border-orange-500/30', icon: Search },
+const PPC_BADGE: Record<string, { label: string; variant: 'default' | 'outline' | 'accent' | 'success' | 'warning' | 'danger'; icon: React.ComponentType<{ className?: string }> }> = {
+  'ai-insights':       { label: 'AI 洞察',   variant: 'accent',   icon: Zap },
+  'weekly-report':     { label: '周报',       variant: 'accent',   icon: BarChart2 },
+  'bid-analysis':      { label: '出价分析',   variant: 'warning',  icon: TrendingUp },
+  'campaign-analysis': { label: '广告活动',   variant: 'success',  icon: Megaphone },
+  'search-terms':      { label: '搜索词',     variant: 'warning',  icon: Search },
 }
 
 function ppcBadge(prefix: string) {
-  return PPC_BADGE[prefix] ?? { label: prefix || 'PPC 报告', color: 'bg-zinc-500/15 text-slate-500 border-zinc-500/30', icon: FileText }
+  return PPC_BADGE[prefix] ?? { label: prefix || 'PPC 报告', variant: 'outline' as const satisfies 'default' | 'outline' | 'accent' | 'success' | 'warning' | 'danger', icon: FileText }
 }
 
 function PpcDetail({
@@ -751,20 +723,20 @@ function PpcDetail({
       .finally(() => setLoading(false))
   }, [file.filename]) // eslint-disable-line react-hooks/exhaustive-deps
 
-  const { label, color } = ppcBadge(file.prefix)
+  const { label, variant } = ppcBadge(file.prefix)
 
   return (
     <div className="flex flex-col gap-4">
       <div className="flex items-center gap-3">
-        <Badge className={`text-[10px] font-semibold border flex-shrink-0 ${color}`} variant="outline">{label}</Badge>
-        <p className="text-base font-mono text-[hsl(var(--muted-foreground))] truncate flex-1">{file.filename}</p>
+        <Badge className="text-[10px] font-semibold flex-shrink-0" variant={variant}>{label}</Badge>
+        <p className="text-base font-mono text-[hsl(var(--muted-foreground))] truncate flex-1">{file.filename.replace(/\.md$/, '')}</p>
         <span className="text-sm text-[hsl(var(--muted-foreground))]">{file.sizeKb} KB</span>
       </div>
       <Card>
         <CardContent className="pt-6 max-h-[70vh] overflow-y-auto">
           {loading && <div className="space-y-3">{[1,2,3,4].map(i=><Skeleton key={i} className="h-4"/>)}</div>}
-          {error && <div className="flex items-center gap-2 text-rose-600"><X className="w-4 h-4"/><span>{error}</span></div>}
-          {content && <MarkdownView content={content} />}
+          {error && <div className="flex items-center gap-2 text-destructive"><X className="w-4 h-4"/><span>{error}</span></div>}
+          {content && <Markdown content={content} variant="description" />}
         </CardContent>
       </Card>
     </div>
@@ -859,7 +831,7 @@ function PpcTab() {
           <Card key={i}><CardContent className="pt-4"><Skeleton className="h-4 w-48 mb-2"/><Skeleton className="h-3 w-32"/></CardContent></Card>
         ))}</div>
       ) : files.length === 0 ? (
-        <div className="flex flex-col items-center justify-center py-20 gap-3 opacity-50">
+        <div className="flex flex-col items-center justify-center py-20 gap-3">
           <Zap className="w-10 h-10"/>
           <p className="text-base text-[hsl(var(--muted-foreground))]">暂无 PPC 报告</p>
           <p className="text-sm text-[hsl(var(--muted-foreground))]">
@@ -893,7 +865,7 @@ function PpcTab() {
                       className={`w-full flex items-center justify-center p-2 rounded-lg transition-colors relative ${isActive ? 'bg-[hsl(var(--primary)/0.15)]' : 'hover:bg-[hsl(var(--secondary))]'}`}
                     >
                       <Icon className={`w-4 h-4 ${isActive ? 'text-[hsl(var(--primary))]' : 'text-[hsl(var(--muted-foreground))]'}`}/>
-                      {!isRead && <div className="absolute top-1 right-1 w-1.5 h-1.5 rounded-full bg-blue-500"/>}
+                      {!isRead && <div className="absolute top-1 right-1 w-1.5 h-1.5 rounded-full bg-[hsl(var(--primary))]"/>}
                     </button>
                   )
                 })}
@@ -928,11 +900,11 @@ function PpcTab() {
                 )}
                 <div className="h-[calc(100vh-280px)] overflow-y-auto pr-1 space-y-2">
                   {filtered.length === 0 ? (
-                    <div className="flex items-center justify-center py-10 opacity-50">
+                    <div className="flex items-center justify-center py-10">
                       <p className="text-sm text-[hsl(var(--muted-foreground))]">没有匹配的报告</p>
                     </div>
                   ) : filtered.map(f => {
-                    const { label, color, icon: Icon } = ppcBadge(f.prefix)
+                    const { label, variant, icon: Icon } = ppcBadge(f.prefix)
                     const isRead = readSet.has(f.filename)
                     const isActive = selected?.filename === f.filename
                     return (
@@ -947,7 +919,7 @@ function PpcTab() {
                               <Icon className={`w-3.5 h-3.5 flex-shrink-0 transition-colors ${isActive ? 'text-[hsl(var(--primary))]' : 'text-[hsl(var(--muted-foreground))]'}`}/>
                               <p className={`text-xs font-medium truncate ${isRead ? 'text-[hsl(var(--muted-foreground))]' : 'text-[hsl(var(--foreground))]'}`}>{f.filename.replace('.md','')}</p>
                             </div>
-                            <Badge className={`text-[10px] font-semibold border flex-shrink-0 ${color}`} variant="outline">{label}</Badge>
+                            <Badge className="text-[10px] font-semibold flex-shrink-0" variant={variant}>{label}</Badge>
                           </div>
                           <div className="flex items-center gap-2 mt-1 text-[10px] text-[hsl(var(--muted-foreground))]">
                             <Calendar className="w-3 h-3"/>
@@ -955,12 +927,12 @@ function PpcTab() {
                             <span>·</span>
                             <span>{f.sizeKb} KB</span>
                             <span>·</span>
-                            <span className={isRead ? 'text-[hsl(var(--muted-foreground))]' : 'text-blue-600'}>{isRead ? '已读' : '未读'}</span>
+                            <span className={isRead ? 'text-[hsl(var(--muted-foreground))]' : 'text-[hsl(var(--primary))]'}>{isRead ? '已读' : '未读'}</span>
                           </div>
                         </button>
                         <button
                           onClick={(e) => handleDelete(e, f)}
-                          className="mt-1 text-[10px] text-[hsl(var(--muted-foreground))] hover:text-rose-600 opacity-0 group-hover:opacity-100 transition-opacity"
+                          className="mt-1 text-[10px] text-[hsl(var(--muted-foreground))] hover:text-destructive opacity-0 group-hover:opacity-100 transition-opacity"
                         >删除</button>
                       </div>
                     )
@@ -1006,16 +978,16 @@ const STRATEGY_READ_KEY = 'strategy-reports-read'
 function strategyBadge(filename: string) {
   const name = filename.toLowerCase()
   if (name.includes('deep-dive'))
-    return { label: '🔬 深度调研',   color: 'bg-cyan-500/15 text-cyan-400 border-cyan-500/30',     icon: Search }
+    return { label: '🔬 深度调研',   variant: 'accent' as const,   icon: Search }
   if (name.includes('feasibility'))
-    return { label: '📋 可行性分析', color: 'bg-amber-500/15 text-amber-600 border-amber-500/30', icon: BarChart2 }
+    return { label: '📋 可行性分析', variant: 'warning' as const,  icon: BarChart2 }
   if (name.includes('roadmap'))
-    return { label: '🗺️ 路线图',     color: 'bg-emerald-500/15 text-emerald-600 border-emerald-500/30',   icon: LayoutGrid }
+    return { label: '🗺️ 路线图',     variant: 'success' as const,  icon: LayoutGrid }
   if (name.includes('growth-plan') || name.includes('strategy'))
-    return { label: '🎯 战略规划',   color: 'bg-purple-500/15 text-purple-400 border-purple-500/30', icon: TrendingUp }
+    return { label: '🎯 战略规划',   variant: 'accent' as const,   icon: TrendingUp }
   if (name.includes('market-entry'))
-    return { label: '🚀 市场进入',   color: 'bg-orange-500/15 text-orange-400 border-orange-500/30', icon: Zap }
-  return { label: '📄 调研报告',     color: 'bg-zinc-500/15 text-slate-500 border-zinc-500/30',       icon: FileText }
+    return { label: '🚀 市场进入',   variant: 'warning' as const,  icon: Zap }
+  return { label: '📄 调研报告',     variant: 'outline' as const,  icon: FileText }
 }
 
 function StrategyDetail({
@@ -1038,20 +1010,20 @@ function StrategyDetail({
       .finally(() => setLoading(false))
   }, [file.filename]) // eslint-disable-line react-hooks/exhaustive-deps
 
-  const { label, color } = strategyBadge(file.filename)
+  const { label, variant } = strategyBadge(file.filename)
 
   return (
     <div className="flex flex-col gap-4">
       <div className="flex items-center gap-3">
-        <Badge className={`text-[10px] font-semibold border flex-shrink-0 ${color}`} variant="outline">{label}</Badge>
-        <p className="text-base font-mono text-[hsl(var(--muted-foreground))] truncate flex-1">{file.filename}</p>
+        <Badge className="text-[10px] font-semibold flex-shrink-0" variant={variant}>{label}</Badge>
+        <p className="text-base font-mono text-[hsl(var(--muted-foreground))] truncate flex-1">{file.filename.replace(/\.md$/, '')}</p>
         <span className="text-sm text-[hsl(var(--muted-foreground))]">{file.sizeKb} KB</span>
       </div>
       <Card>
         <CardContent className="pt-6 max-h-[70vh] overflow-y-auto">
           {loading && <div className="space-y-3">{[1,2,3,4].map(i=><Skeleton key={i} className="h-4"/>)}</div>}
-          {error && <div className="flex items-center gap-2 text-rose-600"><X className="w-4 h-4"/><span>{error}</span></div>}
-          {content && <MarkdownView content={content} />}
+          {error && <div className="flex items-center gap-2 text-destructive"><X className="w-4 h-4"/><span>{error}</span></div>}
+          {content && <Markdown content={content} variant="description" />}
         </CardContent>
       </Card>
     </div>
@@ -1145,7 +1117,7 @@ function StrategyTab() {
           <Card key={i}><CardContent className="pt-4"><Skeleton className="h-4 w-48 mb-2"/><Skeleton className="h-3 w-32"/></CardContent></Card>
         ))}</div>
       ) : files.length === 0 ? (
-        <div className="flex flex-col items-center justify-center py-20 gap-3 opacity-50">
+        <div className="flex flex-col items-center justify-center py-20 gap-3">
           <FileText className="w-10 h-10"/>
           <p className="text-base text-[hsl(var(--muted-foreground))]">暂无战略报告</p>
           <p className="text-sm text-[hsl(var(--muted-foreground))]">
@@ -1178,7 +1150,7 @@ function StrategyTab() {
                       className={`w-full flex items-center justify-center p-2 rounded-lg transition-colors relative ${isActive ? 'bg-[hsl(var(--primary)/0.15)]' : 'hover:bg-[hsl(var(--secondary))]'}`}
                     >
                       <Icon className={`w-4 h-4 ${isActive ? 'text-[hsl(var(--primary))]' : 'text-[hsl(var(--muted-foreground))]'}`}/>
-                      {!isRead && <div className="absolute top-1 right-1 w-1.5 h-1.5 rounded-full bg-blue-500"/>}
+                      {!isRead && <div className="absolute top-1 right-1 w-1.5 h-1.5 rounded-full bg-[hsl(var(--primary))]"/>}
                     </button>
                   )
                 })}
@@ -1213,11 +1185,11 @@ function StrategyTab() {
                 )}
                 <div className="h-[calc(100vh-280px)] overflow-y-auto pr-1 space-y-2">
                   {filtered.length === 0 ? (
-                    <div className="flex items-center justify-center py-10 opacity-50">
+                    <div className="flex items-center justify-center py-10">
                       <p className="text-sm text-[hsl(var(--muted-foreground))]">没有匹配的报告</p>
                     </div>
                   ) : filtered.map(f => {
-                    const { label, color, icon: Icon } = strategyBadge(f.filename)
+                    const { label, variant, icon: Icon } = strategyBadge(f.filename)
                     const isRead = readSet.has(f.filename)
                     const isActive = selected?.filename === f.filename
                     return (
@@ -1232,7 +1204,7 @@ function StrategyTab() {
                               <Icon className={`w-3.5 h-3.5 flex-shrink-0 transition-colors ${isActive ? 'text-[hsl(var(--primary))]' : 'text-[hsl(var(--muted-foreground))]'}`}/>
                               <p className={`text-xs font-medium truncate ${isRead ? 'text-[hsl(var(--muted-foreground))]' : 'text-[hsl(var(--foreground))]'}`}>{f.filename.replace('.md','')}</p>
                             </div>
-                            <Badge className={`text-[10px] font-semibold border flex-shrink-0 ${color}`} variant="outline">{label}</Badge>
+                            <Badge className="text-[10px] font-semibold flex-shrink-0" variant={variant}>{label}</Badge>
                           </div>
                           <div className="flex items-center gap-2 mt-1 text-[10px] text-[hsl(var(--muted-foreground))]">
                             <Calendar className="w-3 h-3"/>
@@ -1240,12 +1212,12 @@ function StrategyTab() {
                             <span>·</span>
                             <span>{f.sizeKb} KB</span>
                             <span>·</span>
-                            <span className={isRead ? 'text-[hsl(var(--muted-foreground))]' : 'text-blue-600'}>{isRead ? '已读' : '未读'}</span>
+                            <span className={isRead ? 'text-[hsl(var(--muted-foreground))]' : 'text-[hsl(var(--primary))]'}>{isRead ? '已读' : '未读'}</span>
                           </div>
                         </button>
                         <button
                           onClick={(e) => handleDelete(e, f)}
-                          className="mt-1 text-[10px] text-[hsl(var(--muted-foreground))] hover:text-rose-600 opacity-0 group-hover:opacity-100 transition-opacity"
+                          className="mt-1 text-[10px] text-[hsl(var(--muted-foreground))] hover:text-destructive opacity-0 group-hover:opacity-100 transition-opacity"
                         >删除</button>
                       </div>
                     )
@@ -1305,8 +1277,8 @@ interface IntelQueueData {
 const INTEL_READ_KEY = 'intel-reports-read'
 
 function intelBadge(type: 'daily' | 'weekly') {
-  if (type === 'weekly') return { label: '📊 周报', color: 'bg-amber-500/15 text-amber-400 border-amber-500/30' }
-  return { label: '🌙 日报', color: 'bg-indigo-500/15 text-indigo-400 border-indigo-500/30' }
+  if (type === 'weekly') return { label: '📊 周报', variant: 'warning' as const }
+  return { label: '🌙 日报', variant: 'accent' as const }
 }
 
 // ── Intel Queue Manager ──────────────────────────────────────────────────────
@@ -1458,7 +1430,7 @@ function IntelQueueManager() {
                 </button>
                 <button
                   onClick={() => handleDelete(i)}
-                  className="p-0.5 rounded hover:bg-rose-500/15 text-[hsl(var(--muted-foreground))] hover:text-rose-600 ml-0.5"
+                  className="p-0.5 rounded hover:bg-destructive/15 text-[hsl(var(--muted-foreground))] hover:text-destructive ml-0.5"
                 >
                   <X className="w-3 h-3"/>
                 </button>
@@ -1519,20 +1491,20 @@ function IntelDetail({
       .finally(() => setLoading(false))
   }, [file.filename]) // eslint-disable-line react-hooks/exhaustive-deps
 
-  const { label, color } = intelBadge(file.type)
+  const { label, variant } = intelBadge(file.type)
 
   return (
     <div className="flex flex-col gap-4">
       <div className="flex items-center gap-3">
-        <Badge className={`text-[10px] font-semibold border flex-shrink-0 ${color}`} variant="outline">{label}</Badge>
-        <p className="text-base font-mono text-[hsl(var(--muted-foreground))] truncate flex-1">{file.filename}</p>
+        <Badge className="text-[10px] font-semibold flex-shrink-0" variant={variant}>{label}</Badge>
+        <p className="text-base font-mono text-[hsl(var(--muted-foreground))] truncate flex-1">{file.filename.replace(/\.md$/, '')}</p>
         <span className="text-sm text-[hsl(var(--muted-foreground))]">{file.sizeKb} KB</span>
       </div>
       <Card>
         <CardContent className="pt-6 max-h-[70vh] overflow-y-auto">
           {loading && <div className="space-y-3">{[1,2,3,4].map(i=><Skeleton key={i} className="h-4"/>)}</div>}
-          {error && <div className="flex items-center gap-2 text-rose-600"><X className="w-4 h-4"/><span>{error}</span></div>}
-          {content && <MarkdownView content={content} />}
+          {error && <div className="flex items-center gap-2 text-destructive"><X className="w-4 h-4"/><span>{error}</span></div>}
+          {content && <Markdown content={content} variant="description" />}
         </CardContent>
       </Card>
     </div>
@@ -1635,7 +1607,7 @@ function IntelTab() {
           <Card key={i}><CardContent className="pt-4"><Skeleton className="h-4 w-48 mb-2"/><Skeleton className="h-3 w-32"/></CardContent></Card>
         ))}</div>
       ) : files.length === 0 ? (
-        <div className="flex flex-col items-center justify-center py-20 gap-3 opacity-50">
+        <div className="flex flex-col items-center justify-center py-20 gap-3">
           <Moon className="w-10 h-10"/>
           <p className="text-base text-[hsl(var(--muted-foreground))]">暂无 Intel 报告</p>
           <p className="text-sm text-[hsl(var(--muted-foreground))]">
@@ -1671,7 +1643,7 @@ function IntelTab() {
                       className={`w-full flex items-center justify-center p-2 rounded-lg transition-colors relative ${isActive ? 'bg-[hsl(var(--primary)/0.15)]' : 'hover:bg-[hsl(var(--secondary))]'}`}
                     >
                       <Icon className={`w-4 h-4 ${isActive ? 'text-[hsl(var(--primary))]' : 'text-[hsl(var(--muted-foreground))]'}`}/>
-                      {!isRead && <div className="absolute top-1 right-1 w-1.5 h-1.5 rounded-full bg-blue-500"/>}
+                      {!isRead && <div className="absolute top-1 right-1 w-1.5 h-1.5 rounded-full bg-[hsl(var(--primary))]"/>}
                     </button>
                   )
                 })}
@@ -1702,11 +1674,11 @@ function IntelTab() {
                 </div>
                 <div className="h-[calc(100vh-420px)] overflow-y-auto pr-1 space-y-2">
                   {filtered.length === 0 ? (
-                    <div className="flex items-center justify-center py-10 opacity-50">
+                    <div className="flex items-center justify-center py-10">
                       <p className="text-sm text-[hsl(var(--muted-foreground))]">没有匹配的报告</p>
                     </div>
                   ) : filtered.map(f => {
-                    const { label, color } = intelBadge(f.type)
+                    const { label, variant } = intelBadge(f.type)
                     const isRead   = readSet.has(f.filename)
                     const isActive = selected?.filename === f.filename
                     const Icon     = f.type === 'weekly' ? BarChart2 : Moon
@@ -1724,7 +1696,7 @@ function IntelTab() {
                                 {f.filename.replace('.md', '')}
                               </p>
                             </div>
-                            <Badge className={`text-[10px] font-semibold border flex-shrink-0 ${color}`} variant="outline">{label}</Badge>
+                            <Badge className="text-[10px] font-semibold flex-shrink-0" variant={variant}>{label}</Badge>
                           </div>
                           <div className="flex items-center gap-2 mt-1 text-[10px] text-[hsl(var(--muted-foreground))]">
                             <Calendar className="w-3 h-3"/>
@@ -1732,12 +1704,12 @@ function IntelTab() {
                             <span>·</span>
                             <span>{f.sizeKb} KB</span>
                             <span>·</span>
-                            <span className={isRead ? 'text-[hsl(var(--muted-foreground))]' : 'text-blue-600'}>{isRead ? '已读' : '未读'}</span>
+                            <span className={isRead ? 'text-[hsl(var(--muted-foreground))]' : 'text-[hsl(var(--primary))]'}>{isRead ? '已读' : '未读'}</span>
                           </div>
                         </button>
                         <button
                           onClick={(e) => handleDelete(e, f)}
-                          className="mt-1 text-[10px] text-[hsl(var(--muted-foreground))] hover:text-rose-600 opacity-0 group-hover:opacity-100 transition-opacity"
+                          className="mt-1 text-[10px] text-[hsl(var(--muted-foreground))] hover:text-destructive opacity-0 group-hover:opacity-100 transition-opacity"
                         >删除</button>
                       </div>
                     )
@@ -1791,7 +1763,7 @@ export default function ReportsPage() {
       title="Reports"
       description="报告中心"
       headerActions={
-        <div className="inline-flex rounded-md border border-slate-200 bg-slate-50 p-0.5 flex-wrap gap-0.5">
+        <div className="inline-flex rounded-md border border-[hsl(var(--border))] bg-[hsl(var(--secondary))] p-0.5 flex-wrap gap-0.5">
           {TABS.map(tab => (
             <button
               key={tab.id}
@@ -1799,8 +1771,8 @@ export default function ReportsPage() {
               className={cn(
                 'rounded px-2.5 py-1 text-xs font-medium transition-colors',
                 activeTab === tab.id
-                  ? 'bg-white text-slate-900 shadow-sm'
-                  : 'text-slate-500 hover:text-slate-700'
+                  ? 'bg-[hsl(var(--card))] text-[hsl(var(--foreground))]'
+                  : 'text-[hsl(var(--muted-foreground))] hover:text-[hsl(var(--foreground))]'
               )}
             >
               {tab.label}

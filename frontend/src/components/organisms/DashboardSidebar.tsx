@@ -14,6 +14,7 @@ import {
   Cpu,
   DollarSign,
   FileText,
+  LayoutDashboard,
   LayoutGrid,
   Map,
   MessageSquare,
@@ -166,6 +167,7 @@ export function DashboardSidebar() {
                 </p>
                 <div className="mt-1 space-y-1">
                   {[
+                    { href: "/business", icon: LayoutDashboard, label: "Business Dashboard", sub: "每日运营概览" },
                     { href: "/inventory", icon: Map, label: "Inventory", sub: "库存" },
                     { href: "/ppc", icon: Target, label: "PPC", sub: "广告投放" },
                     { href: "/keywords", icon: Search, label: "Keywords", sub: "关键词排名" },
