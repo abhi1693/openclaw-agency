@@ -1193,28 +1193,28 @@ export default function InventoryStatusPage() {
 
   // ── Header Actions ────────────────────────────────────────────────────────
   const headerActions = (
-    <div className="inline-flex rounded-md border border-slate-200 bg-slate-50 p-0.5">
+    <div className="flex rounded-lg border border-slate-200 p-0.5">
       <button
         className={cn(
-          'rounded px-2.5 py-1 text-xs font-medium transition-colors',
+          'rounded-md px-3 py-1.5 text-sm font-medium transition-colors',
           activeTab === 'inventory'
-            ? 'bg-white text-slate-900 shadow-sm'
-            : 'text-slate-500 hover:text-slate-700'
+            ? 'bg-blue-600 text-white shadow-sm'
+            : 'text-slate-600 hover:bg-slate-100'
         )}
         onClick={() => setActiveTab('inventory')}
       >
-        Inventory
+        📦 Inventory
       </button>
       <button
         className={cn(
-          'rounded px-2.5 py-1 text-xs font-medium transition-colors',
+          'rounded-md px-3 py-1.5 text-sm font-medium transition-colors',
           activeTab === 'fc'
-            ? 'bg-white text-slate-900 shadow-sm'
-            : 'text-slate-500 hover:text-slate-700'
+            ? 'bg-blue-600 text-white shadow-sm'
+            : 'text-slate-600 hover:bg-slate-100'
         )}
         onClick={() => setActiveTab('fc')}
       >
-        FC Distribution
+        🗺️ FC Distribution
       </button>
     </div>
   )
