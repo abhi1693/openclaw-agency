@@ -261,3 +261,74 @@ class ReturnEvent(QueryModel, table=True):
     synced_at: datetime = Field(default_factory=utcnow, index=True)
     created_at: datetime = Field(default_factory=utcnow)
     updated_at: datetime = Field(default_factory=utcnow)
+
+
+class SearchTermReport(QueryModel, table=True):
+    """PPC search term report rows synced from Amazon Advertising API."""
+
+    __tablename__ = "search_term_reports"  # pyright: ignore[reportAssignmentType]
+    __table_args__ = (
+        UniqueConstraint(
+            "period",
+            "search_term",
+            "campaign_name",
+            "match_type",
+            "report_date",
+            name="uq_search_term_reports_identity",
+        ),
+    )
+
+    id: UUID = Field(default_factory=uuid4, primary_key=True)
+    search_term: str = Field(index=True)
+    campaign_id: str | None = Field(default=None, index=True)
+    campaign_name: str | None = Field(default=None, index=True)
+    ad_group_id: str | None = Field(default=None, index=True)
+    ad_group_name: str | None = Field(default=None, index=True)
+    keyword: str | None = None  # targeting field
+    match_type: str | None = Field(default=None, index=True)
+    impressions: int = Field(default=0)
+    clicks: int = Field(default=0)
+    spend: Decimal | None = Field(default=None, sa_column=Column(Numeric(12, 4), nullable=True))
+    sales: Decimal | None = Field(default=None, sa_column=Column(Numeric(12, 4), nullable=True))
+    orders: int = Field(default=0)
+    units: int = Field(default=0)
+    acos: Decimal | None = Field(default=None, sa_column=Column(Numeric(12, 6), nullable=True))
+    roas: Decimal | None = Field(default=None, sa_column=Column(Numeric(12, 6), nullable=True))
+    ctr: Decimal | None = Field(default=None, sa_column=Column(Numeric(12, 6), nullable=True))
+    cpc: Decimal | None = Field(default=None, sa_column=Column(Numeric(12, 6), nullable=True))
+    report_date: date | None = Field(default=None, index=True)
+    period: str = Field(index=True)  # "startDate_endDate"
+    raw_payload: dict[str, object] | None = Field(
+        default=None, sa_column=Column(JSON, nullable=True)
+    )
+    synced_at: datetime = Field(default_factory=utcnow, index=True)
+    created_at: datetime = Field(default_factory=utcnow)
+    updated_at: datetime = Field(default_factory=utcnow)
+
+
+class PpcAnalysisSnapshot(QueryModel, table=True):
+    """PPC analysis results snapshot (keyword/bid/campaign/weekly/ai-insights)."""
+
+    __tablename__ = "ppc_analysis_snapshots"  # pyright: ignore[reportAssignmentType]
+    __table_args__ = (
+        UniqueConstraint(
+            "analysis_type",
+            "report_date",
+            name="uq_ppc_analysis_snapshots_type_date",
+        ),
+    )
+
+    id: UUID = Field(default_factory=uuid4, primary_key=True)
+    analysis_type: str = Field(index=True)  # keyword/bid/campaign/weekly/ai-insights
+    report_date: date = Field(index=True)
+    period: str | None = None  # date range from filename if applicable
+    data: dict[str, object] | None = Field(
+        default=None, sa_column=Column(JSON, nullable=True)
+    )
+    summary: str | None = None
+    raw_payload: dict[str, object] | None = Field(
+        default=None, sa_column=Column(JSON, nullable=True)
+    )
+    synced_at: datetime = Field(default_factory=utcnow, index=True)
+    created_at: datetime = Field(default_factory=utcnow)
+    updated_at: datetime = Field(default_factory=utcnow)
