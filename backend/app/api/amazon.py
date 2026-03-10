@@ -2,10 +2,13 @@
 
 from __future__ import annotations
 
+from datetime import timedelta
+
 from fastapi import APIRouter, Depends, Query
 from sqlmodel import col, select
 from sqlmodel.ext.asyncio.session import AsyncSession
 
+from app.core.time import utcnow
 from app.db.session import get_session
 from app.models.amazon_orders import AmazonOrder, AmazonOrderItem, InventorySnapshot
 from app.schemas.amazon import (
@@ -40,8 +43,10 @@ async def list_amazon_orders(
     limit: int = Query(default=100, ge=1, le=500),
     session: AsyncSession = SESSION_DEP,
 ) -> AmazonOrdersResponse:
+    cutoff_date = utcnow() - timedelta(days=days)
     cutoff_rows = await session.exec(
         select(AmazonOrder)
+        .where(col(AmazonOrder.purchase_date) >= cutoff_date)
         .order_by(col(AmazonOrder.purchase_date).desc())
         .limit(limit)
     )
