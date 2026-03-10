@@ -1,7 +1,6 @@
 'use client'
 
-import { useEffect, useState, useCallback, Suspense } from 'react'
-import { useRouter, useSearchParams } from 'next/navigation'
+import { useEffect, useState, useCallback } from 'react'
 import ReactMarkdown from 'react-markdown'
 import remarkGfm from 'remark-gfm'
 import {
@@ -14,6 +13,7 @@ import { Skeleton } from '@/components/ui/skeleton'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { DashboardPageLayout } from '@/components/templates/DashboardPageLayout'
+import { cn } from '@/lib/utils'
 
 // ─── Tab Config ───────────────────────────────────────────────────────────────
 
@@ -1764,37 +1764,9 @@ function IntelTab() {
 // MAIN PAGE
 // ═══════════════════════════════════════════════════════════════════════════════
 
-function ReportsContent() {
-  const router = useRouter()
-  const searchParams = useSearchParams()
-  const tabParam = searchParams.get('tab') as TabId | null
-  const activeTab: TabId = (tabParam && TABS.find(t => t.id === tabParam)) ? tabParam : 'discovery'
-
-  function setTab(id: TabId) {
-    router.replace(`/reports?tab=${id}`)
-  }
-
+function ReportsContent({ activeTab }: { activeTab: TabId }) {
   return (
     <div className="max-w-full space-y-6">
-      {/* Compact Header + Tab Bar */}
-      <div className="flex items-center gap-1 mb-4 border-b border-[hsl(var(--border))]">
-        {TABS.map(tab => (
-          <button
-            key={tab.id}
-            onClick={() => setTab(tab.id)}
-            className={`flex items-center gap-1.5 px-4 py-2.5 text-sm font-medium border-b-2 -mb-px transition-colors ${
-              activeTab === tab.id
-                ? 'border-[hsl(var(--primary))] text-[hsl(var(--primary))]'
-                : 'border-transparent text-[hsl(var(--muted-foreground))] hover:text-[hsl(var(--foreground))] hover:border-[hsl(var(--border))]'
-            }`}
-          >
-            {tab.label}
-            <span className={`text-[10px] opacity-60 ${activeTab === tab.id ? '' : ''}`}>{tab.sub}</span>
-          </button>
-        ))}
-      </div>
-
-      {/* Tab Content */}
       {activeTab === 'discovery' && <DiscoveryTab />}
       {activeTab === 'listing'   && <ListingTab />}
       {activeTab === 'ppc'       && <PpcTab />}
@@ -1806,15 +1778,33 @@ function ReportsContent() {
 }
 
 export default function ReportsPage() {
+  const [activeTab, setActiveTab] = useState<TabId>('discovery')
+
   return (
     <DashboardPageLayout
       signedOut={{ message: 'Sign in to view reports', forceRedirectUrl: '/reports' }}
       title="Reports"
       description="报告中心"
+      headerActions={
+        <div className="inline-flex rounded-md border border-slate-200 bg-slate-50 p-0.5 flex-wrap gap-0.5">
+          {TABS.map(tab => (
+            <button
+              key={tab.id}
+              onClick={() => setActiveTab(tab.id)}
+              className={cn(
+                'rounded px-2.5 py-1 text-xs font-medium transition-colors',
+                activeTab === tab.id
+                  ? 'bg-white text-slate-900 shadow-sm'
+                  : 'text-slate-500 hover:text-slate-700'
+              )}
+            >
+              {tab.label}
+            </button>
+          ))}
+        </div>
+      }
     >
-      <Suspense fallback={<div className="flex items-center justify-center py-32 opacity-40"><RefreshCw className="w-8 h-8 animate-spin"/></div>}>
-        <ReportsContent />
-      </Suspense>
+      <ReportsContent activeTab={activeTab} />
     </DashboardPageLayout>
   )
 }

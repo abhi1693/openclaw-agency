@@ -313,14 +313,15 @@ function HistoryChart({ history, field, label, color }: {
 
 // ─── Page ────────────────────────────────────────────────────────────────────
 
-function CompetitorsPageContent() {
+function CompetitorsPageContent({ refreshKey, onRefreshComplete }: {
+  refreshKey: number
+  onRefreshComplete: (ts: string | null) => void
+}) {
   const [snapshots, setSnapshots] = useState<CompetitorSnapshot[]>([])
   const [alerts, setAlerts] = useState<CompetitorAlert[]>([])
   const [history, setHistory] = useState<HistoryEntry[]>([])
   const [loading, setLoading] = useState(true)
-  const [refreshing, setRefreshing] = useState(false)
   const [alertsOpen, setAlertsOpen] = useState(true)
-  const [lastUpdated, setLastUpdated] = useState<string | null>(null)
 
   const loadData = useCallback(async () => {
     try {
@@ -338,7 +339,7 @@ function CompetitorsPageContent() {
       setHistory(histData.data ?? [])
 
       if (snapData.data?.length > 0) {
-        setLastUpdated(snapData.data[0].timestamp)
+        onRefreshComplete(snapData.data[0].timestamp)
       }
     } catch (err) {
       console.error('Failed to load competitor data:', err)
@@ -349,51 +350,38 @@ function CompetitorsPageContent() {
 
   useEffect(() => { loadData() }, [loadData])
 
-  const handleRefresh = async () => {
-    setRefreshing(true)
-    try {
-      const res = await fetch('/api/competitors/snapshot', { method: 'POST' })
-      const data = await res.json()
-      if (data.snapshot) {
-        setSnapshots(data.snapshot)
-        if (data.alerts?.length > 0) {
-          setAlerts(prev => [...data.alerts, ...prev].slice(0, 100))
-          setAlertsOpen(true)
+  // Re-refresh when triggered from header
+  useEffect(() => {
+    if (refreshKey === 0) return
+    let cancelled = false
+    ;(async () => {
+      try {
+        const res = await fetch('/api/competitors/snapshot', { method: 'POST' })
+        const data = await res.json()
+        if (cancelled) return
+        if (data.snapshot) {
+          setSnapshots(data.snapshot)
+          if (data.alerts?.length > 0) {
+            setAlerts(prev => [...data.alerts, ...prev].slice(0, 100))
+            setAlertsOpen(true)
+          }
+          onRefreshComplete(data.timestamp ?? null)
+          const histRes = await fetch('/api/competitors/history?days=30')
+          const histData = await histRes.json()
+          if (!cancelled) setHistory(histData.data ?? [])
         }
-        setLastUpdated(data.timestamp)
-        // Reload history
-        const histRes = await fetch('/api/competitors/history?days=30')
-        const histData = await histRes.json()
-        setHistory(histData.data ?? [])
+      } catch (err) {
+        console.error('Refresh failed:', err)
+        onRefreshComplete(null)
       }
-    } catch (err) {
-      console.error('Refresh failed:', err)
-    } finally {
-      setRefreshing(false)
-    }
-  }
+    })()
+    return () => { cancelled = true }
+  }, [refreshKey]) // eslint-disable-line react-hooks/exhaustive-deps
 
   const recentAlerts = alerts.slice(-20).reverse()
 
   return (
-    <div className="flex-1 overflow-y-auto px-6 py-6 space-y-6">
-      {/* Controls */}
-      <div className="flex items-center justify-end gap-3 flex-wrap">
-          {lastUpdated && (
-            <span className="text-xs text-[hsl(var(--muted-foreground))]">
-              Last updated: {timeAgo(lastUpdated)}
-            </span>
-          )}
-          <Button
-            size="sm"
-            onClick={handleRefresh}
-            disabled={refreshing}
-            className="flex items-center gap-2"
-          >
-            <RefreshCw className={`w-3.5 h-3.5 ${refreshing ? 'animate-spin' : ''}`} />
-            {refreshing ? 'Refreshing…' : 'Refresh Snapshot'}
-          </Button>
-        </div>
+    <div className="space-y-6">
 
       {/* Alert Banner */}
       {recentAlerts.length > 0 && (
@@ -482,13 +470,42 @@ function CompetitorsPageContent() {
   )
 }
 export default function CompetitorsPage() {
+  const [refreshKey, setRefreshKey] = useState(0)
+  const [refreshing, setRefreshing] = useState(false)
+  const [lastUpdated, setLastUpdated] = useState<string | null>(null)
+
+  const handleRefresh = () => {
+    setRefreshing(true)
+    setRefreshKey(k => k + 1)
+  }
+
+  const handleRefreshComplete = (ts: string | null) => {
+    setRefreshing(false)
+    if (ts) setLastUpdated(ts)
+  }
+
   return (
     <DashboardPageLayout
       signedOut={{ message: 'Sign in to view competitors', forceRedirectUrl: '/competitors' }}
       title="Competitors"
       description="竞品监控"
+      headerActions={
+        <div className="flex items-center gap-3">
+          {lastUpdated && (
+            <span className="text-xs text-slate-500">Last updated: {timeAgo(lastUpdated)}</span>
+          )}
+          <button
+            onClick={handleRefresh}
+            disabled={refreshing}
+            className="rounded-lg border border-slate-200 px-3 py-1.5 text-sm font-medium text-slate-700 hover:bg-slate-50 flex items-center gap-1.5 disabled:opacity-50 transition-colors"
+          >
+            <RefreshCw className={`w-3.5 h-3.5 ${refreshing ? 'animate-spin' : ''}`} />
+            {refreshing ? 'Refreshing…' : 'Refresh Snapshot'}
+          </button>
+        </div>
+      }
     >
-      <CompetitorsPageContent />
+      <CompetitorsPageContent refreshKey={refreshKey} onRefreshComplete={handleRefreshComplete} />
     </DashboardPageLayout>
   )
 }

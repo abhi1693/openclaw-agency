@@ -12,6 +12,7 @@ import { Skeleton } from '@/components/ui/skeleton'
 import ReactMarkdown from 'react-markdown'
 import remarkGfm from 'remark-gfm'
 import { DashboardPageLayout } from '@/components/templates/DashboardPageLayout'
+import { cn } from '@/lib/utils'
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -986,9 +987,7 @@ const CONTENT_TABS = [
 
 // ─── Main Page ────────────────────────────────────────────────────────────────
 
-function ContentPageContent() {
-  // Tab state
-  const [activeTab, setActiveTab] = useState<string>('prompt-studio')
+function ContentPageContent({ activeTab }: { activeTab: string }) {
 
   // Products
   const [products, setProducts] = useState<Product[]>([])
@@ -1133,24 +1132,6 @@ function ContentPageContent() {
 
   return (
     <div className="space-y-6">
-      {/* Tab Bar */}
-      <div className="flex items-center gap-1 border-b border-[hsl(var(--border))]">
-        {CONTENT_TABS.map(tab => (
-          <button
-            key={tab.id}
-            onClick={() => setActiveTab(tab.id)}
-            className={`flex items-center gap-1.5 px-4 py-2.5 text-sm font-medium border-b-2 -mb-px transition-colors ${
-              activeTab === tab.id
-                ? 'border-[hsl(var(--primary))] text-[hsl(var(--primary))]'
-                : 'border-transparent text-[hsl(var(--muted-foreground))] hover:text-[hsl(var(--foreground))] hover:border-[hsl(var(--border))]'
-            }`}
-          >
-            <span>{tab.emoji}</span>
-            {tab.label}
-          </button>
-        ))}
-      </div>
-
       {/* Tab Content */}
 
       {activeTab === 'prompt-studio' && (
@@ -1475,13 +1456,33 @@ function ContentPageContent() {
   )
 }
 export default function ContentPage() {
+  const [activeTab, setActiveTab] = useState<string>('prompt-studio')
+
   return (
     <DashboardPageLayout
       signedOut={{ message: 'Sign in to view content', forceRedirectUrl: '/content' }}
       title="Content"
       description="内容资产库"
+      headerActions={
+        <div className="inline-flex rounded-md border border-slate-200 bg-slate-50 p-0.5">
+          {CONTENT_TABS.map(tab => (
+            <button
+              key={tab.id}
+              onClick={() => setActiveTab(tab.id)}
+              className={cn(
+                'rounded px-2.5 py-1 text-xs font-medium transition-colors',
+                activeTab === tab.id
+                  ? 'bg-white text-slate-900 shadow-sm'
+                  : 'text-slate-500 hover:text-slate-700'
+              )}
+            >
+              {tab.emoji} {tab.label}
+            </button>
+          ))}
+        </div>
+      }
     >
-      <ContentPageContent />
+      <ContentPageContent activeTab={activeTab} />
     </DashboardPageLayout>
   )
 }

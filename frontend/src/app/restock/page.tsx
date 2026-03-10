@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect, useCallback } from 'react'
+import { useState, useEffect, useCallback, useRef } from 'react'
 import { Package, AlertTriangle, Clock, CheckCircle, Save } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { DashboardPageLayout } from '@/components/templates/DashboardPageLayout'
@@ -173,7 +173,7 @@ function DashboardTab() {
 
 // ─── Config Tab ───────────────────────────────────────────────────────────────
 
-function ConfigTab() {
+function ConfigTab({ saveRef }: { saveRef: React.MutableRefObject<(() => Promise<void>) | null> }) {
   const [configs, setConfigs] = useState<RestockConfig[]>([])
   const [loading, setLoading] = useState(false)
   const [saving, setSaving] = useState(false)
@@ -204,7 +204,7 @@ function ConfigTab() {
     setConfigs(prev => prev.map((c, i) => i === index ? { ...c, [field]: value } : c))
   }
 
-  const handleSave = async () => {
+  const handleSave = useCallback(async () => {
     setSaving(true)
     setError(null)
     setSuccess(false)
@@ -226,7 +226,13 @@ function ConfigTab() {
     } finally {
       setSaving(false)
     }
-  }
+  }, [configs])
+
+  // Expose save to parent via ref
+  useEffect(() => {
+    saveRef.current = handleSave
+    return () => { saveRef.current = null }
+  }, [saveRef, handleSave])
 
   return (
     <div className="space-y-4">
@@ -319,49 +325,74 @@ function ConfigTab() {
 
 type Tab = 'dashboard' | 'config'
 
-function RestockPageContent() {
-  const [activeTab, setActiveTab] = useState<Tab>('dashboard')
-
-  const tabs: { id: Tab; label: string }[] = [
-    { id: 'dashboard', label: 'Restock Dashboard' },
-    { id: 'config', label: 'Config' },
-  ]
-
+function RestockPageContent({ activeTab, saveRef }: {
+  activeTab: Tab
+  saveRef: React.MutableRefObject<(() => Promise<void>) | null>
+}) {
   return (
     <div className="space-y-6">
-      {/* Tabs */}
-      <div className="flex gap-1 p-1 bg-slate-100 rounded-lg w-fit">
-        {tabs.map(({ id, label }) => (
-          <button
-            key={id}
-            onClick={() => setActiveTab(id)}
-            className={cn(
-              'px-4 py-1.5 text-sm font-medium rounded-md transition-all',
-              activeTab === id
-                ? 'bg-[hsl(var(--card))] text-[hsl(var(--foreground))] shadow-sm'
-                : 'text-[hsl(var(--muted-foreground))] hover:text-[hsl(var(--foreground))]'
-            )}
-          >
-            {label}
-          </button>
-        ))}
-      </div>
-
-      {/* Tab content */}
-      <div className="mt-6">
-        {activeTab === 'dashboard' ? <DashboardTab /> : <ConfigTab />}
-      </div>
+      {activeTab === 'dashboard' ? <DashboardTab /> : <ConfigTab saveRef={saveRef} />}
     </div>
   )
 }
+
 export default function RestockPage() {
+  const [activeTab, setActiveTab] = useState<Tab>('dashboard')
+  const [saving, setSaving] = useState(false)
+  const saveRef = useRef<(() => Promise<void>) | null>(null)
+
+  const handleHeaderSave = async () => {
+    if (!saveRef.current) return
+    setSaving(true)
+    try {
+      await saveRef.current()
+    } finally {
+      setSaving(false)
+    }
+  }
+
+  const tabs: { id: Tab; label: string }[] = [
+    { id: 'dashboard', label: 'Dashboard' },
+    { id: 'config', label: 'Config' },
+  ]
+
   return (
     <DashboardPageLayout
       signedOut={{ message: 'Sign in to view restock', forceRedirectUrl: '/restock' }}
       title="Restock"
       description="补货预测"
+      headerActions={
+        <div className="flex items-center gap-3">
+          <div className="inline-flex rounded-md border border-slate-200 bg-slate-50 p-0.5">
+            {tabs.map(tab => (
+              <button
+                key={tab.id}
+                onClick={() => setActiveTab(tab.id)}
+                className={cn(
+                  'rounded px-2.5 py-1 text-xs font-medium transition-colors',
+                  activeTab === tab.id
+                    ? 'bg-white text-slate-900 shadow-sm'
+                    : 'text-slate-500 hover:text-slate-700'
+                )}
+              >
+                {tab.label}
+              </button>
+            ))}
+          </div>
+          {activeTab === 'config' && (
+            <button
+              onClick={handleHeaderSave}
+              disabled={saving}
+              className="rounded-lg bg-blue-600 px-3 py-1.5 text-sm font-medium text-white hover:bg-blue-700 flex items-center gap-1.5 disabled:opacity-50 transition-colors"
+            >
+              <Save className="w-3.5 h-3.5" />
+              {saving ? '保存中…' : '保存配置'}
+            </button>
+          )}
+        </div>
+      }
     >
-      <RestockPageContent />
+      <RestockPageContent activeTab={activeTab} saveRef={saveRef} />
     </DashboardPageLayout>
   )
 }

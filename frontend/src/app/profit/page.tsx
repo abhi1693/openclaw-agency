@@ -431,46 +431,47 @@ function CogsEditorTab() {
 
 type Tab = 'dashboard' | 'cogs'
 
-function ProfitPageContent() {
-  const [tab, setTab] = useState<Tab>('dashboard')
-
+function ProfitPageContent({ tab }: { tab: Tab }) {
   return (
-    <div className="flex flex-col h-full min-h-0">
-      {/* Tabs */}
-      <div className="flex-shrink-0 px-6 pt-2 pb-0">
-        <div className="flex gap-1 border-b border-[hsl(var(--border))]">
-          {(['dashboard', 'cogs'] as Tab[]).map(t => (
-            <button
-              key={t}
-              onClick={() => setTab(t)}
-              className={cn(
-                'px-5 py-2.5 text-sm font-medium border-b-2 transition-colors -mb-px',
-                tab === t
-                  ? 'border-[hsl(var(--primary))] text-[hsl(var(--primary))]'
-                  : 'border-transparent text-[hsl(var(--muted-foreground))] hover:text-slate-900'
-              )}
-            >
-              {t === 'dashboard' ? '📊 Profit Dashboard' : '✏️ COGS Editor'}
-            </button>
-          ))}
-        </div>
-      </div>
-
-      {/* Content */}
-      <div className="flex-1 overflow-y-auto px-6 py-6">
-        {tab === 'dashboard' ? <DashboardTab /> : <CogsEditorTab />}
-      </div>
+    <div className="space-y-6">
+      {tab === 'dashboard' ? <DashboardTab /> : <CogsEditorTab />}
     </div>
   )
 }
+
 export default function ProfitPage() {
+  const [tab, setTab] = useState<Tab>('dashboard')
+
+  const tabs = [
+    { id: 'dashboard' as Tab, label: '📊 Profit Dashboard' },
+    { id: 'cogs' as Tab, label: '✏️ COGS Editor' },
+  ]
+
   return (
     <DashboardPageLayout
       signedOut={{ message: 'Sign in to view profit', forceRedirectUrl: '/profit' }}
       title="Profit"
       description="利润分析"
+      headerActions={
+        <div className="inline-flex rounded-md border border-slate-200 bg-slate-50 p-0.5">
+          {tabs.map(t => (
+            <button
+              key={t.id}
+              onClick={() => setTab(t.id)}
+              className={cn(
+                'rounded px-2.5 py-1 text-xs font-medium transition-colors',
+                tab === t.id
+                  ? 'bg-white text-slate-900 shadow-sm'
+                  : 'text-slate-500 hover:text-slate-700'
+              )}
+            >
+              {t.label}
+            </button>
+          ))}
+        </div>
+      }
     >
-      <ProfitPageContent />
+      <ProfitPageContent tab={tab} />
     </DashboardPageLayout>
   )
 }

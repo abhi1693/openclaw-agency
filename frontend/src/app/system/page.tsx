@@ -70,12 +70,11 @@ function fmt(n: number): string {
 
 // ─── Page ─────────────────────────────────────────────────────────────────────
 
-function SystemPageContent() {
+function SystemPageContent({ forceRefresh, onAutoRefresh }: { forceRefresh: number; onAutoRefresh: () => void }) {
   const [hw,  setHw]  = useState<HardwareData | null>(null)
   const [usage, setUsage] = useState<UsageData | null>(null)
   const [hwLoading,    setHwLoading]    = useState(true)
   const [usageLoading, setUsageLoading] = useState(true)
-  const [lastRefresh,  setLastRefresh]  = useState<Date>(new Date())
 
   const loadHardware = useCallback(async () => {
     try {
@@ -94,47 +93,25 @@ function SystemPageContent() {
   }, [])
 
   useEffect(() => {
+    setHwLoading(true)
+    setUsageLoading(true)
     loadHardware()
     loadUsage()
-  }, [loadHardware, loadUsage])
+  }, [forceRefresh, loadHardware, loadUsage])
 
   // Auto-refresh hardware every 30s
   useEffect(() => {
     const t = setInterval(() => {
       loadHardware()
-      setLastRefresh(new Date())
+      onAutoRefresh()
     }, 30_000)
     return () => clearInterval(t)
-  }, [loadHardware])
-
-  const handleRefresh = () => {
-    setHwLoading(true)
-    setUsageLoading(true)
-    loadHardware()
-    loadUsage()
-    setLastRefresh(new Date())
-  }
+  }, [loadHardware, onAutoRefresh])
 
   const maxTokens = usage?.models[0]?.totalTokens ?? 1
 
   return (
     <div className="space-y-6 max-w-6xl mx-auto">
-
-        {/* ── Actions ── */}
-        <div className="flex items-center justify-end gap-3">
-            <div className="flex items-center gap-1.5">
-              <span className="w-1.5 h-1.5 rounded-full bg-[hsl(var(--primary))] animate-pulse" />
-              <span className="text-[10px] text-[hsl(var(--muted-foreground))]">
-                Live · {lastRefresh.toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit', second: '2-digit' })}
-              </span>
-            </div>
-            <button
-              onClick={handleRefresh}
-              className="p-1.5 rounded-lg hover:bg-[hsl(var(--secondary))] text-[hsl(var(--muted-foreground))] hover:text-[hsl(var(--foreground))] transition-colors"
-            >
-              <RefreshCw className="w-3.5 h-3.5" />
-            </button>
-          </div>
 
         {/* ── Section: Mac Hardware ── */}
         <section>
@@ -311,13 +288,38 @@ function SystemPageContent() {
   )
 }
 export default function SystemPage() {
+  const [lastRefresh, setLastRefresh] = useState<Date>(new Date())
+  const [forceRefresh, setForceRefresh] = useState(0)
+
+  const handleRefresh = () => {
+    setForceRefresh(n => n + 1)
+    setLastRefresh(new Date())
+  }
+
   return (
     <DashboardPageLayout
       signedOut={{ message: 'Sign in to view system', forceRedirectUrl: '/system' }}
       title="System"
       description="系统与模型用量"
+      headerActions={
+        <div className="flex items-center gap-3">
+          <div className="flex items-center gap-1.5">
+            <span className="w-1.5 h-1.5 rounded-full bg-blue-500 animate-pulse" />
+            <span className="text-xs text-slate-500">
+              Live · {lastRefresh.toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit', second: '2-digit' })}
+            </span>
+          </div>
+          <button
+            onClick={handleRefresh}
+            className="rounded-lg border border-slate-200 px-3 py-1.5 text-sm font-medium text-slate-700 hover:bg-slate-50 flex items-center gap-1.5 transition-colors"
+          >
+            <RefreshCw className="w-3.5 h-3.5" />
+            刷新
+          </button>
+        </div>
+      }
     >
-      <SystemPageContent />
+      <SystemPageContent forceRefresh={forceRefresh} onAutoRefresh={() => setLastRefresh(new Date())} />
     </DashboardPageLayout>
   )
 }

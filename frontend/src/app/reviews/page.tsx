@@ -192,10 +192,9 @@ function ProductRow({ product }: { product: ReviewCache }) {
 
 // ─── Main Page ────────────────────────────────────────────────────────────────
 
-function ReviewsPageContent() {
+function ReviewsPageContent({ crawling, onCrawlDone }: { crawling: boolean; onCrawlDone: () => void }) {
   const [products, setProducts] = useState<ReviewCache[]>([])
   const [loading, setLoading] = useState(false)
-  const [crawling, setCrawling] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
   const fetchData = useCallback(async () => {
@@ -216,22 +215,16 @@ function ReviewsPageContent() {
     }
   }, [])
 
-  const handleCrawl = async () => {
-    setCrawling(true)
-    setError(null)
-    try {
-      await fetch('/api/reviews/crawl', { method: 'POST' })
-      await fetchData()
-    } catch (e) {
-      setError(e instanceof Error ? e.message : 'Crawl failed')
-    } finally {
-      setCrawling(false)
-    }
-  }
-
   useEffect(() => {
     fetchData()
   }, [fetchData])
+
+  // Re-fetch when crawl completes
+  useEffect(() => {
+    if (!crawling) {
+      fetchData()
+    }
+  }, [crawling]) // eslint-disable-line react-hooks/exhaustive-deps
 
   // ── Summary stats ──
   const avgRating = products.length
@@ -251,18 +244,6 @@ function ReviewsPageContent() {
 
   return (
     <div className="flex flex-col">
-      {/* ── Actions ── */}
-      <div className="flex items-center justify-end gap-2">
-          <button
-            onClick={handleCrawl}
-            disabled={crawling || loading}
-            className="flex items-center gap-1.5 px-4 py-2 text-sm font-medium rounded-lg bg-[hsl(var(--primary))] text-black hover:opacity-90 disabled:opacity-50 transition-all"
-          >
-            <RefreshCw className={cn('w-3.5 h-3.5', crawling && 'animate-spin')} />
-            {crawling ? '爬取中…' : '立即爬取'}
-          </button>
-        </div>
-
       {/* ── Error ── */}
       {error && (
         <div className="mt-4 flex items-center gap-2 p-3 rounded-lg bg-[hsl(var(--destructive)/0.1)] border border-[hsl(var(--destructive)/0.3)] text-sm text-[hsl(var(--destructive))]">
@@ -352,13 +333,41 @@ function ReviewsPageContent() {
   )
 }
 export default function ReviewsPage() {
+  const [crawling, setCrawling] = useState(false)
+  const [crawlError, setCrawlError] = useState<string | null>(null)
+
+  const handleCrawl = async () => {
+    setCrawling(true)
+    setCrawlError(null)
+    try {
+      await fetch('/api/reviews/crawl', { method: 'POST' })
+    } catch (e) {
+      setCrawlError(e instanceof Error ? e.message : 'Crawl failed')
+    } finally {
+      setCrawling(false)
+    }
+  }
+
   return (
     <DashboardPageLayout
       signedOut={{ message: 'Sign in to view reviews', forceRedirectUrl: '/reviews' }}
       title="Reviews"
       description="评价分析"
+      headerActions={
+        <div className="flex items-center gap-3">
+          {crawlError && <span className="text-xs text-rose-600">{crawlError}</span>}
+          <button
+            onClick={handleCrawl}
+            disabled={crawling}
+            className="rounded-lg bg-blue-600 px-3 py-1.5 text-sm font-medium text-white hover:bg-blue-700 flex items-center gap-1.5 disabled:opacity-50 transition-colors"
+          >
+            <RefreshCw className={cn('w-3.5 h-3.5', crawling && 'animate-spin')} />
+            {crawling ? '爬取中…' : '立即爬取'}
+          </button>
+        </div>
+      }
     >
-      <ReviewsPageContent />
+      <ReviewsPageContent crawling={crawling} onCrawlDone={() => {}} />
     </DashboardPageLayout>
   )
 }

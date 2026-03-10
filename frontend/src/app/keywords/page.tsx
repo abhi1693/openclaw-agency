@@ -33,14 +33,18 @@ interface Product {
   name: string
 }
 
-function KeywordsPageContent() {
-  const [activeTab, setActiveTab] = useState<'tracker' | 'manager'>('tracker')
+function KeywordsPageContent({
+  activeTab,
+  crawlKey,
+}: {
+  activeTab: 'tracker' | 'manager'
+  crawlKey: number
+}) {
   const [rankings, setRankings] = useState<RankingRow[]>([])
   const [lastCrawled, setLastCrawled] = useState<string | null>(null)
   const [keywords, setKeywords] = useState<KeywordEntry[]>([])
   const [products, setProducts] = useState<Product[]>([])
   const [expandedRow, setExpandedRow] = useState<string | null>(null)
-  const [crawling, setCrawling] = useState(false)
   const [newAsin, setNewAsin] = useState('')
   const [newKeyword, setNewKeyword] = useState('')
   const [adding, setAdding] = useState(false)
@@ -70,12 +74,10 @@ function KeywordsPageContent() {
     fetchProducts()
   }, [fetchRankings, fetchKeywords, fetchProducts])
 
-  async function handleCrawl() {
-    setCrawling(true)
-    await fetch('/api/keywords/crawl', { method: 'POST' })
-    await fetchRankings()
-    setCrawling(false)
-  }
+  // Re-fetch rankings after crawl
+  useEffect(() => {
+    if (crawlKey > 0) fetchRankings()
+  }, [crawlKey, fetchRankings])
 
   async function handleAddKeyword() {
     if (!newAsin || !newKeyword.trim()) return
@@ -112,27 +114,6 @@ function KeywordsPageContent() {
 
   return (
     <div className="space-y-6">
-      {/* Tabs */}
-      <div className="flex gap-1 mb-6 border-b border-[hsl(var(--border))]">
-        {(['tracker', 'manager'] as const).map(tab => (
-          <button
-            key={tab}
-            onClick={() => setActiveTab(tab)}
-            className={cn(
-              'px-4 py-2 text-sm font-medium transition-colors relative',
-              activeTab === tab
-                ? 'text-[hsl(var(--primary))]'
-                : 'text-[hsl(var(--muted-foreground))] hover:text-slate-900'
-            )}
-          >
-            {tab === 'tracker' ? 'Rank Tracker' : 'Keyword Manager'}
-            {activeTab === tab && (
-              <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-[hsl(var(--primary))]" />
-            )}
-          </button>
-        ))}
-      </div>
-
       {/* RANK TRACKER TAB */}
       {activeTab === 'tracker' && (
         <div>
@@ -159,17 +140,6 @@ function KeywordsPageContent() {
                 <span className="text-[hsl(var(--muted-foreground))]">最近爬取：{lastCrawled}</span>
               </div>
             )}
-            <div className="ml-auto">
-              <Button
-                size="sm"
-                onClick={handleCrawl}
-                disabled={crawling}
-                className="gap-1.5"
-              >
-                <RefreshCw className={cn('w-3.5 h-3.5', crawling && 'animate-spin')} />
-                {crawling ? '爬取中...' : '立即爬取'}
-              </Button>
-            </div>
           </div>
 
           {/* Rankings table */}
@@ -365,13 +335,59 @@ function KeywordsPageContent() {
   )
 }
 export default function KeywordsPage() {
+  const [activeTab, setActiveTab] = useState<'tracker' | 'manager'>('tracker')
+  const [crawling, setCrawling] = useState(false)
+  const [crawlKey, setCrawlKey] = useState(0)
+
+  const handleCrawl = async () => {
+    setCrawling(true)
+    await fetch('/api/keywords/crawl', { method: 'POST' })
+    setCrawlKey(k => k + 1)
+    setCrawling(false)
+  }
+
+  const tabs = [
+    { id: 'tracker' as const, label: 'Rank Tracker' },
+    { id: 'manager' as const, label: 'Keyword Manager' },
+  ]
+
   return (
     <DashboardPageLayout
       signedOut={{ message: 'Sign in to view keywords', forceRedirectUrl: '/keywords' }}
       title="Keywords"
       description="关键词追踪"
+      headerActions={
+        <div className="flex items-center gap-3">
+          <div className="inline-flex rounded-md border border-slate-200 bg-slate-50 p-0.5">
+            {tabs.map(tab => (
+              <button
+                key={tab.id}
+                onClick={() => setActiveTab(tab.id)}
+                className={cn(
+                  'rounded px-2.5 py-1 text-xs font-medium transition-colors',
+                  activeTab === tab.id
+                    ? 'bg-white text-slate-900 shadow-sm'
+                    : 'text-slate-500 hover:text-slate-700'
+                )}
+              >
+                {tab.label}
+              </button>
+            ))}
+          </div>
+          {activeTab === 'tracker' && (
+            <button
+              onClick={handleCrawl}
+              disabled={crawling}
+              className="rounded-lg bg-blue-600 px-3 py-1.5 text-sm font-medium text-white hover:bg-blue-700 flex items-center gap-1.5 disabled:opacity-50 transition-colors"
+            >
+              <RefreshCw className={cn('w-3.5 h-3.5', crawling && 'animate-spin')} />
+              {crawling ? '爬取中…' : '立即爬取'}
+            </button>
+          )}
+        </div>
+      }
     >
-      <KeywordsPageContent />
+      <KeywordsPageContent activeTab={activeTab} crawlKey={crawlKey} />
     </DashboardPageLayout>
   )
 }
