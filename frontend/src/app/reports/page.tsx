@@ -12,6 +12,7 @@ import {
 import { Skeleton } from '@/components/ui/skeleton'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
+import { Card, CardContent } from '@/components/ui/card'
 import { DashboardPageLayout } from '@/components/templates/DashboardPageLayout'
 import { cn } from '@/lib/utils'
 
@@ -71,7 +72,7 @@ function saveReadSet(key: string, set: Set<string>) {
 
 function MarkdownView({ content }: { content: string }) {
   return (
-    <article className="prose dark:prose-invert prose-sm max-w-none overflow-x-auto
+    <article className="prose dark:prose-invert prose-base max-w-none overflow-x-auto
       prose-headings:text-[hsl(var(--foreground))]
       prose-h1:text-2xl prose-h1:font-bold prose-h1:mb-4
       prose-h2:text-lg prose-h2:font-semibold prose-h2:mt-6 prose-h2:mb-3
@@ -81,8 +82,10 @@ function MarkdownView({ content }: { content: string }) {
       prose-strong:text-[hsl(var(--foreground))]
       prose-code:text-[hsl(var(--primary))] prose-code:bg-[hsl(var(--secondary))] prose-code:px-1 prose-code:rounded
       prose-pre:bg-[hsl(var(--secondary))] prose-pre:border prose-pre:border-[hsl(var(--border))]
-      prose-table:text-base
+      prose-table:w-full
+      prose-th:px-3 prose-th:py-2 prose-th:text-left prose-th:border prose-th:border-[hsl(var(--border))]
       prose-th:text-[hsl(var(--foreground))] prose-th:bg-[hsl(var(--secondary))]
+      prose-td:px-3 prose-td:py-2 prose-td:border prose-td:border-[hsl(var(--border))]
       prose-td:text-[hsl(var(--muted-foreground))]
       prose-hr:border-[hsl(var(--border))]
       prose-blockquote:border-[hsl(var(--primary))] prose-blockquote:text-[hsl(var(--muted-foreground))]
@@ -156,14 +159,16 @@ function ListingDetail({
     <div className="flex flex-col gap-4">
       <div className="flex items-center gap-3">
         <Badge className={`text-[10px] font-semibold border flex-shrink-0 ${color}`} variant="outline">{label}</Badge>
-        <p className="text-base font-mono text-[hsl(var(--muted-foreground))] truncate flex-1">{file.filename}</p>
+        <p className="text-base font-mono text-[hsl(var(--muted-foreground))] truncate flex-1">{file.filename.replace(/\.md$/, '')}</p>
         <span className="text-sm text-[hsl(var(--muted-foreground))]">{file.sizeKb} KB</span>
       </div>
-      <div className="rounded-xl border border-slate-200 bg-white shadow-sm p-6">
-        {loading && <div className="space-y-3">{[1,2,3,4].map(i=><Skeleton key={i} className="h-4"/>)}</div>}
-        {error && <div className="flex items-center gap-2 text-rose-600"><X className="w-4 h-4"/><span>{error}</span></div>}
-        {content && <MarkdownView content={content} />}
-      </div>
+      <Card>
+        <CardContent className="pt-6 max-h-[70vh] overflow-y-auto">
+          {loading && <div className="space-y-3">{[1,2,3,4].map(i=><Skeleton key={i} className="h-4"/>)}</div>}
+          {error && <div className="flex items-center gap-2 text-rose-600"><X className="w-4 h-4"/><span>{error}</span></div>}
+          {content && <MarkdownView content={content} />}
+        </CardContent>
+      </Card>
     </div>
   )
 }
@@ -278,9 +283,7 @@ function ListingTab() {
 
       {loading ? (
         <div className="space-y-3">{[1,2,3].map(i=> (
-          <div key={i} className="rounded-xl border border-slate-200 bg-white shadow-sm p-4">
-            <Skeleton className="h-4 w-48 mb-2"/><Skeleton className="h-3 w-32"/>
-          </div>
+          <Card key={i}><CardContent className="pt-4"><Skeleton className="h-4 w-48 mb-2"/><Skeleton className="h-3 w-32"/></CardContent></Card>
         ))}</div>
       ) : files.length === 0 ? (
         <div className="flex flex-col items-center justify-center py-20 gap-3 opacity-50">
@@ -293,7 +296,7 @@ function ListingTab() {
       ) : (
         <div className="flex gap-4">
           {/* Left panel — collapsible */}
-          <div className={`flex flex-col gap-3 flex-shrink-0 transition-all duration-200 overflow-hidden ${panelCollapsed ? 'w-[48px]' : 'w-[280px]'}`}>
+          <div className={cn('flex flex-col gap-3 flex-shrink-0 transition-all duration-200 overflow-hidden', panelCollapsed ? 'w-[48px]' : 'w-[280px]')}>
             {/* Toggle button */}
             <button
               onClick={() => setPanelCollapsed(!panelCollapsed)}
@@ -335,7 +338,7 @@ function ListingTab() {
                     placeholder="搜索 ASIN / 报告…"
                     value={search}
                     onChange={e => setSearch(e.target.value)}
-                    className="w-full pl-9 pr-3 py-2 rounded-xl border border-slate-200 bg-white shadow-sm text-sm text-[hsl(var(--foreground))] placeholder:text-[hsl(var(--muted-foreground))] focus:outline-none focus:border-[hsl(var(--primary)/0.5)]"
+                    className="w-full pl-9 pr-3 py-2 rounded-xl border border-[hsl(var(--border))] bg-[hsl(var(--card))] text-sm text-[hsl(var(--foreground))] placeholder:text-[hsl(var(--muted-foreground))] focus:outline-none focus:border-[hsl(var(--primary)/0.5)]"
                   />
                 </div>
                 <div className="h-[calc(100vh-280px)] overflow-y-auto pr-1 space-y-3">
@@ -475,11 +478,13 @@ function DiscoveryDetail({
         <p className="text-base font-mono text-[hsl(var(--muted-foreground))] truncate flex-1">{file.filename}</p>
         <span className="text-sm text-[hsl(var(--muted-foreground))]">{file.sizeKb} KB</span>
       </div>
-      <div className="rounded-xl border border-slate-200 bg-white shadow-sm p-6">
-        {loading && <div className="space-y-3">{[1,2,3,4].map(i=><Skeleton key={i} className="h-4"/>)}</div>}
-        {error && <div className="flex items-center gap-2 text-rose-600"><X className="w-4 h-4"/><span>{error}</span></div>}
-        {content && <MarkdownView content={content} />}
-      </div>
+      <Card>
+        <CardContent className="pt-6 max-h-[70vh] overflow-y-auto">
+          {loading && <div className="space-y-3">{[1,2,3,4].map(i=><Skeleton key={i} className="h-4"/>)}</div>}
+          {error && <div className="flex items-center gap-2 text-rose-600"><X className="w-4 h-4"/><span>{error}</span></div>}
+          {content && <MarkdownView content={content} />}
+        </CardContent>
+      </Card>
     </div>
   )
 }
@@ -569,9 +574,7 @@ function DiscoveryTab() {
 
       {loading ? (
         <div className="space-y-3">{[1,2,3].map(i=>(
-          <div key={i} className="rounded-xl border border-slate-200 bg-white shadow-sm p-4">
-            <Skeleton className="h-4 w-48 mb-2"/><Skeleton className="h-3 w-32"/>
-          </div>
+          <Card key={i}><CardContent className="pt-4"><Skeleton className="h-4 w-48 mb-2"/><Skeleton className="h-3 w-32"/></CardContent></Card>
         ))}</div>
       ) : files.length === 0 ? (
         <div className="flex flex-col items-center justify-center py-20 gap-3 opacity-50">
@@ -621,7 +624,7 @@ function DiscoveryTab() {
                     placeholder="搜索报告…"
                     value={search}
                     onChange={e => setSearch(e.target.value)}
-                    className="w-full pl-9 pr-3 py-2 rounded-xl border border-slate-200 bg-white shadow-sm text-sm text-[hsl(var(--foreground))] placeholder:text-[hsl(var(--muted-foreground))] focus:outline-none focus:border-[hsl(var(--primary)/0.5)]"
+                    className="w-full pl-9 pr-3 py-2 rounded-xl border border-[hsl(var(--border))] bg-[hsl(var(--card))] text-sm text-[hsl(var(--foreground))] placeholder:text-[hsl(var(--muted-foreground))] focus:outline-none focus:border-[hsl(var(--primary)/0.5)]"
                   />
                 </div>
                 {prefixes.length > 0 && (
@@ -757,11 +760,13 @@ function PpcDetail({
         <p className="text-base font-mono text-[hsl(var(--muted-foreground))] truncate flex-1">{file.filename}</p>
         <span className="text-sm text-[hsl(var(--muted-foreground))]">{file.sizeKb} KB</span>
       </div>
-      <div className="rounded-xl border border-slate-200 bg-white shadow-sm p-6">
-        {loading && <div className="space-y-3">{[1,2,3,4].map(i=><Skeleton key={i} className="h-4"/>)}</div>}
-        {error && <div className="flex items-center gap-2 text-rose-600"><X className="w-4 h-4"/><span>{error}</span></div>}
-        {content && <MarkdownView content={content} />}
-      </div>
+      <Card>
+        <CardContent className="pt-6 max-h-[70vh] overflow-y-auto">
+          {loading && <div className="space-y-3">{[1,2,3,4].map(i=><Skeleton key={i} className="h-4"/>)}</div>}
+          {error && <div className="flex items-center gap-2 text-rose-600"><X className="w-4 h-4"/><span>{error}</span></div>}
+          {content && <MarkdownView content={content} />}
+        </CardContent>
+      </Card>
     </div>
   )
 }
@@ -851,9 +856,7 @@ function PpcTab() {
 
       {loading ? (
         <div className="space-y-3">{[1,2,3].map(i=>(
-          <div key={i} className="rounded-xl border border-slate-200 bg-white shadow-sm p-4">
-            <Skeleton className="h-4 w-48 mb-2"/><Skeleton className="h-3 w-32"/>
-          </div>
+          <Card key={i}><CardContent className="pt-4"><Skeleton className="h-4 w-48 mb-2"/><Skeleton className="h-3 w-32"/></CardContent></Card>
         ))}</div>
       ) : files.length === 0 ? (
         <div className="flex flex-col items-center justify-center py-20 gap-3 opacity-50">
@@ -904,7 +907,7 @@ function PpcTab() {
                     placeholder="搜索报告…"
                     value={search}
                     onChange={e => setSearch(e.target.value)}
-                    className="w-full pl-9 pr-3 py-2 rounded-xl border border-slate-200 bg-white shadow-sm text-sm text-[hsl(var(--foreground))] placeholder:text-[hsl(var(--muted-foreground))] focus:outline-none focus:border-[hsl(var(--primary)/0.5)]"
+                    className="w-full pl-9 pr-3 py-2 rounded-xl border border-[hsl(var(--border))] bg-[hsl(var(--card))] text-sm text-[hsl(var(--foreground))] placeholder:text-[hsl(var(--muted-foreground))] focus:outline-none focus:border-[hsl(var(--primary)/0.5)]"
                   />
                 </div>
                 {prefixes.length > 1 && (
@@ -1044,11 +1047,13 @@ function StrategyDetail({
         <p className="text-base font-mono text-[hsl(var(--muted-foreground))] truncate flex-1">{file.filename}</p>
         <span className="text-sm text-[hsl(var(--muted-foreground))]">{file.sizeKb} KB</span>
       </div>
-      <div className="rounded-xl border border-slate-200 bg-white shadow-sm p-6">
-        {loading && <div className="space-y-3">{[1,2,3,4].map(i=><Skeleton key={i} className="h-4"/>)}</div>}
-        {error && <div className="flex items-center gap-2 text-rose-600"><X className="w-4 h-4"/><span>{error}</span></div>}
-        {content && <MarkdownView content={content} />}
-      </div>
+      <Card>
+        <CardContent className="pt-6 max-h-[70vh] overflow-y-auto">
+          {loading && <div className="space-y-3">{[1,2,3,4].map(i=><Skeleton key={i} className="h-4"/>)}</div>}
+          {error && <div className="flex items-center gap-2 text-rose-600"><X className="w-4 h-4"/><span>{error}</span></div>}
+          {content && <MarkdownView content={content} />}
+        </CardContent>
+      </Card>
     </div>
   )
 }
@@ -1137,9 +1142,7 @@ function StrategyTab() {
 
       {loading ? (
         <div className="space-y-3">{[1,2,3].map(i=>(
-          <div key={i} className="rounded-xl border border-slate-200 bg-white shadow-sm p-4">
-            <Skeleton className="h-4 w-48 mb-2"/><Skeleton className="h-3 w-32"/>
-          </div>
+          <Card key={i}><CardContent className="pt-4"><Skeleton className="h-4 w-48 mb-2"/><Skeleton className="h-3 w-32"/></CardContent></Card>
         ))}</div>
       ) : files.length === 0 ? (
         <div className="flex flex-col items-center justify-center py-20 gap-3 opacity-50">
@@ -1189,7 +1192,7 @@ function StrategyTab() {
                     placeholder="搜索报告…"
                     value={search}
                     onChange={e => setSearch(e.target.value)}
-                    className="w-full pl-9 pr-3 py-2 rounded-xl border border-slate-200 bg-white shadow-sm text-sm text-[hsl(var(--foreground))] placeholder:text-[hsl(var(--muted-foreground))] focus:outline-none focus:border-[hsl(var(--primary)/0.5)]"
+                    className="w-full pl-9 pr-3 py-2 rounded-xl border border-[hsl(var(--border))] bg-[hsl(var(--card))] text-sm text-[hsl(var(--foreground))] placeholder:text-[hsl(var(--muted-foreground))] focus:outline-none focus:border-[hsl(var(--primary)/0.5)]"
                   />
                 </div>
                 {prefixes.length > 1 && (
@@ -1383,7 +1386,8 @@ function IntelQueueManager() {
   const completed = queue?.completed ?? []
 
   return (
-    <div className="rounded-xl border border-slate-200 bg-white shadow-sm p-4 space-y-3">
+    <Card>
+    <CardContent className="pt-4 pb-4 space-y-3">
       {/* Header */}
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-2">
@@ -1488,7 +1492,8 @@ function IntelQueueManager() {
           )}
         </div>
       )}
-    </div>
+    </CardContent>
+    </Card>
   )
 }
 
@@ -1523,11 +1528,13 @@ function IntelDetail({
         <p className="text-base font-mono text-[hsl(var(--muted-foreground))] truncate flex-1">{file.filename}</p>
         <span className="text-sm text-[hsl(var(--muted-foreground))]">{file.sizeKb} KB</span>
       </div>
-      <div className="rounded-xl border border-slate-200 bg-white shadow-sm p-6">
-        {loading && <div className="space-y-3">{[1,2,3,4].map(i=><Skeleton key={i} className="h-4"/>)}</div>}
-        {error && <div className="flex items-center gap-2 text-rose-600"><X className="w-4 h-4"/><span>{error}</span></div>}
-        {content && <MarkdownView content={content} />}
-      </div>
+      <Card>
+        <CardContent className="pt-6 max-h-[70vh] overflow-y-auto">
+          {loading && <div className="space-y-3">{[1,2,3,4].map(i=><Skeleton key={i} className="h-4"/>)}</div>}
+          {error && <div className="flex items-center gap-2 text-rose-600"><X className="w-4 h-4"/><span>{error}</span></div>}
+          {content && <MarkdownView content={content} />}
+        </CardContent>
+      </Card>
     </div>
   )
 }
@@ -1625,9 +1632,7 @@ function IntelTab() {
 
       {loading ? (
         <div className="space-y-3">{[1,2,3].map(i=>(
-          <div key={i} className="rounded-xl border border-slate-200 bg-white shadow-sm p-4">
-            <Skeleton className="h-4 w-48 mb-2"/><Skeleton className="h-3 w-32"/>
-          </div>
+          <Card key={i}><CardContent className="pt-4"><Skeleton className="h-4 w-48 mb-2"/><Skeleton className="h-3 w-32"/></CardContent></Card>
         ))}</div>
       ) : files.length === 0 ? (
         <div className="flex flex-col items-center justify-center py-20 gap-3 opacity-50">
@@ -1680,7 +1685,7 @@ function IntelTab() {
                     placeholder="搜索报告…"
                     value={search}
                     onChange={e => setSearch(e.target.value)}
-                    className="w-full pl-9 pr-3 py-2 rounded-xl border border-slate-200 bg-white shadow-sm text-sm text-[hsl(var(--foreground))] placeholder:text-[hsl(var(--muted-foreground))] focus:outline-none focus:border-[hsl(var(--primary)/0.5)]"
+                    className="w-full pl-9 pr-3 py-2 rounded-xl border border-[hsl(var(--border))] bg-[hsl(var(--card))] text-sm text-[hsl(var(--foreground))] placeholder:text-[hsl(var(--muted-foreground))] focus:outline-none focus:border-[hsl(var(--primary)/0.5)]"
                   />
                 </div>
                 {/* Type filter */}
