@@ -122,8 +122,10 @@ class DailySales(QueryModel, table=True):
 
 class ProductSales(QueryModel, table=True):
     __tablename__ = "product_sales"  # pyright: ignore[reportAssignmentType]
+    __table_args__ = (UniqueConstraint("identity_key", name="uq_product_sales_identity_key"),)
 
     id: UUID = Field(default_factory=uuid4, primary_key=True)
+    identity_key: str = Field(index=True)
     period: str = Field(index=True)
     sku: str | None = Field(default=None, index=True)
     asin: str | None = Field(default=None, index=True)
@@ -142,8 +144,10 @@ class ProductSales(QueryModel, table=True):
 
 class FinancialEvent(QueryModel, table=True):
     __tablename__ = "financial_events"  # pyright: ignore[reportAssignmentType]
+    __table_args__ = (UniqueConstraint("identity_key", name="uq_financial_events_identity_key"),)
 
     id: UUID = Field(default_factory=uuid4, primary_key=True)
+    identity_key: str = Field(index=True)
     period: str = Field(index=True)
     event_group: str = Field(index=True)
     reference_id: str | None = Field(default=None, index=True)
@@ -185,8 +189,10 @@ class Campaign(QueryModel, table=True):
 
 class AdMetric(QueryModel, table=True):
     __tablename__ = "ad_metrics"  # pyright: ignore[reportAssignmentType]
+    __table_args__ = (UniqueConstraint("identity_key", name="uq_ad_metrics_identity_key"),)
 
     id: UUID = Field(default_factory=uuid4, primary_key=True)
+    identity_key: str = Field(index=True)
     campaign_id: str = Field(index=True)
     period: str = Field(index=True)
     report_date: date | None = Field(default=None, index=True)
@@ -210,8 +216,10 @@ class AdMetric(QueryModel, table=True):
 
 class PricingSnapshot(QueryModel, table=True):
     __tablename__ = "pricing_snapshots"  # pyright: ignore[reportAssignmentType]
+    __table_args__ = (UniqueConstraint("identity_key", name="uq_pricing_snapshots_identity_key"),)
 
     id: UUID = Field(default_factory=uuid4, primary_key=True)
+    identity_key: str = Field(index=True)
     period: str = Field(index=True)
     asin: str | None = Field(default=None, index=True)
     sku: str | None = Field(default=None, index=True)
@@ -236,8 +244,10 @@ class PricingSnapshot(QueryModel, table=True):
 
 class ReturnEvent(QueryModel, table=True):
     __tablename__ = "return_events"  # pyright: ignore[reportAssignmentType]
+    __table_args__ = (UniqueConstraint("identity_key", name="uq_return_events_identity_key"),)
 
     id: UUID = Field(default_factory=uuid4, primary_key=True)
+    identity_key: str = Field(index=True)
     period: str = Field(index=True)
     order_id: str | None = Field(default=None, index=True)
     sku: str | None = Field(default=None, index=True)
