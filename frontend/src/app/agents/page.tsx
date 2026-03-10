@@ -2,7 +2,7 @@
 
 export const dynamic = "force-dynamic";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 
 import { useAuth } from "@/auth/clerk";
@@ -29,6 +29,143 @@ import { type AgentRead } from "@/api/generated/model";
 import { createOptimisticListDeleteMutation } from "@/lib/list-delete";
 import { useOrganizationMembership } from "@/lib/use-organization-membership";
 import { useUrlSorting } from "@/lib/use-url-sorting";
+
+
+interface LocalAgent {
+  id: string;
+  name: string;
+  emoji: string;
+  role: string;
+  description: string;
+  modelId: string;
+  modelLabel: string;
+  modelRaw?: unknown;
+  skills: number;
+  lastActive: number | null;
+  totalSessions: number;
+  activeSessions: number;
+  online: boolean;
+}
+
+function formatLastActive(timestamp: number | null) {
+  if (!timestamp) return "Never";
+  try {
+    return new Date(timestamp).toLocaleString();
+  } catch {
+    return "Unknown";
+  }
+}
+
+function LocalAgentsSection() {
+  const [agents, setAgents] = useState<LocalAgent[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    let cancelled = false;
+
+    const load = async () => {
+      try {
+        setLoading(true);
+        setError(null);
+        const response = await fetch('/api/agents/local', { cache: 'no-store' });
+        const data = await response.json();
+        if (!response.ok) {
+          throw new Error(data.error ?? 'Failed to load local agents');
+        }
+        if (!cancelled) {
+          setAgents(data.agents ?? []);
+        }
+      } catch (err) {
+        if (!cancelled) {
+          setError(err instanceof Error ? err.message : 'Failed to load local agents');
+        }
+      } finally {
+        if (!cancelled) {
+          setLoading(false);
+        }
+      }
+    };
+
+    void load();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  return (
+    <section className="mt-8 space-y-4">
+      <div>
+        <h2 className="text-lg font-semibold text-slate-900">Local Agents</h2>
+        <p className="text-sm text-slate-500">
+          OpenClaw 本地 agent 配置与最近活跃情况。
+        </p>
+      </div>
+
+      <div className="overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm">
+        {loading ? (
+          <div className="p-6 text-sm text-slate-500">Loading local agents…</div>
+        ) : error ? (
+          <div className="p-6 text-sm text-red-500">{error}</div>
+        ) : agents.length === 0 ? (
+          <div className="p-6 text-sm text-slate-500">No local agents found.</div>
+        ) : (
+          <div className="overflow-x-auto">
+            <table className="min-w-full divide-y divide-slate-200 text-sm">
+              <thead className="bg-slate-50">
+                <tr>
+                  <th className="px-4 py-3 text-left font-medium text-slate-500">Agent</th>
+                  <th className="px-4 py-3 text-left font-medium text-slate-500">Role</th>
+                  <th className="px-4 py-3 text-left font-medium text-slate-500">Model</th>
+                  <th className="px-4 py-3 text-left font-medium text-slate-500">Skills</th>
+                  <th className="px-4 py-3 text-left font-medium text-slate-500">Sessions</th>
+                  <th className="px-4 py-3 text-left font-medium text-slate-500">Last active</th>
+                  <th className="px-4 py-3 text-left font-medium text-slate-500">Status</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-slate-100">
+                {agents.map((agent) => (
+                  <tr key={agent.id} className="align-top">
+                    <td className="px-4 py-4">
+                      <div className="flex items-start gap-3">
+                        <span className="text-lg leading-none">{agent.emoji}</span>
+                        <div>
+                          <div className="font-medium text-slate-900">{agent.name}</div>
+                          <div className="text-xs text-slate-500">{agent.id}</div>
+                          <p className="mt-1 max-w-md text-xs text-slate-500">
+                            {agent.description}
+                          </p>
+                        </div>
+                      </div>
+                    </td>
+                    <td className="px-4 py-4 text-slate-700">{agent.role}</td>
+                    <td className="px-4 py-4 text-slate-700">{agent.modelLabel}</td>
+                    <td className="px-4 py-4 text-slate-700">{agent.skills}</td>
+                    <td className="px-4 py-4 text-slate-700">
+                      {agent.activeSessions}/{agent.totalSessions}
+                    </td>
+                    <td className="px-4 py-4 text-slate-700">{formatLastActive(agent.lastActive)}</td>
+                    <td className="px-4 py-4">
+                      <span
+                        className={`inline-flex rounded-full px-2 py-1 text-xs font-medium ${
+                          agent.online
+                            ? "bg-emerald-100 text-emerald-700"
+                            : "bg-slate-100 text-slate-600"
+                        }`}
+                      >
+                        {agent.online ? "Online" : "Offline"}
+                      </span>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
+      </div>
+    </section>
+  );
+}
 
 const AGENT_SORTABLE_COLUMNS = [
   "name",
@@ -167,6 +304,8 @@ export default function AgentsPage() {
             {agentsQuery.error.message}
           </p>
         ) : null}
+
+        <LocalAgentsSection />
       </DashboardPageLayout>
 
       <ConfirmActionDialog

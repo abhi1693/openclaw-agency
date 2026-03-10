@@ -71,7 +71,7 @@ function saveReadSet(key: string, set: Set<string>) {
 
 function MarkdownView({ content }: { content: string }) {
   return (
-    <article className="prose prose-invert prose-sm max-w-none overflow-x-auto
+    <article className="prose dark:prose-invert prose-sm max-w-none overflow-x-auto
       prose-headings:text-[hsl(var(--foreground))]
       prose-h1:text-2xl prose-h1:font-bold prose-h1:mb-4
       prose-h2:text-lg prose-h2:font-semibold prose-h2:mt-6 prose-h2:mb-3
