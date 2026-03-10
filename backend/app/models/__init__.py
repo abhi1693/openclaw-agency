@@ -2,7 +2,18 @@
 
 from app.models.activity_events import ActivityEvent
 from app.models.agents import Agent
-from app.models.amazon_orders import AmazonOrder, AmazonOrderItem, InventorySnapshot
+from app.models.amazon_orders import (
+    AdMetric,
+    AmazonOrder,
+    AmazonOrderItem,
+    Campaign,
+    DailySales,
+    FinancialEvent,
+    InventorySnapshot,
+    PricingSnapshot,
+    ProductSales,
+    ReturnEvent,
+)
 from app.models.approval_task_links import ApprovalTaskLink
 from app.models.approvals import Approval
 from app.models.board_group_memory import BoardGroupMemory
@@ -33,6 +44,7 @@ from app.models.users import User
 
 __all__ = [
     "ActivityEvent",
+    "AdMetric",
     "Agent",
     "AmazonOrder",
     "AmazonOrderItem",
@@ -45,6 +57,9 @@ __all__ = [
     "BoardOnboardingSession",
     "BoardGroup",
     "Board",
+    "Campaign",
+    "DailySales",
+    "FinancialEvent",
     "Gateway",
     "GatewayInstalledSkill",
     "MarketplaceSkill",
@@ -58,6 +73,9 @@ __all__ = [
     "OrganizationBoardAccess",
     "OrganizationInvite",
     "OrganizationInviteBoardAccess",
+    "PricingSnapshot",
+    "ProductSales",
+    "ReturnEvent",
     "TaskDependency",
     "Task",
     "TaskFingerprint",

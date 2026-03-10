@@ -1,34 +1,33 @@
 import { NextResponse } from 'next/server'
-import { exec } from 'child_process'
-import { promisify } from 'util'
-import path from 'path'
 
-const execAsync = promisify(exec)
-const GUARD_PATH = path.resolve(require('os').homedir(), '.openclaw/skills/amazon-advertising/guard.js')
+import { fetchBackend } from '../_backend'
 
 export async function GET(request: Request) {
   const { searchParams } = new URL(request.url)
   const type = searchParams.get('type') || 'sp'
+  const limit = searchParams.get('limit') || '200'
 
   try {
-    const { stdout, stderr } = await execAsync(
-      `node ${GUARD_PATH} campaigns --type ${type}`,
-      { timeout: 60000 }
-    )
-    // Filter out auth/log lines
-    const lines = stdout.split('\n').filter(l =>
-      !l.startsWith('[Auth]') && !l.startsWith('[dotenv') && l.trim()
-    )
-    const jsonStr = lines.join('\n')
-    const data = JSON.parse(jsonStr)
-    return NextResponse.json(data)
+    const response = await fetchBackend(`/api/v1/amazon/campaigns?campaign_type=${encodeURIComponent(type)}&limit=${encodeURIComponent(limit)}`)
+    if (!response.ok) throw new Error(`Backend responded ${response.status}`)
+    return NextResponse.json(await response.json())
   } catch (err: unknown) {
-    console.error('Campaigns API error:', err)
-    return NextResponse.json({
-      campaigns: [],
-      count: 0,
-      error: true,
-      message: 'Amazon Advertising API 连接失败',
-    }, { status: 503 })
+    console.error('Backend campaigns error:', err)
+    return NextResponse.json({ total: 0, campaign_type: type, campaigns: [], error: true }, { status: 503 })
+  }
+}
+
+export async function POST(request: Request) {
+  const { searchParams } = new URL(request.url)
+  const type = searchParams.get('type') || 'sp'
+  const days = searchParams.get('days') || '7'
+
+  try {
+    const response = await fetchBackend(`/api/v1/amazon/campaigns/sync?campaign_type=${encodeURIComponent(type)}&days=${encodeURIComponent(days)}`, { method: 'POST' })
+    if (!response.ok) throw new Error(`Backend responded ${response.status}`)
+    return NextResponse.json(await response.json())
+  } catch (err: unknown) {
+    console.error('Backend campaigns sync error:', err)
+    return NextResponse.json({ error: true, message: 'Campaign sync failed' }, { status: 503 })
   }
 }
