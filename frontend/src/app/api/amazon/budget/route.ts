@@ -1,21 +1,17 @@
 import { NextResponse } from 'next/server'
-import fs from 'fs'
-import path from 'path'
 
-const REPORTS_PATH = path.resolve(process.env.HOME || '', '.openclaw/skills/amazon-sp-api/reports')
+import { fetchBackend } from '../_backend'
 
-export async function GET() {
+export async function GET(request: Request) {
+  const { searchParams } = new URL(request.url)
+  const limit = searchParams.get('limit') || '100'
+
   try {
-    const files = fs.readdirSync(REPORTS_PATH).filter(f => f.startsWith('budget-') && f.endsWith('.json'))
-    if (files.length === 0) {
-      return NextResponse.json({ summary: { current: { roas: 0 } }, recommendations: { increase: [], decrease: [] }, mock: true })
-    }
-    
-    const latest = files.sort().reverse()[0]
-    const data = JSON.parse(fs.readFileSync(path.join(REPORTS_PATH, latest), 'utf-8'))
-    return NextResponse.json(data)
-  } catch (err) {
-    console.error('Budget API error:', err)
-    return NextResponse.json({ summary: { current: { roas: 0 } }, recommendations: { increase: [], decrease: [] }, error: true })
+    const response = await fetchBackend(`/api/v1/amazon/budget?limit=${encodeURIComponent(limit)}`)
+    if (!response.ok) throw new Error(`Backend responded ${response.status}`)
+    return NextResponse.json(await response.json())
+  } catch (err: unknown) {
+    console.error('Backend budget error:', err)
+    return NextResponse.json({ total: 0, period: 'Last 7 days', metrics: [], error: true }, { status: 503 })
   }
 }
