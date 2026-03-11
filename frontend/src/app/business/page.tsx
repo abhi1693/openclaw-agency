@@ -2,7 +2,7 @@
 
 export const dynamic = "force-dynamic";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, useMemo } from "react";
 import {
   Area,
   AreaChart,
@@ -13,128 +13,166 @@ import {
 import {
   DollarSign,
   ShoppingCart,
-  Megaphone,
-  Boxes,
-  RotateCcw,
+  Package,
   TrendingUp,
+  AlertTriangle,
+  BarChart3,
+  Lightbulb,
+  Wallet,
+  RotateCcw,
+  CheckCircle2,
+  Target,
 } from "lucide-react";
 
 import { DashboardPageLayout } from "@/components/templates/DashboardPageLayout";
 import { Card, CardHeader, CardContent } from "@/components/ui/card";
+import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
+import { Progress } from "@/components/ui/progress";
 import {
   ChartContainer,
   ChartTooltip,
   ChartTooltipContent,
   type ChartConfig,
 } from "@/components/charts/chart";
-import MetricSparkline from "@/components/charts/metric-sparkline";
 
-// ---------------------------------------------------------------------------
-// Types
-// ---------------------------------------------------------------------------
+// ─── Types ────────────────────────────────────────────────────────────────────
 
-type SalesPoint = {
+type Period = 7 | 14 | 30;
+
+interface SalesDay {
   date: string;
   revenue: number;
+  units: number;
   orders: number;
-};
-
-type TopProduct = {
-  asin: string;
-  title: string;
-  todayUnits: number;
-  inventory: number;
-  trend7d: number[];
-};
-
-type SalesData = {
-  days: SalesPoint[];
-};
-
-type OrdersData = {
-  days: { date: string; count: number }[];
-};
-
-type CampaignsData = {
-  totalSpend: number;
-  acos: number;
-};
-
-type InventoryData = {
-  totalUnits: number;
-  outOfStockSkus: number;
-};
-
-type ReturnsData = {
-  returnRate7d: number;
-};
-
-type FinanceData = {
-  grossMarginPct: number;
-};
-
-// ---------------------------------------------------------------------------
-// Hook: generic auto-refreshing fetch
-// ---------------------------------------------------------------------------
-
-function useAutoFetch<T>(url: string, intervalMs = 60_000) {
-  const [data, setData] = useState<T | null>(null);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
-
-  useEffect(() => {
-    let cancelled = false;
-
-    const fetchData = async () => {
-      try {
-        const res = await fetch(url);
-        if (!res.ok) throw new Error(`HTTP ${res.status}`);
-        const json = await res.json();
-        if (!cancelled) {
-          setData(json);
-          setError(null);
-        }
-      } catch (err) {
-        if (!cancelled) {
-          setError(err instanceof Error ? err.message : "Unknown error");
-        }
-      } finally {
-        if (!cancelled) setLoading(false);
-      }
-    };
-
-    fetchData();
-    const timer = setInterval(fetchData, intervalMs);
-    return () => {
-      cancelled = true;
-      clearInterval(timer);
-    };
-  }, [url, intervalMs]);
-
-  return { data, loading, error };
+  avgUnitPrice: number;
 }
 
-// ---------------------------------------------------------------------------
-// KPI Card
-// ---------------------------------------------------------------------------
+interface InventoryItem {
+  sku: string;
+  asin?: string;
+  name?: string;
+  productName?: string;
+  available?: number;
+  inbound?: number;
+  reserved?: number;
+}
+
+interface TopProduct {
+  asin: string;
+  sku?: string;
+  title?: string;
+  quantityOrdered: number;
+  revenue: number;
+  orderCount: number;
+}
+
+interface FinanceEvent {
+  event_group: string;
+  amount: number;
+  sku?: string;
+  revenue?: number;
+}
+
+interface ReturnEvent {
+  sku?: string;
+  title?: string;
+  returnCount?: number;
+  returnRate?: string;
+  priority?: string;
+}
+
+interface Insight {
+  type: "positive" | "negative" | "neutral";
+  icon: string;
+  text: string;
+}
+
+// ─── Helpers ──────────────────────────────────────────────────────────────────
+
+function sumField(arr: SalesDay[], key: keyof SalesDay): number {
+  return arr.reduce((acc, item) => acc + ((item[key] as number) ?? 0), 0);
+}
+
+function pct(current: number, prev: number): number {
+  if (!prev) return 0;
+  return ((current - prev) / prev) * 100;
+}
+
+const fmt = {
+  currency: (v: number | undefined | null) =>
+    v != null
+      ? new Intl.NumberFormat("en-US", {
+          style: "currency",
+          currency: "USD",
+          maximumFractionDigits: 0,
+        }).format(v)
+      : "--",
+  currencyFull: (v: number | undefined | null) =>
+    v != null
+      ? new Intl.NumberFormat("en-US", {
+          style: "currency",
+          currency: "USD",
+          minimumFractionDigits: 2,
+          maximumFractionDigits: 2,
+        }).format(v)
+      : "--",
+  number: (v: number | undefined | null) =>
+    v != null ? new Intl.NumberFormat("en-US").format(v) : "--",
+  pct: (v: number | undefined | null) =>
+    v != null ? `${v.toFixed(1)}%` : "--",
+  compact: (n: number | undefined | null): string => {
+    if (n == null || isNaN(n)) return "0";
+    if (n >= 1_000_000) return `${(n / 1_000_000).toFixed(1)}M`;
+    if (n >= 1_000) return `${(n / 1_000).toFixed(1)}K`;
+    return n.toFixed(0);
+  },
+};
+
+// ─── Period Selector ──────────────────────────────────────────────────────────
+
+function PeriodSelector({
+  value,
+  onChange,
+}: {
+  value: Period;
+  onChange: (p: Period) => void;
+}) {
+  const periods: Period[] = [7, 14, 30];
+  return (
+    <div className="flex items-center gap-1 p-0.5 rounded-lg bg-muted">
+      {periods.map((p) => (
+        <Button
+          key={p}
+          size="sm"
+          variant={value === p ? "primary" : "ghost"}
+          className="h-7 px-3 text-sm"
+          onClick={() => onChange(p)}
+        >
+          {p}天
+        </Button>
+      ))}
+    </div>
+  );
+}
+
+// ─── KPI Card ────────────────────────────────────────────────────────────────
 
 function KpiCard({
   label,
   value,
   subValue,
-  delta,
+  trend,
   icon,
   loading,
-  error,
 }: {
   label: string;
   value: string;
   subValue?: string;
-  delta?: { text: string; positive: boolean } | null;
+  trend?: { pct: number; prevLabel: string } | null;
   icon: React.ReactNode;
   loading: boolean;
-  error: string | null;
 }) {
   return (
     <Card>
@@ -152,29 +190,26 @@ function KpiCard({
         {loading ? (
           <div className="space-y-2">
             <Skeleton className="h-8 w-32" />
-            <Skeleton className="h-4 w-24" />
-          </div>
-        ) : error ? (
-          <div className="space-y-1">
-            <p className="text-2xl font-bold text-foreground">--</p>
-            <p className="text-xs text-destructive">{error}</p>
+            <Skeleton className="h-4 w-40" />
           </div>
         ) : (
           <div className="space-y-1">
             <p className="text-3xl font-bold text-foreground">{value}</p>
-            <div className="flex items-center gap-2">
-              {delta ? (
+            <div className="flex items-center gap-2 flex-wrap">
+              {trend != null && (
                 <span
                   className={
-                    delta.positive ? "text-xs text-emerald-600" : "text-xs text-destructive"
+                    trend.pct >= 0
+                      ? "text-xs text-emerald-600 font-medium"
+                      : "text-xs text-destructive font-medium"
                   }
                 >
-                  {delta.positive ? "↑" : "↓"} {delta.text}
+                  {trend.pct >= 0 ? "↑" : "↓"} {Math.abs(trend.pct).toFixed(1)}% vs 上周期
                 </span>
-              ) : null}
-              {subValue ? (
+              )}
+              {subValue && (
                 <span className="text-xs text-muted-foreground">{subValue}</span>
-              ) : null}
+              )}
             </div>
           </div>
         )}
@@ -183,162 +218,421 @@ function KpiCard({
   );
 }
 
-// ---------------------------------------------------------------------------
-// Helpers
-// ---------------------------------------------------------------------------
+// ─── Insight Panel ────────────────────────────────────────────────────────────
 
-const fmt = {
-  currency: (v: number) =>
-    new Intl.NumberFormat("en-US", { style: "currency", currency: "USD", maximumFractionDigits: 0 }).format(v),
-  number: (v: number) => new Intl.NumberFormat("en-US").format(v),
-  pct: (v: number) => `${v.toFixed(1)}%`,
-};
+function InsightPanel({
+  curRevenue,
+  prevRevenue,
+  curUnits,
+  prevUnits,
+  curOrders,
+  prevOrders,
+  lowStock,
+}: {
+  curRevenue: number;
+  prevRevenue: number;
+  curUnits: number;
+  prevUnits: number;
+  curOrders: number;
+  prevOrders: number;
+  lowStock: number;
+}) {
+  const insights = useMemo<Insight[]>(() => {
+    const result: Insight[] = [];
+    const revPct = pct(curRevenue, prevRevenue);
+    const unitsPerOrder = curOrders > 0 ? curUnits / curOrders : 0;
+    const prevUnitsPerOrder = prevOrders > 0 ? prevUnits / prevOrders : 0;
+    const aov = curOrders > 0 ? curRevenue / curOrders : 0;
+    const prevAov = prevOrders > 0 ? prevRevenue / prevOrders : 0;
 
-function pctChange(today: number, yesterday: number) {
-  if (yesterday === 0) return null;
-  const diff = ((today - yesterday) / yesterday) * 100;
-  return { text: `${Math.abs(diff).toFixed(1)}% vs 昨日`, positive: diff >= 0 };
+    if (revPct > 10) {
+      result.push({
+        type: "positive",
+        icon: "💰",
+        text: `销售额同比增长 ${revPct.toFixed(0)}%，表现强劲`,
+      });
+    } else if (revPct < -10) {
+      result.push({
+        type: "negative",
+        icon: "📉",
+        text: `销售额下降 ${Math.abs(revPct).toFixed(0)}%，需要关注`,
+      });
+    }
+
+    if (unitsPerOrder > prevUnitsPerOrder * 1.1) {
+      result.push({
+        type: "positive",
+        icon: "🛒",
+        text: `客件数增加：${unitsPerOrder.toFixed(1)} vs ${prevUnitsPerOrder.toFixed(1)}`,
+      });
+    } else if (unitsPerOrder < prevUnitsPerOrder * 0.9 && prevUnitsPerOrder > 0) {
+      result.push({
+        type: "negative",
+        icon: "🛒",
+        text: `客件数下降：${unitsPerOrder.toFixed(1)} vs ${prevUnitsPerOrder.toFixed(1)}`,
+      });
+    }
+
+    if (aov > prevAov * 1.15) {
+      result.push({
+        type: "positive",
+        icon: "💵",
+        text: `客单价提升 $${(aov - prevAov).toFixed(2)}，高价值订单增加`,
+      });
+    }
+
+    if (lowStock > 5) {
+      result.push({
+        type: "negative",
+        icon: "⚠️",
+        text: `${lowStock} 个 SKU 库存偏低，建议补货`,
+      });
+    } else if (lowStock > 0) {
+      result.push({
+        type: "neutral",
+        icon: "📦",
+        text: `${lowStock} 个 SKU 库存偏低，请留意`,
+      });
+    }
+
+    if (result.length === 0) {
+      result.push({
+        type: "neutral",
+        icon: "✨",
+        text: "各项指标平稳，保持现有运营策略",
+      });
+    }
+
+    return result.slice(0, 4);
+  }, [curRevenue, prevRevenue, curUnits, prevUnits, curOrders, prevOrders, lowStock]);
+
+  return (
+    <Card className="flex flex-col">
+      <CardHeader className="pb-3">
+        <div className="flex items-center gap-2">
+          <Lightbulb className="w-4 h-4 text-primary" />
+          <h3 className="text-base font-semibold text-foreground">业务洞察</h3>
+        </div>
+      </CardHeader>
+      <CardContent className="flex-1">
+        <div className="space-y-2">
+          {insights.map((insight, i) => (
+            <div
+              key={i}
+              className={`flex items-start gap-2.5 px-3 py-2 rounded-lg text-sm ${
+                insight.type === "positive"
+                  ? "bg-emerald-50 text-emerald-800 dark:bg-emerald-950/30 dark:text-emerald-300"
+                  : insight.type === "negative"
+                  ? "bg-destructive/8 text-destructive"
+                  : "bg-muted/50 text-muted-foreground"
+              }`}
+            >
+              <span>{insight.icon}</span>
+              <span>{insight.text}</span>
+            </div>
+          ))}
+        </div>
+      </CardContent>
+    </Card>
+  );
 }
 
-// ---------------------------------------------------------------------------
-// Chart config
-// ---------------------------------------------------------------------------
+// ─── Empty State ──────────────────────────────────────────────────────────────
+
+function EmptyState({ message }: { message: string }) {
+  return (
+    <div className="flex flex-col items-center justify-center py-6 gap-2 text-center">
+      <div className="w-8 h-8 rounded-full bg-muted flex items-center justify-center">
+        <CheckCircle2 className="w-4 h-4 text-muted-foreground" />
+      </div>
+      <p className="text-sm text-muted-foreground">{message}</p>
+    </div>
+  );
+}
+
+// ─── Chart config ─────────────────────────────────────────────────────────────
 
 const salesChartConfig = {
-  revenue: {
-    label: "销售额",
+  current: {
+    label: "本周期",
     color: "hsl(var(--primary))",
   },
-  orders: {
-    label: "订单数",
-    color: "hsl(var(--secondary))",
+  previous: {
+    label: "上周期",
+    color: "hsl(var(--muted-foreground))",
   },
 } satisfies ChartConfig;
 
-// ---------------------------------------------------------------------------
-// Page
-// ---------------------------------------------------------------------------
+// ─── Main Page ────────────────────────────────────────────────────────────────
 
 export default function BusinessPage() {
-  const sales2d = useAutoFetch<SalesData>("/api/amazon/sales?days=2");
-  const sales14d = useAutoFetch<SalesData>("/api/amazon/sales?days=14");
-  const orders2d = useAutoFetch<OrdersData>("/api/amazon/orders?days=2");
-  const campaigns = useAutoFetch<CampaignsData>("/api/amazon/campaigns");
-  const inventory = useAutoFetch<InventoryData>("/api/amazon/inventory");
-  const returns = useAutoFetch<ReturnsData>("/api/amazon/returns");
-  const finance = useAutoFetch<FinanceData>("/api/amazon/finance");
-  const topProducts = useAutoFetch<{ products: TopProduct[] }>("/api/amazon/top-products");
+  const [period, setPeriod] = useState<Period>(14);
 
-  // --- KPI: Today / Yesterday sales ---
-  const todayRevenue = sales2d.data?.days?.[1]?.revenue ?? null;
-  const yesterdayRevenue = sales2d.data?.days?.[0]?.revenue ?? null;
-  const revenueDelta =
-    todayRevenue !== null && yesterdayRevenue !== null
-      ? pctChange(todayRevenue, yesterdayRevenue)
-      : null;
+  // Sales data
+  const [sales, setSales] = useState<SalesDay[]>([]);
+  const [prevSales, setPrevSales] = useState<SalesDay[]>([]);
+  const [salesLoading, setSalesLoading] = useState(true);
+  const [isMock, setIsMock] = useState(false);
 
-  // --- KPI: Today / Yesterday orders ---
-  const todayOrders = orders2d.data?.days?.[1]?.count ?? null;
-  const yesterdayOrders = orders2d.data?.days?.[0]?.count ?? null;
-  const ordersDelta =
-    todayOrders !== null && yesterdayOrders !== null
-      ? pctChange(todayOrders, yesterdayOrders)
-      : null;
+  // Ops data
+  const [inventory, setInventory] = useState<InventoryItem[]>([]);
+  const [topProducts, setTopProducts] = useState<TopProduct[]>([]);
+  const [finance, setFinance] = useState<{ events?: FinanceEvent[] } | null>(null);
+  const [returns, setReturns] = useState<{ total?: number; events?: ReturnEvent[]; alerts?: { critical?: ReturnEvent[]; high?: ReturnEvent[] } } | null>(null);
+  const [opsLoading, setOpsLoading] = useState(true);
 
-  // --- Chart: 14-day combined ---
-  const chartData: (SalesPoint & { orders: number })[] = (sales14d.data?.days ?? []).map((pt) => ({
-    ...pt,
-    orders: 0, // orders not available from sales API; placeholder
-  }));
+  // ── Fetch sales + inventory on period change ──────────────────────────────
+  useEffect(() => {
+    setSalesLoading(true);
+    const days = period * 2;
+
+    Promise.all([
+      fetch(`/api/amazon/sales?days=${days}`).then((r) => r.json()).catch(() => ({ metrics: [] })),
+      fetch("/api/amazon/inventory").then((r) => r.json()).catch(() => ({ items: [] })),
+      fetch(`/api/amazon/top-products?days=${period}`).then((r) => r.json()).catch(() => ({ products: [] })),
+    ]).then(([salesData, invData, topData]) => {
+      if (salesData.mock || invData.mock) setIsMock(true);
+
+      // Map metrics to SalesDay
+      const metrics: SalesDay[] = (salesData.metrics ?? []).map(
+        (m: Record<string, unknown>) => ({
+          date: (typeof m.interval === 'string' ? m.interval.split("T")[0]?.split("--")[0]?.slice(5) : null) ??
+                (typeof m.date === 'string' ? m.date : "") ??
+                "",
+          revenue: parseFloat(String(m.total_sales ?? m.totalSales ?? m.revenue ?? 0)),
+          units: Number(m.unit_count ?? m.unitCount ?? m.units ?? 0),
+          orders: Number(m.order_count ?? m.orderCount ?? m.orders ?? 0),
+          avgUnitPrice: parseFloat(String(m.average_unit_price ?? m.avgUnitPrice ?? 0)),
+        })
+      );
+
+      if (metrics.length >= period * 2) {
+        setPrevSales(metrics.slice(0, period));
+        setSales(metrics.slice(period, period * 2));
+      } else if (metrics.length > period) {
+        const half = Math.floor(metrics.length / 2);
+        setPrevSales(metrics.slice(0, half));
+        setSales(metrics.slice(half));
+      } else {
+        setSales(metrics);
+        setPrevSales([]);
+      }
+
+      // Inventory
+      if (invData.items?.length) setInventory(invData.items);
+
+      // Top products — deduplicate by ASIN
+      if (topData.products?.length) {
+        const deduped = new Map<string, TopProduct>();
+        for (const p of topData.products as TopProduct[]) {
+          const key = p.asin;
+          if (deduped.has(key)) {
+            const existing = deduped.get(key)!;
+            deduped.set(key, {
+              ...existing,
+              quantityOrdered: existing.quantityOrdered + p.quantityOrdered,
+              revenue: existing.revenue + p.revenue,
+              orderCount: existing.orderCount + p.orderCount,
+            });
+          } else {
+            deduped.set(key, { ...p });
+          }
+        }
+        setTopProducts(
+          Array.from(deduped.values()).sort((a, b) => b.revenue - a.revenue)
+        );
+      }
+
+      setSalesLoading(false);
+    });
+  }, [period]);
+
+  // ── Fetch ops data once ───────────────────────────────────────────────────
+  useEffect(() => {
+    Promise.all([
+      fetch("/api/amazon/finance").then((r) => r.json()).catch(() => null),
+      fetch("/api/amazon/returns").then((r) => r.json()).catch(() => null),
+    ]).then(([financeData, returnsData]) => {
+      setFinance(financeData);
+      setReturns(returnsData);
+      setOpsLoading(false);
+    });
+  }, []);
+
+  // ── KPI Aggregates ────────────────────────────────────────────────────────
+  const curRevenue = sumField(sales, "revenue");
+  const prvRevenue = sumField(prevSales, "revenue");
+  const curUnits = sumField(sales, "units");
+  const prvUnits = sumField(prevSales, "units");
+  const curOrders = sumField(sales, "orders");
+  const prvOrders = sumField(prevSales, "orders");
+  const avgOrderValue = curOrders ? curRevenue / curOrders : 0;
+  const prevAvgOrderValue = prvOrders ? prvRevenue / prvOrders : 0;
+  const avgUnitPrice = curUnits ? curRevenue / curUnits : 0;
+  const prevAvgUnitPrice = prvUnits ? prvRevenue / prvUnits : 0;
+
+  const lowStockCount = inventory.filter((i) => (i.available ?? 0) <= 50).length;
+
+  // ── Chart data — align current vs previous by day index ──────────────────
+  const chartData = useMemo(() => {
+    const len = Math.max(sales.length, prevSales.length);
+    return Array.from({ length: len }, (_, i) => ({
+      day: `Day ${i + 1}`,
+      current: sales[i]?.revenue ?? null,
+      previous: prevSales[i]?.revenue ?? null,
+    }));
+  }, [sales, prevSales]);
+
+  // ── Finance aggregates ────────────────────────────────────────────────────
+  const financeAgg = useMemo(() => {
+    if (!finance?.events?.length) return null;
+    let productCharge = 0;
+    let refund = 0;
+    let fee = 0;
+    const skuFees = new Map<string, { fee: number; revenue: number }>();
+
+    for (const ev of finance.events) {
+      const grp = ev.event_group?.toLowerCase() ?? "";
+      if (grp === "product_charge") {
+        productCharge += ev.amount ?? 0;
+        if (ev.sku) {
+          const existing = skuFees.get(ev.sku) ?? { fee: 0, revenue: 0 };
+          skuFees.set(ev.sku, { ...existing, revenue: existing.revenue + (ev.amount ?? 0) });
+        }
+      } else if (grp === "refund") {
+        refund += Math.abs(ev.amount ?? 0);
+      } else if (grp === "fee") {
+        fee += Math.abs(ev.amount ?? 0);
+        if (ev.sku) {
+          const existing = skuFees.get(ev.sku) ?? { fee: 0, revenue: 0 };
+          skuFees.set(ev.sku, { ...existing, fee: existing.fee + Math.abs(ev.amount ?? 0) });
+        }
+      }
+    }
+
+    const netProfit = productCharge - refund - fee;
+    const margin = productCharge > 0 ? (netProfit / productCharge) * 100 : 0;
+
+    // High fee SKUs (fee ratio > 40%)
+    const highFeeSKUs = Array.from(skuFees.entries())
+      .map(([sku, { fee: f, revenue: r }]) => ({
+        sku,
+        feeRatio: r > 0 ? (f / r) * 100 : 0,
+        fee: f,
+        revenue: r,
+      }))
+      .filter((x) => x.feeRatio > 40)
+      .sort((a, b) => b.feeRatio - a.feeRatio)
+      .slice(0, 5);
+
+    return { productCharge, refund, fee, netProfit, margin, highFeeSKUs };
+  }, [finance]);
+
+  // ── Returns ───────────────────────────────────────────────────────────────
+  const returnAlerts: ReturnEvent[] =
+    returns?.alerts?.critical ?? returns?.alerts?.high ?? [];
+  const totalReturns = returns?.total ?? returnAlerts.length ?? 0;
+
+  // ─────────────────────────────────────────────────────────────────────────
 
   return (
     <DashboardPageLayout
       title="ZOVIRO Business"
-      description="每日运营概览"
+      description="运营数据总览"
       signedOut={{
         message: "Sign in to access the business dashboard.",
         forceRedirectUrl: "/business",
       }}
     >
-      {/* ── KPI Cards ─────────────────────────────────────────────── */}
-      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-3">
+      {/* ── Header + Period selector ─────────────────────────────────────── */}
+      <div className="flex items-center justify-between gap-4 mb-6">
+        <div>
+          <h1 className="text-xl font-bold text-foreground">业务总览</h1>
+          <p className="text-sm text-muted-foreground mt-0.5">ZOVIRO 运营数据</p>
+        </div>
+        <div className="flex items-center gap-3">
+          {isMock && (
+            <Badge variant="default" className="text-[10px]">
+              <AlertTriangle className="w-2.5 h-2.5 mr-1" />
+              模拟数据
+            </Badge>
+          )}
+          <PeriodSelector value={period} onChange={setPeriod} />
+        </div>
+      </div>
+
+      {/* ── Low stock banner ─────────────────────────────────────────────── */}
+      {!salesLoading && lowStockCount > 0 && (
+        <div className="flex items-center gap-2 px-4 py-2.5 rounded-lg bg-destructive/8 border border-destructive/20 mb-6">
+          <AlertTriangle className="w-3.5 h-3.5 text-destructive flex-shrink-0" />
+          <p className="text-sm text-destructive">
+            <span className="font-semibold">{lowStockCount} 个 SKU 库存偏低</span>
+            <span className="opacity-70"> — 建议尽快补货避免断货</span>
+          </p>
+        </div>
+      )}
+
+      {/* ── KPI Cards ────────────────────────────────────────────────────── */}
+      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4 mb-6">
         <KpiCard
-          label="今日销售额"
-          value={todayRevenue !== null ? fmt.currency(todayRevenue) : "--"}
-          delta={revenueDelta}
-          subValue="vs 昨日"
+          label="销售额"
+          value={fmt.currency(curRevenue) || "--"}
+          subValue={prvRevenue ? `上周期 ${fmt.currency(prvRevenue)}` : undefined}
+          trend={prvRevenue ? { pct: pct(curRevenue, prvRevenue), prevLabel: fmt.currency(prvRevenue) } : null}
           icon={<DollarSign className="h-4 w-4" />}
-          loading={sales2d.loading}
-          error={sales2d.error}
+          loading={salesLoading}
         />
-
         <KpiCard
-          label="今日订单数"
-          value={todayOrders !== null ? fmt.number(todayOrders) : "--"}
-          delta={ordersDelta}
-          subValue="vs 昨日"
+          label="订单数"
+          value={curOrders ? fmt.number(curOrders) : "--"}
+          subValue={`日均 ${curOrders && period ? (curOrders / period).toFixed(0) : "--"} 单`}
+          trend={prvOrders ? { pct: pct(curOrders, prvOrders), prevLabel: String(prvOrders) } : null}
           icon={<ShoppingCart className="h-4 w-4" />}
-          loading={orders2d.loading}
-          error={orders2d.error}
+          loading={salesLoading}
         />
-
         <KpiCard
-          label="广告花费 / ACoS"
-          value={campaigns.data ? fmt.currency(campaigns.data.totalSpend) : "--"}
-          subValue={campaigns.data ? `ACoS ${fmt.pct(campaigns.data.acos)}` : undefined}
-          icon={<Megaphone className="h-4 w-4" />}
-          loading={campaigns.loading}
-          error={campaigns.error}
+          label="客单价"
+          value={avgOrderValue ? fmt.currencyFull(avgOrderValue) : "--"}
+          subValue={prevAvgOrderValue ? `上周期 ${fmt.currencyFull(prevAvgOrderValue)}` : undefined}
+          trend={prevAvgOrderValue ? { pct: pct(avgOrderValue, prevAvgOrderValue), prevLabel: fmt.currencyFull(prevAvgOrderValue) } : null}
+          icon={<Target className="h-4 w-4" />}
+          loading={salesLoading}
         />
-
         <KpiCard
-          label="可售库存"
-          value={inventory.data ? fmt.number(inventory.data.totalUnits) : "--"}
-          subValue={
-            inventory.data
-              ? `${fmt.number(inventory.data.outOfStockSkus)} SKU 缺货`
-              : undefined
-          }
-          icon={<Boxes className="h-4 w-4" />}
-          loading={inventory.loading}
-          error={inventory.error}
-        />
-
-        <KpiCard
-          label="退货率 (7D)"
-          value={returns.data ? fmt.pct(returns.data.returnRate7d) : "--"}
-          subValue="7 日滚动"
-          icon={<RotateCcw className="h-4 w-4" />}
-          loading={returns.loading}
-          error={returns.error}
-        />
-
-        <KpiCard
-          label="毛利率"
-          value={finance.data ? fmt.pct(finance.data.grossMarginPct) : "--"}
-          subValue="估算毛利率"
+          label="件单价"
+          value={avgUnitPrice ? fmt.currencyFull(avgUnitPrice) : "--"}
+          subValue={prevAvgUnitPrice ? `上周期 ${fmt.currencyFull(prevAvgUnitPrice)}` : undefined}
+          trend={prevAvgUnitPrice ? { pct: pct(avgUnitPrice, prevAvgUnitPrice), prevLabel: fmt.currencyFull(prevAvgUnitPrice) } : null}
           icon={<TrendingUp className="h-4 w-4" />}
-          loading={finance.loading}
-          error={finance.error}
+          loading={salesLoading}
         />
       </div>
 
-      {/* ── Middle row: Chart + Top Products ─────────────────────── */}
-      <div className="mt-6 grid grid-cols-1 gap-6 xl:grid-cols-5">
-
-        {/* Sales Trend Chart */}
-        <Card className="xl:col-span-3">
+      {/* ── Sales chart + Insights ───────────────────────────────────────── */}
+      <div className="grid grid-cols-1 xl:grid-cols-3 gap-6 mb-6">
+        {/* Sales trend chart */}
+        <Card className="xl:col-span-2">
           <CardHeader>
-            <h2 className="text-base font-semibold text-foreground">销售趋势 (14 天)</h2>
-            <p className="text-xs text-muted-foreground">每日销售额</p>
+            <div className="flex items-center justify-between">
+              <div>
+                <h2 className="text-base font-semibold text-foreground">销售趋势</h2>
+                <p className="text-xs text-muted-foreground">本周期 vs 上周期 · 日销售额 (USD)</p>
+              </div>
+              <div className="flex items-center gap-4 text-[10px]">
+                <span className="flex items-center gap-1.5">
+                  <span className="w-2 h-2 rounded-sm bg-primary" />
+                  <span className="text-muted-foreground">本周期</span>
+                </span>
+                <span className="flex items-center gap-1.5">
+                  <span className="w-2 h-2 rounded-sm bg-muted-foreground/40" />
+                  <span className="text-muted-foreground">上周期</span>
+                </span>
+              </div>
+            </div>
           </CardHeader>
           <CardContent>
-            {sales14d.loading ? (
+            {salesLoading ? (
               <Skeleton className="h-56 w-full" />
-            ) : sales14d.error ? (
-              <div className="flex h-56 items-center justify-center rounded-lg border border-border text-sm text-muted-foreground">
-                数据加载失败：{sales14d.error}
-              </div>
             ) : chartData.length === 0 ? (
               <div className="flex h-56 items-center justify-center rounded-lg border border-border text-sm text-muted-foreground">
                 暂无数据
@@ -347,18 +641,21 @@ export default function BusinessPage() {
               <ChartContainer config={salesChartConfig} className="h-56 w-full">
                 <AreaChart data={chartData} margin={{ top: 4, right: 4, bottom: 0, left: 0 }}>
                   <defs>
-                    <linearGradient id="gradRevenue" x1="0" y1="0" x2="0" y2="1">
+                    <linearGradient id="gradCurrent" x1="0" y1="0" x2="0" y2="1">
                       <stop offset="5%" stopColor="hsl(var(--primary))" stopOpacity={0.3} />
                       <stop offset="95%" stopColor="hsl(var(--primary))" stopOpacity={0} />
+                    </linearGradient>
+                    <linearGradient id="gradPrevious" x1="0" y1="0" x2="0" y2="1">
+                      <stop offset="5%" stopColor="hsl(var(--muted-foreground))" stopOpacity={0.15} />
+                      <stop offset="95%" stopColor="hsl(var(--muted-foreground))" stopOpacity={0} />
                     </linearGradient>
                   </defs>
                   <CartesianGrid vertical={false} stroke="hsl(var(--border))" strokeOpacity={0.5} />
                   <XAxis
-                    dataKey="date"
+                    dataKey="day"
                     tickLine={false}
                     axisLine={false}
                     tick={{ fontSize: 11 }}
-                    tickFormatter={(v: string) => v.slice(5)}
                   />
                   <YAxis
                     tickLine={false}
@@ -371,12 +668,24 @@ export default function BusinessPage() {
                   <ChartTooltip content={<ChartTooltipContent />} />
                   <Area
                     type="monotone"
-                    dataKey="revenue"
-                    stroke="hsl(var(--primary))"
-                    strokeWidth={2}
-                    fill="url(#gradRevenue)"
+                    dataKey="previous"
+                    stroke="hsl(var(--muted-foreground))"
+                    strokeWidth={1.5}
+                    strokeDasharray="4 2"
+                    fill="url(#gradPrevious)"
                     dot={false}
                     isAnimationActive={false}
+                    connectNulls
+                  />
+                  <Area
+                    type="monotone"
+                    dataKey="current"
+                    stroke="hsl(var(--primary))"
+                    strokeWidth={2}
+                    fill="url(#gradCurrent)"
+                    dot={false}
+                    isAnimationActive={false}
+                    connectNulls
                   />
                 </AreaChart>
               </ChartContainer>
@@ -384,58 +693,293 @@ export default function BusinessPage() {
           </CardContent>
         </Card>
 
-        {/* Top 5 Products */}
-        <Card className="xl:col-span-2">
+        {/* Business Insights */}
+        {salesLoading ? (
+          <Card>
+            <CardHeader>
+              <Skeleton className="h-5 w-24" />
+            </CardHeader>
+            <CardContent className="space-y-3">
+              {Array.from({ length: 3 }).map((_, i) => (
+                <Skeleton key={i} className="h-12 w-full" />
+              ))}
+            </CardContent>
+          </Card>
+        ) : (
+          <InsightPanel
+            curRevenue={curRevenue}
+            prevRevenue={prvRevenue}
+            curUnits={curUnits}
+            prevUnits={prvUnits}
+            curOrders={curOrders}
+            prevOrders={prvOrders}
+            lowStock={lowStockCount}
+          />
+        )}
+      </div>
+
+      {/* ── Profit room + Top Products ───────────────────────────────────── */}
+      <div className="grid grid-cols-1 xl:grid-cols-3 gap-6 mb-6">
+        {/* 利润指挥室 */}
+        <Card className="xl:col-span-2 border-primary/20">
           <CardHeader>
-            <h2 className="text-base font-semibold text-foreground">Top 5 产品</h2>
-            <p className="text-xs text-muted-foreground">今日销量排行</p>
+            <div className="flex items-center justify-between">
+              <div>
+                <h2 className="text-base font-semibold text-foreground">💰 利润指挥室</h2>
+                <p className="text-xs text-muted-foreground">净利润 · 利润率 · 成本拆解</p>
+              </div>
+              <Badge variant="outline" className="text-[10px]">Mock COGS</Badge>
+            </div>
           </CardHeader>
           <CardContent>
-            {topProducts.loading ? (
+            {opsLoading ? (
               <div className="space-y-3">
+                <Skeleton className="h-8 w-40" />
+                <Skeleton className="h-4 w-full" />
+                <Skeleton className="h-4 w-3/4" />
+              </div>
+            ) : !financeAgg ? (
+              <EmptyState message="暂无财务数据" />
+            ) : (
+              <div className="space-y-4">
+                <div className="grid grid-cols-3 gap-4">
+                  <div className="text-center p-3 rounded-lg bg-muted/30">
+                    <p className="text-xs text-muted-foreground mb-1">商品收入</p>
+                    <p className="text-lg font-bold text-foreground">{fmt.currency(financeAgg.productCharge)}</p>
+                  </div>
+                  <div className="text-center p-3 rounded-lg bg-muted/30">
+                    <p className="text-xs text-muted-foreground mb-1">净利润</p>
+                    <p className={`text-lg font-bold ${financeAgg.netProfit >= 0 ? "text-emerald-600" : "text-destructive"}`}>
+                      {fmt.currency(financeAgg.netProfit)}
+                    </p>
+                  </div>
+                  <div className="text-center p-3 rounded-lg bg-muted/30">
+                    <p className="text-xs text-muted-foreground mb-1">利润率</p>
+                    <p className={`text-lg font-bold ${financeAgg.margin >= 20 ? "text-emerald-600" : financeAgg.margin >= 10 ? "text-amber-600" : "text-destructive"}`}>
+                      {fmt.pct(financeAgg.margin)}
+                    </p>
+                  </div>
+                </div>
+                <div className="space-y-2">
+                  <div className="flex justify-between text-xs text-muted-foreground">
+                    <span>退款</span>
+                    <span className="text-destructive">{fmt.currency(financeAgg.refund)}</span>
+                  </div>
+                  <div className="flex justify-between text-xs text-muted-foreground">
+                    <span>FBA / 佣金费用</span>
+                    <span className="text-destructive">{fmt.currency(financeAgg.fee)}</span>
+                  </div>
+                  <div className="flex justify-between text-xs font-medium pt-1 border-t border-border">
+                    <span>费用率</span>
+                    <span>{financeAgg.productCharge > 0 ? fmt.pct((financeAgg.fee / financeAgg.productCharge) * 100) : "--"}</span>
+                  </div>
+                </div>
+              </div>
+            )}
+          </CardContent>
+        </Card>
+
+        {/* Top Products */}
+        <Card>
+          <CardHeader>
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <BarChart3 className="w-4 h-4 text-primary" />
+                <h3 className="text-base font-semibold text-foreground">Top Products</h3>
+              </div>
+              {topProducts.length > 0 && (
+                <Badge variant="default" className="text-[10px]">{period}天</Badge>
+              )}
+            </div>
+          </CardHeader>
+          <CardContent>
+            {salesLoading ? (
+              <div className="space-y-2">
                 {Array.from({ length: 5 }).map((_, i) => (
-                  <Skeleton key={i} className="h-10 w-full" />
+                  <Skeleton key={i} className="h-12 w-full" />
                 ))}
               </div>
-            ) : topProducts.error ? (
-              <div className="flex h-40 items-center justify-center rounded-lg border border-border text-sm text-muted-foreground">
-                数据加载失败：{topProducts.error}
-              </div>
-            ) : !topProducts.data?.products?.length ? (
-              <div className="flex h-40 items-center justify-center rounded-lg border border-border text-sm text-muted-foreground">
-                暂无产品数据
-              </div>
+            ) : topProducts.length === 0 ? (
+              <EmptyState message="暂无销售数据" />
             ) : (
               <div className="space-y-2">
-                <div className="grid grid-cols-[1.5rem_1fr_3.5rem_2.5rem_4rem] gap-x-2 px-1 text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
-                  <span>#</span>
-                  <span>产品</span>
-                  <span className="text-right">销量</span>
-                  <span className="text-right">库存</span>
-                  <span className="text-right">7D</span>
-                </div>
-                {topProducts.data.products.slice(0, 5).map((product, idx) => (
+                {topProducts.slice(0, 7).map((p, i) => (
                   <div
-                    key={product.asin}
-                    className="grid grid-cols-[1.5rem_1fr_3.5rem_2.5rem_4rem] items-center gap-x-2 rounded-lg border border-border px-1 py-2"
+                    key={`${p.asin}-${i}`}
+                    className="flex items-center gap-3 px-2 py-1.5 rounded-lg hover:bg-muted/50 transition-colors"
                   >
-                    <span className="text-xs font-medium text-muted-foreground">{idx + 1}</span>
-                    <span className="truncate text-sm font-medium text-foreground" title={product.title}>
-                      {product.title}
+                    <span
+                      className={`w-5 h-5 rounded-md flex items-center justify-center text-[10px] font-bold flex-shrink-0 ${
+                        i < 3
+                          ? "bg-primary/15 text-primary"
+                          : "bg-muted text-muted-foreground"
+                      }`}
+                    >
+                      {i + 1}
                     </span>
-                    <span className="text-right text-sm tabular-nums text-foreground">
-                      {fmt.number(product.todayUnits)}
-                    </span>
-                    <span className="text-right text-sm tabular-nums text-muted-foreground">
-                      {fmt.number(product.inventory)}
-                    </span>
-                    <div className="flex justify-end">
-                      {product.trend7d?.length ? (
-                        <MetricSparkline values={product.trend7d} className="h-7 w-16" />
-                      ) : (
-                        <span className="text-xs text-muted-foreground">--</span>
-                      )}
+                    <div className="flex-1 min-w-0">
+                      <p className="text-sm font-medium text-foreground truncate">
+                        {p.title || p.sku || p.asin}
+                      </p>
+                      <p className="text-[10px] text-muted-foreground">
+                        {p.orderCount} 订单 · {p.quantityOrdered} 件
+                      </p>
                     </div>
+                    <div className="text-right flex-shrink-0">
+                      <p className="text-sm font-semibold text-foreground">
+                        ${fmt.compact(p.revenue)}
+                      </p>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </CardContent>
+        </Card>
+      </div>
+
+      {/* ── Alert panels ─────────────────────────────────────────────────── */}
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+
+        {/* 库存警报 */}
+        <Card className="border-destructive/20">
+          <CardHeader className="pb-3">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <Package className="w-4 h-4 text-destructive" />
+                <h3 className="text-base font-semibold text-foreground">库存警报</h3>
+              </div>
+              {lowStockCount > 0 && (
+                <Badge variant="danger" className="text-[10px]">{lowStockCount} 偏低</Badge>
+              )}
+            </div>
+          </CardHeader>
+          <CardContent>
+            {salesLoading ? (
+              <div className="space-y-2">
+                {Array.from({ length: 3 }).map((_, i) => (
+                  <Skeleton key={i} className="h-12 rounded-lg" />
+                ))}
+              </div>
+            ) : (
+              (() => {
+                const lowItems = inventory.filter((item) => (item.available ?? 0) <= 50).slice(0, 5);
+                return lowItems.length === 0 ? (
+                  <EmptyState message="库存健康" />
+                ) : (
+                  <div className="space-y-2">
+                    {lowItems.map((item, i) => (
+                      <div
+                        key={`${item.sku}-${i}`}
+                        className="flex items-center justify-between px-3 py-2 rounded-lg bg-destructive/5"
+                      >
+                        <div className="min-w-0 flex-1">
+                          <p className="text-sm font-medium text-foreground truncate">{item.sku}</p>
+                          {item.asin && (
+                            <p className="text-[10px] text-muted-foreground">ASIN: {item.asin}</p>
+                          )}
+                        </div>
+                        <div className="text-right ml-2">
+                          <Badge
+                            variant={item.available === 0 ? "danger" : "default"}
+                            className="text-[9px]"
+                          >
+                            {item.available === 0 ? "缺货" : `${item.available} 剩`}
+                          </Badge>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                );
+              })()
+            )}
+          </CardContent>
+        </Card>
+
+        {/* 费用监控 */}
+        <Card className="border-primary/20">
+          <CardHeader className="pb-3">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <Wallet className="w-4 h-4 text-primary" />
+                <h3 className="text-base font-semibold text-foreground">费用监控</h3>
+              </div>
+              {(financeAgg?.highFeeSKUs?.length ?? 0) > 0 && (
+                <Badge className="text-[10px] bg-primary/10 text-primary border-0">
+                  {financeAgg!.highFeeSKUs.length} 高费用
+                </Badge>
+              )}
+            </div>
+          </CardHeader>
+          <CardContent>
+            {opsLoading ? (
+              <div className="space-y-2">
+                {Array.from({ length: 3 }).map((_, i) => (
+                  <Skeleton key={i} className="h-12 rounded-lg" />
+                ))}
+              </div>
+            ) : !financeAgg?.highFeeSKUs?.length ? (
+              <EmptyState message="费用正常" />
+            ) : (
+              <div className="space-y-3">
+                {financeAgg.highFeeSKUs.map((item, i) => (
+                  <div key={`fee-${i}`} className="space-y-1">
+                    <div className="flex justify-between text-sm">
+                      <span className="font-medium text-foreground truncate max-w-[60%]">{item.sku}</span>
+                      <span className="text-destructive font-semibold">{item.feeRatio.toFixed(0)}%</span>
+                    </div>
+                    <Progress value={Math.min(item.feeRatio, 100)} className="h-1.5" />
+                    <p className="text-[10px] text-muted-foreground">
+                      收入 ${fmt.compact(item.revenue)} · 费用 ${fmt.compact(item.fee)}
+                    </p>
+                  </div>
+                ))}
+              </div>
+            )}
+          </CardContent>
+        </Card>
+
+        {/* 退货警报 */}
+        <Card className="border-amber-500/20">
+          <CardHeader className="pb-3">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <RotateCcw className="w-4 h-4 text-amber-500" />
+                <h3 className="text-base font-semibold text-foreground">退货警报</h3>
+              </div>
+              {totalReturns > 0 && (
+                <Badge variant="danger" className="text-[10px]">{totalReturns} 退货</Badge>
+              )}
+            </div>
+          </CardHeader>
+          <CardContent>
+            {opsLoading ? (
+              <div className="space-y-2">
+                {Array.from({ length: 3 }).map((_, i) => (
+                  <Skeleton key={i} className="h-12 rounded-lg" />
+                ))}
+              </div>
+            ) : returnAlerts.length === 0 ? (
+              <EmptyState message="退货正常" />
+            ) : (
+              <div className="space-y-2">
+                {returnAlerts.slice(0, 4).map((item, i) => (
+                  <div
+                    key={i}
+                    className="flex items-center justify-between px-3 py-2 rounded-lg bg-destructive/5"
+                  >
+                    <div className="min-w-0 flex-1">
+                      <p className="text-sm font-medium text-foreground truncate">
+                        {item.title || item.sku || "Unknown"}
+                      </p>
+                      <p className="text-[10px] text-muted-foreground">
+                        {item.returnCount} 退货
+                        {item.returnRate ? ` · 退货率 ${item.returnRate}%` : ""}
+                      </p>
+                    </div>
+                    <Badge variant="danger" className="text-[9px] ml-2">
+                      {item.returnRate ? `${item.returnRate}%` : "警报"}
+                    </Badge>
                   </div>
                 ))}
               </div>
