@@ -421,10 +421,19 @@ export default function BusinessPage() {
       // Inventory
       if (invData.items?.length) setInventory(invData.items);
 
-      // Top products — deduplicate by ASIN
+      // Top products — map API snake_case fields + deduplicate by ASIN
       if (topData.products?.length) {
+        const mapped: TopProduct[] = (topData.products as Record<string, unknown>[]).map((p) => ({
+          asin: String(p.asin ?? ""),
+          sku: p.sku ? String(p.sku) : undefined,
+          title: p.title ? String(p.title) : (p.name ? String(p.name) : undefined),
+          revenue: parseFloat(String(p.revenue ?? 0)) || 0,
+          orderCount: Number(p.order_count ?? p.orderCount ?? 0),
+          quantityOrdered: Number(p.quantity_sold ?? p.quantityOrdered ?? p.units ?? 0),
+        }));
+
         const deduped = new Map<string, TopProduct>();
-        for (const p of topData.products as TopProduct[]) {
+        for (const p of mapped) {
           const key = p.asin;
           if (deduped.has(key)) {
             const existing = deduped.get(key)!;
@@ -493,19 +502,32 @@ export default function BusinessPage() {
 
     for (const ev of finance.events) {
       const grp = ev.event_group?.toLowerCase() ?? "";
+      // FIX: amount comes back as a string from the API — parse it
+      const amt = parseFloat(String(ev.amount)) || 0;
+
       if (grp === "product_charge") {
-        productCharge += ev.amount ?? 0;
-        if (ev.sku) {
-          const existing = skuFees.get(ev.sku) ?? { fee: 0, revenue: 0 };
-          skuFees.set(ev.sku, { ...existing, revenue: existing.revenue + (ev.amount ?? 0) });
+        if (amt > 0) {
+          // Positive product_charge = revenue (Net Revenue, Sales)
+          productCharge += amt;
+          if (ev.sku) {
+            const existing = skuFees.get(ev.sku) ?? { fee: 0, revenue: 0 };
+            skuFees.set(ev.sku, { ...existing, revenue: existing.revenue + amt });
+          }
+        } else if (amt < 0) {
+          // Negative product_charge = fees/promotions (Fees, Promotions)
+          fee += Math.abs(amt);
+          if (ev.sku) {
+            const existing = skuFees.get(ev.sku) ?? { fee: 0, revenue: 0 };
+            skuFees.set(ev.sku, { ...existing, fee: existing.fee + Math.abs(amt) });
+          }
         }
-      } else if (grp === "refund") {
-        refund += Math.abs(ev.amount ?? 0);
-      } else if (grp === "fee") {
-        fee += Math.abs(ev.amount ?? 0);
+      } else if (grp.includes("refund")) {
+        refund += Math.abs(amt);
+      } else if (grp.includes("fee") || grp.includes("commission")) {
+        fee += Math.abs(amt);
         if (ev.sku) {
           const existing = skuFees.get(ev.sku) ?? { fee: 0, revenue: 0 };
-          skuFees.set(ev.sku, { ...existing, fee: existing.fee + Math.abs(ev.amount ?? 0) });
+          skuFees.set(ev.sku, { ...existing, fee: existing.fee + Math.abs(amt) });
         }
       }
     }
