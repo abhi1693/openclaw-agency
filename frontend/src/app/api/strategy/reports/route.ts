@@ -5,8 +5,9 @@
  *
  * Reads from (in priority order):
  *   1. ~/.openclaw/workspace/reports/strategy/  (primary — wins on dedup)
- *   2. ~/.openclaw/workspace-intel/reports/
- *   3. ~/.openclaw/workspace-strategy/reports/
+ *   2. ~/.openclaw/workspace/reports/research/  (research subdirectory)
+ *   3. ~/.openclaw/workspace-intel/reports/
+ *   4. ~/.openclaw/workspace-strategy/reports/
  */
 import { NextResponse } from 'next/server'
 import fs from 'fs'
@@ -14,6 +15,7 @@ import path from 'path'
 import os from 'os'
 
 const STRATEGY_DIR = path.resolve(os.homedir(), '.openclaw/workspace/reports/strategy')
+const RESEARCH_DIR = path.resolve(os.homedir(), '.openclaw/workspace/reports/research')
 const EXTRA_DIRS = [
   path.resolve(os.homedir(), '.openclaw/workspace-intel/reports'),
   path.resolve(os.homedir(), '.openclaw/workspace-strategy/reports'),
@@ -21,6 +23,7 @@ const EXTRA_DIRS = [
 
 function ensureDir() {
   if (!fs.existsSync(STRATEGY_DIR)) fs.mkdirSync(STRATEGY_DIR, { recursive: true })
+  if (!fs.existsSync(RESEARCH_DIR)) fs.mkdirSync(RESEARCH_DIR, { recursive: true })
 }
 
 function parseFilename(filename: string, mtime?: Date) {
@@ -60,7 +63,7 @@ export async function GET(request: Request) {
       if (!safeName.endsWith('.md')) {
         return NextResponse.json({ error: 'Only .md files allowed' }, { status: 400 })
       }
-      for (const dir of [STRATEGY_DIR, ...EXTRA_DIRS]) {
+      for (const dir of [STRATEGY_DIR, RESEARCH_DIR, ...EXTRA_DIRS]) {
         const filePath = path.join(dir, safeName)
         if (fs.existsSync(filePath)) {
           const content = fs.readFileSync(filePath, 'utf-8')
@@ -74,6 +77,7 @@ export async function GET(request: Request) {
     for (const dir of [...EXTRA_DIRS].reverse()) {
       for (const item of listDir(dir)) seen.set(item.filename, item)
     }
+    for (const item of listDir(RESEARCH_DIR)) seen.set(item.filename, item)
     for (const item of listDir(STRATEGY_DIR)) seen.set(item.filename, item)
 
     const files = Array.from(seen.values())
@@ -113,7 +117,7 @@ export async function DELETE(request: Request) {
       return NextResponse.json({ error: 'Only .md files allowed' }, { status: 400 })
     }
 
-    for (const dir of [STRATEGY_DIR, ...EXTRA_DIRS]) {
+    for (const dir of [STRATEGY_DIR, RESEARCH_DIR, ...EXTRA_DIRS]) {
       const filePath = path.join(dir, safeName)
       if (fs.existsSync(filePath)) {
         fs.unlinkSync(filePath)

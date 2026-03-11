@@ -18,12 +18,12 @@ import { cn } from '@/lib/utils'
 // ─── Tab Config ───────────────────────────────────────────────────────────────
 
 const TABS = [
-  { id: 'discovery', label: 'Discovery Reports', sub: '市场研究' },
-  { id: 'listing',   label: 'Listing Reports',   sub: 'Listing 优化' },
-  { id: 'ppc',       label: 'PPC Reports',        sub: '广告报告' },
-  { id: 'content',   label: 'Content Reports',    sub: '内容分析' },
-  { id: 'strategy',  label: 'Strategy & Research', sub: '战略 & 调研' },
-  { id: 'intel',     label: 'Intel Research',     sub: '夜间调研' },
+  { id: 'discovery', label: '🔍 市场研究',  sub: '市场研究' },
+  { id: 'listing',   label: '📦 Listing',   sub: 'Listing 优化' },
+  { id: 'ppc',       label: '📊 PPC 报告',   sub: '广告报告' },
+  { id: 'content',   label: '✍️ 内容报告', sub: '内容分析' },
+  { id: 'strategy',  label: '🎯 战略调研', sub: '战略 & 调研' },
+  { id: 'intel',     label: '🌙 夜间调研',  sub: '夜间调研' },
 ] as const
 
 type TabId = typeof TABS[number]['id']
@@ -1088,12 +1088,18 @@ function StrategyTab() {
     }
   }, [])
 
-  const prefixes = Array.from(new Set(files.map(f => f.prefix))).filter(Boolean)
+  // Deduplicate filter tags by badge label (not raw prefix) to avoid duplicates
+  const badgeTypes = Array.from(
+    new Map(files.map(f => {
+      const badge = strategyBadge(f.filename)
+      return [badge.label, badge]
+    })).values()
+  )
 
   const filtered = files.filter(f => {
     const matchSearch = !search || f.filename.toLowerCase().includes(search.toLowerCase())
-    const matchPrefix = filterPrefix === 'all' || f.prefix === filterPrefix
-    return matchSearch && matchPrefix
+    const matchBadge = filterPrefix === 'all' || strategyBadge(f.filename).label === filterPrefix
+    return matchSearch && matchBadge
   })
 
   return (
@@ -1167,20 +1173,17 @@ function StrategyTab() {
                     className="w-full pl-9 pr-3 py-2 rounded-xl border border-[hsl(var(--border))] bg-[hsl(var(--card))] text-sm text-[hsl(var(--foreground))] placeholder:text-[hsl(var(--muted-foreground))] focus:outline-none focus:border-[hsl(var(--primary)/0.5)]"
                   />
                 </div>
-                {prefixes.length > 1 && (
+                {badgeTypes.length > 1 && (
                   <div className="flex flex-wrap items-center gap-1.5">
                     <button
                       onClick={() => setFilterPrefix('all')}
                       className={`px-2.5 py-1 rounded-lg text-xs font-medium transition-colors ${filterPrefix === 'all' ? 'bg-[hsl(var(--primary)/0.15)] text-[hsl(var(--primary))]' : 'text-[hsl(var(--muted-foreground))] hover:bg-[hsl(var(--secondary))]'}`}
                     >全部</button>
-                    {prefixes.map(p => {
-                      const { label } = strategyBadge(p)
-                      return (
-                        <button key={p} onClick={() => setFilterPrefix(p === filterPrefix ? 'all' : p)}
-                          className={`px-2.5 py-1 rounded-lg text-xs font-medium transition-colors ${filterPrefix === p ? 'bg-[hsl(var(--primary)/0.15)] text-[hsl(var(--primary))]' : 'text-[hsl(var(--muted-foreground))] hover:bg-[hsl(var(--secondary))]'}`}
-                        >{label}</button>
-                      )
-                    })}
+                    {badgeTypes.map(({ label }) => (
+                      <button key={label} onClick={() => setFilterPrefix(label === filterPrefix ? 'all' : label)}
+                        className={`px-2.5 py-1 rounded-lg text-xs font-medium transition-colors ${filterPrefix === label ? 'bg-[hsl(var(--primary)/0.15)] text-[hsl(var(--primary))]' : 'text-[hsl(var(--muted-foreground))] hover:bg-[hsl(var(--secondary))]'}`}
+                      >{label}</button>
+                    ))}
                   </div>
                 )}
                 <div className="h-[calc(100vh-280px)] overflow-y-auto pr-1 space-y-2">
@@ -1763,16 +1766,16 @@ export default function ReportsPage() {
       title="Reports"
       description="报告中心"
       headerActions={
-        <div className="inline-flex rounded-md border border-[hsl(var(--border))] bg-[hsl(var(--secondary))] p-0.5 flex-wrap gap-0.5">
+        <div className="flex max-w-full flex-wrap gap-1 rounded-lg border border-slate-200 p-0.5">
           {TABS.map(tab => (
             <button
               key={tab.id}
               onClick={() => setActiveTab(tab.id)}
               className={cn(
-                'rounded px-2.5 py-1 text-xs font-medium transition-colors',
+                'rounded-md px-3 py-1.5 text-sm font-medium transition-colors',
                 activeTab === tab.id
-                  ? 'bg-[hsl(var(--card))] text-[hsl(var(--foreground))]'
-                  : 'text-[hsl(var(--muted-foreground))] hover:text-[hsl(var(--foreground))]'
+                  ? 'bg-blue-600 text-white shadow-sm'
+                  : 'text-slate-600 hover:bg-slate-100'
               )}
             >
               {tab.label}
