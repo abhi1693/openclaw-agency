@@ -4,6 +4,7 @@
 // It provides CI/secretless-build safe fallbacks for Clerk hooks/components.
 
 import type { ReactNode, ComponentProps } from "react";
+import { useState, useEffect } from "react";
 
 import {
   ClerkProvider,
@@ -31,9 +32,26 @@ export function isClerkEnabled(): boolean {
   );
 }
 
+// Local auth components defer auth-state check to after mount to avoid
+// hydration mismatches: sessionStorage is browser-only, so server renders
+// a consistent "null" and the real content is revealed post-hydration.
+function LocalAuthSignedIn({ children }: { children: ReactNode }) {
+  const [mounted, setMounted] = useState(false);
+  useEffect(() => { setMounted(true); }, []);
+  if (!mounted) return null;
+  return hasLocalAuthToken() ? <>{children}</> : null;
+}
+
+function LocalAuthSignedOut({ children }: { children: ReactNode }) {
+  const [mounted, setMounted] = useState(false);
+  useEffect(() => { setMounted(true); }, []);
+  if (!mounted) return null;
+  return hasLocalAuthToken() ? null : <>{children}</>;
+}
+
 export function SignedIn(props: { children: ReactNode }) {
   if (isLocalAuthMode()) {
-    return hasLocalAuthToken() ? <>{props.children}</> : null;
+    return <LocalAuthSignedIn>{props.children}</LocalAuthSignedIn>;
   }
   if (!isClerkEnabled()) return null;
   return <ClerkSignedIn>{props.children}</ClerkSignedIn>;
@@ -41,7 +59,7 @@ export function SignedIn(props: { children: ReactNode }) {
 
 export function SignedOut(props: { children: ReactNode }) {
   if (isLocalAuthMode()) {
-    return hasLocalAuthToken() ? null : <>{props.children}</>;
+    return <LocalAuthSignedOut>{props.children}</LocalAuthSignedOut>;
   }
   if (!isClerkEnabled()) return <>{props.children}</>;
   return <ClerkSignedOut>{props.children}</ClerkSignedOut>;
