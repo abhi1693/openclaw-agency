@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { readFileSync, writeFileSync } from 'fs'
 import { join } from 'path'
 import { homedir } from 'os'
-import { execSync } from 'child_process'
+import { execFileSync } from 'child_process'
 
 interface ModelChange {
   agentId: string
@@ -26,14 +26,11 @@ export async function PUT(req: NextRequest) {
     }
 
     const configPath = join(homedir(), '.openclaw', 'openclaw.json')
+
+    // openclaw.json is valid JSON (// only appears inside https:// URL strings)
+    // — do NOT strip comments, just parse directly
     const raw = readFileSync(configPath, 'utf-8')
-
-    // Strip single-line // comments and trailing commas for lenient JSON parse
-    const cleaned = raw
-      .replace(/\/\/[^\n]*/g, '')
-      .replace(/,(\s*[}\]])/g, '$1')
-
-    const config = JSON.parse(cleaned) as {
+    const config = JSON.parse(raw) as {
       agents?: {
         list?: Array<{ id: string; model?: unknown }>
       }
@@ -57,17 +54,19 @@ export async function PUT(req: NextRequest) {
     // Write back (format nicely)
     writeFileSync(configPath, JSON.stringify(config, null, 2), 'utf-8')
 
-    // Restart gateway
+    // Restart gateway — use execFileSync with array args to avoid shell injection
     const token = config?.gateway?.auth?.token ?? ''
     let restarted = false
     try {
-      execSync(
-        `curl -s -X POST http://localhost:18789/api/restart -H "Authorization: Bearer ${token}"`,
-        { timeout: 10000 }
-      )
+      execFileSync('curl', [
+        '-s',
+        '-X', 'POST',
+        'http://localhost:18789/api/restart',
+        '-H', `Authorization: Bearer ${token}`,
+      ], { timeout: 10000 })
       restarted = true
     } catch {
-      // Gateway might not be running or restart might fail — that's non-fatal
+      // Gateway might not be running or restart may fail — non-fatal
     }
 
     return NextResponse.json({ ok: true, restarted, agentsUpdated })
