@@ -27,6 +27,21 @@ interface UsageData {
   totalCost: number
 }
 
+interface CronJob {
+  id: string
+  name: string
+  schedule: string
+  model?: string
+  lastRun?: string
+  lastRunStatus?: 'success' | 'failure' | null
+  enabled: boolean
+  nextRun?: string
+}
+
+interface CronJobsData {
+  jobs: CronJob[]
+}
+
 // ─── Helper components ───────────────────────────────────────────────────────
 
 function StatCard({
@@ -76,6 +91,10 @@ function SystemPageContent({ forceRefresh, onAutoRefresh }: { forceRefresh: numb
   const [hwLoading,    setHwLoading]    = useState(true)
   const [usageLoading, setUsageLoading] = useState(true)
 
+  const [cronJobs, setCronJobs] = useState<CronJobsData | null>(null)
+  const [cronError, setCronError] = useState<string | null>(null)
+  const [cronLoading, setCronLoading] = useState(true)
+
   const loadHardware = useCallback(async () => {
     try {
       const res = await fetch('/api/system/hardware')
@@ -92,12 +111,29 @@ function SystemPageContent({ forceRefresh, onAutoRefresh }: { forceRefresh: numb
     finally { setUsageLoading(false) }
   }, [])
 
+  const loadCronJobs = useCallback(async () => {
+    try {
+      const res = await fetch('/api/system/cron-jobs')
+      if (res.ok) {
+        const data = await res.json()
+        if (data.error) setCronError(data.error)
+        else setCronJobs(data)
+      } else {
+        setCronError('Gateway 不可用')
+      }
+    } catch { setCronError('Gateway 不可用') }
+    finally { setCronLoading(false) }
+  }, [])
+
   useEffect(() => {
     setHwLoading(true)
     setUsageLoading(true)
+    setCronLoading(true)
+    setCronError(null)
     loadHardware()
     loadUsage()
-  }, [forceRefresh, loadHardware, loadUsage])
+    loadCronJobs()
+  }, [forceRefresh, loadHardware, loadUsage, loadCronJobs])
 
   // Auto-refresh hardware every 30s
   useEffect(() => {
@@ -107,6 +143,14 @@ function SystemPageContent({ forceRefresh, onAutoRefresh }: { forceRefresh: numb
     }, 30_000)
     return () => clearInterval(t)
   }, [loadHardware, onAutoRefresh])
+
+  // Auto-refresh cron jobs every 60s
+  useEffect(() => {
+    const t = setInterval(() => {
+      loadCronJobs()
+    }, 60_000)
+    return () => clearInterval(t)
+  }, [loadCronJobs])
 
   const maxTokens = usage?.models[0]?.totalTokens ?? 1
 
@@ -280,6 +324,50 @@ function SystemPageContent({ forceRefresh, onAutoRefresh }: { forceRefresh: numb
             <div className="rounded-xl border border-slate-200 bg-white shadow-sm p-8 text-center">
               <Bot className="w-8 h-8 mx-auto text-[hsl(var(--muted-foreground))] mb-2 opacity-40" />
               <p className="text-base text-[hsl(var(--muted-foreground))]">暂无模型用量数据</p>
+            </div>
+          )}
+        </section>
+
+        {/* ── Section: Cron Jobs ── */}
+        <section>
+          <div className="flex items-center gap-2 mb-4">
+            <Clock className="w-4 h-4 text-[hsl(var(--zv-amber))]" />
+            <h2 className="text-base font-semibold text-[hsl(var(--foreground))] uppercase tracking-wider">⏰ 定时任务</h2>
+            <div className="h-px flex-1 bg-[hsl(var(--border))]" />
+          </div>
+
+          {cronLoading ? (
+            <div className="space-y-2">{[...Array(3)].map((_, i) => <Skeleton key={i} className="h-12 rounded-xl" />)}</div>
+          ) : cronError ? (
+            <div className="rounded-xl border border-[hsl(var(--border))] bg-[hsl(var(--card))] p-6 text-center">
+              <p className="text-sm text-[hsl(var(--muted-foreground))]">⚠️ {cronError} — Cron Jobs 暂时不可用</p>
+            </div>
+          ) : cronJobs && cronJobs.jobs.length > 0 ? (
+            <div className="rounded-xl border border-slate-200 bg-white shadow-sm overflow-hidden">
+              <div className="grid grid-cols-[2fr_1fr_1fr_1fr_80px_1fr] gap-3 px-4 py-2.5 border-b border-[hsl(var(--border))] bg-[hsl(var(--secondary)/0.5)]">
+                {['名称', 'Schedule', 'Agent Model', '上次运行', '状态', '下次运行'].map(h => (
+                  <span key={h} className="text-[10px] font-semibold uppercase tracking-wider text-[hsl(var(--muted-foreground))]">{h}</span>
+                ))}
+              </div>
+              {cronJobs.jobs.map((job, i) => (
+                <div key={job.id} className={`grid grid-cols-[2fr_1fr_1fr_1fr_80px_1fr] gap-3 px-4 py-3 items-center hover:bg-[hsl(var(--secondary)/0.3)] transition-colors ${i < cronJobs.jobs.length - 1 ? 'border-b border-[hsl(var(--border)/0.5)]' : ''} ${!job.enabled ? 'opacity-60' : ''}`}>
+                  <div className="flex items-center gap-2">
+                    <div className={`w-1.5 h-1.5 rounded-full flex-shrink-0 ${job.enabled ? 'bg-[hsl(var(--primary))]' : 'bg-[hsl(var(--muted-foreground))]'}`} />
+                    <span className="text-sm font-medium text-[hsl(var(--foreground))] truncate">{job.name}</span>
+                  </div>
+                  <span className="text-xs text-[hsl(var(--muted-foreground))] font-mono">{job.schedule || '—'}</span>
+                  <span className="text-xs text-[hsl(var(--muted-foreground))] truncate">{job.model || '—'}</span>
+                  <span className="text-xs text-[hsl(var(--muted-foreground))]">{job.lastRun ? new Date(job.lastRun).toLocaleString('zh-CN', { month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit' }) : '—'}</span>
+                  <span className="text-sm">
+                    {!job.enabled ? '⏸️' : job.lastRunStatus === 'success' ? '✅' : job.lastRunStatus === 'failure' ? '❌' : '—'}
+                  </span>
+                  <span className="text-xs text-[hsl(var(--muted-foreground))]">{job.nextRun ? new Date(job.nextRun).toLocaleString('zh-CN', { month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit' }) : '—'}</span>
+                </div>
+              ))}
+            </div>
+          ) : (
+            <div className="rounded-xl border border-[hsl(var(--border))] bg-[hsl(var(--card))] p-6 text-center">
+              <p className="text-sm text-[hsl(var(--muted-foreground))]">暂无定时任务</p>
             </div>
           )}
         </section>
