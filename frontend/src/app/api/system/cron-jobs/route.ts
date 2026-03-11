@@ -8,12 +8,28 @@ function backendBase(): string {
   return DEFAULT_BACKEND_BASE
 }
 
+/**
+ * Resolve the best available auth token for backend calls.
+ *
+ * Priority:
+ * 1. Authorization header forwarded from the browser (user is signed in via local auth)
+ * 2. LOCAL_AUTH_TOKEN env var (server-side secret — works for curl / server-to-server calls)
+ */
+function resolveAuthToken(incomingAuthorization: string): string {
+  // Browser sent a token — use it as-is (already includes "Bearer " prefix)
+  if (incomingAuthorization) return incomingAuthorization
+
+  // Server-side fallback: use the configured LOCAL_AUTH_TOKEN env var
+  const envToken = process.env.LOCAL_AUTH_TOKEN?.trim()
+  if (envToken) return `Bearer ${envToken}`
+
+  return ''
+}
+
 export async function GET(request: Request) {
   try {
-    // Forward auth cookies/headers from the incoming request so the backend
-    // can authenticate the user via its standard session mechanism.
     const cookie = request.headers.get('cookie') ?? ''
-    const authorization = request.headers.get('authorization') ?? ''
+    const authorization = resolveAuthToken(request.headers.get('authorization') ?? '')
 
     const headers: Record<string, string> = {
       'content-type': 'application/json',
