@@ -51,6 +51,70 @@ interface CronJobsData {
   jobs: CronJob[]
 }
 
+// ─── Cron → Human Readable ───────────────────────────────────────────────────
+
+function cronToHuman(expr: string): string {
+  if (!expr || expr === '—') return expr
+  const parts = expr.trim().split(/\s+/)
+  if (parts.length !== 5) return expr
+  const [minStr, hourStr, dom, mon, dow] = parts
+
+  const fmtTime = (h: string, m: string) => {
+    const hNum = parseInt(h)
+    const mNum = parseInt(m)
+    if (isNaN(hNum) || isNaN(mNum)) return null
+    if (mNum === 0) return `${String(hNum).padStart(2, '0')}:00`
+    return `${String(hNum).padStart(2, '0')}:${String(mNum).padStart(2, '0')}`
+  }
+
+  // Multi-hour daily: "0 0,6,12,18 * * *" → "每天 0/6/12/18 时"
+  if (dom === '*' && mon === '*' && dow === '*' && hourStr.includes(',') && minStr === '0') {
+    const hours = hourStr.split(',').join('/')
+    return `每天 ${hours} 时`
+  }
+
+  const time = fmtTime(hourStr, minStr)
+  if (!time) return expr
+
+  // Daily: "0 5 * * *" → "每天 05:00"
+  if (dom === '*' && mon === '*' && dow === '*') {
+    return `每天 ${time}`
+  }
+
+  // Weekly with range "1-6": "0 4 * * 1-6" → "周一至六 04:00"
+  if (dom === '*' && mon === '*' && dow !== '*' && !dow.includes(',')) {
+    const DOW_NAMES = ['日', '一', '二', '三', '四', '五', '六']
+    if (dow.includes('-')) {
+      const [start, end] = dow.split('-').map(Number)
+      if (!isNaN(start) && !isNaN(end) && start >= 0 && end <= 6) {
+        return `周${DOW_NAMES[start]}至${DOW_NAMES[end]} ${time}`
+      }
+    }
+    // Single weekday: "0 4 * * 1" → "每周一 04:00"
+    const d = parseInt(dow)
+    if (!isNaN(d) && d >= 0 && d <= 6) {
+      if (d === 0) return `每周日 ${time}`
+      return `每周${DOW_NAMES[d]} ${time}`
+    }
+  }
+
+  // Monthly multi-day: "0 4 8,22 * *" → "每月8/22号 04:00"
+  if (dom.includes(',') && mon === '*' && dow === '*') {
+    const days = dom.split(',').join('/')
+    return `每月${days}号 ${time}`
+  }
+
+  // Monthly single day: "0 7 1 * *" → "每月1号 07:00"
+  if (dom !== '*' && !dom.includes('/') && mon === '*' && dow === '*') {
+    const day = parseInt(dom)
+    if (!isNaN(day) && day >= 1 && day <= 31) {
+      return `每月${day}号 ${time}`
+    }
+  }
+
+  return expr
+}
+
 // ─── Cron Schedule Helpers ───────────────────────────────────────────────────
 
 type CronFrequency = 'daily' | 'weekly' | 'monthly' | 'custom'
@@ -623,15 +687,19 @@ function SystemPageContent({ forceRefresh, onAutoRefresh }: { forceRefresh: numb
             ) : cronJobs && cronJobs.jobs.length > 0 ? (
               <div className="rounded-xl border border-[hsl(var(--border))] bg-[hsl(var(--card))] shadow-sm overflow-hidden">
                 <div className="grid grid-cols-[2fr_1fr_1fr_1fr_80px_1fr] gap-3 px-4 py-2.5 border-b border-[hsl(var(--border))] bg-[hsl(var(--secondary)/0.5)]">
-                  {['名称', 'Schedule', 'Agent Model', '上次运行', '状态', '下次运行'].map(h => (
+                  {['名称', 'Schedule', 'Agent', 'Model', '状态', '下次运行'].map(h => (
                     <span key={h} className="text-[10px] font-semibold uppercase tracking-wider text-[hsl(var(--muted-foreground))]">{h}</span>
                   ))}
                 </div>
                 {cronJobs.jobs.map((job, i) => {
-                  const sched = typeof job.schedule === 'string' ? job.schedule : job.schedule?.expr || '—'
+                  const schedExpr = typeof job.schedule === 'string' ? job.schedule : job.schedule?.expr || '—'
+                  const schedHuman = cronToHuman(schedExpr)
                   const tz = typeof job.schedule === 'object' ? job.schedule?.tz : undefined
-                  const model = job.payload?.model || job.agentId || '—'
-                  const lastRunMs = job.state?.lastRunAtMs
+                  const agentLabel = job.agentId || '—'
+                  const rawModel = job.payload?.model
+                  const modelLabel = rawModel
+                    ? rawModel.includes('/') ? rawModel.split('/').slice(1).join('/') : rawModel
+                    : '默认'
                   const nextRunMs = job.state?.nextRunAtMs
                   const lastStatus = job.state?.lastStatus || job.state?.lastRunStatus
                   const fmtTime = (ms?: number) => ms ? new Date(ms).toLocaleString('zh-CN', { month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit' }) : '—'
@@ -642,9 +710,12 @@ function SystemPageContent({ forceRefresh, onAutoRefresh }: { forceRefresh: numb
                         <div className={`w-1.5 h-1.5 rounded-full flex-shrink-0 ${job.enabled ? 'bg-[hsl(var(--primary))]' : 'bg-[hsl(var(--muted-foreground))]'}`} />
                         <span className="text-sm font-medium text-[hsl(var(--foreground))] truncate">{job.name}</span>
                       </div>
-                      <span className="text-xs text-[hsl(var(--muted-foreground))] font-mono" title={tz || ''}>{sched}</span>
-                      <span className="text-xs text-[hsl(var(--muted-foreground))] truncate">{model}</span>
-                      <span className="text-xs text-[hsl(var(--muted-foreground))]">{fmtTime(lastRunMs)}</span>
+                      <span
+                        className="text-xs text-[hsl(var(--muted-foreground))] truncate cursor-default"
+                        title={`${schedExpr}${tz ? ` (${tz})` : ''}`}
+                      >{schedHuman}</span>
+                      <span className="text-xs text-[hsl(var(--muted-foreground))] truncate">{agentLabel}</span>
+                      <span className={`text-xs truncate ${rawModel ? 'text-[hsl(var(--foreground))]' : 'text-[hsl(var(--muted-foreground))]'}`}>{modelLabel}</span>
                       <span className="text-sm">
                         {!job.enabled ? '⏸️' : lastStatus === 'ok' ? '✅' : lastStatus === 'error' ? '❌' : '—'}
                       </span>
@@ -664,8 +735,11 @@ function SystemPageContent({ forceRefresh, onAutoRefresh }: { forceRefresh: numb
 
       {/* ── Edit Modal ── */}
       {editJob && (
-        <div className="fixed inset-0 bg-black/50 z-40 flex items-center justify-center p-4" onClick={() => setEditJob(null)}>
-          <div className="bg-[hsl(var(--card))] border border-[hsl(var(--border))] rounded-xl p-6 w-full max-w-md shadow-xl" onClick={e => e.stopPropagation()}>
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+          {/* Semi-transparent backdrop — covers everything behind */}
+          <div className="fixed inset-0 bg-black/50" onClick={() => setEditJob(null)} />
+          {/* Modal card — fully opaque, above backdrop */}
+          <div className="relative z-10 w-full max-w-md rounded-xl border border-[hsl(var(--border))] bg-[hsl(var(--card))] p-6 shadow-xl" onClick={e => e.stopPropagation()}>
             <h3 className="text-base font-semibold text-[hsl(var(--foreground))] mb-4">编辑任务：{editJob.name}</h3>
             <div className="space-y-4">
               {/* Schedule friendly picker */}
