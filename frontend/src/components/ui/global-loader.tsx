@@ -21,7 +21,7 @@ export function GlobalLoader() {
       data-state={visible ? "visible" : "hidden"}
       role="status"
     >
-      <div className="h-full w-full overflow-hidden bg-[var(--accent-soft)]">
+      <div className="h-full w-full overflow-hidden bg-[var(--accent-soft)]" suppressHydrationWarning>
         <div className="h-full w-full animate-progress-shimmer bg-[linear-gradient(90deg,transparent_0%,var(--accent)_50%,transparent_100%)]" />
       </div>
       <span className="sr-only">Loading</span>
