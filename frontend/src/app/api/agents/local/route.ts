@@ -96,7 +96,8 @@ export async function GET() {
       }
     })
 
-    return NextResponse.json({ agents, defaultModel })
+    const availableModels = Object.keys(config?.agents?.defaults?.models ?? {})
+    return NextResponse.json({ agents, defaultModel, availableModels })
   } catch (err) {
     return NextResponse.json({ error: String(err) }, { status: 500 })
   }
