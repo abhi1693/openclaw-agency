@@ -49,6 +49,181 @@ interface CronJobsData {
   jobs: CronJob[]
 }
 
+// ─── Cron Schedule Helpers ───────────────────────────────────────────────────
+
+type CronFrequency = 'daily' | 'weekly' | 'monthly' | 'custom'
+
+interface CronScheduleState {
+  frequency: CronFrequency
+  hour: number
+  minute: number
+  weekDays: number[]   // cron DOW: 0=Sun,1=Mon,...,6=Sat
+  monthDay: number     // 1–31
+  customExpr: string
+}
+
+function parseCronToState(expr: string): CronScheduleState {
+  const parts = expr.trim().split(/\s+/)
+  const base: CronScheduleState = { frequency: 'custom', hour: 9, minute: 0, weekDays: [1], monthDay: 1, customExpr: expr }
+  if (parts.length !== 5) return base
+  const [minStr, hourStr, dom, mon, dow] = parts
+  const m = parseInt(minStr); const h = parseInt(hourStr)
+  if (isNaN(m) || isNaN(h) || minStr.includes('/') || hourStr.includes('/')) return base
+  // Daily
+  if (dom === '*' && mon === '*' && dow === '*')
+    return { ...base, frequency: 'daily', hour: h, minute: m }
+  // Weekly
+  if (dom === '*' && mon === '*' && dow !== '*') {
+    const days = dow.split(',').map(d => parseInt(d)).filter(d => !isNaN(d) && d >= 0 && d <= 6)
+    if (days.length > 0) return { ...base, frequency: 'weekly', hour: h, minute: m, weekDays: days }
+  }
+  // Monthly
+  if (dom !== '*' && !dom.includes('/') && !dom.includes(',') && mon === '*' && dow === '*') {
+    const day = parseInt(dom)
+    if (!isNaN(day) && day >= 1 && day <= 31) return { ...base, frequency: 'monthly', hour: h, minute: m, monthDay: day }
+  }
+  return base
+}
+
+function generateCronFromState(s: CronScheduleState): string {
+  if (s.frequency === 'custom') return s.customExpr
+  const min = s.minute; const hr = s.hour
+  if (s.frequency === 'daily')   return `${min} ${hr} * * *`
+  if (s.frequency === 'weekly')  return `${min} ${hr} * * ${s.weekDays.length ? s.weekDays.join(',') : '1'}`
+  if (s.frequency === 'monthly') return `${min} ${hr} ${s.monthDay} * *`
+  return s.customExpr
+}
+
+const FREQ_LABELS: { key: CronFrequency; label: string }[] = [
+  { key: 'daily',   label: '每天' },
+  { key: 'weekly',  label: '每周' },
+  { key: 'monthly', label: '每月' },
+  { key: 'custom',  label: '自定义' },
+]
+
+const DOW_LABELS = ['日', '一', '二', '三', '四', '五', '六'] // index = cron DOW (0=Sun)
+
+function CronScheduleEditor({
+  value, onChange
+}: {
+  value: CronScheduleState
+  onChange: (s: CronScheduleState) => void
+}) {
+  const expr = generateCronFromState(value)
+
+  function set(patch: Partial<CronScheduleState>) {
+    onChange({ ...value, ...patch })
+  }
+
+  function toggleDay(d: number) {
+    const days = value.weekDays.includes(d)
+      ? value.weekDays.filter(x => x !== d)
+      : [...value.weekDays, d].sort((a, b) => a - b)
+    set({ weekDays: days.length ? days : [d] })
+  }
+
+  const inputCls = "w-full rounded-lg border border-[hsl(var(--border))] bg-[hsl(var(--background))] px-3 py-2 text-sm text-[hsl(var(--foreground))] focus:outline-none focus:border-[hsl(var(--primary))]"
+  const selectCls = inputCls + " appearance-none"
+
+  return (
+    <div className="space-y-3">
+      {/* Frequency */}
+      <div>
+        <label className="text-xs text-[hsl(var(--muted-foreground))] uppercase tracking-wider font-semibold block mb-1.5">频率</label>
+        <div className="flex gap-1.5 flex-wrap">
+          {FREQ_LABELS.map(({ key, label }) => (
+            <button
+              key={key}
+              type="button"
+              onClick={() => set({ frequency: key })}
+              className={`px-3 py-1.5 rounded-lg text-xs font-medium border transition-colors ${
+                value.frequency === key
+                  ? 'bg-[hsl(var(--primary))] text-[hsl(var(--primary-foreground))] border-[hsl(var(--primary))]'
+                  : 'border-[hsl(var(--border))] text-[hsl(var(--muted-foreground))] hover:bg-[hsl(var(--secondary))]'
+              }`}
+            >{label}</button>
+          ))}
+        </div>
+      </div>
+
+      {/* Time: hour + minute (shown for all except custom) */}
+      {value.frequency !== 'custom' && (
+        <div>
+          <label className="text-xs text-[hsl(var(--muted-foreground))] uppercase tracking-wider font-semibold block mb-1.5">时间</label>
+          <div className="flex gap-2 items-center">
+            <select className={selectCls + " flex-1"} value={value.hour} onChange={e => set({ hour: +e.target.value })}>
+              {Array.from({ length: 24 }, (_, h) => (
+                <option key={h} value={h}>{String(h).padStart(2, '0')} 时</option>
+              ))}
+            </select>
+            <span className="text-[hsl(var(--muted-foreground))] text-sm">:</span>
+            <select className={selectCls + " flex-1"} value={value.minute} onChange={e => set({ minute: +e.target.value })}>
+              {[0, 5, 10, 15, 20, 25, 30, 35, 40, 45, 50, 55].map(min => (
+                <option key={min} value={min}>{String(min).padStart(2, '0')} 分</option>
+              ))}
+            </select>
+          </div>
+        </div>
+      )}
+
+      {/* Weekly: day-of-week checkboxes */}
+      {value.frequency === 'weekly' && (
+        <div>
+          <label className="text-xs text-[hsl(var(--muted-foreground))] uppercase tracking-wider font-semibold block mb-1.5">周几</label>
+          <div className="flex gap-1">
+            {DOW_LABELS.map((lbl, d) => (
+              <button
+                key={d}
+                type="button"
+                onClick={() => toggleDay(d)}
+                className={`w-8 h-8 rounded-lg text-xs font-medium border transition-colors ${
+                  value.weekDays.includes(d)
+                    ? 'bg-[hsl(var(--primary))] text-[hsl(var(--primary-foreground))] border-[hsl(var(--primary))]'
+                    : 'border-[hsl(var(--border))] text-[hsl(var(--muted-foreground))] hover:bg-[hsl(var(--secondary))]'
+                }`}
+              >{lbl}</button>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* Monthly: day-of-month */}
+      {value.frequency === 'monthly' && (
+        <div>
+          <label className="text-xs text-[hsl(var(--muted-foreground))] uppercase tracking-wider font-semibold block mb-1.5">几号</label>
+          <input
+            type="number"
+            min={1}
+            max={31}
+            className={inputCls}
+            value={value.monthDay}
+            onChange={e => set({ monthDay: Math.min(31, Math.max(1, +e.target.value)) })}
+          />
+        </div>
+      )}
+
+      {/* Custom: raw cron input */}
+      {value.frequency === 'custom' && (
+        <div>
+          <label className="text-xs text-[hsl(var(--muted-foreground))] uppercase tracking-wider font-semibold block mb-1.5">Cron 表达式</label>
+          <input
+            className={inputCls + " font-mono"}
+            value={value.customExpr}
+            onChange={e => set({ customExpr: e.target.value })}
+            placeholder="0 9 * * *"
+          />
+        </div>
+      )}
+
+      {/* Preview */}
+      <div className="rounded-lg bg-[hsl(var(--secondary)/0.5)] border border-[hsl(var(--border)/0.5)] px-3 py-2">
+        <span className="text-[10px] text-[hsl(var(--muted-foreground))] uppercase tracking-wider font-semibold">Cron 预览</span>
+        <p className="text-sm font-mono text-[hsl(var(--foreground))] mt-0.5">{expr || '—'}</p>
+      </div>
+    </div>
+  )
+}
+
 // ─── Helper components ───────────────────────────────────────────────────────
 
 function StatCard({
@@ -110,7 +285,8 @@ function SystemPageContent({ forceRefresh, onAutoRefresh }: { forceRefresh: numb
   const [cronError, setCronError] = useState<string | null>(null)
   const [cronLoading, setCronLoading] = useState(true)
   const [editJob, setEditJob] = useState<CronJob | null>(null)
-  const [editForm, setEditForm] = useState({ schedule: '', model: '', enabled: true })
+  const [editForm, setEditForm] = useState({ model: '', enabled: true })
+  const [editSchedule, setEditSchedule] = useState<CronScheduleState>({ frequency: 'daily', hour: 9, minute: 0, weekDays: [1], monthDay: 1, customExpr: '' })
   const [editSaving, setEditSaving] = useState(false)
   const [editError, setEditError] = useState<string | null>(null)
   const [toast, setToast] = useState<{ msg: string; ok: boolean } | null>(null)
@@ -160,7 +336,8 @@ function SystemPageContent({ forceRefresh, onAutoRefresh }: { forceRefresh: numb
     const sched = typeof job.schedule === 'string' ? job.schedule : (job.schedule as { expr?: string })?.expr || ''
     const model = job.payload?.model || job.agentId || ''
     setEditJob(job)
-    setEditForm({ schedule: sched, model, enabled: job.enabled })
+    setEditForm({ model, enabled: job.enabled })
+    setEditSchedule(parseCronToState(sched))
     setEditError(null)
   }
 
@@ -169,10 +346,11 @@ function SystemPageContent({ forceRefresh, onAutoRefresh }: { forceRefresh: numb
     setEditSaving(true)
     setEditError(null)
     try {
+      const payload = { ...editForm, schedule: generateCronFromState(editSchedule) }
       const res = await fetch(`/api/system/cron-jobs/${editJob.id}`, {
         method: 'PATCH',
         headers: { 'content-type': 'application/json', ...buildAuthHeaders() },
-        body: JSON.stringify(editForm),
+        body: JSON.stringify(payload),
       })
       const data = await res.json()
       if (!res.ok || data.error) {
@@ -490,14 +668,10 @@ function SystemPageContent({ forceRefresh, onAutoRefresh }: { forceRefresh: numb
           <div className="bg-[hsl(var(--card))] border border-[hsl(var(--border))] rounded-xl p-6 w-full max-w-md shadow-xl" onClick={e => e.stopPropagation()}>
             <h3 className="text-base font-semibold text-[hsl(var(--foreground))] mb-4">编辑任务：{editJob.name}</h3>
             <div className="space-y-4">
+              {/* Schedule friendly picker */}
               <div>
-                <label className="text-xs text-[hsl(var(--muted-foreground))] uppercase tracking-wider font-semibold">Schedule (Cron 表达式)</label>
-                <input
-                  className="mt-1.5 w-full rounded-lg border border-[hsl(var(--border))] bg-[hsl(var(--background))] px-3 py-2 text-sm text-[hsl(var(--foreground))] font-mono focus:outline-none focus:border-[hsl(var(--primary))]"
-                  value={editForm.schedule}
-                  onChange={e => setEditForm(f => ({ ...f, schedule: e.target.value }))}
-                  placeholder="0 9 * * *"
-                />
+                <label className="text-xs text-[hsl(var(--muted-foreground))] uppercase tracking-wider font-semibold block mb-2">Schedule</label>
+                <CronScheduleEditor value={editSchedule} onChange={setEditSchedule} />
               </div>
               <div>
                 <label className="text-xs text-[hsl(var(--muted-foreground))] uppercase tracking-wider font-semibold">Model</label>
@@ -515,10 +689,10 @@ function SystemPageContent({ forceRefresh, onAutoRefresh }: { forceRefresh: numb
                   onClick={() => setEditForm(f => ({ ...f, enabled: !f.enabled }))}
                   className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${editForm.enabled ? 'bg-[hsl(var(--primary))]' : 'bg-[hsl(var(--secondary))]'}`}
                 >
-                  <span className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${editForm.enabled ? 'translate-x-6' : 'translate-x-1'}`} />
+                  <span className={`inline-block h-4 w-4 transform rounded-full bg-[hsl(var(--primary-foreground))] transition-transform ${editForm.enabled ? 'translate-x-6' : 'translate-x-1'}`} />
                 </button>
               </div>
-              {editError && <p className="text-xs text-red-500">{editError}</p>}
+              {editError && <p className="text-xs text-[hsl(var(--destructive))]">{editError}</p>}
             </div>
             <div className="flex gap-3 mt-6">
               <button
@@ -538,7 +712,7 @@ function SystemPageContent({ forceRefresh, onAutoRefresh }: { forceRefresh: numb
       )}
 
       {toast && (
-        <div className={`fixed bottom-6 right-6 z-50 rounded-lg px-4 py-3 text-sm text-white shadow-lg ${toast.ok ? 'bg-[hsl(var(--primary))]' : 'bg-red-600'}`}>
+        <div className={`fixed bottom-6 right-6 z-50 rounded-lg px-4 py-3 text-sm text-[hsl(var(--primary-foreground))] shadow-lg ${toast.ok ? 'bg-[hsl(var(--primary))]' : 'bg-[hsl(var(--destructive))]'}`}>
           {toast.msg}
         </div>
       )}
