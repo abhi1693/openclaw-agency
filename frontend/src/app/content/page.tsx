@@ -979,10 +979,10 @@ function CampaignTab() {
 // ─── Tab Config ───────────────────────────────────────────────────────────────
 
 const CONTENT_TABS = [
-  { id: 'prompt-studio', label: 'Prompt Studio',      emoji: '✨' },
-  { id: 'aplus',         label: 'A+ Content',         emoji: '📄' },
-  { id: 'store',         label: 'Brand Store',        emoji: '🏪' },
-  { id: 'campaign',      label: 'Marketing Campaign', emoji: '📢' },
+  { id: 'prompt-studio', label: '✨ 图片提示词', emoji: '✨' },
+  { id: 'aplus',         label: '📄 A+ 内容',   emoji: '📄' },
+  { id: 'store',         label: '🏪 品牌页',    emoji: '🏪' },
+  { id: 'campaign',      label: '📢 营销活动',  emoji: '📢' },
 ] as const
 
 // ─── Main Page ────────────────────────────────────────────────────────────────
@@ -1464,19 +1464,19 @@ export default function ContentPage() {
       title="Content"
       description="内容资产库"
       headerActions={
-        <div className="inline-flex rounded-md border border-slate-200 bg-slate-50 p-0.5">
+        <div className="flex max-w-full flex-wrap gap-1 rounded-lg border border-slate-200 p-0.5">
           {CONTENT_TABS.map(tab => (
             <button
               key={tab.id}
               onClick={() => setActiveTab(tab.id)}
               className={cn(
-                'rounded px-2.5 py-1 text-xs font-medium transition-colors',
+                'rounded-md px-3 py-1.5 text-sm font-medium transition-colors',
                 activeTab === tab.id
-                  ? 'bg-white text-slate-900 shadow-sm'
-                  : 'text-slate-500 hover:text-slate-700'
+                  ? 'bg-blue-600 text-white shadow-sm'
+                  : 'text-slate-600 hover:bg-slate-100'
               )}
             >
-              {tab.emoji} {tab.label}
+              {tab.label}
             </button>
           ))}
         </div>
