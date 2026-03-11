@@ -31,12 +31,17 @@ interface UsageData {
 interface CronJob {
   id: string
   name: string
-  schedule: string
-  model?: string
-  lastRun?: string
-  lastRunStatus?: 'success' | 'failure' | null
+  agentId?: string
+  schedule: { kind: string; expr?: string; tz?: string } | string
+  payload?: { model?: string; kind?: string }
   enabled: boolean
-  nextRun?: string
+  state?: {
+    lastRunAtMs?: number
+    lastRunStatus?: string
+    lastStatus?: string
+    nextRunAtMs?: number
+    consecutiveErrors?: number
+  }
 }
 
 interface CronJobsData {
@@ -104,7 +109,7 @@ function SystemPageContent({ forceRefresh, onAutoRefresh }: { forceRefresh: numb
   const [cronError, setCronError] = useState<string | null>(null)
   const [cronLoading, setCronLoading] = useState(true)
 
-  // AI Model Usage: collapsed by default, shows top 5
+  // AI Model Usage: shows top 5 by default, expandable for all
   const [usageExpanded, setUsageExpanded] = useState(false)
   const TOP_N = 5
 
@@ -131,8 +136,13 @@ function SystemPageContent({ forceRefresh, onAutoRefresh }: { forceRefresh: numb
       })
       if (res.ok) {
         const data = await res.json()
-        if (data.error) setCronError(data.error)
-        else setCronJobs(data)
+        if (data.error) { setCronError(data.error) }
+        else {
+          // API returns {jobs: {jobs: [...], total, ...}} — unwrap
+          const inner = data?.jobs
+          const list = Array.isArray(inner) ? inner : Array.isArray(inner?.jobs) ? inner.jobs : []
+          setCronJobs({ jobs: list })
+        }
       } else {
         setCronError('Gateway 不可用')
       }
@@ -241,41 +251,27 @@ function SystemPageContent({ forceRefresh, onAutoRefresh }: { forceRefresh: numb
           )}
         </section>
 
-        {/* ── Section: Model Usage (collapsible, top 5 default) ── */}
+        {/* ── Section: Model Usage (top 5 default, expandable) ── */}
         <section>
-          {/* Section header — clickable to toggle */}
-          <button
-            onClick={() => setUsageExpanded(v => !v)}
-            className="w-full flex items-center gap-2 mb-4 group text-left"
-          >
+          <div className="flex items-center gap-2 mb-4">
             <Bot className="w-4 h-4 text-[hsl(var(--zv-blue))]" />
             <h2 className="text-base font-semibold text-[hsl(var(--foreground))] uppercase tracking-wider">AI 模型用量</h2>
             <div className="h-px flex-1 bg-[hsl(var(--border))]" />
-            {/* Collapsed summary */}
-            {!usageExpanded && usage && (
+            {usage && (
               <span className="text-[10px] text-[hsl(var(--muted-foreground))] flex items-center gap-1.5">
                 <Zap className="w-3 h-3 text-[hsl(var(--zv-amber))]" />
                 {fmt(usage.totalTokens)} tokens · ${usage.totalCost.toFixed(2)}
               </span>
             )}
-            {/* Expanded summary */}
-            {usageExpanded && usage && (
-              <span className="text-[10px] text-[hsl(var(--muted-foreground))]">
-                累计 {fmt(usage.totalTokens)} tokens · 估算 ${usage.totalCost.toFixed(2)}
-              </span>
-            )}
-            <span className="ml-1 flex-shrink-0 text-[hsl(var(--muted-foreground))] group-hover:text-[hsl(var(--foreground))] transition-colors">
-              {usageExpanded ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
-            </span>
-          </button>
+          </div>
 
-          {usageExpanded && (
+          {(
             usageLoading ? (
               <div className="space-y-2">
                 {[...Array(6)].map((_, i) => <Skeleton key={i} className="h-12 rounded-xl" />)}
               </div>
             ) : usage && usage.models.length > 0 ? (
-              <div className="rounded-xl border border-slate-200 bg-white shadow-sm overflow-hidden">
+              <div className="rounded-xl border border-[hsl(var(--border))] bg-[hsl(var(--card))] shadow-sm overflow-hidden">
                 {/* Table header */}
                 <div className="grid grid-cols-[2fr_80px_1fr_1fr_1fr_1fr_110px] gap-3 px-4 py-2.5 border-b border-[hsl(var(--border))] bg-[hsl(var(--secondary)/0.5)]">
                   {['模型', 'Provider', '输入', '输出', '总计', '会话', '占比'].map(h => (
@@ -335,14 +331,18 @@ function SystemPageContent({ forceRefresh, onAutoRefresh }: { forceRefresh: numb
                   )
                 })}
 
-                {/* "Show more" row when more models exist */}
+                {/* Toggle show more / less */}
                 {usage.models.length > TOP_N && (
                   <div
                     className="px-4 py-2.5 border-t border-[hsl(var(--border)/0.5)] text-center cursor-pointer hover:bg-[hsl(var(--secondary)/0.3)] transition-colors"
-                    onClick={() => setUsageExpanded(false)}
+                    onClick={() => setUsageExpanded(v => !v)}
                   >
-                    <span className="text-xs text-[hsl(var(--muted-foreground))]">
-                      显示全部 {usage.models.length} 个模型 · 点击折叠
+                    <span className="text-xs text-[hsl(var(--muted-foreground))] flex items-center justify-center gap-1">
+                      {usageExpanded ? (
+                        <><ChevronUp className="w-3 h-3" /> 收起，只显示 Top {TOP_N}</>
+                      ) : (
+                        <><ChevronDown className="w-3 h-3" /> 显示全部 {usage.models.length} 个模型</>
+                      )}
                     </span>
                   </div>
                 )}
@@ -370,7 +370,7 @@ function SystemPageContent({ forceRefresh, onAutoRefresh }: { forceRefresh: numb
                 </div>
               </div>
             ) : (
-              <div className="rounded-xl border border-slate-200 bg-white shadow-sm p-8 text-center">
+              <div className="rounded-xl border border-[hsl(var(--border))] bg-[hsl(var(--card))] shadow-sm p-8 text-center">
                 <Bot className="w-8 h-8 mx-auto text-[hsl(var(--muted-foreground))] mb-2 opacity-40" />
                 <p className="text-base text-[hsl(var(--muted-foreground))]">暂无模型用量数据</p>
               </div>
@@ -393,27 +393,37 @@ function SystemPageContent({ forceRefresh, onAutoRefresh }: { forceRefresh: numb
               <p className="text-sm text-[hsl(var(--muted-foreground))]">⚠️ {cronError} — Cron Jobs 暂时不可用</p>
             </div>
           ) : cronJobs && cronJobs.jobs.length > 0 ? (
-            <div className="rounded-xl border border-slate-200 bg-white shadow-sm overflow-hidden">
+            <div className="rounded-xl border border-[hsl(var(--border))] bg-[hsl(var(--card))] shadow-sm overflow-hidden">
               <div className="grid grid-cols-[2fr_1fr_1fr_1fr_80px_1fr] gap-3 px-4 py-2.5 border-b border-[hsl(var(--border))] bg-[hsl(var(--secondary)/0.5)]">
                 {['名称', 'Schedule', 'Agent Model', '上次运行', '状态', '下次运行'].map(h => (
                   <span key={h} className="text-[10px] font-semibold uppercase tracking-wider text-[hsl(var(--muted-foreground))]">{h}</span>
                 ))}
               </div>
-              {cronJobs.jobs.map((job, i) => (
-                <div key={job.id} className={`grid grid-cols-[2fr_1fr_1fr_1fr_80px_1fr] gap-3 px-4 py-3 items-center hover:bg-[hsl(var(--secondary)/0.3)] transition-colors ${i < cronJobs.jobs.length - 1 ? 'border-b border-[hsl(var(--border)/0.5)]' : ''} ${!job.enabled ? 'opacity-60' : ''}`}>
-                  <div className="flex items-center gap-2">
-                    <div className={`w-1.5 h-1.5 rounded-full flex-shrink-0 ${job.enabled ? 'bg-[hsl(var(--primary))]' : 'bg-[hsl(var(--muted-foreground))]'}`} />
-                    <span className="text-sm font-medium text-[hsl(var(--foreground))] truncate">{job.name}</span>
+              {cronJobs.jobs.map((job, i) => {
+                const sched = typeof job.schedule === 'string' ? job.schedule : job.schedule?.expr || '—'
+                const tz = typeof job.schedule === 'object' ? job.schedule?.tz : undefined
+                const model = job.payload?.model || job.agentId || '—'
+                const lastRunMs = job.state?.lastRunAtMs
+                const nextRunMs = job.state?.nextRunAtMs
+                const lastStatus = job.state?.lastStatus || job.state?.lastRunStatus
+                const fmtTime = (ms?: number) => ms ? new Date(ms).toLocaleString('zh-CN', { month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit' }) : '—'
+
+                return (
+                  <div key={job.id} className={`grid grid-cols-[2fr_1fr_1fr_1fr_80px_1fr] gap-3 px-4 py-3 items-center hover:bg-[hsl(var(--secondary)/0.3)] transition-colors ${i < cronJobs.jobs.length - 1 ? 'border-b border-[hsl(var(--border)/0.5)]' : ''} ${!job.enabled ? 'opacity-60' : ''}`}>
+                    <div className="flex items-center gap-2">
+                      <div className={`w-1.5 h-1.5 rounded-full flex-shrink-0 ${job.enabled ? 'bg-[hsl(var(--primary))]' : 'bg-[hsl(var(--muted-foreground))]'}`} />
+                      <span className="text-sm font-medium text-[hsl(var(--foreground))] truncate">{job.name}</span>
+                    </div>
+                    <span className="text-xs text-[hsl(var(--muted-foreground))] font-mono" title={tz || ''}>{sched}</span>
+                    <span className="text-xs text-[hsl(var(--muted-foreground))] truncate">{model}</span>
+                    <span className="text-xs text-[hsl(var(--muted-foreground))]">{fmtTime(lastRunMs)}</span>
+                    <span className="text-sm">
+                      {!job.enabled ? '⏸️' : lastStatus === 'ok' ? '✅' : lastStatus === 'error' ? '❌' : '—'}
+                    </span>
+                    <span className="text-xs text-[hsl(var(--muted-foreground))]">{fmtTime(nextRunMs)}</span>
                   </div>
-                  <span className="text-xs text-[hsl(var(--muted-foreground))] font-mono">{job.schedule || '—'}</span>
-                  <span className="text-xs text-[hsl(var(--muted-foreground))] truncate">{job.model || '—'}</span>
-                  <span className="text-xs text-[hsl(var(--muted-foreground))]">{job.lastRun ? new Date(job.lastRun).toLocaleString('zh-CN', { month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit' }) : '—'}</span>
-                  <span className="text-sm">
-                    {!job.enabled ? '⏸️' : job.lastRunStatus === 'success' ? '✅' : job.lastRunStatus === 'failure' ? '❌' : '—'}
-                  </span>
-                  <span className="text-xs text-[hsl(var(--muted-foreground))]">{job.nextRun ? new Date(job.nextRun).toLocaleString('zh-CN', { month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit' }) : '—'}</span>
-                </div>
-              ))}
+                )
+              })}
             </div>
           ) : (
             <div className="rounded-xl border border-[hsl(var(--border))] bg-[hsl(var(--card))] p-6 text-center">
@@ -442,14 +452,14 @@ export default function SystemPage() {
       headerActions={
         <div className="flex items-center gap-3">
           <div className="flex items-center gap-1.5">
-            <span className="w-1.5 h-1.5 rounded-full bg-blue-500 animate-pulse" />
-            <span className="text-xs text-slate-500">
+            <span className="w-1.5 h-1.5 rounded-full bg-[hsl(var(--primary))] animate-pulse" />
+            <span className="text-xs text-[hsl(var(--muted-foreground))]">
               Live · {lastRefresh.toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit', second: '2-digit' })}
             </span>
           </div>
           <button
             onClick={handleRefresh}
-            className="rounded-lg border border-slate-200 px-3 py-1.5 text-sm font-medium text-slate-700 hover:bg-slate-50 flex items-center gap-1.5 transition-colors"
+            className="rounded-lg border border-[hsl(var(--border))] px-3 py-1.5 text-sm font-medium text-[hsl(var(--foreground))] hover:bg-[hsl(var(--secondary))] flex items-center gap-1.5 transition-colors"
           >
             <RefreshCw className="w-3.5 h-3.5" />
             刷新
