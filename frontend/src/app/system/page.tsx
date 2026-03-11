@@ -4,6 +4,12 @@ import { Skeleton } from '@/components/ui/skeleton'
 import { Progress } from '@/components/ui/progress'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/dialog'
 import { Input } from '@/components/ui/input'
 import { Cpu, MemoryStick, HardDrive, Clock, Monitor, Zap, RefreshCw, Bot, Coins, MessageSquare, ChevronDown, ChevronUp } from 'lucide-react'
 import { DashboardPageLayout } from '@/components/templates/DashboardPageLayout'
@@ -734,49 +740,46 @@ function SystemPageContent({ forceRefresh, onAutoRefresh }: { forceRefresh: numb
       )}
 
       {/* ── Edit Modal ── */}
-      {editJob && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
-          {/* Semi-transparent backdrop — covers everything behind */}
-          <div className="fixed inset-0 bg-black/50" onClick={() => setEditJob(null)} />
-          {/* Modal card — fully opaque, above backdrop */}
-          <div className="relative z-10 w-full max-w-md rounded-xl border border-[hsl(var(--border))] bg-[hsl(var(--card))] p-6 shadow-xl" onClick={e => e.stopPropagation()}>
-            <h3 className="text-base font-semibold text-[hsl(var(--foreground))] mb-4">编辑任务：{editJob.name}</h3>
-            <div className="space-y-4">
-              {/* Schedule friendly picker */}
-              <div>
-                <label className="text-xs text-[hsl(var(--muted-foreground))] uppercase tracking-wider font-semibold block mb-2">Schedule</label>
-                <CronScheduleEditor value={editSchedule} onChange={setEditSchedule} />
-              </div>
-              <div>
-                <label className="text-xs text-[hsl(var(--muted-foreground))] uppercase tracking-wider font-semibold">Model</label>
-                <Input
-                  className="mt-1.5"
-                  value={editForm.model}
-                  onChange={e => setEditForm(f => ({ ...f, model: e.target.value }))}
-                  placeholder="anthropic/claude-sonnet-4-6"
-                />
-              </div>
-              <div className="flex items-center justify-between">
-                <span className="text-xs text-[hsl(var(--muted-foreground))] uppercase tracking-wider font-semibold">启用</span>
-                <button
-                  type="button"
-                  onClick={() => setEditForm(f => ({ ...f, enabled: !f.enabled }))}
-                  className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${editForm.enabled ? 'bg-[hsl(var(--primary))]' : 'bg-[hsl(var(--secondary))]'}`}
-                >
-                  <span className={`inline-block h-4 w-4 transform rounded-full bg-[hsl(var(--primary-foreground))] transition-transform ${editForm.enabled ? 'translate-x-6' : 'translate-x-1'}`} />
-                </button>
-              </div>
-              {editError && <p className="text-xs text-[hsl(var(--destructive))]">{editError}</p>}
+      <Dialog open={!!editJob} onOpenChange={(open) => { if (!open) setEditJob(null) }}>
+        <DialogContent className="w-full max-w-md">
+          <DialogHeader>
+            <DialogTitle>编辑任务：{editJob?.name}</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4">
+            {/* Schedule friendly picker */}
+            <div>
+              <label className="text-xs text-[hsl(var(--muted-foreground))] uppercase tracking-wider font-semibold block mb-2">Schedule</label>
+              <CronScheduleEditor value={editSchedule} onChange={setEditSchedule} />
             </div>
-            <div className="flex gap-3 mt-6">
-              <Button variant="outline" className="flex-1" onClick={() => setEditJob(null)}>取消</Button>
-              <Button className="flex-1" onClick={saveEdit} disabled={editSaving}>
-                {editSaving ? '保存中...' : '保存'}
-              </Button>
+            <div>
+              <label className="text-xs text-[hsl(var(--muted-foreground))] uppercase tracking-wider font-semibold">Model</label>
+              <Input
+                className="mt-1.5"
+                value={editForm.model}
+                onChange={e => setEditForm(f => ({ ...f, model: e.target.value }))}
+                placeholder="anthropic/claude-sonnet-4-6"
+              />
             </div>
+            <div className="flex items-center justify-between">
+              <span className="text-xs text-[hsl(var(--muted-foreground))] uppercase tracking-wider font-semibold">启用</span>
+              <button
+                type="button"
+                onClick={() => setEditForm(f => ({ ...f, enabled: !f.enabled }))}
+                className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${editForm.enabled ? 'bg-[hsl(var(--primary))]' : 'bg-[hsl(var(--secondary))]'}`}
+              >
+                <span className={`inline-block h-4 w-4 transform rounded-full bg-[hsl(var(--primary-foreground))] transition-transform ${editForm.enabled ? 'translate-x-6' : 'translate-x-1'}`} />
+              </button>
+            </div>
+            {editError && <p className="text-xs text-[hsl(var(--destructive))]">{editError}</p>}
           </div>
-        </div>
-      )}
+          <div className="flex gap-3 mt-6">
+            <Button variant="outline" className="flex-1" onClick={() => setEditJob(null)}>取消</Button>
+            <Button className="flex-1" onClick={saveEdit} disabled={editSaving}>
+              {editSaving ? '保存中...' : '保存'}
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
 
       {toast && (
         <div className={`fixed bottom-6 right-6 z-50 rounded-lg px-4 py-3 text-sm text-[hsl(var(--primary-foreground))] shadow-lg ${toast.ok ? 'bg-[hsl(var(--primary))]' : 'bg-[hsl(var(--destructive))]'}`}>
