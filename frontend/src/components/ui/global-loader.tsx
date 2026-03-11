@@ -13,6 +13,7 @@ export function GlobalLoader() {
   return (
     <div
       data-cy="global-loader"
+      suppressHydrationWarning
       className={`pointer-events-none fixed inset-x-0 top-0 z-[120] h-1 transition-opacity duration-200 ${
         visible ? "opacity-100" : "opacity-0"
       }`}

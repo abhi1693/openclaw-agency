@@ -49,29 +49,43 @@ type TopProduct = {
 };
 
 type SalesData = {
-  days: SalesPoint[];
+  days?: SalesPoint[];
 };
 
 type OrdersData = {
-  days: { date: string; count: number }[];
+  days?: { date: string; count: number }[];
 };
 
 type CampaignsData = {
-  totalSpend: number;
-  acos: number;
+  // Aggregated fields (may not be present in raw API response)
+  totalSpend?: number;
+  acos?: number;
+  // Raw API response shape
+  total?: number;
+  campaigns?: unknown[];
 };
 
 type InventoryData = {
-  totalUnits: number;
-  outOfStockSkus: number;
+  totalUnits?: number;
+  outOfStockSkus?: number;
+  // Raw API response shape
+  total?: number;
 };
 
 type ReturnsData = {
-  returnRate7d: number;
+  // Aggregated field (may not be present in raw API response)
+  returnRate7d?: number;
+  // Raw API response shape
+  total?: number;
+  events?: unknown[];
 };
 
 type FinanceData = {
-  grossMarginPct: number;
+  // Aggregated field (may not be present in raw API response)
+  grossMarginPct?: number;
+  // Raw API response shape
+  total?: number;
+  events?: unknown[];
 };
 
 // ---------------------------------------------------------------------------
@@ -188,10 +202,14 @@ function KpiCard({
 // ---------------------------------------------------------------------------
 
 const fmt = {
-  currency: (v: number) =>
-    new Intl.NumberFormat("en-US", { style: "currency", currency: "USD", maximumFractionDigits: 0 }).format(v),
-  number: (v: number) => new Intl.NumberFormat("en-US").format(v),
-  pct: (v: number) => `${v.toFixed(1)}%`,
+  currency: (v: number | undefined | null) =>
+    v != null
+      ? new Intl.NumberFormat("en-US", { style: "currency", currency: "USD", maximumFractionDigits: 0 }).format(v)
+      : "--",
+  number: (v: number | undefined | null) =>
+    v != null ? new Intl.NumberFormat("en-US").format(v) : "--",
+  pct: (v: number | undefined | null) =>
+    v != null ? `${v.toFixed(1)}%` : "--",
 };
 
 function pctChange(today: number, yesterday: number) {
@@ -284,8 +302,8 @@ export default function BusinessPage() {
 
         <KpiCard
           label="广告花费 / ACoS"
-          value={campaigns.data ? fmt.currency(campaigns.data.totalSpend) : "--"}
-          subValue={campaigns.data ? `ACoS ${fmt.pct(campaigns.data.acos)}` : undefined}
+          value={fmt.currency(campaigns.data?.totalSpend)}
+          subValue={campaigns.data?.acos != null ? `ACoS ${fmt.pct(campaigns.data.acos)}` : undefined}
           icon={<Megaphone className="h-4 w-4" />}
           loading={campaigns.loading}
           error={campaigns.error}
@@ -293,9 +311,9 @@ export default function BusinessPage() {
 
         <KpiCard
           label="可售库存"
-          value={inventory.data ? fmt.number(inventory.data.totalUnits) : "--"}
+          value={fmt.number(inventory.data?.totalUnits)}
           subValue={
-            inventory.data
+            inventory.data?.outOfStockSkus != null
               ? `${fmt.number(inventory.data.outOfStockSkus)} SKU 缺货`
               : undefined
           }
@@ -306,7 +324,7 @@ export default function BusinessPage() {
 
         <KpiCard
           label="退货率 (7D)"
-          value={returns.data ? fmt.pct(returns.data.returnRate7d) : "--"}
+          value={fmt.pct(returns.data?.returnRate7d)}
           subValue="7 日滚动"
           icon={<RotateCcw className="h-4 w-4" />}
           loading={returns.loading}
@@ -315,7 +333,7 @@ export default function BusinessPage() {
 
         <KpiCard
           label="毛利率"
-          value={finance.data ? fmt.pct(finance.data.grossMarginPct) : "--"}
+          value={fmt.pct(finance.data?.grossMarginPct)}
           subValue="估算毛利率"
           icon={<TrendingUp className="h-4 w-4" />}
           loading={finance.loading}
