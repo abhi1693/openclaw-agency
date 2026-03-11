@@ -3,7 +3,9 @@ import { useEffect, useState, useCallback } from 'react'
 import { Skeleton } from '@/components/ui/skeleton'
 import { Progress } from '@/components/ui/progress'
 import { Badge } from '@/components/ui/badge'
-import { Cpu, MemoryStick, HardDrive, Clock, Monitor, Zap, RefreshCw, Bot, Coins, MessageSquare, ChevronDown, ChevronUp, Calendar } from 'lucide-react'
+import { Button } from '@/components/ui/button'
+import { Input } from '@/components/ui/input'
+import { Cpu, MemoryStick, HardDrive, Clock, Monitor, Zap, RefreshCw, Bot, Coins, MessageSquare, ChevronDown, ChevronUp } from 'lucide-react'
 import { DashboardPageLayout } from '@/components/templates/DashboardPageLayout'
 import CronCalendar from '@/components/system/CronCalendar'
 import { getLocalAuthToken, isLocalAuthMode } from '@/auth/localAuth'
@@ -191,11 +193,10 @@ function CronScheduleEditor({
       {value.frequency === 'monthly' && (
         <div>
           <label className="text-xs text-[hsl(var(--muted-foreground))] uppercase tracking-wider font-semibold block mb-1.5">几号</label>
-          <input
+          <Input
             type="number"
             min={1}
             max={31}
-            className={inputCls}
             value={value.monthDay}
             onChange={e => set({ monthDay: Math.min(31, Math.max(1, +e.target.value)) })}
           />
@@ -206,8 +207,8 @@ function CronScheduleEditor({
       {value.frequency === 'custom' && (
         <div>
           <label className="text-xs text-[hsl(var(--muted-foreground))] uppercase tracking-wider font-semibold block mb-1.5">Cron 表达式</label>
-          <input
-            className={inputCls + " font-mono"}
+          <Input
+            className="font-mono"
             value={value.customExpr}
             onChange={e => set({ customExpr: e.target.value })}
             placeholder="0 9 * * *"
@@ -290,6 +291,7 @@ function SystemPageContent({ forceRefresh, onAutoRefresh }: { forceRefresh: numb
   const [editSaving, setEditSaving] = useState(false)
   const [editError, setEditError] = useState<string | null>(null)
   const [toast, setToast] = useState<{ msg: string; ok: boolean } | null>(null)
+  const [activeTab, setActiveTab] = useState<'system' | 'cron'>('system')
 
   // AI Model Usage: shows top 5 by default, expandable for all
   const [usageExpanded, setUsageExpanded] = useState(false)
@@ -404,263 +406,261 @@ function SystemPageContent({ forceRefresh, onAutoRefresh }: { forceRefresh: numb
 
   return (
     <div className="space-y-6 max-w-6xl mx-auto">
+      <div className="flex gap-1 mb-6 bg-[hsl(var(--secondary)/0.5)] rounded-xl p-1 w-fit">
+        {[
+          { key: 'system', label: '🖥️ 系统 & 模型' },
+          { key: 'cron', label: '⏰ 定时任务' },
+        ].map(({ key, label }) => (
+          <button
+            key={key}
+            onClick={() => setActiveTab(key as 'system' | 'cron')}
+            className={`px-4 py-2 rounded-lg text-sm font-medium transition-all ${
+              activeTab === key
+                ? 'bg-[hsl(var(--primary))] text-[hsl(var(--primary-foreground))] shadow-sm'
+                : 'text-[hsl(var(--muted-foreground))] hover:text-[hsl(var(--foreground))]'
+            }`}
+          >
+            {label}
+          </button>
+        ))}
+      </div>
 
-
-        {/* ── Section: Mac Hardware ── */}
-        <section>
-          <div className="flex items-center gap-2 mb-4">
-            <Monitor className="w-4 h-4 text-[hsl(var(--primary))]" />
-            <h2 className="text-base font-semibold text-[hsl(var(--foreground))] uppercase tracking-wider">Mac Hardware</h2>
-            <div className="h-px flex-1 bg-[hsl(var(--border))]" />
-            {hw && <Badge variant="outline" className="text-[9px] px-1.5 h-4 border-[hsl(var(--primary)/0.3)] text-[hsl(var(--primary))]">macOS {hw.osVersion}</Badge>}
-          </div>
-
-          {hwLoading ? (
-            <div className="grid grid-cols-2 lg:grid-cols-3 gap-4">
-              {[...Array(6)].map((_, i) => <Skeleton key={i} className="h-24 rounded-xl" />)}
+      {activeTab === 'system' && (
+        <>
+          {/* ── Section: Mac Hardware ── */}
+          <section>
+            <div className="flex items-center gap-2 mb-4">
+              <Monitor className="w-4 h-4 text-[hsl(var(--primary))]" />
+              <h2 className="text-base font-semibold text-[hsl(var(--foreground))] uppercase tracking-wider">Mac Hardware</h2>
+              <div className="h-px flex-1 bg-[hsl(var(--border))]" />
+              {hw && <Badge variant="outline" className="text-[9px] px-1.5 h-4 border-[hsl(var(--primary)/0.3)] text-[hsl(var(--primary))]">macOS {hw.osVersion}</Badge>}
             </div>
-          ) : hw ? (
-            <div className="grid grid-cols-2 lg:grid-cols-3 gap-4">
-              {/* CPU */}
-              <div className="col-span-2 lg:col-span-2">
+
+            {hwLoading ? (
+              <div className="grid grid-cols-2 lg:grid-cols-3 gap-4">
+                {[...Array(6)].map((_, i) => <Skeleton key={i} className="h-24 rounded-xl" />)}
+              </div>
+            ) : hw ? (
+              <div className="grid grid-cols-2 lg:grid-cols-3 gap-4">
+                <div className="col-span-2 lg:col-span-2">
+                  <StatCard
+                    icon={Cpu} label="处理器" accent
+                    value={hw.cpu.replace('Apple ', '').replace('(TM)', '™').replace('(R)', '®')}
+                    sub={`${hw.cores} 逻辑核心`}
+                  />
+                </div>
+
                 <StatCard
-                  icon={Cpu} label="处理器" accent
-                  value={hw.cpu.replace('Apple ', '').replace('(TM)', '™').replace('(R)', '®')}
-                  sub={`${hw.cores} 逻辑核心`}
+                  icon={Monitor} label="机型"
+                  value={hw.model.replace('Mac', 'Mac ')}
+                  sub={`运行 ${hw.uptime}`}
+                />
+
+                <StatCard
+                  icon={MemoryStick} label="内存"
+                  value={`${hw.ramUsed} GB`}
+                  sub={`共 ${hw.ramTotal} GB · ${hw.ramPct}% 已用`}
+                  accent={hw.ramPct >= 88}
+                >
+                  <UsageBar pct={hw.ramPct} />
+                </StatCard>
+
+                <StatCard
+                  icon={HardDrive} label="磁盘"
+                  value={`${hw.diskFree} GB 可用`}
+                  sub={`共 ${hw.diskTotal} GB · ${hw.diskUsedPct}% 已用`}
+                  accent={hw.diskUsedPct >= 85}
+                >
+                  <UsageBar pct={hw.diskUsedPct} warn={75} danger={88} />
+                </StatCard>
+
+                <StatCard
+                  icon={Clock} label="运行时长"
+                  value={hw.uptime}
+                  sub="自上次重启"
                 />
               </div>
-
-              {/* Model */}
-              <StatCard
-                icon={Monitor} label="机型"
-                value={hw.model.replace('Mac', 'Mac ')}
-                sub={`运行 ${hw.uptime}`}
-              />
-
-              {/* RAM */}
-              <StatCard
-                icon={MemoryStick} label="内存"
-                value={`${hw.ramUsed} GB`}
-                sub={`共 ${hw.ramTotal} GB · ${hw.ramPct}% 已用`}
-                accent={hw.ramPct >= 88}
-              >
-                <UsageBar pct={hw.ramPct} />
-              </StatCard>
-
-              {/* Disk */}
-              <StatCard
-                icon={HardDrive} label="磁盘"
-                value={`${hw.diskFree} GB 可用`}
-                sub={`共 ${hw.diskTotal} GB · ${hw.diskUsedPct}% 已用`}
-                accent={hw.diskUsedPct >= 85}
-              >
-                <UsageBar pct={hw.diskUsedPct} warn={75} danger={88} />
-              </StatCard>
-
-              {/* Uptime */}
-              <StatCard
-                icon={Clock} label="运行时长"
-                value={hw.uptime}
-                sub="自上次重启"
-              />
-            </div>
-          ) : (
-            <p className="text-base text-[hsl(var(--muted-foreground))]">无法获取硬件信息</p>
-          )}
-        </section>
-
-        {/* ── Section: Model Usage (top 5 default, expandable) ── */}
-        <section>
-          <div className="flex items-center gap-2 mb-4">
-            <Bot className="w-4 h-4 text-[hsl(var(--zv-blue))]" />
-            <h2 className="text-base font-semibold text-[hsl(var(--foreground))] uppercase tracking-wider">AI 模型用量</h2>
-            <div className="h-px flex-1 bg-[hsl(var(--border))]" />
-            {usage && (
-              <span className="text-[10px] text-[hsl(var(--muted-foreground))] flex items-center gap-1.5">
-                <Zap className="w-3 h-3 text-[hsl(var(--zv-amber))]" />
-                {fmt(usage.totalTokens)} tokens · ${usage.totalCost.toFixed(2)}
-              </span>
+            ) : (
+              <p className="text-base text-[hsl(var(--muted-foreground))]">无法获取硬件信息</p>
             )}
-          </div>
+          </section>
 
-          {(
-            usageLoading ? (
-              <div className="space-y-2">
-                {[...Array(6)].map((_, i) => <Skeleton key={i} className="h-12 rounded-xl" />)}
+          {/* ── Section: Model Usage (top 5 default, expandable) ── */}
+          <section>
+            <div className="flex items-center gap-2 mb-4">
+              <Bot className="w-4 h-4 text-[hsl(var(--zv-blue))]" />
+              <h2 className="text-base font-semibold text-[hsl(var(--foreground))] uppercase tracking-wider">AI 模型用量</h2>
+              <div className="h-px flex-1 bg-[hsl(var(--border))]" />
+              {usage && (
+                <span className="text-[10px] text-[hsl(var(--muted-foreground))] flex items-center gap-1.5">
+                  <Zap className="w-3 h-3 text-[hsl(var(--zv-amber))]" />
+                  {fmt(usage.totalTokens)} tokens · ${usage.totalCost.toFixed(2)}
+                </span>
+              )}
+            </div>
+
+            {(
+              usageLoading ? (
+                <div className="space-y-2">
+                  {[...Array(6)].map((_, i) => <Skeleton key={i} className="h-12 rounded-xl" />)}
+                </div>
+              ) : usage && usage.models.length > 0 ? (
+                <div className="rounded-xl border border-[hsl(var(--border))] bg-[hsl(var(--card))] shadow-sm overflow-hidden">
+                  <div className="grid grid-cols-[2fr_80px_1fr_1fr_1fr_1fr_110px] gap-3 px-4 py-2.5 border-b border-[hsl(var(--border))] bg-[hsl(var(--secondary)/0.5)]">
+                    {['模型', 'Provider', '输入', '输出', '总计', '会话', '占比'].map(h => (
+                      <span key={h} className="text-[10px] font-semibold uppercase tracking-wider text-[hsl(var(--muted-foreground))]">{h}</span>
+                    ))}
+                  </div>
+
+                  {displayedModels.map((m, i) => {
+                    const used = m.totalTokens > 0
+                    const pct  = used ? Math.round((m.totalTokens / maxTokens) * 100) : 0
+                    const providerColor: Record<string, string> = {
+                      Anthropic: 'text-[hsl(var(--zv-amber))] bg-[hsl(var(--zv-amber)/0.1)]',
+                      Google:    'text-[hsl(217_91%_65%)] bg-[hsl(217_91%_60%/0.1)]',
+                      OpenAI:    'text-[hsl(142_71%_50%)] bg-[hsl(142_71%_45%/0.1)]',
+                    }
+                    const pColor = providerColor[m.provider] ?? 'text-[hsl(var(--muted-foreground))] bg-[hsl(var(--secondary))]'
+
+                    return (
+                      <div
+                        key={m.id}
+                        className={`grid grid-cols-[2fr_80px_1fr_1fr_1fr_1fr_110px] gap-3 px-4 py-3 items-center transition-colors hover:bg-[hsl(var(--secondary)/0.3)] ${i < displayedModels.length - 1 ? 'border-b border-[hsl(var(--border)/0.5)]' : ''} ${!used ? 'opacity-40' : ''}`}
+                      >
+                        <div className="flex items-center gap-2 min-w-0">
+                          <div className={`w-1.5 h-1.5 rounded-full flex-shrink-0 ${used ? 'bg-[hsl(var(--primary))]' : 'bg-[hsl(var(--muted-foreground))]'}`} />
+                          <span className="text-base font-medium text-[hsl(var(--foreground))] truncate">{m.name}</span>
+                        </div>
+                        <span className={`text-[9px] font-bold uppercase tracking-wider px-1.5 py-0.5 rounded-md w-fit ${pColor}`}>
+                          {m.provider}
+                        </span>
+                        <span className="text-sm text-[hsl(var(--muted-foreground))] tabular-nums">{used ? fmt(m.inputTokens) : '—'}</span>
+                        <span className="text-sm text-[hsl(var(--muted-foreground))] tabular-nums">{used ? fmt(m.outputTokens) : '—'}</span>
+                        <span className={`text-sm font-semibold tabular-nums ${used ? 'text-[hsl(var(--foreground))]' : 'text-[hsl(var(--muted-foreground))]'}`}>
+                          {used ? fmt(m.totalTokens) : '—'}
+                        </span>
+                        <div className="flex items-center gap-1">
+                          <MessageSquare className="w-3 h-3 text-[hsl(var(--muted-foreground))]" />
+                          <span className="text-sm text-[hsl(var(--muted-foreground))] tabular-nums">{used ? m.sessions : '0'}</span>
+                        </div>
+                        <div className="flex items-center gap-2">
+                          <div className="flex-1 bg-[hsl(var(--secondary))] rounded-full h-1.5 overflow-hidden">
+                            <div
+                              className="h-full bg-[hsl(var(--primary))] rounded-full transition-all duration-700"
+                              style={{ width: `${pct}%` }}
+                            />
+                          </div>
+                          <span className="text-[10px] text-[hsl(var(--muted-foreground))] w-8 text-right tabular-nums">{pct}%</span>
+                        </div>
+                      </div>
+                    )
+                  })}
+
+                  {usage.models.length > TOP_N && (
+                    <div
+                      className="px-4 py-2.5 border-t border-[hsl(var(--border)/0.5)] text-center cursor-pointer hover:bg-[hsl(var(--secondary)/0.3)] transition-colors"
+                      onClick={() => setUsageExpanded(v => !v)}
+                    >
+                      <span className="text-xs text-[hsl(var(--muted-foreground))] flex items-center justify-center gap-1">
+                        {usageExpanded ? (
+                          <><ChevronUp className="w-3 h-3" /> 收起，只显示 Top {TOP_N}</>
+                        ) : (
+                          <><ChevronDown className="w-3 h-3" /> 显示全部 {usage.models.length} 个模型</>
+                        )}
+                      </span>
+                    </div>
+                  )}
+
+                  <div className="grid grid-cols-[2fr_1fr_1fr_1fr_1fr_120px] gap-4 px-4 py-3 border-t border-[hsl(var(--border))] bg-[hsl(var(--secondary)/0.3)]">
+                    <div className="flex items-center gap-2">
+                      <Coins className="w-3.5 h-3.5 text-[hsl(var(--zv-amber))]" />
+                      <span className="text-sm font-bold text-[hsl(var(--foreground))]">总计</span>
+                    </div>
+                    <span className="text-sm font-semibold text-[hsl(var(--foreground))] tabular-nums">
+                      {fmt(usage.models.reduce((s, m) => s + m.inputTokens, 0))}
+                    </span>
+                    <span className="text-sm font-semibold text-[hsl(var(--foreground))] tabular-nums">
+                      {fmt(usage.models.reduce((s, m) => s + m.outputTokens, 0))}
+                    </span>
+                    <span className="text-base font-bold text-[hsl(var(--primary))] tabular-nums">{fmt(usage.totalTokens)}</span>
+                    <span className="text-sm font-semibold text-[hsl(var(--foreground))] tabular-nums">
+                      {usage.models.reduce((s, m) => s + m.sessions, 0)}
+                    </span>
+                    <div className="flex items-center gap-1">
+                      <Zap className="w-3 h-3 text-[hsl(var(--zv-amber))]" />
+                      <span className="text-sm font-bold text-[hsl(var(--zv-amber))]">${usage.totalCost.toFixed(3)}</span>
+                    </div>
+                  </div>
+                </div>
+              ) : (
+                <div className="rounded-xl border border-[hsl(var(--border))] bg-[hsl(var(--card))] shadow-sm p-8 text-center">
+                  <Bot className="w-8 h-8 mx-auto text-[hsl(var(--muted-foreground))] mb-2 opacity-40" />
+                  <p className="text-base text-[hsl(var(--muted-foreground))]">暂无模型用量数据</p>
+                </div>
+              )
+            )}
+          </section>
+        </>
+      )}
+
+      {activeTab === 'cron' && (
+        <section className="space-y-6">
+          {cronJobs && cronJobs.jobs.length > 0 && <CronCalendar jobs={cronJobs.jobs} onEditJob={openEdit} />}
+
+          <div className="space-y-4">
+            <div className="flex items-center gap-2">
+              <Clock className="w-4 h-4 text-[hsl(var(--zv-amber))]" />
+              <h2 className="text-base font-semibold text-[hsl(var(--foreground))] uppercase tracking-wider">⏰ 定时任务</h2>
+              <div className="h-px flex-1 bg-[hsl(var(--border))]" />
+            </div>
+
+            {cronLoading ? (
+              <div className="space-y-2">{[...Array(3)].map((_, i) => <Skeleton key={i} className="h-12 rounded-xl" />)}</div>
+            ) : cronError ? (
+              <div className="rounded-xl border border-[hsl(var(--border))] bg-[hsl(var(--card))] p-6 text-center">
+                <p className="text-sm text-[hsl(var(--muted-foreground))]">⚠️ {cronError} — Cron Jobs 暂时不可用</p>
               </div>
-            ) : usage && usage.models.length > 0 ? (
+            ) : cronJobs && cronJobs.jobs.length > 0 ? (
               <div className="rounded-xl border border-[hsl(var(--border))] bg-[hsl(var(--card))] shadow-sm overflow-hidden">
-                {/* Table header */}
-                <div className="grid grid-cols-[2fr_80px_1fr_1fr_1fr_1fr_110px] gap-3 px-4 py-2.5 border-b border-[hsl(var(--border))] bg-[hsl(var(--secondary)/0.5)]">
-                  {['模型', 'Provider', '输入', '输出', '总计', '会话', '占比'].map(h => (
+                <div className="grid grid-cols-[2fr_1fr_1fr_1fr_80px_1fr] gap-3 px-4 py-2.5 border-b border-[hsl(var(--border))] bg-[hsl(var(--secondary)/0.5)]">
+                  {['名称', 'Schedule', 'Agent Model', '上次运行', '状态', '下次运行'].map(h => (
                     <span key={h} className="text-[10px] font-semibold uppercase tracking-wider text-[hsl(var(--muted-foreground))]">{h}</span>
                   ))}
                 </div>
-
-                {/* Rows */}
-                {displayedModels.map((m, i) => {
-                  const used = m.totalTokens > 0
-                  const pct  = used ? Math.round((m.totalTokens / maxTokens) * 100) : 0
-                  const providerColor: Record<string, string> = {
-                    Anthropic: 'text-[hsl(var(--zv-amber))] bg-[hsl(var(--zv-amber)/0.1)]',
-                    Google:    'text-[hsl(217_91%_65%)] bg-[hsl(217_91%_60%/0.1)]',
-                    OpenAI:    'text-[hsl(142_71%_50%)] bg-[hsl(142_71%_45%/0.1)]',
-                  }
-                  const pColor = providerColor[m.provider] ?? 'text-[hsl(var(--muted-foreground))] bg-[hsl(var(--secondary))]'
+                {cronJobs.jobs.map((job, i) => {
+                  const sched = typeof job.schedule === 'string' ? job.schedule : job.schedule?.expr || '—'
+                  const tz = typeof job.schedule === 'object' ? job.schedule?.tz : undefined
+                  const model = job.payload?.model || job.agentId || '—'
+                  const lastRunMs = job.state?.lastRunAtMs
+                  const nextRunMs = job.state?.nextRunAtMs
+                  const lastStatus = job.state?.lastStatus || job.state?.lastRunStatus
+                  const fmtTime = (ms?: number) => ms ? new Date(ms).toLocaleString('zh-CN', { month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit' }) : '—'
 
                   return (
-                    <div
-                      key={m.id}
-                      className={`grid grid-cols-[2fr_80px_1fr_1fr_1fr_1fr_110px] gap-3 px-4 py-3 items-center transition-colors hover:bg-[hsl(var(--secondary)/0.3)] ${i < displayedModels.length - 1 ? 'border-b border-[hsl(var(--border)/0.5)]' : ''} ${!used ? 'opacity-40' : ''}`}
-                    >
-                      {/* Name */}
-                      <div className="flex items-center gap-2 min-w-0">
-                        <div className={`w-1.5 h-1.5 rounded-full flex-shrink-0 ${used ? 'bg-[hsl(var(--primary))]' : 'bg-[hsl(var(--muted-foreground))]'}`} />
-                        <span className="text-base font-medium text-[hsl(var(--foreground))] truncate">{m.name}</span>
-                      </div>
-                      {/* Provider badge */}
-                      <span className={`text-[9px] font-bold uppercase tracking-wider px-1.5 py-0.5 rounded-md w-fit ${pColor}`}>
-                        {m.provider}
-                      </span>
-                      {/* Input */}
-                      <span className="text-sm text-[hsl(var(--muted-foreground))] tabular-nums">{used ? fmt(m.inputTokens) : '—'}</span>
-                      {/* Output */}
-                      <span className="text-sm text-[hsl(var(--muted-foreground))] tabular-nums">{used ? fmt(m.outputTokens) : '—'}</span>
-                      {/* Total */}
-                      <span className={`text-sm font-semibold tabular-nums ${used ? 'text-[hsl(var(--foreground))]' : 'text-[hsl(var(--muted-foreground))]'}`}>
-                        {used ? fmt(m.totalTokens) : '—'}
-                      </span>
-                      {/* Sessions */}
-                      <div className="flex items-center gap-1">
-                        <MessageSquare className="w-3 h-3 text-[hsl(var(--muted-foreground))]" />
-                        <span className="text-sm text-[hsl(var(--muted-foreground))] tabular-nums">{used ? m.sessions : '0'}</span>
-                      </div>
-                      {/* Usage bar */}
+                    <div key={job.id} onClick={() => openEdit(job)} className={`grid grid-cols-[2fr_1fr_1fr_1fr_80px_1fr] gap-3 px-4 py-3 items-center cursor-pointer hover:bg-[hsl(var(--secondary)/0.3)] transition-colors ${i < cronJobs.jobs.length - 1 ? 'border-b border-[hsl(var(--border)/0.5)]' : ''} ${!job.enabled ? 'opacity-60' : ''}`}>
                       <div className="flex items-center gap-2">
-                        <div className="flex-1 bg-[hsl(var(--secondary))] rounded-full h-1.5 overflow-hidden">
-                          <div
-                            className="h-full bg-[hsl(var(--primary))] rounded-full transition-all duration-700"
-                            style={{ width: `${pct}%` }}
-                          />
-                        </div>
-                        <span className="text-[10px] text-[hsl(var(--muted-foreground))] w-8 text-right tabular-nums">{pct}%</span>
+                        <div className={`w-1.5 h-1.5 rounded-full flex-shrink-0 ${job.enabled ? 'bg-[hsl(var(--primary))]' : 'bg-[hsl(var(--muted-foreground))]'}`} />
+                        <span className="text-sm font-medium text-[hsl(var(--foreground))] truncate">{job.name}</span>
                       </div>
+                      <span className="text-xs text-[hsl(var(--muted-foreground))] font-mono" title={tz || ''}>{sched}</span>
+                      <span className="text-xs text-[hsl(var(--muted-foreground))] truncate">{model}</span>
+                      <span className="text-xs text-[hsl(var(--muted-foreground))]">{fmtTime(lastRunMs)}</span>
+                      <span className="text-sm">
+                        {!job.enabled ? '⏸️' : lastStatus === 'ok' ? '✅' : lastStatus === 'error' ? '❌' : '—'}
+                      </span>
+                      <span className="text-xs text-[hsl(var(--muted-foreground))]">{fmtTime(nextRunMs)}</span>
                     </div>
                   )
                 })}
-
-                {/* Toggle show more / less */}
-                {usage.models.length > TOP_N && (
-                  <div
-                    className="px-4 py-2.5 border-t border-[hsl(var(--border)/0.5)] text-center cursor-pointer hover:bg-[hsl(var(--secondary)/0.3)] transition-colors"
-                    onClick={() => setUsageExpanded(v => !v)}
-                  >
-                    <span className="text-xs text-[hsl(var(--muted-foreground))] flex items-center justify-center gap-1">
-                      {usageExpanded ? (
-                        <><ChevronUp className="w-3 h-3" /> 收起，只显示 Top {TOP_N}</>
-                      ) : (
-                        <><ChevronDown className="w-3 h-3" /> 显示全部 {usage.models.length} 个模型</>
-                      )}
-                    </span>
-                  </div>
-                )}
-
-                {/* Total row */}
-                <div className="grid grid-cols-[2fr_1fr_1fr_1fr_1fr_120px] gap-4 px-4 py-3 border-t border-[hsl(var(--border))] bg-[hsl(var(--secondary)/0.3)]">
-                  <div className="flex items-center gap-2">
-                    <Coins className="w-3.5 h-3.5 text-[hsl(var(--zv-amber))]" />
-                    <span className="text-sm font-bold text-[hsl(var(--foreground))]">总计</span>
-                  </div>
-                  <span className="text-sm font-semibold text-[hsl(var(--foreground))] tabular-nums">
-                    {fmt(usage.models.reduce((s, m) => s + m.inputTokens, 0))}
-                  </span>
-                  <span className="text-sm font-semibold text-[hsl(var(--foreground))] tabular-nums">
-                    {fmt(usage.models.reduce((s, m) => s + m.outputTokens, 0))}
-                  </span>
-                  <span className="text-base font-bold text-[hsl(var(--primary))] tabular-nums">{fmt(usage.totalTokens)}</span>
-                  <span className="text-sm font-semibold text-[hsl(var(--foreground))] tabular-nums">
-                    {usage.models.reduce((s, m) => s + m.sessions, 0)}
-                  </span>
-                  <div className="flex items-center gap-1">
-                    <Zap className="w-3 h-3 text-[hsl(var(--zv-amber))]" />
-                    <span className="text-sm font-bold text-[hsl(var(--zv-amber))]">${usage.totalCost.toFixed(3)}</span>
-                  </div>
-                </div>
               </div>
             ) : (
-              <div className="rounded-xl border border-[hsl(var(--border))] bg-[hsl(var(--card))] shadow-sm p-8 text-center">
-                <Bot className="w-8 h-8 mx-auto text-[hsl(var(--muted-foreground))] mb-2 opacity-40" />
-                <p className="text-base text-[hsl(var(--muted-foreground))]">暂无模型用量数据</p>
+              <div className="rounded-xl border border-[hsl(var(--border))] bg-[hsl(var(--card))] p-6 text-center">
+                <p className="text-sm text-[hsl(var(--muted-foreground))]">暂无定时任务</p>
               </div>
-            )
-          )}
-        </section>
-
-        {/* ── Section: Cron Jobs ── */}
-        <section>
-          <div className="flex items-center gap-2 mb-4">
-            <Clock className="w-4 h-4 text-[hsl(var(--zv-amber))]" />
-            <h2 className="text-base font-semibold text-[hsl(var(--foreground))] uppercase tracking-wider">⏰ 定时任务</h2>
-            <div className="h-px flex-1 bg-[hsl(var(--border))]" />
+            )}
           </div>
-
-          {cronLoading ? (
-            <div className="space-y-2">{[...Array(3)].map((_, i) => <Skeleton key={i} className="h-12 rounded-xl" />)}</div>
-          ) : cronError ? (
-            <div className="rounded-xl border border-[hsl(var(--border))] bg-[hsl(var(--card))] p-6 text-center">
-              <p className="text-sm text-[hsl(var(--muted-foreground))]">⚠️ {cronError} — Cron Jobs 暂时不可用</p>
-            </div>
-          ) : cronJobs && cronJobs.jobs.length > 0 ? (
-            <div className="rounded-xl border border-[hsl(var(--border))] bg-[hsl(var(--card))] shadow-sm overflow-hidden">
-              <div className="grid grid-cols-[2fr_1fr_1fr_1fr_80px_1fr] gap-3 px-4 py-2.5 border-b border-[hsl(var(--border))] bg-[hsl(var(--secondary)/0.5)]">
-                {['名称', 'Schedule', 'Agent Model', '上次运行', '状态', '下次运行'].map(h => (
-                  <span key={h} className="text-[10px] font-semibold uppercase tracking-wider text-[hsl(var(--muted-foreground))]">{h}</span>
-                ))}
-              </div>
-              {cronJobs.jobs.map((job, i) => {
-                const sched = typeof job.schedule === 'string' ? job.schedule : job.schedule?.expr || '—'
-                const tz = typeof job.schedule === 'object' ? job.schedule?.tz : undefined
-                const model = job.payload?.model || job.agentId || '—'
-                const lastRunMs = job.state?.lastRunAtMs
-                const nextRunMs = job.state?.nextRunAtMs
-                const lastStatus = job.state?.lastStatus || job.state?.lastRunStatus
-                const fmtTime = (ms?: number) => ms ? new Date(ms).toLocaleString('zh-CN', { month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit' }) : '—'
-
-                return (
-                  <div key={job.id} onClick={() => openEdit(job)} className={`grid grid-cols-[2fr_1fr_1fr_1fr_80px_1fr] gap-3 px-4 py-3 items-center cursor-pointer hover:bg-[hsl(var(--secondary)/0.3)] transition-colors ${i < cronJobs.jobs.length - 1 ? 'border-b border-[hsl(var(--border)/0.5)]' : ''} ${!job.enabled ? 'opacity-60' : ''}`}>
-                    <div className="flex items-center gap-2">
-                      <div className={`w-1.5 h-1.5 rounded-full flex-shrink-0 ${job.enabled ? 'bg-[hsl(var(--primary))]' : 'bg-[hsl(var(--muted-foreground))]'}`} />
-                      <span className="text-sm font-medium text-[hsl(var(--foreground))] truncate">{job.name}</span>
-                    </div>
-                    <span className="text-xs text-[hsl(var(--muted-foreground))] font-mono" title={tz || ''}>{sched}</span>
-                    <span className="text-xs text-[hsl(var(--muted-foreground))] truncate">{model}</span>
-                    <span className="text-xs text-[hsl(var(--muted-foreground))]">{fmtTime(lastRunMs)}</span>
-                    <span className="text-sm">
-                      {!job.enabled ? '⏸️' : lastStatus === 'ok' ? '✅' : lastStatus === 'error' ? '❌' : '—'}
-                    </span>
-                    <span className="text-xs text-[hsl(var(--muted-foreground))]">{fmtTime(nextRunMs)}</span>
-                  </div>
-                )
-              })}
-            </div>
-          ) : (
-            <div className="rounded-xl border border-[hsl(var(--border))] bg-[hsl(var(--card))] p-6 text-center">
-              <p className="text-sm text-[hsl(var(--muted-foreground))]">暂无定时任务</p>
-            </div>
-          )}
         </section>
-
-        {/* ── Section: Cron Calendar ── */}
-        {cronJobs && cronJobs.jobs.length > 0 && (
-          <section>
-            <div className="flex items-center gap-2 mb-4">
-              <Calendar className="w-4 h-4 text-[hsl(var(--primary))]" />
-              <h2 className="text-base font-semibold text-[hsl(var(--foreground))] uppercase tracking-wider">📅 执行日历</h2>
-              <div className="h-px flex-1 bg-[hsl(var(--border))]" />
-            </div>
-            <CronCalendar jobs={cronJobs.jobs} onEditJob={openEdit} />
-          </section>
-        )}
+      )}
 
       {/* ── Edit Modal ── */}
       {editJob && (
@@ -675,8 +675,8 @@ function SystemPageContent({ forceRefresh, onAutoRefresh }: { forceRefresh: numb
               </div>
               <div>
                 <label className="text-xs text-[hsl(var(--muted-foreground))] uppercase tracking-wider font-semibold">Model</label>
-                <input
-                  className="mt-1.5 w-full rounded-lg border border-[hsl(var(--border))] bg-[hsl(var(--background))] px-3 py-2 text-sm text-[hsl(var(--foreground))] focus:outline-none focus:border-[hsl(var(--primary))]"
+                <Input
+                  className="mt-1.5"
                   value={editForm.model}
                   onChange={e => setEditForm(f => ({ ...f, model: e.target.value }))}
                   placeholder="anthropic/claude-sonnet-4-6"
@@ -695,17 +695,10 @@ function SystemPageContent({ forceRefresh, onAutoRefresh }: { forceRefresh: numb
               {editError && <p className="text-xs text-[hsl(var(--destructive))]">{editError}</p>}
             </div>
             <div className="flex gap-3 mt-6">
-              <button
-                type="button"
-                onClick={() => setEditJob(null)}
-                className="flex-1 rounded-lg border border-[hsl(var(--border))] px-4 py-2 text-sm text-[hsl(var(--foreground))] hover:bg-[hsl(var(--secondary))] transition-colors"
-              >取消</button>
-              <button
-                type="button"
-                onClick={saveEdit}
-                disabled={editSaving}
-                className="flex-1 rounded-lg bg-[hsl(var(--primary))] px-4 py-2 text-sm text-[hsl(var(--primary-foreground))] hover:opacity-90 transition-opacity disabled:opacity-50"
-              >{editSaving ? '保存中...' : '保存'}</button>
+              <Button variant="outline" className="flex-1" onClick={() => setEditJob(null)}>取消</Button>
+              <Button className="flex-1" onClick={saveEdit} disabled={editSaving}>
+                {editSaving ? '保存中...' : '保存'}
+              </Button>
             </div>
           </div>
         </div>
@@ -741,13 +734,10 @@ export default function SystemPage() {
               Live · {lastRefresh.toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit', second: '2-digit' })}
             </span>
           </div>
-          <button
-            onClick={handleRefresh}
-            className="rounded-lg border border-[hsl(var(--border))] px-3 py-1.5 text-sm font-medium text-[hsl(var(--foreground))] hover:bg-[hsl(var(--secondary))] flex items-center gap-1.5 transition-colors"
-          >
+          <Button variant="outline" size="sm" onClick={handleRefresh} className="flex items-center gap-1.5">
             <RefreshCw className="w-3.5 h-3.5" />
             刷新
-          </button>
+          </Button>
         </div>
       }
     >
