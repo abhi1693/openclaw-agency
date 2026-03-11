@@ -31,6 +31,21 @@ import { useOrganizationMembership } from "@/lib/use-organization-membership";
 import { useUrlSorting } from "@/lib/use-url-sorting";
 
 
+const MODEL_LABELS: Record<string, string> = {
+  'anthropic/claude-opus-4-6':   'Claude Opus 4.6',
+  'anthropic/claude-opus-4-5':   'Claude Opus 4.5',
+  'anthropic/claude-sonnet-4-6': 'Claude Sonnet 4.6',
+  'anthropic/claude-sonnet-4-5': 'Claude Sonnet 4.5',
+  'anthropic/claude-haiku-4-5':  'Claude Haiku 4.5',
+  'minimax-portal/MiniMax-M2.5': 'MiniMax M2.5',
+  'openai-codex/gpt-5.4':        'GPT-5.4',
+  'openai-codex/gpt-5.3-codex':  'GPT-5.3 Codex',
+};
+
+function getModelLabel(id: string) {
+  return MODEL_LABELS[id] ?? id.split('/').pop() ?? id;
+}
+
 interface LocalAgent {
   id: string;
   name: string;
@@ -47,6 +62,11 @@ interface LocalAgent {
   online: boolean;
 }
 
+interface EditState {
+  primary: string;
+  fallbacks: string[];
+}
+
 function formatLastActive(timestamp: number | null) {
   if (!timestamp) return "Never";
   try {
@@ -60,41 +80,112 @@ function LocalAgentsSection() {
   const [agents, setAgents] = useState<LocalAgent[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [availableModels, setAvailableModels] = useState<string[]>([]);
+  const [edits, setEdits] = useState<Record<string, EditState>>({});
+  const [editingId, setEditingId] = useState<string | null>(null);
+  const [applying, setApplying] = useState(false);
+  const [toast, setToast] = useState<string | null>(null);
 
-  useEffect(() => {
-    let cancelled = false;
+  const loadAgents = async () => {
+    try {
+      setLoading(true);
+      setError(null);
+      const response = await fetch('/api/agents/local', { cache: 'no-store' });
+      const data = await response.json() as { agents?: LocalAgent[]; availableModels?: string[]; error?: string };
+      if (!response.ok) throw new Error(data.error ?? 'Failed to load local agents');
+      setAgents(data.agents ?? []);
+      if (data.availableModels?.length) setAvailableModels(data.availableModels);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to load local agents');
+    } finally {
+      setLoading(false);
+    }
+  };
 
-    const load = async () => {
-      try {
-        setLoading(true);
-        setError(null);
-        const response = await fetch('/api/agents/local', { cache: 'no-store' });
-        const data = await response.json();
-        if (!response.ok) {
-          throw new Error(data.error ?? 'Failed to load local agents');
-        }
-        if (!cancelled) {
-          setAgents(data.agents ?? []);
-        }
-      } catch (err) {
-        if (!cancelled) {
-          setError(err instanceof Error ? err.message : 'Failed to load local agents');
-        }
-      } finally {
-        if (!cancelled) {
-          setLoading(false);
-        }
-      }
-    };
+  useEffect(() => { void loadAgents(); }, []);
 
-    void load();
-    return () => {
-      cancelled = true;
-    };
-  }, []);
+  const startEdit = (agent: LocalAgent) => {
+    const raw = agent.modelRaw as { primary?: string; fallbacks?: string[] } | string | undefined;
+    const primary = typeof raw === 'object' && raw !== null ? (raw.primary ?? agent.modelId) : agent.modelId;
+    const fallbacks = typeof raw === 'object' && raw !== null ? (raw.fallbacks ?? []) : [];
+    setEdits(prev => ({ ...prev, [agent.id]: { primary, fallbacks } }));
+    setEditingId(agent.id);
+  };
+
+  const cancelEdit = (agentId: string) => {
+    setEdits(prev => { const next = { ...prev }; delete next[agentId]; return next; });
+    if (editingId === agentId) setEditingId(null);
+  };
+
+  const dirtyAgents = Object.keys(edits);
+  const hasDirty = dirtyAgents.length > 0;
+
+  const applyChanges = async () => {
+    if (!confirm('This will restart the gateway and apply model changes. Continue?')) return;
+    setApplying(true);
+    setToast('Restarting gateway…');
+    try {
+      const changes = dirtyAgents.map(agentId => ({
+        agentId,
+        model: { primary: edits[agentId].primary, fallbacks: edits[agentId].fallbacks },
+      }));
+      const res = await fetch('/api/agents/local/update', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ changes }),
+      });
+      const data = await res.json() as { ok?: boolean; agentsUpdated?: number; error?: string };
+      if (!res.ok) throw new Error(data.error ?? 'Update failed');
+      setEdits({});
+      setEditingId(null);
+      setToast(`✅ Applied! ${data.agentsUpdated} agent(s) updated. Gateway restarting…`);
+      setTimeout(() => { setToast(null); void loadAgents(); }, 3000);
+    } catch (err) {
+      setToast(`❌ ${err instanceof Error ? err.message : 'Failed'}`);
+      setTimeout(() => setToast(null), 4000);
+    } finally {
+      setApplying(false);
+    }
+  };
+
+  const discardAll = () => {
+    setEdits({});
+    setEditingId(null);
+  };
 
   return (
     <section className="mt-8 space-y-4">
+      {/* Toast notification */}
+      {toast && (
+        <div className="fixed bottom-6 right-6 z-50 rounded-lg bg-slate-900 px-4 py-3 text-sm text-white shadow-lg">
+          {toast}
+        </div>
+      )}
+
+      {/* Unsaved changes action bar */}
+      {hasDirty && (
+        <div className="sticky top-0 z-40 flex items-center justify-between rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-sm shadow-sm">
+          <span className="text-amber-800">
+            ⚠️ You have unsaved changes ({dirtyAgents.length} agent{dirtyAgents.length > 1 ? 's' : ''} modified)
+          </span>
+          <div className="flex gap-2">
+            <button
+              onClick={discardAll}
+              className="rounded-md border border-slate-300 bg-white px-3 py-1.5 text-xs font-medium text-slate-700 hover:bg-slate-50"
+            >
+              Discard
+            </button>
+            <button
+              onClick={() => void applyChanges()}
+              disabled={applying}
+              className="rounded-md bg-slate-900 px-3 py-1.5 text-xs font-medium text-white hover:bg-slate-800 disabled:opacity-50"
+            >
+              {applying ? 'Applying…' : 'Apply Changes & Restart Gateway'}
+            </button>
+          </div>
+        </div>
+      )}
+
       <div>
         <h2 className="text-lg font-semibold text-slate-900">Local Agents</h2>
         <p className="text-sm text-slate-500">
@@ -124,40 +215,165 @@ function LocalAgentsSection() {
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-100">
-                {agents.map((agent) => (
-                  <tr key={agent.id} className="align-top">
-                    <td className="px-4 py-4">
-                      <div className="flex items-start gap-3">
-                        <span className="text-lg leading-none">{agent.emoji}</span>
-                        <div>
-                          <div className="font-medium text-slate-900">{agent.name}</div>
-                          <div className="text-xs text-slate-500">{agent.id}</div>
-                          <p className="mt-1 max-w-md text-xs text-slate-500">
-                            {agent.description}
-                          </p>
+                {agents.map((agent) => {
+                  const isEditing = editingId === agent.id;
+                  const edit = edits[agent.id];
+                  const isDirty = !!edit;
+                  return (
+                    <tr key={agent.id} className={`align-top ${isDirty ? 'bg-amber-50/40' : ''}`}>
+                      <td className="px-4 py-4">
+                        <div className="flex items-start gap-3">
+                          <span className="text-lg leading-none">{agent.emoji}</span>
+                          <div>
+                            <div className="font-medium text-slate-900">{agent.name}</div>
+                            <div className="text-xs text-slate-500">{agent.id}</div>
+                            <p className="mt-1 max-w-md text-xs text-slate-500">
+                              {agent.description}
+                            </p>
+                          </div>
                         </div>
-                      </div>
-                    </td>
-                    <td className="px-4 py-4 text-slate-700">{agent.role}</td>
-                    <td className="px-4 py-4 text-slate-700">{agent.modelLabel}</td>
-                    <td className="px-4 py-4 text-slate-700">{agent.skills}</td>
-                    <td className="px-4 py-4 text-slate-700">
-                      {agent.activeSessions}/{agent.totalSessions}
-                    </td>
-                    <td className="px-4 py-4 text-slate-700">{formatLastActive(agent.lastActive)}</td>
-                    <td className="px-4 py-4">
-                      <span
-                        className={`inline-flex rounded-full px-2 py-1 text-xs font-medium ${
-                          agent.online
-                            ? "bg-emerald-100 text-emerald-700"
-                            : "bg-slate-100 text-slate-600"
-                        }`}
-                      >
-                        {agent.online ? "Online" : "Offline"}
-                      </span>
-                    </td>
-                  </tr>
-                ))}
+                      </td>
+                      <td className="px-4 py-4 text-slate-700">{agent.role}</td>
+                      <td className="px-4 py-4 min-w-[280px]">
+                        {isEditing && edit ? (
+                          <div className="space-y-3">
+                            {/* Primary model selector */}
+                            <div>
+                              <label className="mb-1 block text-xs font-medium text-slate-600">Primary</label>
+                              <select
+                                value={edit.primary}
+                                onChange={e => setEdits(prev => ({ ...prev, [agent.id]: { ...edit, primary: e.target.value } }))}
+                                className="w-full rounded-md border border-slate-300 bg-white px-2 py-1.5 text-xs focus:outline-none focus:ring-2 focus:ring-slate-400"
+                              >
+                                {availableModels.map(m => (
+                                  <option key={m} value={m}>{getModelLabel(m)} — {m}</option>
+                                ))}
+                              </select>
+                            </div>
+                            {/* Fallbacks */}
+                            <div>
+                              <label className="mb-1 block text-xs font-medium text-slate-600">Fallbacks</label>
+                              <div className="space-y-1">
+                                {edit.fallbacks.map((fb, i) => (
+                                  <div key={`${fb}-${i}`} className="flex items-center gap-1">
+                                    <span className="flex-1 truncate rounded bg-slate-100 px-2 py-1 text-xs text-slate-700">
+                                      {getModelLabel(fb)}
+                                    </span>
+                                    <button
+                                      onClick={() => setEdits(prev => ({
+                                        ...prev,
+                                        [agent.id]: { ...edit, fallbacks: edit.fallbacks.filter((_, j) => j !== i) }
+                                      }))}
+                                      className="px-1 text-xs text-slate-400 hover:text-red-500"
+                                      title="Remove"
+                                    >
+                                      ×
+                                    </button>
+                                    <button
+                                      onClick={() => {
+                                        if (i === 0) return;
+                                        const fbs = [...edit.fallbacks];
+                                        [fbs[i - 1], fbs[i]] = [fbs[i], fbs[i - 1]];
+                                        setEdits(prev => ({ ...prev, [agent.id]: { ...edit, fallbacks: fbs } }));
+                                      }}
+                                      disabled={i === 0}
+                                      className="px-1 text-xs text-slate-400 hover:text-slate-700 disabled:opacity-30"
+                                      title="Move up"
+                                    >
+                                      ↑
+                                    </button>
+                                    <button
+                                      onClick={() => {
+                                        if (i === edit.fallbacks.length - 1) return;
+                                        const fbs = [...edit.fallbacks];
+                                        [fbs[i], fbs[i + 1]] = [fbs[i + 1], fbs[i]];
+                                        setEdits(prev => ({ ...prev, [agent.id]: { ...edit, fallbacks: fbs } }));
+                                      }}
+                                      disabled={i === edit.fallbacks.length - 1}
+                                      className="px-1 text-xs text-slate-400 hover:text-slate-700 disabled:opacity-30"
+                                      title="Move down"
+                                    >
+                                      ↓
+                                    </button>
+                                  </div>
+                                ))}
+                                {/* Add fallback dropdown */}
+                                <select
+                                  defaultValue=""
+                                  onChange={e => {
+                                    if (!e.target.value) return;
+                                    if (edit.fallbacks.includes(e.target.value)) return;
+                                    const val = e.target.value;
+                                    setEdits(prev => ({
+                                      ...prev,
+                                      [agent.id]: { ...edit, fallbacks: [...edit.fallbacks, val] }
+                                    }));
+                                    e.target.value = '';
+                                  }}
+                                  className="w-full rounded-md border border-dashed border-slate-300 bg-white px-2 py-1 text-xs text-slate-500 focus:outline-none"
+                                >
+                                  <option value="">+ Add fallback…</option>
+                                  {availableModels
+                                    .filter(m => !edit.fallbacks.includes(m) && m !== edit.primary)
+                                    .map(m => (
+                                      <option key={m} value={m}>{getModelLabel(m)}</option>
+                                    ))}
+                                </select>
+                              </div>
+                            </div>
+                            <button
+                              onClick={() => cancelEdit(agent.id)}
+                              className="text-xs text-slate-500 underline hover:text-slate-700"
+                            >
+                              Cancel
+                            </button>
+                          </div>
+                        ) : (
+                          <div className="flex items-center gap-2">
+                            <div>
+                              <div className="text-slate-700">
+                                {isDirty ? getModelLabel(edit.primary) : agent.modelLabel}
+                              </div>
+                              {isDirty && edit.fallbacks.length > 0 && (
+                                <div className="mt-0.5 text-xs text-slate-400">
+                                  +{edit.fallbacks.length} fallback{edit.fallbacks.length > 1 ? 's' : ''}
+                                </div>
+                              )}
+                              {isDirty && (
+                                <span className="mt-0.5 inline-block text-xs font-medium text-amber-600">
+                                  modified
+                                </span>
+                              )}
+                            </div>
+                            <button
+                              onClick={() => startEdit(agent)}
+                              className="ml-1 rounded p-1 text-slate-400 hover:bg-slate-100 hover:text-slate-700"
+                              title="Edit model"
+                            >
+                              ✏️
+                            </button>
+                          </div>
+                        )}
+                      </td>
+                      <td className="px-4 py-4 text-slate-700">{agent.skills}</td>
+                      <td className="px-4 py-4 text-slate-700">
+                        {agent.activeSessions}/{agent.totalSessions}
+                      </td>
+                      <td className="px-4 py-4 text-slate-700">{formatLastActive(agent.lastActive)}</td>
+                      <td className="px-4 py-4">
+                        <span
+                          className={`inline-flex rounded-full px-2 py-1 text-xs font-medium ${
+                            agent.online
+                              ? "bg-emerald-100 text-emerald-700"
+                              : "bg-slate-100 text-slate-600"
+                          }`}
+                        >
+                          {agent.online ? "Online" : "Offline"}
+                        </span>
+                      </td>
+                    </tr>
+                  );
+                })}
               </tbody>
             </table>
           </div>
