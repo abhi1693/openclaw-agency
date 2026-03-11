@@ -66,24 +66,20 @@ async def update_cron_job(
     session: AsyncSession = SESSION_DEP,
     ctx: OrganizationContext = ORG_MEMBER_DEP,
 ) -> JSONResponse:
-    """Enable or disable a cron job (Phase 2 skeleton)."""
-    enabled = body.get("enabled", True)
+    """Update a cron job (schedule, model, enabled)."""
     gateway = await _first_gateway(session, ctx.organization.id)
     if gateway is None:
-        return JSONResponse(
-            status_code=503,
-            content={"error": "Gateway 不可用"},
-        )
+        return JSONResponse(status_code=503, content={"error": "Gateway 不可用"})
     try:
         config = gateway_client_config(gateway)
-        await openclaw_call(
-            "cron.update",
-            {"id": job_id, "enabled": enabled},
-            config=config,
-        )
+        params: dict = {"id": job_id}
+        if "enabled" in body:
+            params["enabled"] = body["enabled"]
+        if "schedule" in body:
+            params["schedule"] = body["schedule"]
+        if "model" in body:
+            params["model"] = body["model"]
+        await openclaw_call("cron.update", params, config=config)
         return JSONResponse(content={"ok": True})
     except (OpenClawGatewayError, Exception):
-        return JSONResponse(
-            status_code=503,
-            content={"error": "Gateway 不可用"},
-        )
+        return JSONResponse(status_code=503, content={"error": "Gateway 不可用"})

@@ -108,6 +108,11 @@ function SystemPageContent({ forceRefresh, onAutoRefresh }: { forceRefresh: numb
   const [cronJobs, setCronJobs] = useState<CronJobsData | null>(null)
   const [cronError, setCronError] = useState<string | null>(null)
   const [cronLoading, setCronLoading] = useState(true)
+  const [editJob, setEditJob] = useState<CronJob | null>(null)
+  const [editForm, setEditForm] = useState({ schedule: '', model: '', enabled: true })
+  const [editSaving, setEditSaving] = useState(false)
+  const [editError, setEditError] = useState<string | null>(null)
+  const [toast, setToast] = useState<{ msg: string; ok: boolean } | null>(null)
 
   // AI Model Usage: shows top 5 by default, expandable for all
   const [usageExpanded, setUsageExpanded] = useState(false)
@@ -149,6 +154,40 @@ function SystemPageContent({ forceRefresh, onAutoRefresh }: { forceRefresh: numb
     } catch { setCronError('Gateway 不可用') }
     finally { setCronLoading(false) }
   }, [])
+
+  function openEdit(job: CronJob) {
+    const sched = typeof job.schedule === 'string' ? job.schedule : (job.schedule as { expr?: string })?.expr || ''
+    const model = job.payload?.model || job.agentId || ''
+    setEditJob(job)
+    setEditForm({ schedule: sched, model, enabled: job.enabled })
+    setEditError(null)
+  }
+
+  async function saveEdit() {
+    if (!editJob) return
+    setEditSaving(true)
+    setEditError(null)
+    try {
+      const res = await fetch(`/api/system/cron-jobs/${editJob.id}`, {
+        method: 'PATCH',
+        headers: { 'content-type': 'application/json', ...buildAuthHeaders() },
+        body: JSON.stringify(editForm),
+      })
+      const data = await res.json()
+      if (!res.ok || data.error) {
+        setEditError(data.error || '保存失败')
+      } else {
+        setEditJob(null)
+        setToast({ msg: '✅ 保存成功', ok: true })
+        setTimeout(() => setToast(null), 3000)
+        await loadCronJobs()
+      }
+    } catch {
+      setEditError('网络错误，请重试')
+    } finally {
+      setEditSaving(false)
+    }
+  }
 
   useEffect(() => {
     setHwLoading(true)
@@ -409,7 +448,7 @@ function SystemPageContent({ forceRefresh, onAutoRefresh }: { forceRefresh: numb
                 const fmtTime = (ms?: number) => ms ? new Date(ms).toLocaleString('zh-CN', { month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit' }) : '—'
 
                 return (
-                  <div key={job.id} className={`grid grid-cols-[2fr_1fr_1fr_1fr_80px_1fr] gap-3 px-4 py-3 items-center hover:bg-[hsl(var(--secondary)/0.3)] transition-colors ${i < cronJobs.jobs.length - 1 ? 'border-b border-[hsl(var(--border)/0.5)]' : ''} ${!job.enabled ? 'opacity-60' : ''}`}>
+                  <div key={job.id} onClick={() => openEdit(job)} className={`grid grid-cols-[2fr_1fr_1fr_1fr_80px_1fr] gap-3 px-4 py-3 items-center cursor-pointer hover:bg-[hsl(var(--secondary)/0.3)] transition-colors ${i < cronJobs.jobs.length - 1 ? 'border-b border-[hsl(var(--border)/0.5)]' : ''} ${!job.enabled ? 'opacity-60' : ''}`}>
                     <div className="flex items-center gap-2">
                       <div className={`w-1.5 h-1.5 rounded-full flex-shrink-0 ${job.enabled ? 'bg-[hsl(var(--primary))]' : 'bg-[hsl(var(--muted-foreground))]'}`} />
                       <span className="text-sm font-medium text-[hsl(var(--foreground))] truncate">{job.name}</span>
@@ -432,6 +471,64 @@ function SystemPageContent({ forceRefresh, onAutoRefresh }: { forceRefresh: numb
           )}
         </section>
 
+      {/* ── Edit Modal ── */}
+      {editJob && (
+        <div className="fixed inset-0 bg-black/50 z-40 flex items-center justify-center p-4" onClick={() => setEditJob(null)}>
+          <div className="bg-[hsl(var(--card))] border border-[hsl(var(--border))] rounded-xl p-6 w-full max-w-md shadow-xl" onClick={e => e.stopPropagation()}>
+            <h3 className="text-base font-semibold text-[hsl(var(--foreground))] mb-4">编辑任务：{editJob.name}</h3>
+            <div className="space-y-4">
+              <div>
+                <label className="text-xs text-[hsl(var(--muted-foreground))] uppercase tracking-wider font-semibold">Schedule (Cron 表达式)</label>
+                <input
+                  className="mt-1.5 w-full rounded-lg border border-[hsl(var(--border))] bg-[hsl(var(--background))] px-3 py-2 text-sm text-[hsl(var(--foreground))] font-mono focus:outline-none focus:border-[hsl(var(--primary))]"
+                  value={editForm.schedule}
+                  onChange={e => setEditForm(f => ({ ...f, schedule: e.target.value }))}
+                  placeholder="0 9 * * *"
+                />
+              </div>
+              <div>
+                <label className="text-xs text-[hsl(var(--muted-foreground))] uppercase tracking-wider font-semibold">Model</label>
+                <input
+                  className="mt-1.5 w-full rounded-lg border border-[hsl(var(--border))] bg-[hsl(var(--background))] px-3 py-2 text-sm text-[hsl(var(--foreground))] focus:outline-none focus:border-[hsl(var(--primary))]"
+                  value={editForm.model}
+                  onChange={e => setEditForm(f => ({ ...f, model: e.target.value }))}
+                  placeholder="anthropic/claude-sonnet-4-6"
+                />
+              </div>
+              <div className="flex items-center justify-between">
+                <span className="text-xs text-[hsl(var(--muted-foreground))] uppercase tracking-wider font-semibold">启用</span>
+                <button
+                  type="button"
+                  onClick={() => setEditForm(f => ({ ...f, enabled: !f.enabled }))}
+                  className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${editForm.enabled ? 'bg-[hsl(var(--primary))]' : 'bg-[hsl(var(--secondary))]'}`}
+                >
+                  <span className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${editForm.enabled ? 'translate-x-6' : 'translate-x-1'}`} />
+                </button>
+              </div>
+              {editError && <p className="text-xs text-red-500">{editError}</p>}
+            </div>
+            <div className="flex gap-3 mt-6">
+              <button
+                type="button"
+                onClick={() => setEditJob(null)}
+                className="flex-1 rounded-lg border border-[hsl(var(--border))] px-4 py-2 text-sm text-[hsl(var(--foreground))] hover:bg-[hsl(var(--secondary))] transition-colors"
+              >取消</button>
+              <button
+                type="button"
+                onClick={saveEdit}
+                disabled={editSaving}
+                className="flex-1 rounded-lg bg-[hsl(var(--primary))] px-4 py-2 text-sm text-[hsl(var(--primary-foreground))] hover:opacity-90 transition-opacity disabled:opacity-50"
+              >{editSaving ? '保存中...' : '保存'}</button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {toast && (
+        <div className={`fixed bottom-6 right-6 z-50 rounded-lg px-4 py-3 text-sm text-white shadow-lg ${toast.ok ? 'bg-[hsl(var(--primary))]' : 'bg-red-600'}`}>
+          {toast.msg}
+        </div>
+      )}
     </div>
   )
 }
