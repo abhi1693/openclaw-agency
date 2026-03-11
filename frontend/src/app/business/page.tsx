@@ -27,6 +27,7 @@ import {
 import { DashboardPageLayout } from "@/components/templates/DashboardPageLayout";
 import { Card, CardHeader, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
+import type { ProfitItem } from "@/app/api/profit/route";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Progress } from "@/components/ui/progress";
@@ -350,6 +351,35 @@ function EmptyState({ message }: { message: string }) {
   );
 }
 
+// ─── Margin Badge ─────────────────────────────────────────────────────────────
+
+function getMarginForAsin(asin: string, profitData: ProfitItem[] | null): number | null {
+  if (!asin || !profitData?.length) return null;
+  const item = profitData.find((p) => p.asin === asin);
+  if (!item) return null;
+  const m = item.profitMargin;
+  if (m == null || isNaN(m) || m <= 0) return null;
+  return m;
+}
+
+function MarginBadge({ asin, profitData }: { asin: string; profitData: ProfitItem[] | null }) {
+  const margin = getMarginForAsin(asin, profitData);
+  if (margin === null) {
+    return <span className="text-[10px] text-muted-foreground">—</span>;
+  }
+  const cls =
+    margin >= 30
+      ? "bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400"
+      : margin >= 15
+      ? "bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400"
+      : "bg-rose-100 text-rose-700 dark:bg-rose-900/30 dark:text-rose-400";
+  return (
+    <span className={`inline-flex items-center rounded-md px-1.5 py-0.5 text-[10px] font-medium ${cls}`}>
+      {margin.toFixed(0)}%
+    </span>
+  );
+}
+
 // ─── Chart config ─────────────────────────────────────────────────────────────
 
 const salesChartConfig = {
@@ -380,6 +410,9 @@ export default function BusinessPage() {
   const [finance, setFinance] = useState<{ events?: FinanceEvent[] } | null>(null);
   const [returns, setReturns] = useState<{ total?: number; events?: ReturnEvent[]; alerts?: { critical?: ReturnEvent[]; high?: ReturnEvent[] } } | null>(null);
   const [opsLoading, setOpsLoading] = useState(true);
+
+  // Profit data for margin badges
+  const [profitItems, setProfitItems] = useState<ProfitItem[] | null>(null);
 
   // ── Fetch sales + inventory on period change ──────────────────────────────
   useEffect(() => {
@@ -461,9 +494,11 @@ export default function BusinessPage() {
     Promise.all([
       fetch("/api/amazon/finance").then((r) => r.json()).catch(() => null),
       fetch("/api/amazon/returns").then((r) => r.json()).catch(() => null),
-    ]).then(([financeData, returnsData]) => {
+      fetch("/api/profit").then((r) => r.json()).catch(() => null),
+    ]).then(([financeData, returnsData, profitData]) => {
       setFinance(financeData);
       setReturns(returnsData);
+      if (profitData?.items?.length) setProfitItems(profitData.items as ProfitItem[]);
       setOpsLoading(false);
     });
   }, []);
@@ -847,10 +882,11 @@ export default function BusinessPage() {
                         {p.orderCount} 订单 · {p.quantityOrdered} 件
                       </p>
                     </div>
-                    <div className="text-right flex-shrink-0">
+                    <div className="text-right flex-shrink-0 space-y-0.5">
                       <p className="text-sm font-semibold text-foreground">
                         ${fmt.compact(p.revenue)}
                       </p>
+                      <MarginBadge asin={p.asin} profitData={profitItems} />
                     </div>
                   </div>
                 ))}
