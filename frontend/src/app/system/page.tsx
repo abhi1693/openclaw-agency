@@ -1,5 +1,5 @@
 'use client'
-import { useEffect, useState, useCallback } from 'react'
+import { useEffect, useState, useCallback, useMemo } from 'react'
 import { Skeleton } from '@/components/ui/skeleton'
 import { Progress } from '@/components/ui/progress'
 import { Badge } from '@/components/ui/badge'
@@ -15,6 +15,17 @@ import { Cpu, MemoryStick, HardDrive, Clock, Monitor, Zap, RefreshCw, Bot, Coins
 import { DashboardPageLayout } from '@/components/templates/DashboardPageLayout'
 import CronCalendar from '@/components/system/CronCalendar'
 import { getLocalAuthToken, isLocalAuthMode } from '@/auth/localAuth'
+import { getJobColor } from '@/lib/cron-colors'
+
+// ─── Model presets ────────────────────────────────────────────────────────────
+
+const PRESET_MODELS = [
+  'anthropic/claude-sonnet-4-6',
+  'anthropic/claude-opus-4-6',
+  'openai-codex/gpt-5.4',
+  'minimax-portal/MiniMax-M2.5',
+]
+const CUSTOM_MODEL = '__custom__'
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -356,12 +367,19 @@ function SystemPageContent({ forceRefresh, onAutoRefresh }: { forceRefresh: numb
   const [cronError, setCronError] = useState<string | null>(null)
   const [cronLoading, setCronLoading] = useState(true)
   const [editJob, setEditJob] = useState<CronJob | null>(null)
-  const [editForm, setEditForm] = useState({ model: '', enabled: true })
+  const [editForm, setEditForm] = useState({ model: '', agentId: '', enabled: true })
+  const [editModelOption, setEditModelOption] = useState<string>(PRESET_MODELS[0])
   const [editSchedule, setEditSchedule] = useState<CronScheduleState>({ frequency: 'daily', hour: 9, minute: 0, weekDays: [1], monthDay: 1, customExpr: '' })
   const [editSaving, setEditSaving] = useState(false)
   const [editError, setEditError] = useState<string | null>(null)
   const [toast, setToast] = useState<{ msg: string; ok: boolean } | null>(null)
   const [activeTab, setActiveTab] = useState<'system' | 'cron'>('system')
+
+  // Unique agent IDs derived from cron jobs
+  const allAgents = useMemo(() => {
+    if (!cronJobs) return []
+    return Array.from(new Set(cronJobs.jobs.map(j => j.agentId).filter((a): a is string => !!a)))
+  }, [cronJobs])
 
   // AI Model Usage: shows top 5 by default, expandable for all
   const [usageExpanded, setUsageExpanded] = useState(false)
@@ -406,9 +424,11 @@ function SystemPageContent({ forceRefresh, onAutoRefresh }: { forceRefresh: numb
 
   function openEdit(job: CronJob) {
     const sched = typeof job.schedule === 'string' ? job.schedule : (job.schedule as { expr?: string })?.expr || ''
-    const model = job.payload?.model || job.agentId || ''
+    const model = job.payload?.model || ''
+    const isPreset = PRESET_MODELS.includes(model)
     setEditJob(job)
-    setEditForm({ model, enabled: job.enabled })
+    setEditForm({ model, agentId: job.agentId || '', enabled: job.enabled })
+    setEditModelOption(isPreset ? model : model ? CUSTOM_MODEL : PRESET_MODELS[0])
     setEditSchedule(parseCronToState(sched))
     setEditError(null)
   }
@@ -418,7 +438,12 @@ function SystemPageContent({ forceRefresh, onAutoRefresh }: { forceRefresh: numb
     setEditSaving(true)
     setEditError(null)
     try {
-      const payload = { ...editForm, schedule: generateCronFromState(editSchedule) }
+      const payload = {
+        model: editForm.model,
+        agentId: editForm.agentId || undefined,
+        enabled: editForm.enabled,
+        schedule: generateCronFromState(editSchedule),
+      }
       const res = await fetch(`/api/system/cron-jobs/${editJob.id}`, {
         method: 'PATCH',
         headers: { 'content-type': 'application/json', ...buildAuthHeaders() },
@@ -476,7 +501,7 @@ function SystemPageContent({ forceRefresh, onAutoRefresh }: { forceRefresh: numb
 
   return (
     <div className="space-y-6 max-w-6xl mx-auto">
-      <div className="flex gap-1 mb-6 bg-[hsl(var(--secondary)/0.5)] rounded-xl p-1 w-fit">
+      <div className="flex gap-1 mb-6 bg-[hsl(var(--secondary)/0.5)] rounded-full p-1 w-fit">
         {[
           { key: 'system', label: '🖥️ 系统 & 模型' },
           { key: 'cron', label: '⏰ 定时任务' },
@@ -484,10 +509,10 @@ function SystemPageContent({ forceRefresh, onAutoRefresh }: { forceRefresh: numb
           <button
             key={key}
             onClick={() => setActiveTab(key as 'system' | 'cron')}
-            className={`px-4 py-2 rounded-lg text-sm font-medium transition-all ${
+            className={`px-4 py-2 rounded-full text-sm font-medium transition-all ${
               activeTab === key
-                ? 'bg-[hsl(var(--primary))] text-[hsl(var(--primary-foreground))] shadow-sm'
-                : 'text-[hsl(var(--muted-foreground))] hover:text-[hsl(var(--foreground))]'
+                ? 'bg-blue-600 text-white shadow-sm'
+                : 'bg-[hsl(var(--secondary))] text-[hsl(var(--muted-foreground))] hover:bg-[hsl(var(--secondary)/0.8)]'
             }`}
           >
             {label}
@@ -709,11 +734,15 @@ function SystemPageContent({ forceRefresh, onAutoRefresh }: { forceRefresh: numb
                   const nextRunMs = job.state?.nextRunAtMs
                   const lastStatus = job.state?.lastStatus || job.state?.lastRunStatus
                   const fmtTime = (ms?: number) => ms ? new Date(ms).toLocaleString('zh-CN', { month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit' }) : '—'
+                  const jobColor = getJobColor(job, cronJobs.jobs)
 
                   return (
                     <div key={job.id} onClick={() => openEdit(job)} className={`grid grid-cols-[2fr_1fr_1fr_1fr_80px_1fr] gap-3 px-4 py-3 items-center cursor-pointer hover:bg-[hsl(var(--secondary)/0.3)] transition-colors ${i < cronJobs.jobs.length - 1 ? 'border-b border-[hsl(var(--border)/0.5)]' : ''} ${!job.enabled ? 'opacity-60' : ''}`}>
                       <div className="flex items-center gap-2">
-                        <div className={`w-1.5 h-1.5 rounded-full flex-shrink-0 ${job.enabled ? 'bg-[hsl(var(--primary))]' : 'bg-[hsl(var(--muted-foreground))]'}`} />
+                        <div
+                          className="w-2 h-2 rounded-full flex-shrink-0"
+                          style={{ backgroundColor: job.enabled ? jobColor : 'hsl(var(--muted-foreground))' }}
+                        />
                         <span className="text-sm font-medium text-[hsl(var(--foreground))] truncate">{job.name}</span>
                       </div>
                       <span
@@ -751,15 +780,53 @@ function SystemPageContent({ forceRefresh, onAutoRefresh }: { forceRefresh: numb
               <label className="text-xs text-[hsl(var(--muted-foreground))] uppercase tracking-wider font-semibold block mb-2">Schedule</label>
               <CronScheduleEditor value={editSchedule} onChange={setEditSchedule} />
             </div>
+
+            {/* Agent selector */}
             <div>
-              <label className="text-xs text-[hsl(var(--muted-foreground))] uppercase tracking-wider font-semibold">Model</label>
-              <Input
-                className="mt-1.5"
-                value={editForm.model}
-                onChange={e => setEditForm(f => ({ ...f, model: e.target.value }))}
-                placeholder="anthropic/claude-sonnet-4-6"
-              />
+              <label className="text-xs text-[hsl(var(--muted-foreground))] uppercase tracking-wider font-semibold block mb-1.5">Agent</label>
+              <select
+                className="w-full rounded-lg border border-[hsl(var(--border))] bg-[hsl(var(--background))] px-3 py-2 text-sm text-[hsl(var(--foreground))] focus:outline-none focus:border-[hsl(var(--primary))] appearance-none"
+                value={editForm.agentId}
+                onChange={e => setEditForm(f => ({ ...f, agentId: e.target.value }))}
+              >
+                <option value="">— 不指定 —</option>
+                {allAgents.map(a => (
+                  <option key={a} value={a}>{a}</option>
+                ))}
+                {/* Show current agentId even if not in list */}
+                {editForm.agentId && !allAgents.includes(editForm.agentId) && (
+                  <option value={editForm.agentId}>{editForm.agentId}</option>
+                )}
+              </select>
             </div>
+
+            {/* Model selector */}
+            <div>
+              <label className="text-xs text-[hsl(var(--muted-foreground))] uppercase tracking-wider font-semibold block mb-1.5">Model</label>
+              <select
+                className="w-full rounded-lg border border-[hsl(var(--border))] bg-[hsl(var(--background))] px-3 py-2 text-sm text-[hsl(var(--foreground))] focus:outline-none focus:border-[hsl(var(--primary))] appearance-none"
+                value={editModelOption}
+                onChange={e => {
+                  const v = e.target.value
+                  setEditModelOption(v)
+                  if (v !== CUSTOM_MODEL) setEditForm(f => ({ ...f, model: v }))
+                }}
+              >
+                {PRESET_MODELS.map(m => (
+                  <option key={m} value={m}>{m}</option>
+                ))}
+                <option value={CUSTOM_MODEL}>自定义…</option>
+              </select>
+              {editModelOption === CUSTOM_MODEL && (
+                <Input
+                  className="mt-1.5"
+                  value={editForm.model}
+                  onChange={e => setEditForm(f => ({ ...f, model: e.target.value }))}
+                  placeholder="输入模型名称，如 anthropic/claude-sonnet-4-6"
+                />
+              )}
+            </div>
+
             <div className="flex items-center justify-between">
               <span className="text-xs text-[hsl(var(--muted-foreground))] uppercase tracking-wider font-semibold">启用</span>
               <button

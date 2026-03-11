@@ -1,6 +1,7 @@
 'use client'
 import { useState, useMemo } from 'react'
 import { CronExpressionParser } from 'cron-parser'
+import { getJobColor } from '@/lib/cron-colors'
 
 // ─── Types ─────────────────────────────────────────────────────────────────
 
@@ -23,24 +24,6 @@ interface CronJob {
 interface CronCalendarProps {
   jobs: CronJob[]
   onEditJob: (job: CronJob) => void
-}
-
-// ─── Color system ───────────────────────────────────────────────────────────
-
-const JOB_COLORS = [
-  'hsl(217 91% 60%)',   // blue
-  'hsl(142 71% 45%)',   // green
-  'hsl(38 92% 50%)',    // amber
-  'hsl(280 65% 60%)',   // purple
-  'hsl(0 84% 60%)',     // red
-  'hsl(168 76% 42%)',   // teal
-]
-
-function getJobColor(job: CronJob, allJobs: CronJob[]): string {
-  const key = job.agentId || job.id
-  const allKeys = Array.from(new Set(allJobs.map(j => j.agentId || j.id)))
-  const idx = allKeys.indexOf(key)
-  return JOB_COLORS[idx % JOB_COLORS.length]
 }
 
 // ─── Cron parsing ───────────────────────────────────────────────────────────
@@ -301,15 +284,16 @@ function WeekView({ jobs, onEditJob }: { jobs: CronJob[]; onEditJob: (j: CronJob
                   <div
                     key={idx}
                     onClick={() => onEditJob(job)}
+                    title={job.name}
                     className="rounded px-1.5 py-0.5 cursor-pointer hover:opacity-80 transition-opacity"
                     style={{ backgroundColor: `${getJobColor(job, jobs)}22` }}
                   >
                     <div className="text-[8px] text-[hsl(var(--muted-foreground))] font-mono">{formatTime(time)}</div>
                     <div
-                      className="text-[9px] font-medium truncate"
+                      className="text-[10px] font-medium truncate"
                       style={{ color: getJobColor(job, jobs) }}
                     >
-                      {job.name.length > 10 ? job.name.slice(0, 10) + '…' : job.name}
+                      {job.name}
                     </div>
                   </div>
                 ))
@@ -429,16 +413,16 @@ export default function CronCalendar({ jobs, onEditJob }: CronCalendarProps) {
   return (
     <div className="rounded-xl border border-[hsl(var(--border))] bg-[hsl(var(--card))] shadow-sm p-5">
       {/* Tab bar */}
-      <div className="flex items-center gap-1 mb-5 bg-[hsl(var(--secondary)/0.5)] rounded-lg p-1 w-fit">
+      <div className="flex items-center gap-1 mb-5 bg-[hsl(var(--secondary)/0.5)] rounded-full p-1 w-fit">
         {tabs.map(({ key, label }) => (
           <button
             key={key}
             onClick={() => setView(key)}
             className={`
-              px-4 py-1.5 rounded-md text-sm font-medium transition-all
+              px-4 py-1.5 rounded-full text-sm font-medium transition-all
               ${view === key
-                ? 'bg-[hsl(var(--primary))] text-[hsl(var(--primary-foreground))] shadow-sm'
-                : 'text-[hsl(var(--muted-foreground))] hover:text-[hsl(var(--foreground))]'
+                ? 'bg-blue-600 text-white shadow-sm'
+                : 'bg-[hsl(var(--secondary))] text-[hsl(var(--muted-foreground))] hover:bg-[hsl(var(--secondary)/0.8)]'
               }
             `}
           >
