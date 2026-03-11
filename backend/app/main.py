@@ -24,6 +24,7 @@ from app.api.board_webhooks import router as board_webhooks_router
 from app.api.boards import router as boards_router
 from app.api.gateway import router as gateway_router
 from app.api.gateways import router as gateways_router
+from app.api.intel import router as intel_router
 from app.api.metrics import router as metrics_router
 from app.api.organizations import router as organizations_router
 from app.api.skills_marketplace import router as skills_marketplace_router
@@ -74,6 +75,10 @@ OPENAPI_TAGS = [
     {
         "name": "metrics",
         "description": "Aggregated operational and board analytics metrics endpoints.",
+    },
+    {
+        "name": "intel",
+        "description": "Intel research queue and markdown report access endpoints.",
     },
     {
         "name": "amazon",
@@ -565,6 +570,7 @@ api_v1.include_router(task_custom_fields_router)
 api_v1.include_router(tags_router)
 api_v1.include_router(users_router)
 app.include_router(api_v1)
+app.include_router(intel_router)
 
 add_pagination(app)
 logger.debug("app.routes.registered count=%s", len(app.routes))
