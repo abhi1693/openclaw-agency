@@ -434,7 +434,7 @@ export default function BusinessPage() {
                 </div>
                 {topProducts.data.products.slice(0, 5).map((product, idx) => (
                   <div
-                    key={product.asin}
+                    key={`${product.asin}-${idx}`}
                     className="grid grid-cols-[1.5rem_1fr_3.5rem_2.5rem_4rem] items-center gap-x-2 rounded-lg border border-border px-1 py-2"
                   >
                     <span className="text-xs font-medium text-muted-foreground">{idx + 1}</span>
