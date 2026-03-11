@@ -3,8 +3,9 @@ import { useEffect, useState, useCallback } from 'react'
 import { Skeleton } from '@/components/ui/skeleton'
 import { Progress } from '@/components/ui/progress'
 import { Badge } from '@/components/ui/badge'
-import { Cpu, MemoryStick, HardDrive, Clock, Monitor, Zap, RefreshCw, Bot, Coins, MessageSquare, ChevronDown, ChevronUp } from 'lucide-react'
+import { Cpu, MemoryStick, HardDrive, Clock, Monitor, Zap, RefreshCw, Bot, Coins, MessageSquare, ChevronDown, ChevronUp, Calendar } from 'lucide-react'
 import { DashboardPageLayout } from '@/components/templates/DashboardPageLayout'
+import CronCalendar from '@/components/system/CronCalendar'
 import { getLocalAuthToken, isLocalAuthMode } from '@/auth/localAuth'
 
 // ─── Types ────────────────────────────────────────────────────────────────────
@@ -470,6 +471,18 @@ function SystemPageContent({ forceRefresh, onAutoRefresh }: { forceRefresh: numb
             </div>
           )}
         </section>
+
+        {/* ── Section: Cron Calendar ── */}
+        {cronJobs && cronJobs.jobs.length > 0 && (
+          <section>
+            <div className="flex items-center gap-2 mb-4">
+              <Calendar className="w-4 h-4 text-[hsl(var(--primary))]" />
+              <h2 className="text-base font-semibold text-[hsl(var(--foreground))] uppercase tracking-wider">📅 执行日历</h2>
+              <div className="h-px flex-1 bg-[hsl(var(--border))]" />
+            </div>
+            <CronCalendar jobs={cronJobs.jobs} onEditJob={openEdit} />
+          </section>
+        )}
 
       {/* ── Edit Modal ── */}
       {editJob && (
