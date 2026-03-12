@@ -164,9 +164,11 @@ function fmtDate(d: string): string {
 function ListingDetail({
   file,
   onMarkRead,
+  fullscreen,
 }: {
   file: ListingReportFile
   onMarkRead: (filename: string) => void
+  fullscreen?: boolean
 }) {
   const [content, setContent] = useState<string | null>(null)
   const [loading, setLoading] = useState(true)
@@ -190,13 +192,21 @@ function ListingDetail({
         <p className="text-base font-mono text-[hsl(var(--muted-foreground))] truncate flex-1">{file.filename.replace(/\.md$/, '')}</p>
         <span className="text-sm text-[hsl(var(--muted-foreground))]">{file.sizeKb} KB</span>
       </div>
-      <Card>
-        <CardContent className="pt-6 max-h-[70vh] overflow-y-auto">
+      {fullscreen ? (
+        <div>
           {loading && <div className="space-y-3">{[1,2,3,4].map(i=><Skeleton key={i} className="h-4"/>)}</div>}
           {error && <div className="flex items-center gap-2 text-destructive"><X className="w-4 h-4"/><span>{error}</span></div>}
           {content && <Markdown content={content} variant="description" />}
-        </CardContent>
-      </Card>
+        </div>
+      ) : (
+        <Card>
+          <CardContent className="pt-6 max-h-[70vh] overflow-y-auto">
+            {loading && <div className="space-y-3">{[1,2,3,4].map(i=><Skeleton key={i} className="h-4"/>)}</div>}
+            {error && <div className="flex items-center gap-2 text-destructive"><X className="w-4 h-4"/><span>{error}</span></div>}
+            {content && <Markdown content={content} variant="description" />}
+          </CardContent>
+        </Card>
+      )}
     </div>
   )
 }
@@ -465,7 +475,7 @@ function ListingTab() {
         title={selected.filename.replace('.md', '')}
         onClose={() => { setSelected(null); setMobileShowContent(false); setPanelCollapsed(false) }}
       >
-        <ListingDetail file={selected} onMarkRead={markRead} />
+        <ListingDetail file={selected} onMarkRead={markRead} fullscreen />
       </MobileOverlay>
     )}
     </>
@@ -501,9 +511,11 @@ function discoveryBadge(prefix: string) {
 function DiscoveryDetail({
   file,
   onMarkRead,
+  fullscreen,
 }: {
   file: DiscoveryFile
   onMarkRead: (filename: string) => void
+  fullscreen?: boolean
 }) {
   const [content, setContent] = useState<string | null>(null)
   const [loading, setLoading] = useState(true)
@@ -527,13 +539,21 @@ function DiscoveryDetail({
         <p className="text-base font-mono text-[hsl(var(--muted-foreground))] truncate flex-1">{file.filename.replace(/\.md$/, '')}</p>
         <span className="text-sm text-[hsl(var(--muted-foreground))]">{file.sizeKb} KB</span>
       </div>
-      <Card>
-        <CardContent className="pt-6 max-h-[70vh] overflow-y-auto">
+      {fullscreen ? (
+        <div>
           {loading && <div className="space-y-3">{[1,2,3,4].map(i=><Skeleton key={i} className="h-4"/>)}</div>}
           {error && <div className="flex items-center gap-2 text-destructive"><X className="w-4 h-4"/><span>{error}</span></div>}
           {content && <Markdown content={content} variant="description" />}
-        </CardContent>
-      </Card>
+        </div>
+      ) : (
+        <Card>
+          <CardContent className="pt-6 max-h-[70vh] overflow-y-auto">
+            {loading && <div className="space-y-3">{[1,2,3,4].map(i=><Skeleton key={i} className="h-4"/>)}</div>}
+            {error && <div className="flex items-center gap-2 text-destructive"><X className="w-4 h-4"/><span>{error}</span></div>}
+            {content && <Markdown content={content} variant="description" />}
+          </CardContent>
+        </Card>
+      )}
     </div>
   )
 }
@@ -768,7 +788,7 @@ function DiscoveryTab() {
         title={selected.filename.replace('.md', '')}
         onClose={() => { setSelected(null); setMobileShowContent(false); setPanelCollapsed(false) }}
       >
-        <DiscoveryDetail file={selected} onMarkRead={markRead} />
+        <DiscoveryDetail file={selected} onMarkRead={markRead} fullscreen />
       </MobileOverlay>
     )}
     </>
@@ -804,9 +824,11 @@ function ppcBadge(prefix: string) {
 function PpcDetail({
   file,
   onMarkRead,
+  fullscreen,
 }: {
   file: PpcReportFile
   onMarkRead: (filename: string) => void
+  fullscreen?: boolean
 }) {
   const [content, setContent] = useState<string | null>(null)
   const [loading, setLoading] = useState(true)
@@ -830,13 +852,21 @@ function PpcDetail({
         <p className="text-base font-mono text-[hsl(var(--muted-foreground))] truncate flex-1">{file.filename.replace(/\.md$/, '')}</p>
         <span className="text-sm text-[hsl(var(--muted-foreground))]">{file.sizeKb} KB</span>
       </div>
-      <Card>
-        <CardContent className="pt-6 max-h-[70vh] overflow-y-auto">
+      {fullscreen ? (
+        <div>
           {loading && <div className="space-y-3">{[1,2,3,4].map(i=><Skeleton key={i} className="h-4"/>)}</div>}
           {error && <div className="flex items-center gap-2 text-destructive"><X className="w-4 h-4"/><span>{error}</span></div>}
           {content && <Markdown content={content} variant="description" />}
-        </CardContent>
-      </Card>
+        </div>
+      ) : (
+        <Card>
+          <CardContent className="pt-6 max-h-[70vh] overflow-y-auto">
+            {loading && <div className="space-y-3">{[1,2,3,4].map(i=><Skeleton key={i} className="h-4"/>)}</div>}
+            {error && <div className="flex items-center gap-2 text-destructive"><X className="w-4 h-4"/><span>{error}</span></div>}
+            {content && <Markdown content={content} variant="description" />}
+          </CardContent>
+        </Card>
+      )}
     </div>
   )
 }
@@ -1072,7 +1102,7 @@ function PpcTab() {
         title={selected.filename.replace('.md', '')}
         onClose={() => { setSelected(null); setMobileShowContent(false); setPanelCollapsed(false) }}
       >
-        <PpcDetail file={selected} onMarkRead={markRead} />
+        <PpcDetail file={selected} onMarkRead={markRead} fullscreen />
       </MobileOverlay>
     )}
     </>
@@ -1112,9 +1142,11 @@ function strategyBadge(filename: string) {
 function StrategyDetail({
   file,
   onMarkRead,
+  fullscreen,
 }: {
   file: StrategyFile
   onMarkRead: (filename: string) => void
+  fullscreen?: boolean
 }) {
   const [content, setContent] = useState<string | null>(null)
   const [loading, setLoading] = useState(true)
@@ -1138,13 +1170,21 @@ function StrategyDetail({
         <p className="text-base font-mono text-[hsl(var(--muted-foreground))] truncate flex-1">{file.filename.replace(/\.md$/, '')}</p>
         <span className="text-sm text-[hsl(var(--muted-foreground))]">{file.sizeKb} KB</span>
       </div>
-      <Card>
-        <CardContent className="pt-6 max-h-[70vh] overflow-y-auto">
+      {fullscreen ? (
+        <div>
           {loading && <div className="space-y-3">{[1,2,3,4].map(i=><Skeleton key={i} className="h-4"/>)}</div>}
           {error && <div className="flex items-center gap-2 text-destructive"><X className="w-4 h-4"/><span>{error}</span></div>}
           {content && <Markdown content={content} variant="description" />}
-        </CardContent>
-      </Card>
+        </div>
+      ) : (
+        <Card>
+          <CardContent className="pt-6 max-h-[70vh] overflow-y-auto">
+            {loading && <div className="space-y-3">{[1,2,3,4].map(i=><Skeleton key={i} className="h-4"/>)}</div>}
+            {error && <div className="flex items-center gap-2 text-destructive"><X className="w-4 h-4"/><span>{error}</span></div>}
+            {content && <Markdown content={content} variant="description" />}
+          </CardContent>
+        </Card>
+      )}
     </div>
   )
 }
@@ -1381,7 +1421,7 @@ function StrategyTab() {
         title={selected.filename.replace('.md', '')}
         onClose={() => { setSelected(null); setMobileShowContent(false); setPanelCollapsed(false) }}
       >
-        <StrategyDetail file={selected} onMarkRead={markRead} />
+        <StrategyDetail file={selected} onMarkRead={markRead} fullscreen />
       </MobileOverlay>
     )}
     </>
@@ -1617,9 +1657,11 @@ function IntelQueueManager() {
 function IntelDetail({
   file,
   onMarkRead,
+  fullscreen,
 }: {
   file: IntelReportFile
   onMarkRead: (filename: string) => void
+  fullscreen?: boolean
 }) {
   const [content, setContent] = useState<string | null>(null)
   const [loading, setLoading] = useState(true)
@@ -1643,13 +1685,21 @@ function IntelDetail({
         <p className="text-base font-mono text-[hsl(var(--muted-foreground))] truncate flex-1">{file.filename.replace(/\.md$/, '')}</p>
         <span className="text-sm text-[hsl(var(--muted-foreground))]">{file.sizeKb} KB</span>
       </div>
-      <Card>
-        <CardContent className="pt-6 max-h-[70vh] overflow-y-auto">
+      {fullscreen ? (
+        <div>
           {loading && <div className="space-y-3">{[1,2,3,4].map(i=><Skeleton key={i} className="h-4"/>)}</div>}
           {error && <div className="flex items-center gap-2 text-destructive"><X className="w-4 h-4"/><span>{error}</span></div>}
           {content && <Markdown content={content} variant="description" />}
-        </CardContent>
-      </Card>
+        </div>
+      ) : (
+        <Card>
+          <CardContent className="pt-6 max-h-[70vh] overflow-y-auto">
+            {loading && <div className="space-y-3">{[1,2,3,4].map(i=><Skeleton key={i} className="h-4"/>)}</div>}
+            {error && <div className="flex items-center gap-2 text-destructive"><X className="w-4 h-4"/><span>{error}</span></div>}
+            {content && <Markdown content={content} variant="description" />}
+          </CardContent>
+        </Card>
+      )}
     </div>
   )
 }
@@ -1894,7 +1944,7 @@ function IntelTab() {
         title={selected.filename.replace('.md', '')}
         onClose={() => { setSelected(null); setMobileShowContent(false); setPanelCollapsed(false) }}
       >
-        <IntelDetail file={selected} onMarkRead={markRead} />
+        <IntelDetail file={selected} onMarkRead={markRead} fullscreen />
       </MobileOverlay>
     )}
     </>
