@@ -103,10 +103,14 @@ function SummaryCard({ icon, label, value, sub }: { icon: React.ReactNode; label
 
 // ─── Dashboard Tab ─────────────────────────────────────────────────────────────
 
+type SortKey = 'netProfit' | 'revenue' | 'unitsSold' | 'profitMargin'
+
 function DashboardTab() {
   const [data, setData] = useState<ProfitData | null>(null)
   const [loading, setLoading] = useState(true)
   const [refreshing, setRefreshing] = useState(false)
+  const [sortKey, setSortKey] = useState<SortKey>('netProfit')
+  const [sortDir, setSortDir] = useState<'desc' | 'asc'>('desc')
 
   const load = useCallback(async (force = false) => {
     if (force) setRefreshing(true)
@@ -125,6 +129,14 @@ function DashboardTab() {
 
   useEffect(() => { load() }, [load])
 
+  const handleSort = (key: SortKey) => {
+    if (sortKey === key) setSortDir(d => d === 'desc' ? 'asc' : 'desc')
+    else {
+      setSortKey(key)
+      setSortDir('desc')
+    }
+  }
+
   if (loading) {
     return (
       <div className="flex items-center justify-center h-64 text-[hsl(var(--muted-foreground))]">
@@ -134,7 +146,14 @@ function DashboardTab() {
   }
 
   const s = data?.summary
-  const items = (data?.items || []).slice().sort((a, b) => b.netProfit - a.netProfit)
+  const items = (data?.items || []).slice().sort((a, b) => {
+    const direction = sortDir === 'desc' ? -1 : 1
+    const aValue = a[sortKey]
+    const bValue = b[sortKey]
+
+    if (aValue === bValue) return 0
+    return aValue > bValue ? direction : -direction
+  })
 
   return (
     <div className="space-y-6">
@@ -183,12 +202,21 @@ function DashboardTab() {
               <thead>
                 <tr className="text-[11px] text-[hsl(var(--muted-foreground))] uppercase tracking-wider border-b border-[hsl(var(--border))]">
                   <th className="px-5 py-3 text-left">产品名</th>
-                  <th className="px-4 py-3 text-right">售价收入</th>
+                  <th className="px-4 py-3 text-right hidden md:table-cell cursor-pointer select-none" onClick={() => handleSort('unitsSold')}>
+                    销量{sortKey === 'unitsSold' ? (sortDir === 'desc' ? ' ↓' : ' ↑') : ''}
+                  </th>
+                  <th className="px-4 py-3 text-right cursor-pointer select-none" onClick={() => handleSort('revenue')}>
+                    售价收入{sortKey === 'revenue' ? (sortDir === 'desc' ? ' ↓' : ' ↑') : ''}
+                  </th>
                   <th className="px-4 py-3 text-right">Landed Cost</th>
                   <th className="px-4 py-3 text-right">Amazon Fees</th>
                   <th className="px-4 py-3 text-right">Ad Spend</th>
-                  <th className="px-4 py-3 text-right">净利润</th>
-                  <th className="px-4 py-3 text-right">利润率</th>
+                  <th className="px-4 py-3 text-right cursor-pointer select-none" onClick={() => handleSort('netProfit')}>
+                    净利润{sortKey === 'netProfit' ? (sortDir === 'desc' ? ' ↓' : ' ↑') : ''}
+                  </th>
+                  <th className="px-4 py-3 text-right cursor-pointer select-none" onClick={() => handleSort('profitMargin')}>
+                    利润率{sortKey === 'profitMargin' ? (sortDir === 'desc' ? ' ↓' : ' ↑') : ''}
+                  </th>
                 </tr>
               </thead>
               <tbody>
@@ -202,8 +230,9 @@ function DashboardTab() {
                   >
                     <td className="px-5 py-3">
                       <p className="font-medium text-slate-900 truncate max-w-[220px]">{item.productName || item.sku}</p>
-                      <p className="text-[10px] text-[hsl(var(--muted-foreground))]">{item.sku} · {item.unitsSold} units</p>
+                      <p className="text-[10px] text-[hsl(var(--muted-foreground))]">{item.sku}</p>
                     </td>
+                    <td className="px-4 py-3 text-right text-slate-900 hidden md:table-cell">{item.unitsSold.toLocaleString()}</td>
                     <td className="px-4 py-3 text-right text-slate-900">{fmtUSD(item.revenue)}</td>
                     <td className="px-4 py-3 text-right text-[hsl(var(--muted-foreground))]">{fmtUSD(item.landedCost)}</td>
                     <td className="px-4 py-3 text-right text-[hsl(var(--muted-foreground))]">{fmtUSD(item.fbaFee + item.referralFee)}</td>
