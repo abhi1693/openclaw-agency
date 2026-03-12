@@ -757,7 +757,24 @@ function SystemPageContent({ forceRefresh, onAutoRefresh }: { forceRefresh: numb
                       <span className="text-sm">
                         {!job.enabled ? '⏸️' : lastStatus === 'ok' ? '✅' : lastStatus === 'error' ? '❌' : '—'}
                       </span>
-                      <span className="text-xs text-[hsl(var(--muted-foreground))]">{fmtTime(nextRunMs)}</span>
+                      {(() => {
+                        const now = Date.now()
+                        const diffMs = nextRunMs ? nextRunMs - now : null
+                        const diffMin = diffMs !== null ? Math.floor(diffMs / 60000) : null
+                        return diffMin !== null ? (
+                          <span className={`inline-flex items-center rounded-full px-1.5 py-0.5 text-[10px] font-medium ${
+                            diffMin < 0
+                              ? 'bg-red-500/15 text-red-400'
+                              : diffMin < 30
+                                ? 'bg-amber-500/15 text-amber-400'
+                                : 'bg-green-500/15 text-green-500'
+                          }`}>
+                            {diffMin < 0 ? 'overdue' : diffMin < 60 ? `in ${diffMin}m` : `in ${Math.floor(diffMin/60)}h${diffMin%60 > 0 ? ` ${diffMin%60}m` : ''}`}
+                          </span>
+                        ) : (
+                          <span className="text-xs text-[hsl(var(--muted-foreground))]">{fmtTime(nextRunMs)}</span>
+                        )
+                      })()}
                     </div>
                   )
                 })}
