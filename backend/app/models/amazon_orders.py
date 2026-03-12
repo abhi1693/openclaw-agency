@@ -332,3 +332,31 @@ class PpcAnalysisSnapshot(QueryModel, table=True):
     synced_at: datetime = Field(default_factory=utcnow, index=True)
     created_at: datetime = Field(default_factory=utcnow)
     updated_at: datetime = Field(default_factory=utcnow)
+
+
+class KeywordRanking(QueryModel, table=True):
+    """Weekly keyword ranking snapshots per ASIN from H10 Cerebro."""
+
+    __tablename__ = "keyword_rankings"  # pyright: ignore[reportAssignmentType]
+    __table_args__ = (
+        UniqueConstraint("asin", "keyword", "snapshot_date", name="uq_keyword_ranking_identity"),
+    )
+
+    id: UUID = Field(default_factory=uuid4, primary_key=True)
+    asin: str = Field(index=True)
+    keyword: str = Field(index=True)
+    organic_rank: int | None = None
+    sponsored_rank: int | None = None
+    search_volume: int | None = None
+    search_volume_trend: str | None = None  # "up", "down", "stable"
+    click_share: float | None = None
+    conversion_share: float | None = None
+    cerebro_iq_score: float | None = None
+    competing_products: int | None = None
+    sponsored_asins: int | None = None
+    suggested_ppc_bid: float | None = None
+    title_density: int | None = None
+    cpr: int | None = None  # Cerebro Product Rank
+    source: str = Field(default="h10_cerebro")  # h10_cerebro, sp_api, manual
+    snapshot_date: date = Field(index=True)
+    created_at: datetime = Field(default_factory=utcnow)

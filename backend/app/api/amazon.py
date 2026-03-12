@@ -557,3 +557,94 @@ async def get_ppc_analyses(
         total=len(items),
         snapshots=[PpcAnalysisSnapshotRead(**item.model_dump()) for item in items],
     )
+
+
+# ─── Keyword Rankings ────────────────────────────────────────────────────────
+
+from app.models.amazon_orders import KeywordRanking
+
+
+@router.get("/keywords/rankings")
+async def get_keyword_rankings(
+    asin: str = Query(...),
+    days: int = Query(default=90, ge=1, le=365),
+    session: AsyncSession = SESSION_DEP,
+) -> list[dict]:
+    """Get keyword ranking history for an ASIN."""
+    cutoff = (utcnow() - timedelta(days=days)).date()
+    stmt = (
+        select(KeywordRanking)
+        .where(col(KeywordRanking.asin) == asin)
+        .where(col(KeywordRanking.snapshot_date) >= cutoff)
+        .order_by(col(KeywordRanking.snapshot_date).desc())
+    )
+    rows = (await session.exec(stmt)).all()
+    return [r.model_dump() for r in rows]
+
+
+@router.post("/keywords/rankings/import")
+async def import_keyword_rankings(
+    payload: list[dict],
+    session: AsyncSession = SESSION_DEP,
+) -> dict:
+    """Bulk import keyword rankings from H10 JSON payload."""
+    inserted = 0
+    for item in payload:
+        existing_stmt = (
+            select(KeywordRanking)
+            .where(col(KeywordRanking.asin) == item.get("asin", ""))
+            .where(col(KeywordRanking.keyword) == item.get("keyword", ""))
+            .where(col(KeywordRanking.snapshot_date) == item.get("snapshot_date"))
+        )
+        existing = (await session.exec(existing_stmt)).first()
+        if existing:
+            continue
+        row = KeywordRanking(**{k: v for k, v in item.items() if hasattr(KeywordRanking, k)})
+        session.add(row)
+        inserted += 1
+    await session.commit()
+    return {"inserted": inserted, "total": len(payload)}
+
+
+@router.get("/keywords/top")
+async def get_top_keywords(
+    asin: str = Query(...),
+    limit: int = Query(default=100, ge=1, le=500),
+    session: AsyncSession = SESSION_DEP,
+) -> list[dict]:
+    """Get top N keywords for an ASIN by search volume (latest snapshot)."""
+    latest_stmt = (
+        select(col(KeywordRanking.snapshot_date))
+        .where(col(KeywordRanking.asin) == asin)
+        .order_by(col(KeywordRanking.snapshot_date).desc())
+        .limit(1)
+    )
+    latest_date = (await session.exec(latest_stmt)).first()
+    if not latest_date:
+        return []
+    stmt = (
+        select(KeywordRanking)
+        .where(col(KeywordRanking.asin) == asin)
+        .where(col(KeywordRanking.snapshot_date) == latest_date)
+        .order_by(col(KeywordRanking.search_volume).desc())
+        .limit(limit)
+    )
+    rows = (await session.exec(stmt)).all()
+    return [r.model_dump() for r in rows]
+
+
+@router.get("/keywords/trends")
+async def get_keyword_trends(
+    asin: str = Query(...),
+    keyword: str = Query(...),
+    session: AsyncSession = SESSION_DEP,
+) -> list[dict]:
+    """Get historical trend data for a specific keyword+ASIN pair."""
+    stmt = (
+        select(KeywordRanking)
+        .where(col(KeywordRanking.asin) == asin)
+        .where(col(KeywordRanking.keyword) == keyword)
+        .order_by(col(KeywordRanking.snapshot_date).asc())
+    )
+    rows = (await session.exec(stmt)).all()
+    return [r.model_dump() for r in rows]
