@@ -1,6 +1,7 @@
 'use client'
 
 import { useEffect, useState, useCallback } from 'react'
+import { createPortal } from 'react-dom'
 import { Markdown } from '@/components/atoms/Markdown'
 import {
   FileText, RefreshCw, ChevronRight, ChevronLeft, ChevronDown, ChevronUp, X, Calendar,
@@ -37,14 +38,22 @@ function MobileOverlay({
   onClose: () => void
   children: React.ReactNode
 }) {
+  const [mounted, setMounted] = useState(false)
+
   useEffect(() => {
+    setMounted(true)
     document.body.style.overflow = 'hidden'
     return () => { document.body.style.overflow = '' }
   }, [])
 
-  return (
-    <div className="fixed inset-0 z-[100] bg-white flex flex-col md:hidden">
-      <div className="sticky top-0 flex items-center gap-2 px-4 py-3 border-b bg-white z-10">
+  if (!mounted) return null
+
+  return createPortal(
+    <div
+      className="fixed inset-0 z-[9999] bg-white flex flex-col"
+      style={{ height: '100dvh' }}
+    >
+      <div className="flex items-center gap-2 px-4 py-3 border-b bg-white flex-shrink-0">
         <button
           onClick={onClose}
           className="flex items-center gap-1 text-sm text-blue-600 font-medium flex-shrink-0"
@@ -57,7 +66,8 @@ function MobileOverlay({
       <div className="flex-1 overflow-y-auto p-4">
         {children}
       </div>
-    </div>
+    </div>,
+    document.body
   )
 }
 
