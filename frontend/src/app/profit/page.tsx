@@ -147,7 +147,7 @@ function DashboardTab() {
       ) : null}
 
       {/* Summary Cards */}
-      <div className="flex gap-3 flex-wrap">
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
         <SummaryCard icon={<DollarSign className="w-5 h-5" />} label="总利润" value={fmtUSD(s?.totalProfit ?? 0)} sub={`收入 ${fmtUSD(s?.totalRevenue ?? 0)}`} />
         <SummaryCard icon={<TrendingUp className="w-5 h-5" />} label="利润率" value={fmtPct(s?.profitMargin ?? 0)} />
         <SummaryCard icon={<Megaphone className="w-5 h-5" />} label="TACoS" value={fmtPct(s?.tacos ?? 0)} sub={`广告 ${fmtUSD(s?.totalAdSpend ?? 0)}`} />

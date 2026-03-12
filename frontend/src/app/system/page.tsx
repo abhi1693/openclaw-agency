@@ -532,12 +532,12 @@ function SystemPageContent({ forceRefresh, onAutoRefresh }: { forceRefresh: numb
             </div>
 
             {hwLoading ? (
-              <div className="grid grid-cols-2 lg:grid-cols-3 gap-4">
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
                 {[...Array(6)].map((_, i) => <Skeleton key={i} className="h-24 rounded-xl" />)}
               </div>
             ) : hw ? (
-              <div className="grid grid-cols-2 lg:grid-cols-3 gap-4">
-                <div className="col-span-2 lg:col-span-2">
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+                <div className="col-span-1 sm:col-span-2 lg:col-span-2">
                   <StatCard
                     icon={Cpu} label="处理器" accent
                     value={hw.cpu.replace('Apple ', '').replace('(TM)', '™').replace('(R)', '®')}
@@ -601,6 +601,7 @@ function SystemPageContent({ forceRefresh, onAutoRefresh }: { forceRefresh: numb
                 </div>
               ) : usage && usage.models.length > 0 ? (
                 <div className="rounded-xl border border-[hsl(var(--border))] bg-[hsl(var(--card))] shadow-sm overflow-hidden">
+                  <div className="overflow-x-auto"><div className="min-w-[640px]">
                   <div className="grid grid-cols-[2fr_80px_1fr_1fr_1fr_1fr_110px] gap-3 px-4 py-2.5 border-b border-[hsl(var(--border))] bg-[hsl(var(--secondary)/0.5)]">
                     {['模型', 'Provider', '输入', '输出', '总计', '会话', '占比'].map(h => (
                       <span key={h} className="text-[10px] font-semibold uppercase tracking-wider text-[hsl(var(--muted-foreground))]">{h}</span>
@@ -686,6 +687,7 @@ function SystemPageContent({ forceRefresh, onAutoRefresh }: { forceRefresh: numb
                       <span className="text-sm font-bold text-[hsl(var(--zv-amber))]">${usage.totalCost.toFixed(3)}</span>
                     </div>
                   </div>
+                  </div></div>
                 </div>
               ) : (
                 <div className="rounded-xl border border-[hsl(var(--border))] bg-[hsl(var(--card))] shadow-sm p-8 text-center">
@@ -717,6 +719,7 @@ function SystemPageContent({ forceRefresh, onAutoRefresh }: { forceRefresh: numb
               </div>
             ) : cronJobs && cronJobs.jobs.length > 0 ? (
               <div className="rounded-xl border border-[hsl(var(--border))] bg-[hsl(var(--card))] shadow-sm overflow-hidden">
+                <div className="overflow-x-auto"><div className="min-w-[560px]">
                 <div className="grid grid-cols-[2fr_1fr_1fr_1fr_80px_1fr] gap-3 px-4 py-2.5 border-b border-[hsl(var(--border))] bg-[hsl(var(--secondary)/0.5)]">
                   {['名称', 'Schedule', 'Agent', 'Model', '状态', '下次运行'].map(h => (
                     <span key={h} className="text-[10px] font-semibold uppercase tracking-wider text-[hsl(var(--muted-foreground))]">{h}</span>
@@ -758,6 +761,7 @@ function SystemPageContent({ forceRefresh, onAutoRefresh }: { forceRefresh: numb
                     </div>
                   )
                 })}
+                </div></div>
               </div>
             ) : (
               <div className="rounded-xl border border-[hsl(var(--border))] bg-[hsl(var(--card))] p-6 text-center">
