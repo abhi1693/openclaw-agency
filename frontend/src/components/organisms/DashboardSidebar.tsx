@@ -167,16 +167,16 @@ export function DashboardSidebar() {
                 </p>
                 <div className="mt-1 space-y-1">
                   {[
-                    { href: "/business", icon: LayoutDashboard, label: "Business Dashboard", sub: "每日运营概览" },
+                    { href: "/business", icon: LayoutDashboard, label: "Insights", sub: "业务洞察" },
                     { href: "/inventory", icon: Map, label: "Inventory", sub: "库存" },
                     { href: "/ppc", icon: Target, label: "PPC", sub: "广告投放" },
+                    { href: "/reports", icon: FileText, label: "Reports", sub: "报告中心" },
                     { href: "/keywords", icon: Search, label: "Keywords", sub: "关键词排名" },
                     { href: "/reviews", icon: MessageSquare, label: "Reviews", sub: "评价监控" },
                     { href: "/competitors", icon: Swords, label: "Competitors", sub: "竞品监控" },
                     { href: "/restock", icon: Package, label: "Restock", sub: "补货预测" },
                     { href: "/profit", icon: DollarSign, label: "Profit", sub: "利润分析" },
                     { href: "/content", icon: Clapperboard, label: "Content", sub: "内容营销矩阵" },
-                    { href: "/reports", icon: FileText, label: "Reports", sub: "报告中心" },
                     { href: "/system", icon: Cpu, label: "System", sub: "系统 & 模型用量" },
                   ].map((item) => {
                     const Icon = item.icon;

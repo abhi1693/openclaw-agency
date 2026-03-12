@@ -34,7 +34,7 @@ if TYPE_CHECKING:
         OrganizationMemberAccessUpdate,
     )
 
-DEFAULT_ORG_NAME = "Personal"
+DEFAULT_ORG_NAME = "ZOVIRO"
 
 
 def _normalize_skill_pack_source_url(source_url: str) -> str:
