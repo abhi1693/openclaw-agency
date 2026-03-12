@@ -15,6 +15,52 @@ import { Card, CardContent } from '@/components/ui/card'
 import { DashboardPageLayout } from '@/components/templates/DashboardPageLayout'
 import { cn } from '@/lib/utils'
 
+// ─── Mobile detection hook ─────────────────────────────────────────────────────
+function useIsMobile() {
+  const [isMobile, setIsMobile] = useState(false)
+  useEffect(() => {
+    const check = () => setIsMobile(window.innerWidth < 768)
+    check()
+    window.addEventListener('resize', check)
+    return () => window.removeEventListener('resize', check)
+  }, [])
+  return isMobile
+}
+
+// ─── Mobile Report Overlay ─────────────────────────────────────────────────────
+function MobileOverlay({
+  title,
+  onClose,
+  children,
+}: {
+  title: string
+  onClose: () => void
+  children: React.ReactNode
+}) {
+  useEffect(() => {
+    document.body.style.overflow = 'hidden'
+    return () => { document.body.style.overflow = '' }
+  }, [])
+
+  return (
+    <div className="fixed inset-0 z-50 bg-white flex flex-col md:hidden">
+      <div className="sticky top-0 flex items-center gap-2 px-4 py-3 border-b bg-white z-10">
+        <button
+          onClick={onClose}
+          className="flex items-center gap-1 text-sm text-blue-600 font-medium flex-shrink-0"
+        >
+          <ChevronLeft className="w-4 h-4" />
+          返回列表
+        </button>
+        <span className="text-sm text-muted-foreground truncate flex-1">{title}</span>
+      </div>
+      <div className="flex-1 overflow-y-auto p-4">
+        {children}
+      </div>
+    </div>
+  )
+}
+
 // ─── Tab Config ───────────────────────────────────────────────────────────────
 
 const TABS = [
@@ -146,6 +192,7 @@ function ListingDetail({
 }
 
 function ListingTab() {
+  const isMobile = useIsMobile()
   const [files, setFiles] = useState<ListingReportFile[]>([])
   const [loading, setLoading] = useState(true)
   const [selected, setSelected] = useState<ListingReportFile | null>(null)
@@ -230,6 +277,7 @@ function ListingTab() {
   }
 
   return (
+    <>
     <div className="space-y-4">
       {/* Compact header with inline stats */}
       <div className="flex items-center justify-between">
@@ -402,6 +450,15 @@ function ListingTab() {
         </div>
       )}
     </div>
+    {isMobile && selected && (
+      <MobileOverlay
+        title={selected.filename.replace('.md', '')}
+        onClose={() => { setSelected(null); setMobileShowContent(false) }}
+      >
+        <ListingDetail file={selected} onMarkRead={markRead} />
+      </MobileOverlay>
+    )}
+    </>
   )
 }
 
@@ -472,6 +529,7 @@ function DiscoveryDetail({
 }
 
 function DiscoveryTab() {
+  const isMobile = useIsMobile()
   const [files, setFiles] = useState<DiscoveryFile[]>([])
   const [loading, setLoading] = useState(true)
   const [selected, setSelected] = useState<DiscoveryFile | null>(null)
@@ -539,6 +597,7 @@ function DiscoveryTab() {
   })
 
   return (
+    <>
     <div className="space-y-4">
       {/* Compact header with inline stats */}
       <div className="flex items-center justify-between gap-4">
@@ -694,6 +753,15 @@ function DiscoveryTab() {
         </div>
       )}
     </div>
+    {isMobile && selected && (
+      <MobileOverlay
+        title={selected.filename.replace('.md', '')}
+        onClose={() => { setSelected(null); setMobileShowContent(false) }}
+      >
+        <DiscoveryDetail file={selected} onMarkRead={markRead} />
+      </MobileOverlay>
+    )}
+    </>
   )
 }
 
@@ -764,6 +832,7 @@ function PpcDetail({
 }
 
 function PpcTab() {
+  const isMobile = useIsMobile()
   const [files, setFiles] = useState<PpcReportFile[]>([])
   const [loading, setLoading] = useState(true)
   const [selected, setSelected] = useState<PpcReportFile | null>(null)
@@ -831,6 +900,7 @@ function PpcTab() {
   })
 
   return (
+    <>
     <div className="space-y-4">
       {/* Compact header with inline stats */}
       <div className="flex items-center justify-between gap-4">
@@ -987,6 +1057,15 @@ function PpcTab() {
         </div>
       )}
     </div>
+    {isMobile && selected && (
+      <MobileOverlay
+        title={selected.filename.replace('.md', '')}
+        onClose={() => { setSelected(null); setMobileShowContent(false) }}
+      >
+        <PpcDetail file={selected} onMarkRead={markRead} />
+      </MobileOverlay>
+    )}
+    </>
   )
 }
 
@@ -1061,6 +1140,7 @@ function StrategyDetail({
 }
 
 function StrategyTab() {
+  const isMobile = useIsMobile()
   const [files, setFiles] = useState<StrategyFile[]>([])
   const [loading, setLoading] = useState(true)
   const [selected, setSelected] = useState<StrategyFile | null>(null)
@@ -1134,6 +1214,7 @@ function StrategyTab() {
   })
 
   return (
+    <>
     <div className="space-y-4">
       <div className="flex items-center justify-between gap-4">
         <div className="flex items-center gap-3">
@@ -1285,6 +1366,15 @@ function StrategyTab() {
         </div>
       )}
     </div>
+    {isMobile && selected && (
+      <MobileOverlay
+        title={selected.filename.replace('.md', '')}
+        onClose={() => { setSelected(null); setMobileShowContent(false) }}
+      >
+        <StrategyDetail file={selected} onMarkRead={markRead} />
+      </MobileOverlay>
+    )}
+    </>
   )
 }
 
@@ -1557,6 +1647,7 @@ function IntelDetail({
 // ── Intel Tab ────────────────────────────────────────────────────────────────
 
 function IntelTab() {
+  const isMobile = useIsMobile()
   const [files, setFiles]               = useState<IntelReportFile[]>([])
   const [loading, setLoading]           = useState(true)
   const [selected, setSelected]         = useState<IntelReportFile | null>(null)
@@ -1622,6 +1713,7 @@ function IntelTab() {
   })
 
   return (
+    <>
     <div className="space-y-4">
       {/* Header */}
       <div className="flex items-center justify-between gap-4">
@@ -1787,6 +1879,15 @@ function IntelTab() {
         </div>
       )}
     </div>
+    {isMobile && selected && (
+      <MobileOverlay
+        title={selected.filename.replace('.md', '')}
+        onClose={() => { setSelected(null); setMobileShowContent(false) }}
+      >
+        <IntelDetail file={selected} onMarkRead={markRead} />
+      </MobileOverlay>
+    )}
+    </>
   )
 }
 
