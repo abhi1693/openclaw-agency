@@ -43,7 +43,7 @@ function MobileOverlay({
   }, [])
 
   return (
-    <div className="fixed inset-0 z-50 bg-white flex flex-col md:hidden">
+    <div className="fixed inset-0 z-[100] bg-white flex flex-col md:hidden">
       <div className="sticky top-0 flex items-center gap-2 px-4 py-3 border-b bg-white z-10">
         <button
           onClick={onClose}
@@ -431,7 +431,7 @@ function ListingTab() {
             <div className="h-[calc(100vh-280px)] overflow-y-auto">
               {mobileShowContent && (
                 <button
-                  onClick={() => { setSelected(null); setMobileShowContent(false) }}
+                  onClick={() => { setSelected(null); setMobileShowContent(false); setPanelCollapsed(false) }}
                   className="md:hidden flex items-center gap-1.5 mb-3 text-sm text-[hsl(var(--muted-foreground))] hover:text-[hsl(var(--foreground))] transition-colors"
                 >
                   <ChevronLeft className="w-4 h-4" />
@@ -453,7 +453,7 @@ function ListingTab() {
     {isMobile && selected && (
       <MobileOverlay
         title={selected.filename.replace('.md', '')}
-        onClose={() => { setSelected(null); setMobileShowContent(false) }}
+        onClose={() => { setSelected(null); setMobileShowContent(false); setPanelCollapsed(false) }}
       >
         <ListingDetail file={selected} onMarkRead={markRead} />
       </MobileOverlay>
@@ -734,7 +734,7 @@ function DiscoveryTab() {
             <div className="h-[calc(100vh-280px)] overflow-y-auto">
               {mobileShowContent && (
                 <button
-                  onClick={() => { setSelected(null); setMobileShowContent(false) }}
+                  onClick={() => { setSelected(null); setMobileShowContent(false); setPanelCollapsed(false) }}
                   className="md:hidden flex items-center gap-1.5 mb-3 text-sm text-[hsl(var(--muted-foreground))] hover:text-[hsl(var(--foreground))] transition-colors"
                 >
                   <ChevronLeft className="w-4 h-4" />
@@ -756,7 +756,7 @@ function DiscoveryTab() {
     {isMobile && selected && (
       <MobileOverlay
         title={selected.filename.replace('.md', '')}
-        onClose={() => { setSelected(null); setMobileShowContent(false) }}
+        onClose={() => { setSelected(null); setMobileShowContent(false); setPanelCollapsed(false) }}
       >
         <DiscoveryDetail file={selected} onMarkRead={markRead} />
       </MobileOverlay>
@@ -1038,7 +1038,7 @@ function PpcTab() {
             <div className="h-[calc(100vh-280px)] overflow-y-auto">
               {mobileShowContent && (
                 <button
-                  onClick={() => { setSelected(null); setMobileShowContent(false) }}
+                  onClick={() => { setSelected(null); setMobileShowContent(false); setPanelCollapsed(false) }}
                   className="md:hidden flex items-center gap-1.5 mb-3 text-sm text-[hsl(var(--muted-foreground))] hover:text-[hsl(var(--foreground))] transition-colors"
                 >
                   <ChevronLeft className="w-4 h-4" />
@@ -1060,7 +1060,7 @@ function PpcTab() {
     {isMobile && selected && (
       <MobileOverlay
         title={selected.filename.replace('.md', '')}
-        onClose={() => { setSelected(null); setMobileShowContent(false) }}
+        onClose={() => { setSelected(null); setMobileShowContent(false); setPanelCollapsed(false) }}
       >
         <PpcDetail file={selected} onMarkRead={markRead} />
       </MobileOverlay>
@@ -1347,7 +1347,7 @@ function StrategyTab() {
             <div className="h-[calc(100vh-280px)] overflow-y-auto">
               {mobileShowContent && (
                 <button
-                  onClick={() => { setSelected(null); setMobileShowContent(false) }}
+                  onClick={() => { setSelected(null); setMobileShowContent(false); setPanelCollapsed(false) }}
                   className="md:hidden flex items-center gap-1.5 mb-3 text-sm text-[hsl(var(--muted-foreground))] hover:text-[hsl(var(--foreground))] transition-colors"
                 >
                   <ChevronLeft className="w-4 h-4" />
@@ -1369,7 +1369,7 @@ function StrategyTab() {
     {isMobile && selected && (
       <MobileOverlay
         title={selected.filename.replace('.md', '')}
-        onClose={() => { setSelected(null); setMobileShowContent(false) }}
+        onClose={() => { setSelected(null); setMobileShowContent(false); setPanelCollapsed(false) }}
       >
         <StrategyDetail file={selected} onMarkRead={markRead} />
       </MobileOverlay>
@@ -1860,7 +1860,7 @@ function IntelTab() {
             <div className="h-[calc(100vh-420px)] overflow-y-auto">
               {mobileShowContent && (
                 <button
-                  onClick={() => { setSelected(null); setMobileShowContent(false) }}
+                  onClick={() => { setSelected(null); setMobileShowContent(false); setPanelCollapsed(false) }}
                   className="md:hidden flex items-center gap-1.5 mb-3 text-sm text-[hsl(var(--muted-foreground))] hover:text-[hsl(var(--foreground))] transition-colors"
                 >
                   <ChevronLeft className="w-4 h-4" />
@@ -1882,7 +1882,7 @@ function IntelTab() {
     {isMobile && selected && (
       <MobileOverlay
         title={selected.filename.replace('.md', '')}
-        onClose={() => { setSelected(null); setMobileShowContent(false) }}
+        onClose={() => { setSelected(null); setMobileShowContent(false); setPanelCollapsed(false) }}
       >
         <IntelDetail file={selected} onMarkRead={markRead} />
       </MobileOverlay>
