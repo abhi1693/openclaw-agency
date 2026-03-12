@@ -400,9 +400,9 @@ function AplusTab() {
   }, [strategy, selectedAsin])
 
   return (
-    <div className="flex gap-6">
+    <div className="flex flex-col md:flex-row gap-6">
       {/* Left Column */}
-      <div className="w-[320px] flex-shrink-0 space-y-4">
+      <div className="w-full md:w-[320px] md:flex-shrink-0 space-y-4">
         <Card className="p-5 bg-[hsl(var(--card))] border-[hsl(var(--border))] space-y-4">
           <h3 className="text-sm font-semibold text-slate-900 flex items-center gap-2">
             <span className="text-base">📄</span>
@@ -607,9 +607,9 @@ function StoreTab() {
   }, [strategy, selectedCategory])
 
   return (
-    <div className="flex gap-6">
+    <div className="flex flex-col md:flex-row gap-6">
       {/* Left Column */}
-      <div className="w-[320px] flex-shrink-0 space-y-4">
+      <div className="w-full md:w-[320px] md:flex-shrink-0 space-y-4">
         <Card className="p-5 bg-[hsl(var(--card))] border-[hsl(var(--border))] space-y-5">
           <h3 className="text-sm font-semibold text-slate-900 flex items-center gap-2">
             <span className="text-base">🏪</span>
@@ -808,9 +808,9 @@ function CampaignTab() {
   }, [strategy, selectedAsins])
 
   return (
-    <div className="flex gap-6">
+    <div className="flex flex-col md:flex-row gap-6">
       {/* Left Column */}
-      <div className="w-[320px] flex-shrink-0 space-y-4">
+      <div className="w-full md:w-[320px] md:flex-shrink-0 space-y-4">
         <Card className="p-5 bg-[hsl(var(--card))] border-[hsl(var(--border))] space-y-5">
           <h3 className="text-sm font-semibold text-slate-900 flex items-center gap-2">
             <span className="text-base">📢</span>
@@ -1206,7 +1206,7 @@ function ContentPageContent({ activeTab }: { activeTab: string }) {
                   <span className="w-5 h-5 rounded-full bg-[hsl(var(--primary)/0.15)] text-[hsl(var(--primary))] text-[10px] font-bold flex items-center justify-center">2</span>
                   Scene Type
                 </h3>
-                <div className="grid grid-cols-3 gap-2">
+                <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
                   {SCENE_TYPES.map(scene => (
                     <button
                       key={scene.id}
