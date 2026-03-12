@@ -121,9 +121,16 @@ function computeProfit(ordersData: any, financesData: any, adData: any, cogsMap:
   const skuMap = new Map<string, ProfitItem>()
 
   // Process orders
-  if (ordersData?.orders) {
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const orders = Array.isArray(ordersData)
+    ? ordersData
+    : (ordersData?.orders ?? [])
+  if (Array.isArray(ordersData)) {
+    warnings.push('orders data raw array shape — check SP-API cache')
+  }
+  if (orders.length > 0) {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    for (const order of ordersData.orders as any[]) {
+    for (const order of orders as any[]) {
       const orderItems = order.orderItems || []
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       for (const item of orderItems as any[]) {
@@ -157,14 +164,19 @@ function computeProfit(ordersData: any, financesData: any, adData: any, cogsMap:
         }
       }
     }
-  } else {
+  } else if (!ordersData) {
     warnings.push('orders data unavailable')
   }
 
   // Process finances - extract FBA & referral fees
-  if (financesData?.financialEvents || financesData?.events) {
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const events: any[] = financesData.financialEvents || financesData.events || []
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const events = Array.isArray(financesData)
+    ? financesData
+    : (financesData?.financialEvents ?? financesData?.events ?? [])
+  if (Array.isArray(financesData)) {
+    warnings.push('finances data raw array shape — check SP-API cache')
+  }
+  if (events.length > 0) {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     for (const event of events as any[]) {
       const items = event.shipmentItemList || event.items || []
@@ -184,14 +196,19 @@ function computeProfit(ordersData: any, financesData: any, adData: any, cogsMap:
         }
       }
     }
-  } else {
+  } else if (!financesData) {
     warnings.push('finances data unavailable')
   }
 
   // Process ad spend
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const campaigns: any[] = Array.isArray(adData)
+    ? adData
+    : (Array.isArray(adData?.campaigns) ? adData.campaigns : [])
+  if (!Array.isArray(adData) && !Array.isArray(adData?.campaigns) && adData !== null && adData !== undefined) {
+    warnings.push('广告数据格式异常 — ad spend zeroed out')
+  }
   if (adData) {
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const campaigns: any[] = adData.campaigns || adData || []
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     for (const campaign of campaigns as any[]) {
       const adGroups = campaign.adGroups || campaign.keywords || []
