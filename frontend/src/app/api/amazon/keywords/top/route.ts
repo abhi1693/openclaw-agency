@@ -1,10 +1,15 @@
 import { NextResponse } from 'next/server'
 import { fetchBackend } from '../../_backend'
 
+function getErrorMessage(error: unknown): string {
+  return error instanceof Error ? error.message : 'Unknown backend error'
+}
+
 export async function GET(request: Request) {
   const { searchParams } = new URL(request.url)
   const asin = searchParams.get('asin')
-  const limit = searchParams.get('limit') || '100'
+  const requestedLimit = searchParams.get('limit') || '100'
+  const limit = /^\d+$/.test(requestedLimit) ? requestedLimit : '100'
 
   let url = `/api/v1/amazon/keywords/top?limit=${encodeURIComponent(limit)}`
   if (asin) url += `&asin=${encodeURIComponent(asin)}`
@@ -14,7 +19,7 @@ export async function GET(request: Request) {
     if (!response.ok) throw new Error(`Backend responded ${response.status}`)
     return NextResponse.json(await response.json())
   } catch (err: unknown) {
-    console.error('Backend keywords/top error:', err)
+    console.warn('Backend keywords/top error:', getErrorMessage(err))
     return NextResponse.json([], { status: 503 })
   }
 }

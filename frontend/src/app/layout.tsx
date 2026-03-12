@@ -10,8 +10,8 @@ import { QueryProvider } from "@/components/providers/QueryProvider";
 import { GlobalLoader } from "@/components/ui/global-loader";
 
 export const metadata: Metadata = {
-  title: "OpenClaw Mission Control",
-  description: "A calm command center for every task.",
+  title: "Zoviro Mission Control",
+  description: "ZOVIRO 内部运营指挥中心",
 };
 
 const bodyFont = IBM_Plex_Sans({
