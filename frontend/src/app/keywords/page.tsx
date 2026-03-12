@@ -1,11 +1,10 @@
 'use client'
 
-import { useState, useEffect, useCallback } from 'react'
+import { Fragment, useState, useEffect, useCallback } from 'react'
 import {
-  Key, TrendingUp, TrendingDown, Minus, ChevronDown, ChevronRight,
+  Key, TrendingUp, ChevronDown, ChevronRight,
   RefreshCw, Lightbulb, AlertTriangle, BarChart3, DollarSign, Search,
 } from 'lucide-react'
-import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { cn } from '@/lib/utils'
 import { DashboardPageLayout } from '@/components/templates/DashboardPageLayout'
@@ -47,7 +46,7 @@ interface KeywordRanking {
 
 interface SearchTerm {
   id: string
-  search_term: string
+  search_term: string | null
   campaign_name: string | null
   keyword: string | null
   match_type: string | null
@@ -282,9 +281,8 @@ function RankingsTab({ asin }: { asin: string }) {
               const change = getChange(row)
 
               return (
-                <>
+                <Fragment key={rowKey}>
                   <tr
-                    key={rowKey}
                     onClick={() => handleRowClick(row.keyword)}
                     className={cn(
                       'border-b border-[hsl(var(--border))] cursor-pointer transition-colors',
@@ -342,7 +340,7 @@ function RankingsTab({ asin }: { asin: string }) {
                     </td>
                   </tr>
                   {expanded && (
-                    <tr key={`${rowKey}-exp`} className="bg-[hsl(var(--muted)/0.15)]">
+                    <tr className="bg-[hsl(var(--muted)/0.15)]">
                       <td colSpan={8} className="px-6 py-4">
                         <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:gap-8">
                           <div>
@@ -373,7 +371,7 @@ function RankingsTab({ asin }: { asin: string }) {
                       </td>
                     </tr>
                   )}
-                </>
+                </Fragment>
               )
             })}
           </tbody>
@@ -417,7 +415,6 @@ function SearchTermsTab() {
   // Aggregates
   const totalSpend = terms.reduce((s, t) => s + parseFloat(t.spend || '0'), 0)
   const totalSales = terms.reduce((s, t) => s + parseFloat(t.sales || '0'), 0)
-  const totalOrders = terms.reduce((s, t) => s + t.orders, 0)
   const avgAcos = totalSales > 0 ? (totalSpend / totalSales) * 100 : 0
 
   const filterPills: { id: SearchTermFilter; label: string }[] = [
@@ -505,17 +502,17 @@ function SearchTermsTab() {
                   </td>
                 </tr>
               ) : (
-                filtered.map(t => {
+                filtered.map((t, index) => {
                   const acos = t.acos ? parseFloat(t.acos) : null
                   const isHighConv = acos !== null && acos < 30
                   const isIneff = acos !== null && acos > 50
                   return (
                     <tr
-                      key={t.id}
+                      key={t.id || `${t.search_term ?? 'term'}-${index}`}
                       className="border-b border-[hsl(var(--border))] hover:bg-[hsl(var(--muted)/0.2)] transition-colors"
                     >
                       <td className="px-3 py-2.5 max-w-[220px] truncate font-medium text-[hsl(var(--foreground))]">
-                        {t.search_term}
+                        {t.search_term?.trim() || '未命名搜索词'}
                       </td>
                       <td className="px-3 py-2.5 text-right tabular-nums text-[hsl(var(--muted-foreground))]">
                         {fmtNum(t.impressions)}
@@ -564,8 +561,7 @@ function SearchTermsTab() {
 
 // ─── Tab 3: AI Insights ────────────────────────────────────────────────────────
 
-function AiInsightsTab({ asin, rankings, searchTerms }: {
-  asin: string
+function AiInsightsTab({ rankings, searchTerms }: {
   rankings: KeywordRanking[]
   searchTerms: SearchTerm[]
 }) {
@@ -652,8 +648,8 @@ function AiInsightsTab({ asin, rankings, searchTerms }: {
                 </tr>
               </thead>
               <tbody>
-                {opportunities.map(r => (
-                  <tr key={r.id} className="border-b border-[hsl(var(--border))] hover:bg-[hsl(var(--muted)/0.2)]">
+                {opportunities.map((r, index) => (
+                  <tr key={r.id || `${r.asin}-${r.keyword}-${index}`} className="border-b border-[hsl(var(--border))] hover:bg-[hsl(var(--muted)/0.2)]">
                     <td className="px-3 py-2.5 font-medium text-[hsl(var(--foreground))]">{r.keyword}</td>
                     <td className="px-3 py-2.5 text-right tabular-nums text-[hsl(var(--foreground))]">{fmtNum(r.search_volume)}</td>
                     <td className="px-3 py-2.5 text-right tabular-nums">
@@ -693,9 +689,9 @@ function AiInsightsTab({ asin, rankings, searchTerms }: {
                 </tr>
               </thead>
               <tbody>
-                {inefficientTerms.map(t => (
-                  <tr key={t.id} className="border-b border-[hsl(var(--border))] hover:bg-[hsl(var(--muted)/0.2)]">
-                    <td className="px-3 py-2.5 font-medium text-[hsl(var(--foreground))] max-w-[200px] truncate">{t.search_term}</td>
+                {inefficientTerms.map((t, index) => (
+                  <tr key={t.id || `${t.search_term ?? 'term'}-${index}`} className="border-b border-[hsl(var(--border))] hover:bg-[hsl(var(--muted)/0.2)]">
+                    <td className="px-3 py-2.5 font-medium text-[hsl(var(--foreground))] max-w-[200px] truncate">{t.search_term?.trim() || '未命名搜索词'}</td>
                     <td className="px-3 py-2.5 text-right tabular-nums text-red-600 font-medium">{fmtCurrency(t.spend)}</td>
                     <td className="px-3 py-2.5 text-right tabular-nums text-[hsl(var(--muted-foreground))]">{t.clicks}</td>
                     <td className="px-3 py-2.5 text-left">
@@ -793,7 +789,6 @@ export default function KeywordsPage() {
         )}
         {activeTab === 'ai-insights' && (
           <AiInsightsTab
-            asin={selectedAsin}
             rankings={rankings}
             searchTerms={searchTerms}
           />
