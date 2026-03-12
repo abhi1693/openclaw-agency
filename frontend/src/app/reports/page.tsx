@@ -153,6 +153,7 @@ function ListingTab() {
   const [readSet, setReadSet] = useState<Set<string>>(new Set())
   const [collapsed, setCollapsed] = useState<Set<string>>(new Set())
   const [panelCollapsed, setPanelCollapsed] = useState(false)
+  const [mobileShowContent, setMobileShowContent] = useState(false)
 
   // Load read state from localStorage on mount
   useEffect(() => {
@@ -268,7 +269,7 @@ function ListingTab() {
       ) : (
         <div className="flex gap-4">
           {/* Left panel — collapsible */}
-          <div className={cn('flex flex-col gap-3 flex-shrink-0 transition-all duration-200 overflow-hidden', panelCollapsed ? 'w-[48px]' : 'w-[280px]')}>
+          <div className={cn('flex flex-col gap-3 flex-shrink-0 transition-all duration-200 overflow-hidden', panelCollapsed ? 'w-[48px]' : 'w-[280px]', mobileShowContent ? 'hidden md:flex' : 'flex')}>
             {/* Toggle button */}
             <button
               onClick={() => setPanelCollapsed(!panelCollapsed)}
@@ -346,7 +347,7 @@ function ListingTab() {
                                   key={f.filename}
                                   className={`group rounded-lg border px-2.5 py-2 transition-all ${isActive ? 'border-[hsl(var(--primary)/0.6)] bg-[hsl(var(--primary)/0.08)]' : 'border-[hsl(var(--border))] bg-[hsl(var(--card))] hover:bg-[hsl(var(--secondary))]'}`}
                                 >
-                                  <button onClick={() => { setSelected(f); setPanelCollapsed(true) }} className="w-full text-left">
+                                  <button onClick={() => { setSelected(f); setPanelCollapsed(true); setMobileShowContent(true) }} className="w-full text-left">
                                     <div className="flex items-center justify-between gap-2">
                                       <div className="min-w-0">
                                         <p className={`text-xs font-medium truncate ${isRead ? 'text-[hsl(var(--muted-foreground))]' : 'text-[hsl(var(--foreground))]'}`}>{nickname ?? asin}</p>
@@ -380,6 +381,15 @@ function ListingTab() {
           {/* Right panel */}
           <div className="flex-1 min-w-0">
             <div className="h-[calc(100vh-280px)] overflow-y-auto">
+              {mobileShowContent && (
+                <button
+                  onClick={() => { setSelected(null); setMobileShowContent(false) }}
+                  className="md:hidden flex items-center gap-1.5 mb-3 text-sm text-[hsl(var(--muted-foreground))] hover:text-[hsl(var(--foreground))] transition-colors"
+                >
+                  <ChevronLeft className="w-4 h-4" />
+                  返回列表
+                </button>
+              )}
               {selected ? (
                 <ListingDetail file={selected} onMarkRead={markRead} />
               ) : (
@@ -469,6 +479,7 @@ function DiscoveryTab() {
   const [filterPrefix, setFilterPrefix] = useState<string>('all')
   const [readSet, setReadSet] = useState<Set<string>>(new Set())
   const [panelCollapsed, setPanelCollapsed] = useState(false)
+  const [mobileShowContent, setMobileShowContent] = useState(false)
 
   useEffect(() => {
     setReadSet(loadReadSet(DISCOVERY_READ_KEY))
@@ -559,7 +570,7 @@ function DiscoveryTab() {
       ) : (
         <div className="flex gap-4">
           {/* Left panel — collapsible */}
-          <div className={`flex flex-col gap-3 flex-shrink-0 transition-all duration-200 overflow-hidden ${panelCollapsed ? 'w-[48px]' : 'w-[280px]'}`}>
+          <div className={cn('flex flex-col gap-3 flex-shrink-0 transition-all duration-200 overflow-hidden', panelCollapsed ? 'w-[48px]' : 'w-[280px]', mobileShowContent ? 'hidden md:flex' : 'flex')}>
             <button
               onClick={() => setPanelCollapsed(!panelCollapsed)}
               className="flex items-center justify-center w-full py-1.5 rounded-lg hover:bg-[hsl(var(--secondary))] text-[hsl(var(--muted-foreground))] transition-colors"
@@ -629,7 +640,7 @@ function DiscoveryTab() {
                         key={f.filename}
                         className={`group rounded-lg border px-2.5 py-2 transition-all ${isActive ? 'border-[hsl(var(--primary)/0.6)] bg-[hsl(var(--primary)/0.08)]' : 'border-[hsl(var(--border))] bg-[hsl(var(--card))] hover:bg-[hsl(var(--secondary))]'}`}
                       >
-                        <button onClick={() => { setSelected(f); setPanelCollapsed(true) }} className="w-full text-left">
+                        <button onClick={() => { setSelected(f); setPanelCollapsed(true); setMobileShowContent(true) }} className="w-full text-left">
                           <div className="flex items-center justify-between gap-2">
                             <div className="flex items-center gap-2 min-w-0">
                               <div className={`w-1.5 h-1.5 rounded-full flex-shrink-0 ${isRead ? 'bg-transparent' : 'bg-blue-500'}`} />
@@ -662,6 +673,15 @@ function DiscoveryTab() {
           {/* Right panel — preview */}
           <div className="flex-1 min-w-0">
             <div className="h-[calc(100vh-280px)] overflow-y-auto">
+              {mobileShowContent && (
+                <button
+                  onClick={() => { setSelected(null); setMobileShowContent(false) }}
+                  className="md:hidden flex items-center gap-1.5 mb-3 text-sm text-[hsl(var(--muted-foreground))] hover:text-[hsl(var(--foreground))] transition-colors"
+                >
+                  <ChevronLeft className="w-4 h-4" />
+                  返回列表
+                </button>
+              )}
               {selected ? (
                 <DiscoveryDetail file={selected} onMarkRead={markRead} />
               ) : (
@@ -751,6 +771,7 @@ function PpcTab() {
   const [filterPrefix, setFilterPrefix] = useState<string>('all')
   const [readSet, setReadSet] = useState<Set<string>>(new Set())
   const [panelCollapsed, setPanelCollapsed] = useState(false)
+  const [mobileShowContent, setMobileShowContent] = useState(false)
 
   useEffect(() => {
     setReadSet(loadReadSet(PPC_READ_KEY))
@@ -842,7 +863,7 @@ function PpcTab() {
       ) : (
         <div className="flex gap-4">
           {/* Left panel — collapsible */}
-          <div className={`flex flex-col gap-3 flex-shrink-0 transition-all duration-200 overflow-hidden ${panelCollapsed ? 'w-[48px]' : 'w-[280px]'}`}>
+          <div className={cn('flex flex-col gap-3 flex-shrink-0 transition-all duration-200 overflow-hidden', panelCollapsed ? 'w-[48px]' : 'w-[280px]', mobileShowContent ? 'hidden md:flex' : 'flex')}>
             <button
               onClick={() => setPanelCollapsed(!panelCollapsed)}
               className="flex items-center justify-center w-full py-1.5 rounded-lg hover:bg-[hsl(var(--secondary))] text-[hsl(var(--muted-foreground))] transition-colors"
@@ -912,7 +933,7 @@ function PpcTab() {
                         key={f.filename}
                         className={`group rounded-lg border px-2.5 py-2 transition-all ${isActive ? 'border-[hsl(var(--primary)/0.6)] bg-[hsl(var(--primary)/0.08)]' : 'border-[hsl(var(--border))] bg-[hsl(var(--card))] hover:bg-[hsl(var(--secondary))]'}`}
                       >
-                        <button onClick={() => { setSelected(f); setPanelCollapsed(true) }} className="w-full text-left">
+                        <button onClick={() => { setSelected(f); setPanelCollapsed(true); setMobileShowContent(true) }} className="w-full text-left">
                           <div className="flex items-center justify-between gap-2">
                             <div className="flex items-center gap-2 min-w-0">
                               <div className={`w-1.5 h-1.5 rounded-full flex-shrink-0 ${isRead ? 'bg-transparent' : 'bg-blue-500'}`} />
@@ -945,6 +966,15 @@ function PpcTab() {
           {/* Right panel — preview */}
           <div className="flex-1 min-w-0">
             <div className="h-[calc(100vh-280px)] overflow-y-auto">
+              {mobileShowContent && (
+                <button
+                  onClick={() => { setSelected(null); setMobileShowContent(false) }}
+                  className="md:hidden flex items-center gap-1.5 mb-3 text-sm text-[hsl(var(--muted-foreground))] hover:text-[hsl(var(--foreground))] transition-colors"
+                >
+                  <ChevronLeft className="w-4 h-4" />
+                  返回列表
+                </button>
+              )}
               {selected ? (
                 <PpcDetail file={selected} onMarkRead={markRead} />
               ) : (
@@ -1038,6 +1068,7 @@ function StrategyTab() {
   const [filterPrefix, setFilterPrefix] = useState<string>('all')
   const [readSet, setReadSet] = useState<Set<string>>(new Set())
   const [panelCollapsed, setPanelCollapsed] = useState(false)
+  const [mobileShowContent, setMobileShowContent] = useState(false)
 
   useEffect(() => {
     setReadSet(loadReadSet(STRATEGY_READ_KEY))
@@ -1133,7 +1164,7 @@ function StrategyTab() {
       ) : (
         <div className="flex gap-4">
           {/* Left panel — collapsible */}
-          <div className={`flex flex-col gap-3 flex-shrink-0 transition-all duration-200 overflow-hidden ${panelCollapsed ? 'w-[48px]' : 'w-[280px]'}`}>
+          <div className={cn('flex flex-col gap-3 flex-shrink-0 transition-all duration-200 overflow-hidden', panelCollapsed ? 'w-[48px]' : 'w-[280px]', mobileShowContent ? 'hidden md:flex' : 'flex')}>
             <button
               onClick={() => setPanelCollapsed(!panelCollapsed)}
               className="flex items-center justify-center w-full py-1.5 rounded-lg hover:bg-[hsl(var(--secondary))] text-[hsl(var(--muted-foreground))] transition-colors"
@@ -1200,7 +1231,7 @@ function StrategyTab() {
                         key={f.filename}
                         className={`group rounded-lg border px-2.5 py-2 transition-all ${isActive ? 'border-[hsl(var(--primary)/0.6)] bg-[hsl(var(--primary)/0.08)]' : 'border-[hsl(var(--border))] bg-[hsl(var(--card))] hover:bg-[hsl(var(--secondary))]'}`}
                       >
-                        <button onClick={() => { setSelected(f); setPanelCollapsed(true) }} className="w-full text-left">
+                        <button onClick={() => { setSelected(f); setPanelCollapsed(true); setMobileShowContent(true) }} className="w-full text-left">
                           <div className="flex items-center justify-between gap-2">
                             <div className="flex items-center gap-2 min-w-0">
                               <div className={`w-1.5 h-1.5 rounded-full flex-shrink-0 ${isRead ? 'bg-transparent' : 'bg-blue-500'}`} />
@@ -1233,6 +1264,15 @@ function StrategyTab() {
           {/* Right panel — preview */}
           <div className="flex-1 min-w-0">
             <div className="h-[calc(100vh-280px)] overflow-y-auto">
+              {mobileShowContent && (
+                <button
+                  onClick={() => { setSelected(null); setMobileShowContent(false) }}
+                  className="md:hidden flex items-center gap-1.5 mb-3 text-sm text-[hsl(var(--muted-foreground))] hover:text-[hsl(var(--foreground))] transition-colors"
+                >
+                  <ChevronLeft className="w-4 h-4" />
+                  返回列表
+                </button>
+              )}
               {selected ? (
                 <StrategyDetail file={selected} onMarkRead={markRead} />
               ) : (
@@ -1524,6 +1564,7 @@ function IntelTab() {
   const [filterType, setFilterType]     = useState<'all' | 'daily' | 'weekly'>('all')
   const [readSet, setReadSet]           = useState<Set<string>>(new Set())
   const [panelCollapsed, setPanelCollapsed] = useState(false)
+  const [mobileShowContent, setMobileShowContent] = useState(false)
 
   useEffect(() => {
     setReadSet(loadReadSet(INTEL_READ_KEY))
@@ -1623,7 +1664,7 @@ function IntelTab() {
       ) : (
         <div className="flex gap-4">
           {/* Left panel — collapsible */}
-          <div className={`flex flex-col gap-3 flex-shrink-0 transition-all duration-200 overflow-hidden ${panelCollapsed ? 'w-[48px]' : 'w-[280px]'}`}>
+          <div className={cn('flex flex-col gap-3 flex-shrink-0 transition-all duration-200 overflow-hidden', panelCollapsed ? 'w-[48px]' : 'w-[280px]', mobileShowContent ? 'hidden md:flex' : 'flex')}>
             <button
               onClick={() => setPanelCollapsed(!panelCollapsed)}
               className="flex items-center justify-center w-full py-1.5 rounded-lg hover:bg-[hsl(var(--secondary))] text-[hsl(var(--muted-foreground))] transition-colors"
@@ -1690,7 +1731,7 @@ function IntelTab() {
                         key={f.filename}
                         className={`group rounded-lg border px-2.5 py-2 transition-all ${isActive ? 'border-[hsl(var(--primary)/0.6)] bg-[hsl(var(--primary)/0.08)]' : 'border-[hsl(var(--border))] bg-[hsl(var(--card))] hover:bg-[hsl(var(--secondary))]'}`}
                       >
-                        <button onClick={() => { setSelected(f); setPanelCollapsed(true) }} className="w-full text-left">
+                        <button onClick={() => { setSelected(f); setPanelCollapsed(true); setMobileShowContent(true) }} className="w-full text-left">
                           <div className="flex items-center justify-between gap-2">
                             <div className="flex items-center gap-2 min-w-0">
                               <div className={`w-1.5 h-1.5 rounded-full flex-shrink-0 ${isRead ? 'bg-transparent' : 'bg-blue-500'}`}/>
@@ -1725,6 +1766,15 @@ function IntelTab() {
           {/* Right panel — preview */}
           <div className="flex-1 min-w-0">
             <div className="h-[calc(100vh-420px)] overflow-y-auto">
+              {mobileShowContent && (
+                <button
+                  onClick={() => { setSelected(null); setMobileShowContent(false) }}
+                  className="md:hidden flex items-center gap-1.5 mb-3 text-sm text-[hsl(var(--muted-foreground))] hover:text-[hsl(var(--foreground))] transition-colors"
+                >
+                  <ChevronLeft className="w-4 h-4" />
+                  返回列表
+                </button>
+              )}
               {selected ? (
                 <IntelDetail file={selected} onMarkRead={markRead}/>
               ) : (
