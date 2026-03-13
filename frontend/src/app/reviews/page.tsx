@@ -56,7 +56,10 @@ function RatingBar({ distribution, total }: { distribution: Record<string, numbe
                 style={{ width: `${pct}%` }}
               />
             </div>
-            <span className="text-[10px] text-[hsl(var(--muted-foreground))] w-5 text-right">{count}</span>
+            <div className="w-14 text-right">
+              <span className="text-[10px] text-[hsl(var(--muted-foreground))]">{count}</span>
+              <span className="text-xs text-muted-foreground ml-1">({pct.toFixed(0)}%)</span>
+            </div>
           </div>
         )
       })}

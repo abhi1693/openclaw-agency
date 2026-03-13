@@ -212,7 +212,7 @@ function ListingDetail({
   )
 }
 
-function ListingTab() {
+function ListingTab({ onCountChange }: { onCountChange?: (count: number, loaded: boolean) => void }) {
   const isMobile = useIsMobile()
   const [files, setFiles] = useState<ListingReportFile[]>([])
   const [loading, setLoading] = useState(true)
@@ -273,6 +273,10 @@ function ListingTab() {
       alert('删除失败，请重试')
     }
   }, [])
+
+  useEffect(() => {
+    onCountChange?.(files.length, !loading)
+  }, [files.length, loading, onCountChange])
 
   const filtered = files.filter(f => {
     if (!search) return true
@@ -567,7 +571,7 @@ function DiscoveryDetail({
   )
 }
 
-function DiscoveryTab() {
+function DiscoveryTab({ onCountChange }: { onCountChange?: (count: number, loaded: boolean) => void }) {
   const isMobile = useIsMobile()
   const [files, setFiles] = useState<DiscoveryFile[]>([])
   const [loading, setLoading] = useState(true)
@@ -626,6 +630,10 @@ function DiscoveryTab() {
       alert('删除失败，请重试')
     }
   }, [])
+
+  useEffect(() => {
+    onCountChange?.(files.length, !loading)
+  }, [files.length, loading, onCountChange])
 
   const prefixes = Array.from(new Set(files.map(f => f.prefix))).filter(Boolean)
 
@@ -891,7 +899,7 @@ function PpcDetail({
   )
 }
 
-function PpcTab() {
+function PpcTab({ onCountChange }: { onCountChange?: (count: number, loaded: boolean) => void }) {
   const isMobile = useIsMobile()
   const [files, setFiles] = useState<PpcReportFile[]>([])
   const [loading, setLoading] = useState(true)
@@ -950,6 +958,10 @@ function PpcTab() {
       alert('删除失败，请重试')
     }
   }, [])
+
+  useEffect(() => {
+    onCountChange?.(files.length, !loading)
+  }, [files.length, loading, onCountChange])
 
   const prefixes = Array.from(new Set(files.map(f => f.prefix))).filter(Boolean)
 
@@ -1220,7 +1232,7 @@ function StrategyDetail({
   )
 }
 
-function StrategyTab() {
+function StrategyTab({ onCountChange }: { onCountChange?: (count: number, loaded: boolean) => void }) {
   const isMobile = useIsMobile()
   const [files, setFiles] = useState<StrategyFile[]>([])
   const [loading, setLoading] = useState(true)
@@ -1279,6 +1291,10 @@ function StrategyTab() {
       alert('删除失败，请重试')
     }
   }, [])
+
+  useEffect(() => {
+    onCountChange?.(files.length, !loading)
+  }, [files.length, loading, onCountChange])
 
   // Deduplicate filter tags by badge label (not raw prefix) to avoid duplicates
   const badgeTypes = Array.from(
@@ -1748,7 +1764,7 @@ function IntelDetail({
 
 // ── Intel Tab ────────────────────────────────────────────────────────────────
 
-function IntelTab() {
+function IntelTab({ onCountChange }: { onCountChange?: (count: number, loaded: boolean) => void }) {
   const isMobile = useIsMobile()
   const [files, setFiles]               = useState<IntelReportFile[]>([])
   const [loading, setLoading]           = useState(true)
@@ -1808,6 +1824,10 @@ function IntelTab() {
       alert('删除失败，请重试')
     }
   }, [])
+
+  useEffect(() => {
+    onCountChange?.(files.length, !loading)
+  }, [files.length, loading, onCountChange])
 
   const filtered = files.filter(f => {
     const matchSearch = !search || f.filename.toLowerCase().includes(search.toLowerCase())
@@ -2032,21 +2052,46 @@ function IntelTab() {
 // MAIN PAGE
 // ═══════════════════════════════════════════════════════════════════════════════
 
-function ReportsContent({ activeTab }: { activeTab: TabId }) {
+function ReportsContent({
+  activeTab,
+  onTabCountChange,
+}: {
+  activeTab: TabId
+  onTabCountChange: (tabId: TabId, count: number, loaded: boolean) => void
+}) {
   return (
     <div className="max-w-full space-y-6">
-      {activeTab === 'discovery' && <DiscoveryTab />}
-      {activeTab === 'listing'   && <ListingTab />}
-      {activeTab === 'ppc'       && <PpcTab />}
-      {activeTab === 'content'   && <ComingSoon label="Content Reports" />}
-      {activeTab === 'strategy'  && <StrategyTab />}
-      {activeTab === 'intel'     && <IntelTab />}
+      <div className={cn(activeTab === 'discovery' ? 'block' : 'hidden')}>
+        <DiscoveryTab onCountChange={(count, loaded) => onTabCountChange('discovery', count, loaded)} />
+      </div>
+      <div className={cn(activeTab === 'listing' ? 'block' : 'hidden')}>
+        <ListingTab onCountChange={(count, loaded) => onTabCountChange('listing', count, loaded)} />
+      </div>
+      <div className={cn(activeTab === 'ppc' ? 'block' : 'hidden')}>
+        <PpcTab onCountChange={(count, loaded) => onTabCountChange('ppc', count, loaded)} />
+      </div>
+      <div className={cn(activeTab === 'content' ? 'block' : 'hidden')}>
+        <ComingSoon label="Content Reports" />
+      </div>
+      <div className={cn(activeTab === 'strategy' ? 'block' : 'hidden')}>
+        <StrategyTab onCountChange={(count, loaded) => onTabCountChange('strategy', count, loaded)} />
+      </div>
+      <div className={cn(activeTab === 'intel' ? 'block' : 'hidden')}>
+        <IntelTab onCountChange={(count, loaded) => onTabCountChange('intel', count, loaded)} />
+      </div>
     </div>
   )
 }
 
 export default function ReportsPage() {
   const [activeTab, setActiveTab] = useState<TabId>('discovery')
+  const [tabCounts, setTabCounts] = useState<Partial<Record<TabId, number>>>({})
+  const [tabLoaded, setTabLoaded] = useState<Partial<Record<TabId, boolean>>>({})
+
+  const handleTabCountChange = useCallback((tabId: TabId, count: number, loaded: boolean) => {
+    setTabCounts(prev => prev[tabId] === count ? prev : { ...prev, [tabId]: count })
+    setTabLoaded(prev => prev[tabId] === loaded ? prev : { ...prev, [tabId]: loaded })
+  }, [])
 
   return (
     <DashboardPageLayout
@@ -2066,13 +2111,20 @@ export default function ReportsPage() {
                   : 'text-slate-600 hover:bg-slate-100'
               )}
             >
-              {tab.label}
+              <span className="flex items-center">
+                <span>{tab.label}</span>
+                {tabLoaded[tab.id] && (tabCounts[tab.id] ?? 0) > 0 && (
+                  <span className="ml-1 rounded-full bg-muted px-1.5 py-0.5 text-xs font-medium">
+                    {tabCounts[tab.id]}
+                  </span>
+                )}
+              </span>
             </button>
           ))}
         </div>
       }
     >
-      <ReportsContent activeTab={activeTab} />
+      <ReportsContent activeTab={activeTab} onTabCountChange={handleTabCountChange} />
     </DashboardPageLayout>
   )
 }

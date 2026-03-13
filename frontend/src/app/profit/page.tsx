@@ -80,6 +80,12 @@ function marginColor(pct: number) {
   return 'text-rose-600'
 }
 
+function tacosColor(pct: number) {
+  if (pct <= 15) return 'text-emerald-600'
+  if (pct <= 30) return 'text-amber-600'
+  return 'text-rose-600'
+}
+
 function calcLanded(item: CostItem) {
   return item.unitCost + item.shippingToPort + item.freight + item.customs + item.lastMile + item.prep + item.otherCost
 }
@@ -103,7 +109,7 @@ function SummaryCard({ icon, label, value, sub }: { icon: React.ReactNode; label
 
 // ─── Dashboard Tab ─────────────────────────────────────────────────────────────
 
-type SortKey = 'netProfit' | 'revenue' | 'unitsSold' | 'profitMargin'
+type SortKey = 'netProfit' | 'revenue' | 'unitsSold' | 'profitMargin' | 'adSpend' | 'tacos'
 
 function DashboardTab() {
   const [data, setData] = useState<ProfitData | null>(null)
@@ -148,8 +154,24 @@ function DashboardTab() {
   const s = data?.summary
   const items = (data?.items || []).slice().sort((a, b) => {
     const direction = sortDir === 'desc' ? -1 : 1
-    const aValue = a[sortKey]
-    const bValue = b[sortKey]
+
+    let aValue: number
+    let bValue: number
+
+    switch (sortKey) {
+      case 'adSpend':
+        aValue = a.adSpend
+        bValue = b.adSpend
+        break
+      case 'tacos':
+        aValue = a.revenue > 0 ? (a.adSpend / a.revenue) * 100 : -1
+        bValue = b.revenue > 0 ? (b.adSpend / b.revenue) * 100 : -1
+        break
+      default:
+        aValue = a[sortKey]
+        bValue = b[sortKey]
+        break
+    }
 
     if (aValue === bValue) return 0
     return aValue > bValue ? direction : -direction
@@ -210,7 +232,12 @@ function DashboardTab() {
                   </th>
                   <th className="px-4 py-3 text-right">Landed Cost</th>
                   <th className="px-4 py-3 text-right">Amazon Fees</th>
-                  <th className="px-4 py-3 text-right">Ad Spend</th>
+                  <th className="px-4 py-3 text-right cursor-pointer select-none" onClick={() => handleSort('adSpend')}>
+                    Ad Spend{sortKey === 'adSpend' ? (sortDir === 'desc' ? ' ↓' : ' ↑') : ''}
+                  </th>
+                  <th className="px-4 py-3 text-right hidden md:table-cell cursor-pointer select-none" onClick={() => handleSort('tacos')}>
+                    TACoS{sortKey === 'tacos' ? (sortDir === 'desc' ? ' ↓' : ' ↑') : ''}
+                  </th>
                   <th className="px-4 py-3 text-right cursor-pointer select-none" onClick={() => handleSort('netProfit')}>
                     净利润{sortKey === 'netProfit' ? (sortDir === 'desc' ? ' ↓' : ' ↑') : ''}
                   </th>
@@ -220,31 +247,46 @@ function DashboardTab() {
                 </tr>
               </thead>
               <tbody>
-                {items.map((item, i) => (
-                  <tr
-                    key={item.sku + i}
-                    className={cn(
-                      'border-b border-[hsl(var(--border))] last:border-0 hover:bg-[hsl(var(--secondary)/0.5)] transition-colors',
-                      item.netProfit < 0 && 'bg-rose-500/10'
-                    )}
-                  >
-                    <td className="px-5 py-3">
-                      <p className="font-medium text-slate-900 truncate max-w-[220px]">{item.productName || item.sku}</p>
-                      <p className="text-[10px] text-[hsl(var(--muted-foreground))]">{item.sku}</p>
-                    </td>
-                    <td className="px-4 py-3 text-right text-slate-900 hidden md:table-cell">{item.unitsSold.toLocaleString()}</td>
-                    <td className="px-4 py-3 text-right text-slate-900">{fmtUSD(item.revenue)}</td>
-                    <td className="px-4 py-3 text-right text-[hsl(var(--muted-foreground))]">{fmtUSD(item.landedCost)}</td>
-                    <td className="px-4 py-3 text-right text-[hsl(var(--muted-foreground))]">{fmtUSD(item.fbaFee + item.referralFee)}</td>
-                    <td className="px-4 py-3 text-right text-[hsl(var(--muted-foreground))]">{fmtUSD(item.adSpend)}</td>
-                    <td className={cn('px-4 py-3 text-right font-semibold', item.netProfit >= 0 ? 'text-emerald-600' : 'text-rose-600')}>
-                      {fmtUSD(item.netProfit)}
-                    </td>
-                    <td className={cn('px-4 py-3 text-right font-medium', marginColor(item.profitMargin))}>
-                      {fmtPct(item.profitMargin)}
-                    </td>
-                  </tr>
-                ))}
+                {items.map((item, i) => {
+                  const tacos = item.revenue > 0 ? (item.adSpend / item.revenue) * 100 : null
+
+                  return (
+                    <tr
+                      key={item.sku + i}
+                      className={cn(
+                        'border-b border-[hsl(var(--border))] last:border-0 hover:bg-[hsl(var(--secondary)/0.5)] transition-colors',
+                        item.netProfit < 0 && 'bg-rose-500/10',
+                        item.landedCost === 0 && 'bg-amber-50 dark:bg-amber-950/20'
+                      )}
+                    >
+                      <td className="px-5 py-3">
+                        <div className="flex items-center gap-2">
+                          <p className="font-medium text-slate-900 truncate max-w-[220px]">{item.productName || item.sku}</p>
+                          {item.landedCost === 0 && (
+                            <span className="inline-flex items-center rounded-full bg-amber-100 px-2 py-0.5 text-[10px] font-medium text-amber-700 dark:bg-amber-950/40 dark:text-amber-300">
+                              ⚠ 成本未录入
+                            </span>
+                          )}
+                        </div>
+                        <p className="text-[10px] text-[hsl(var(--muted-foreground))]">{item.sku}</p>
+                      </td>
+                      <td className="px-4 py-3 text-right text-slate-900 hidden md:table-cell">{item.unitsSold.toLocaleString()}</td>
+                      <td className="px-4 py-3 text-right text-slate-900">{fmtUSD(item.revenue)}</td>
+                      <td className="px-4 py-3 text-right text-[hsl(var(--muted-foreground))]">{fmtUSD(item.landedCost)}</td>
+                      <td className="px-4 py-3 text-right text-[hsl(var(--muted-foreground))]">{fmtUSD(item.fbaFee + item.referralFee)}</td>
+                      <td className="px-4 py-3 text-right text-[hsl(var(--muted-foreground))]">{fmtUSD(item.adSpend)}</td>
+                      <td className={cn('px-4 py-3 text-right font-medium hidden md:table-cell', tacos !== null && tacosColor(tacos))}>
+                        {tacos !== null ? `${tacos.toFixed(1)}%` : '—'}
+                      </td>
+                      <td className={cn('px-4 py-3 text-right font-semibold', item.netProfit >= 0 ? 'text-emerald-600' : 'text-rose-600')}>
+                        {fmtUSD(item.netProfit)}
+                      </td>
+                      <td className={cn('px-4 py-3 text-right font-medium', marginColor(item.profitMargin))}>
+                        {fmtPct(item.profitMargin)}
+                      </td>
+                    </tr>
+                  )
+                })}
               </tbody>
             </table>
           </div>
@@ -268,6 +310,7 @@ function CogsEditorTab() {
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
   const [loadingProducts, setLoadingProducts] = useState(false)
+  const [loadError, setLoadError] = useState<string | null>(null)
   const [saveMsg, setSaveMsg] = useState('')
 
   useEffect(() => {
@@ -278,6 +321,7 @@ function CogsEditorTab() {
   }, [])
 
   const loadProducts = async () => {
+    setLoadError(null)
     setLoadingProducts(true)
     try {
       const res = await fetch('/api/content/products')
@@ -295,6 +339,7 @@ function CogsEditorTab() {
       }))
       setItems(newItems)
     } catch (e) {
+      setLoadError('无法加载产品库，请检查 content API')
       console.error(e)
     } finally {
       setLoadingProducts(false)
@@ -372,6 +417,12 @@ function CogsEditorTab() {
             重新加载产品列表
           </button>
         </div>
+        {loadError && (
+          <div className="px-5 pt-4 text-amber-600 text-sm flex items-center gap-1">
+            <AlertTriangle className="h-4 w-4" />
+            {loadError}
+          </div>
+        )}
         <div className="overflow-x-auto">
           <table className="w-full text-sm border-collapse">
             <thead>
