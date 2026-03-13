@@ -666,55 +666,94 @@ const HIGHLIGHT_DOM_COLORS: Record<string, { bg: string; border: string }> = {
   research: { bg: 'rgba(168, 85, 247, 0.25)',  border: 'rgba(168, 85, 247, 0.65)' },
 }
 
+function createHighlightMark(id: string, type: string, colors: { bg: string; border: string }) {
+  const mark = document.createElement('mark')
+  mark.setAttribute('data-highlight-id', id)
+  mark.setAttribute('data-highlight-type', type)
+  mark.style.cssText = `background-color:${colors.bg};border-bottom:2px solid ${colors.border};border-radius:2px;padding:0 1px;cursor:default;`
+  const ht = getHighlightType(type)
+  mark.title = `${ht.emoji} ${ht.label}`
+  return mark
+}
+
 function highlightTextInDom(container: Element, snippet: string, id: string, type: string) {
   if (!snippet || snippet.length < 3) return
   const colors = HIGHLIGHT_DOM_COLORS[type] ?? HIGHLIGHT_DOM_COLORS['idea']
-  // Normalize whitespace for flexible matching (handles newlines, multiple spaces, etc.)
   const normSnippet = snippet.replace(/\s+/g, ' ').trim().toLowerCase()
   if (!normSnippet) return
 
+  // 1. Collect all text nodes (skip nodes already inside a highlight mark)
+  const textNodes: { node: Text; start: number; end: number }[] = []
   const walker = document.createTreeWalker(container, NodeFilter.SHOW_TEXT)
+  let totalLen = 0
   let node: Node | null
   while ((node = walker.nextNode())) {
-    const rawText = node.textContent || ''
-    if (rawText.replace(/\s+/g, ' ').length < normSnippet.length) continue
-    // Skip if already inside a highlight mark
     if ((node.parentElement as Element)?.closest?.('mark[data-highlight-id]')) continue
+    const text = node.textContent || ''
+    textNodes.push({ node: node as Text, start: totalLen, end: totalLen + text.length })
+    totalLen += text.length
+  }
 
-    // Build norm→raw index map (consecutive whitespace collapses to single space)
-    const normToRaw: number[] = []
-    let prevWasSpace = false
-    for (let i = 0; i < rawText.length; i++) {
-      if (/\s/.test(rawText[i])) {
-        if (!prevWasSpace) { normToRaw.push(i); prevWasSpace = true }
-      } else {
-        normToRaw.push(i); prevWasSpace = false
-      }
+  if (!textNodes.length) return
+
+  // 2. Build concatenated text + charMap (rawIdx → { nodeIdx, offset })
+  let fullText = ''
+  const charMap: { nodeIdx: number; offset: number }[] = []
+  for (let ni = 0; ni < textNodes.length; ni++) {
+    const raw = textNodes[ni].node.textContent || ''
+    for (let ci = 0; ci < raw.length; ci++) {
+      fullText += raw[ci]
+      charMap.push({ nodeIdx: ni, offset: ci })
     }
+  }
 
-    const normText = rawText.replace(/\s+/g, ' ').toLowerCase()
-    const normIdx = normText.indexOf(normSnippet)
-    if (normIdx === -1) continue
+  // 3. Build norm→raw index map (collapse consecutive whitespace)
+  const normToRaw: number[] = []
+  let prevWasSpace = false
+  for (let i = 0; i < fullText.length; i++) {
+    if (/\s/.test(fullText[i])) {
+      if (!prevWasSpace) { normToRaw.push(i); prevWasSpace = true }
+    } else {
+      normToRaw.push(i); prevWasSpace = false
+    }
+  }
 
-    const rawStart = normToRaw[normIdx] ?? 0
-    const normEnd = normIdx + normSnippet.length
-    const rawEnd = normEnd < normToRaw.length ? normToRaw[normEnd] : rawText.length
+  const normFull = fullText.replace(/\s+/g, ' ').toLowerCase()
+  const normIdx = normFull.indexOf(normSnippet)
+  if (normIdx === -1) return
 
+  const rawStart = normToRaw[normIdx] ?? 0
+  const rawEnd = (normIdx + normSnippet.length < normToRaw.length)
+    ? normToRaw[normIdx + normSnippet.length]
+    : fullText.length
+
+  // 4. Map raw positions back to text nodes
+  const startChar = charMap[rawStart]
+  const endChar = charMap[Math.min(rawEnd - 1, charMap.length - 1)]
+  if (!startChar || !endChar) return
+
+  // Single node: simple surroundContents
+  if (startChar.nodeIdx === endChar.nodeIdx) {
     try {
       const range = document.createRange()
-      range.setStart(node, rawStart)
-      range.setEnd(node, rawEnd)
-      const mark = document.createElement('mark')
-      mark.setAttribute('data-highlight-id', id)
-      mark.setAttribute('data-highlight-type', type)
-      mark.style.cssText = `background-color:${colors.bg};border-bottom:2px solid ${colors.border};border-radius:2px;padding:0 1px;cursor:default;`
-      const ht = getHighlightType(type)
-      mark.title = `${ht.emoji} ${ht.label}`
-      range.surroundContents(mark)
-      break // first occurrence only
-    } catch {
-      // surroundContents throws when range crosses element boundaries — skip
-    }
+      range.setStart(textNodes[startChar.nodeIdx].node, startChar.offset)
+      range.setEnd(textNodes[startChar.nodeIdx].node, endChar.offset + 1)
+      range.surroundContents(createHighlightMark(id, type, colors))
+    } catch { /* range crosses element boundary — ignore */ }
+    return
+  }
+
+  // Multi-node: wrap each involved text node segment independently
+  for (let ni = startChar.nodeIdx; ni <= endChar.nodeIdx; ni++) {
+    try {
+      const tn = textNodes[ni]
+      const segStart = ni === startChar.nodeIdx ? startChar.offset : 0
+      const segEnd = ni === endChar.nodeIdx ? endChar.offset + 1 : (tn.node.textContent?.length || 0)
+      const range = document.createRange()
+      range.setStart(tn.node, segStart)
+      range.setEnd(tn.node, segEnd)
+      range.surroundContents(createHighlightMark(id, type, colors))
+    } catch { /* skip segments that throw */ }
   }
 }
 
@@ -2126,6 +2165,7 @@ function HighlightsTab({
   const [loading, setLoading] = useState(true)
   const [filterType, setFilterType] = useState('all')
   const [filterStatus, setFilterStatus] = useState('all')
+  const [loadingStatusIds, setLoadingStatusIds] = useState<Set<string>>(new Set())
   const [viewMode, setViewMode] = useState<'list' | 'grid'>(() => {
     if (typeof window === 'undefined') return 'list'
     return (localStorage.getItem('highlights-view-mode') as 'list' | 'grid') ?? 'list'
@@ -2152,8 +2192,12 @@ function HighlightsTab({
   }
 
   const handleStatusChange = async (h: ReportHighlight) => {
+    if (loadingStatusIds.has(h.id)) return // prevent double-click
     const cycle: Record<string, string> = { open: 'in_progress', in_progress: 'done', done: 'open' }
     const newStatus = cycle[h.status] ?? 'open'
+    // Optimistic update for immediate visual feedback
+    setHighlights(prev => prev.map(x => x.id === h.id ? { ...x, status: newStatus } : x))
+    setLoadingStatusIds(prev => { const next = new Set(prev); next.add(h.id); return next })
     try {
       const res = await fetch(`/api/report-highlights/${h.id}`, {
         method: 'PATCH',
@@ -2162,7 +2206,13 @@ function HighlightsTab({
       })
       const updated = await res.json()
       setHighlights(prev => prev.map(x => x.id === h.id ? updated : x))
-    } catch (e) { console.error(e) }
+    } catch (e) {
+      console.error(e)
+      // Revert optimistic update on error
+      setHighlights(prev => prev.map(x => x.id === h.id ? h : x))
+    } finally {
+      setLoadingStatusIds(prev => { const next = new Set(prev); next.delete(h.id); return next })
+    }
   }
 
   const filtered = highlights
@@ -2195,17 +2245,17 @@ function HighlightsTab({
       {/* Filters */}
       <div className="flex flex-wrap items-center gap-2">
         <div className="flex items-center gap-1 p-0.5 rounded-lg bg-secondary/60 border border-border">
-          <button onClick={() => setFilterType('all')} className={cn('px-2.5 py-1 rounded-md text-xs font-medium transition-colors', filterType === 'all' ? 'bg-white dark:bg-slate-800 text-foreground shadow-sm' : 'text-muted-foreground hover:text-foreground')}>全部</button>
+          <button onClick={() => setFilterType('all')} className={cn('px-2.5 py-1 rounded-md text-xs font-medium transition-colors', filterType === 'all' ? 'bg-primary/15 text-primary font-semibold' : 'text-muted-foreground hover:text-foreground')}>全部</button>
           {HIGHLIGHT_TYPES.map(t => (
-            <button key={t.id} onClick={() => setFilterType(filterType === t.id ? 'all' : t.id)} className={cn('px-2.5 py-1 rounded-md text-xs font-medium transition-colors', filterType === t.id ? 'bg-white dark:bg-slate-800 text-foreground shadow-sm' : 'text-muted-foreground hover:text-foreground')}>
+            <button key={t.id} onClick={() => setFilterType(filterType === t.id ? 'all' : t.id)} className={cn('px-2.5 py-1 rounded-md text-xs font-medium transition-colors', filterType === t.id ? 'bg-primary/15 text-primary font-semibold' : 'text-muted-foreground hover:text-foreground')}>
               {t.emoji} {t.label}
             </button>
           ))}
         </div>
         <div className="flex items-center gap-1 p-0.5 rounded-lg bg-secondary/60 border border-border">
           {(['all', 'open', 'in_progress', 'done'] as const).map(s => (
-            <button key={s} onClick={() => setFilterStatus(s === filterStatus ? 'all' : s)} className={cn('px-2.5 py-1 rounded-md text-xs font-medium transition-colors', filterStatus === s ? 'bg-white dark:bg-slate-800 text-foreground shadow-sm' : 'text-muted-foreground hover:text-foreground')}>
-              {s === 'all' ? '全部' : s === 'open' ? '待办' : s === 'in_progress' ? '进行中' : '已完成'}
+            <button key={s} onClick={() => setFilterStatus(s === filterStatus ? 'all' : s)} className={cn('px-2.5 py-1 rounded-md text-xs font-medium transition-colors', filterStatus === s ? 'bg-primary/15 text-primary font-semibold' : 'text-muted-foreground hover:text-foreground')}>
+              {s === 'all' ? '全部' : s === 'open' ? '⭕ 待办' : s === 'in_progress' ? '🔄 进行中' : '✅ 已完成'}
             </button>
           ))}
         </div>
@@ -2213,14 +2263,14 @@ function HighlightsTab({
         <div className="ml-auto flex items-center gap-0.5 p-0.5 rounded-lg bg-secondary/60 border border-border">
           <button
             onClick={() => { setViewMode('list'); localStorage.setItem('highlights-view-mode', 'list') }}
-            className={cn('p-1.5 rounded-md transition-colors', viewMode === 'list' ? 'bg-white dark:bg-slate-800 text-foreground shadow-sm' : 'text-muted-foreground hover:text-foreground')}
+            className={cn('p-1.5 rounded-md transition-colors', viewMode === 'list' ? 'bg-primary/15 text-primary' : 'text-muted-foreground hover:text-foreground')}
             title="列表视图"
           >
             <List className="w-3.5 h-3.5"/>
           </button>
           <button
             onClick={() => { setViewMode('grid'); localStorage.setItem('highlights-view-mode', 'grid') }}
-            className={cn('p-1.5 rounded-md transition-colors', viewMode === 'grid' ? 'bg-white dark:bg-slate-800 text-foreground shadow-sm' : 'text-muted-foreground hover:text-foreground')}
+            className={cn('p-1.5 rounded-md transition-colors', viewMode === 'grid' ? 'bg-primary/15 text-primary' : 'text-muted-foreground hover:text-foreground')}
             title="网格视图"
           >
             <LayoutGrid className="w-3.5 h-3.5"/>
@@ -2238,23 +2288,47 @@ function HighlightsTab({
           <p className="text-sm">打开报告，选中文字，点击 💡 ✅ 📌 🔍 创建标记</p>
         </div>
       ) : filtered.length === 0 ? (
-        <div className="flex items-center justify-center py-10 text-muted-foreground text-sm">没有匹配的标记</div>
+        <div className="flex flex-col items-center justify-center py-12 gap-2 text-muted-foreground">
+          <Filter className="w-8 h-8 opacity-40"/>
+          <p className="text-sm font-medium">
+            {filterStatus !== 'all'
+              ? `没有「${filterStatus === 'open' ? '待办' : filterStatus === 'in_progress' ? '进行中' : '已完成'}」的 Highlights`
+              : filterType !== 'all'
+              ? `没有「${getHighlightType(filterType).label}」类型的 Highlights`
+              : '没有匹配的 Highlights'}
+          </p>
+          <button
+            onClick={() => { setFilterType('all'); setFilterStatus('all') }}
+            className="text-xs text-primary hover:underline mt-1"
+          >
+            清除筛选
+          </button>
+        </div>
       ) : viewMode === 'grid' ? (
         /* Grid view */
         <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-3">
           {filtered.map(h => {
             const hType = getHighlightType(h.type)
             const isDone = h.status === 'done'
-            const statusIcon = h.status === 'done' ? <CheckCircle2 className="w-3.5 h-3.5"/> : h.status === 'in_progress' ? <Clock className="w-3.5 h-3.5"/> : <Circle className="w-3.5 h-3.5"/>
-            const statusColor = h.status === 'done' ? 'text-emerald-500 hover:bg-emerald-50 dark:hover:bg-emerald-900/20' : h.status === 'in_progress' ? 'text-amber-500 hover:bg-amber-50 dark:hover:bg-amber-900/20' : 'text-muted-foreground hover:text-blue-500 hover:bg-blue-50 dark:hover:bg-blue-900/20'
-            const statusTitle = h.status === 'open' ? '标记进行中' : h.status === 'in_progress' ? '标记完成' : '重置为待办'
+            const isLoadingStatus = loadingStatusIds.has(h.id)
+            const statusIcon = h.status === 'done'
+              ? <CheckCircle2 className="w-3.5 h-3.5"/>
+              : h.status === 'in_progress'
+              ? <RefreshCw className={cn('w-3.5 h-3.5', isLoadingStatus && 'animate-spin')}/>
+              : <Circle className="w-3.5 h-3.5"/>
+            const statusColor = h.status === 'done'
+              ? 'text-emerald-500 hover:bg-emerald-50 dark:hover:bg-emerald-900/20'
+              : h.status === 'in_progress'
+              ? 'text-blue-500 hover:bg-blue-50 dark:hover:bg-blue-900/20'
+              : 'text-slate-400 hover:text-slate-600 hover:bg-slate-100 dark:hover:bg-slate-800'
+            const statusTitle = h.status === 'open' ? '⭕ 待办 → 点击标记进行中' : h.status === 'in_progress' ? '🔄 进行中 → 点击标记完成' : '✅ 已完成 → 点击重置为待办'
             return (
               <div key={h.id} className={cn('group rounded-xl border border-border bg-card p-3 flex flex-col gap-2 transition-all hover:border-primary/30', isDone && 'opacity-60')}>
                 <div className="flex items-center gap-2">
                   <span className="text-base">{hType.emoji}</span>
                   <span className="text-xs font-semibold text-muted-foreground">{hType.label}</span>
                   <div className="ml-auto flex items-center gap-1">
-                    <button onClick={() => handleStatusChange(h)} className={cn('p-1 rounded-md transition-colors', statusColor)} title={statusTitle}>{statusIcon}</button>
+                    <button onClick={() => handleStatusChange(h)} disabled={isLoadingStatus} className={cn('p-1 rounded-md transition-colors', statusColor, isLoadingStatus && 'opacity-50 cursor-not-allowed')} title={statusTitle}>{statusIcon}</button>
                     <button onClick={() => handleDelete(h.id)} className="p-1 rounded-md text-muted-foreground hover:text-destructive hover:bg-destructive/10 transition-colors opacity-0 group-hover:opacity-100" title="删除"><Trash2 className="w-3.5 h-3.5"/></button>
                   </div>
                 </div>
@@ -2287,9 +2361,18 @@ function HighlightsTab({
           {filtered.map(h => {
             const hType = getHighlightType(h.type)
             const isDone = h.status === 'done'
-            const statusIcon = h.status === 'done' ? <CheckCircle2 className="w-4 h-4"/> : h.status === 'in_progress' ? <Clock className="w-4 h-4"/> : <Circle className="w-4 h-4"/>
-            const statusColor = h.status === 'done' ? 'text-emerald-500 hover:bg-emerald-50 dark:hover:bg-emerald-900/20' : h.status === 'in_progress' ? 'text-amber-500 hover:bg-amber-50 dark:hover:bg-amber-900/20' : 'text-muted-foreground hover:text-blue-500 hover:bg-blue-50 dark:hover:bg-blue-900/20'
-            const statusTitle = h.status === 'open' ? '标记进行中' : h.status === 'in_progress' ? '标记完成' : '重置为待办'
+            const isLoadingStatus = loadingStatusIds.has(h.id)
+            const statusIcon = h.status === 'done'
+              ? <CheckCircle2 className="w-4 h-4"/>
+              : h.status === 'in_progress'
+              ? <RefreshCw className={cn('w-4 h-4', isLoadingStatus && 'animate-spin')}/>
+              : <Circle className="w-4 h-4"/>
+            const statusColor = h.status === 'done'
+              ? 'text-emerald-500 hover:bg-emerald-50 dark:hover:bg-emerald-900/20'
+              : h.status === 'in_progress'
+              ? 'text-blue-500 hover:bg-blue-50 dark:hover:bg-blue-900/20'
+              : 'text-slate-400 hover:text-slate-600 hover:bg-slate-100 dark:hover:bg-slate-800'
+            const statusTitle = h.status === 'open' ? '⭕ 待办 → 点击标记进行中' : h.status === 'in_progress' ? '🔄 进行中 → 点击标记完成' : '✅ 已完成 → 点击重置为待办'
             return (
               <div
                 key={h.id}
@@ -2342,7 +2425,8 @@ function HighlightsTab({
                     {/* Status toggle — all types */}
                     <button
                       onClick={() => handleStatusChange(h)}
-                      className={cn('p-1.5 rounded-lg transition-colors', statusColor)}
+                      disabled={isLoadingStatus}
+                      className={cn('p-1.5 rounded-lg transition-colors', statusColor, isLoadingStatus && 'opacity-50 cursor-not-allowed')}
                       title={statusTitle}
                     >
                       {statusIcon}
