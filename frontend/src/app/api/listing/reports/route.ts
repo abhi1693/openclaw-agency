@@ -16,6 +16,14 @@ function ensureDir() {
   if (!fs.existsSync(REPORTS_DIR)) fs.mkdirSync(REPORTS_DIR, { recursive: true })
 }
 
+function extractTitle(filePath: string): string | null {
+  try {
+    const content = fs.readFileSync(filePath, 'utf-8')
+    const match = content.match(/^#\s+(.+)$/m)
+    return match ? match[1].trim() : null
+  } catch { return null }
+}
+
 function isAsin(s: string): boolean {
   return /^[A-Z0-9]{10}$/.test(s)
 }
@@ -73,6 +81,7 @@ export async function GET(request: Request) {
           date,
           sizeKb: Math.ceil(stat.size / 1024),
           modifiedAt: stat.mtime.toISOString(),
+          title: extractTitle(path.join(REPORTS_DIR, f)) ?? null,
         }
       })
       .sort((a, b) => b.modifiedAt.localeCompare(a.modifiedAt))

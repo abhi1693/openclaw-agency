@@ -21,6 +21,14 @@ function ensureDir() {
   if (!fs.existsSync(PPC_DIR)) fs.mkdirSync(PPC_DIR, { recursive: true })
 }
 
+function extractTitle(filePath: string): string | null {
+  try {
+    const content = fs.readFileSync(filePath, 'utf-8')
+    const match = content.match(/^#\s+(.+)$/m)
+    return match ? match[1].trim() : null
+  } catch { return null }
+}
+
 function parseFilename(filename: string) {
   const base = filename.replace('.md', '')
   const dateMatch = base.match(/(\d{4}-\d{2}-\d{2})$/)
@@ -60,6 +68,7 @@ export async function GET(request: Request) {
           date,
           sizeKb: Math.ceil(stat.size / 1024),
           modifiedAt: stat.mtime.toISOString(),
+          title: extractTitle(path.join(PPC_DIR, f)) ?? null,
         }
       })
       .sort((a, b) => b.date.localeCompare(a.date) || b.modifiedAt.localeCompare(a.modifiedAt))

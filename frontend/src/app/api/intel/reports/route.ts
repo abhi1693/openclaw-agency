@@ -24,6 +24,14 @@ function resolveDir(type: string) {
   return type === 'weekly' ? WEEKLY_DIR : DAILY_DIR
 }
 
+function extractTitle(filePath: string): string | null {
+  try {
+    const content = fs.readFileSync(filePath, 'utf-8')
+    const match = content.match(/^#\s+(.+)$/m)
+    return match ? match[1].trim() : null
+  } catch { return null }
+}
+
 function extractDate(filename: string, mtime: Date): string {
   const base = filename.replace('.md', '')
   const daily = base.match(/^(\d{4}-\d{2}-\d{2})$/)
@@ -68,6 +76,7 @@ export async function GET(request: Request) {
             date,
             sizeKb: Math.ceil(stat.size / 1024),
             modifiedAt: stat.mtime.toISOString(),
+            title: extractTitle(path.join(dir, f)) ?? null,
           }
         })
     }

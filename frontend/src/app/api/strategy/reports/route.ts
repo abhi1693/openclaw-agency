@@ -40,6 +40,14 @@ function parseFilename(filename: string, mtime?: Date) {
   return { prefix: base, date: fallbackDate }
 }
 
+function extractTitle(filePath: string): string | null {
+  try {
+    const content = fs.readFileSync(filePath, 'utf-8')
+    const match = content.match(/^#\s+(.+)$/m)
+    return match ? match[1].trim() : null
+  } catch { return null }
+}
+
 function listDir(dir: string): Array<{ filename: string; dir: string; stat: fs.Stats }> {
   if (!fs.existsSync(dir)) return []
   try {
@@ -81,7 +89,7 @@ export async function GET(request: Request) {
     for (const item of listDir(STRATEGY_DIR)) seen.set(item.filename, item)
 
     const files = Array.from(seen.values())
-      .map(({ filename, stat }) => {
+      .map(({ filename, dir, stat }) => {
         const { prefix, date } = parseFilename(filename, stat.mtime)
         return {
           filename,
@@ -89,6 +97,7 @@ export async function GET(request: Request) {
           date,
           sizeKb: Math.ceil(stat.size / 1024),
           modifiedAt: stat.mtime.toISOString(),
+          title: extractTitle(path.join(dir, filename)) ?? null,
         }
       })
       .sort((a, b) => b.date.localeCompare(a.date) || b.modifiedAt.localeCompare(a.modifiedAt))

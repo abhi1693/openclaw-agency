@@ -71,11 +71,11 @@ export function DashboardSidebar() {
 
   return (
     <aside className="fixed inset-y-0 left-0 z-40 flex w-[280px] -translate-x-full flex-col border-r border-slate-200 bg-white pt-16 shadow-lg transition-transform duration-200 ease-in-out [[data-sidebar=open]_&]:translate-x-0 md:relative md:inset-auto md:z-auto md:w-[260px] md:translate-x-0 md:pt-0 md:shadow-none md:transition-none">
-      <div className="flex-1 px-3 py-4">
+      <div className="flex-1 px-3 py-3">
         <p className="px-3 text-xs font-semibold uppercase tracking-wider text-slate-500">
           Navigation
         </p>
-        <nav className="mt-3 space-y-4 text-sm">
+        <nav className="mt-3 space-y-3 text-sm">
           <div>
             <p className="px-3 text-[11px] font-semibold uppercase tracking-wider text-slate-400">
               Overview
@@ -84,7 +84,7 @@ export function DashboardSidebar() {
               <Link
                 href="/dashboard"
                 className={cn(
-                  "flex items-center gap-3 rounded-lg px-3 py-2.5 text-slate-700 transition",
+                  "flex items-center gap-3 rounded-lg px-3 py-1.5 text-slate-700 transition",
                   pathname === "/dashboard"
                     ? "bg-blue-100 text-blue-800 font-medium"
                     : "hover:bg-slate-100",
@@ -96,7 +96,7 @@ export function DashboardSidebar() {
               <Link
                 href="/activity"
                 className={cn(
-                  "flex items-center gap-3 rounded-lg px-3 py-2.5 text-slate-700 transition",
+                  "flex items-center gap-3 rounded-lg px-3 py-1.5 text-slate-700 transition",
                   pathname.startsWith("/activity")
                     ? "bg-blue-100 text-blue-800 font-medium"
                     : "hover:bg-slate-100",
@@ -116,7 +116,7 @@ export function DashboardSidebar() {
               <Link
                 href="/board-groups"
                 className={cn(
-                  "flex items-center gap-3 rounded-lg px-3 py-2.5 text-slate-700 transition",
+                  "flex items-center gap-3 rounded-lg px-3 py-1.5 text-slate-700 transition",
                   pathname.startsWith("/board-groups")
                     ? "bg-blue-100 text-blue-800 font-medium"
                     : "hover:bg-slate-100",
@@ -128,7 +128,7 @@ export function DashboardSidebar() {
               <Link
                 href="/boards"
                 className={cn(
-                  "flex items-center gap-3 rounded-lg px-3 py-2.5 text-slate-700 transition",
+                  "flex items-center gap-3 rounded-lg px-3 py-1.5 text-slate-700 transition",
                   pathname.startsWith("/boards")
                     ? "bg-blue-100 text-blue-800 font-medium"
                     : "hover:bg-slate-100",
@@ -140,7 +140,7 @@ export function DashboardSidebar() {
               <Link
                 href="/tags"
                 className={cn(
-                  "flex items-center gap-3 rounded-lg px-3 py-2.5 text-slate-700 transition",
+                  "flex items-center gap-3 rounded-lg px-3 py-1.5 text-slate-700 transition",
                   pathname.startsWith("/tags")
                     ? "bg-blue-100 text-blue-800 font-medium"
                     : "hover:bg-slate-100",
@@ -152,7 +152,7 @@ export function DashboardSidebar() {
               <Link
                 href="/approvals"
                 className={cn(
-                  "flex items-center gap-3 rounded-lg px-3 py-2.5 text-slate-700 transition",
+                  "flex items-center gap-3 rounded-lg px-3 py-1.5 text-slate-700 transition",
                   pathname.startsWith("/approvals")
                     ? "bg-blue-100 text-blue-800 font-medium"
                     : "hover:bg-slate-100",
@@ -188,17 +188,13 @@ export function DashboardSidebar() {
                         key={item.href}
                         href={item.href}
                         className={cn(
-                          "flex items-start gap-3 rounded-lg px-3 py-2.5 text-slate-700 transition",
+                          "flex items-center gap-3 rounded-lg px-3 py-1.5 text-slate-700 transition",
                           active ? "bg-blue-100 text-blue-800 font-medium" : "hover:bg-slate-100",
                         )}
                       >
-                        <Icon className="mt-0.5 h-4 w-4 shrink-0" />
-                        <div className="min-w-0">
-                          <div>{item.label}</div>
-                          <div className={cn("text-xs", active ? "text-blue-700" : "text-slate-500")}>
-                            {item.sub}
-                          </div>
-                        </div>
+                        <Icon className="h-4 w-4 shrink-0" />
+                        <span className="font-medium">{item.label}</span>
+                        <span className={cn("ml-0.5 text-xs", active ? "text-blue-700" : "text-slate-500")}>{item.sub}</span>
                       </Link>
                     );
                   })}
@@ -208,7 +204,7 @@ export function DashboardSidebar() {
                 <Link
                   href="/custom-fields"
                   className={cn(
-                    "flex items-center gap-3 rounded-lg px-3 py-2.5 text-slate-700 transition",
+                    "flex items-center gap-3 rounded-lg px-3 py-1.5 text-slate-700 transition",
                     pathname.startsWith("/custom-fields")
                       ? "bg-blue-100 text-blue-800 font-medium"
                       : "hover:bg-slate-100",
@@ -231,7 +227,7 @@ export function DashboardSidebar() {
                   <Link
                     href="/skills/marketplace"
                     className={cn(
-                      "flex items-center gap-3 rounded-lg px-3 py-2.5 text-slate-700 transition",
+                      "flex items-center gap-3 rounded-lg px-3 py-1.5 text-slate-700 transition",
                       pathname === "/skills" ||
                         pathname.startsWith("/skills/marketplace")
                         ? "bg-blue-100 text-blue-800 font-medium"
@@ -244,7 +240,7 @@ export function DashboardSidebar() {
                   <Link
                     href="/skills/packs"
                     className={cn(
-                      "flex items-center gap-3 rounded-lg px-3 py-2.5 text-slate-700 transition",
+                      "flex items-center gap-3 rounded-lg px-3 py-1.5 text-slate-700 transition",
                       pathname.startsWith("/skills/packs")
                         ? "bg-blue-100 text-blue-800 font-medium"
                         : "hover:bg-slate-100",
@@ -266,7 +262,7 @@ export function DashboardSidebar() {
               <Link
                 href="/organization"
                 className={cn(
-                  "flex items-center gap-3 rounded-lg px-3 py-2.5 text-slate-700 transition",
+                  "flex items-center gap-3 rounded-lg px-3 py-1.5 text-slate-700 transition",
                   pathname.startsWith("/organization")
                     ? "bg-blue-100 text-blue-800 font-medium"
                     : "hover:bg-slate-100",
@@ -279,7 +275,7 @@ export function DashboardSidebar() {
                 <Link
                   href="/gateways"
                   className={cn(
-                    "flex items-center gap-3 rounded-lg px-3 py-2.5 text-slate-700 transition",
+                    "flex items-center gap-3 rounded-lg px-3 py-1.5 text-slate-700 transition",
                     pathname.startsWith("/gateways")
                       ? "bg-blue-100 text-blue-800 font-medium"
                       : "hover:bg-slate-100",
@@ -293,7 +289,7 @@ export function DashboardSidebar() {
                 <Link
                   href="/agents"
                   className={cn(
-                    "flex items-center gap-3 rounded-lg px-3 py-2.5 text-slate-700 transition",
+                    "flex items-center gap-3 rounded-lg px-3 py-1.5 text-slate-700 transition",
                     pathname.startsWith("/agents")
                       ? "bg-blue-100 text-blue-800 font-medium"
                       : "hover:bg-slate-100",

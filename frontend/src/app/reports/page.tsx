@@ -146,6 +146,7 @@ interface ListingReportFile {
   date:       string
   sizeKb:     number
   modifiedAt: string
+  title?:     string | null
 }
 
 const LISTING_READ_KEY = 'listing-reports-read'
@@ -337,41 +338,42 @@ function ListingTab() {
       ) : (
         <div className="flex gap-4">
           {/* Left panel — collapsible */}
-          <div className={cn('flex flex-col gap-3 flex-shrink-0 transition-all duration-200 overflow-hidden', panelCollapsed ? 'w-[48px]' : 'w-[280px]', mobileShowContent ? 'hidden md:flex' : 'flex')}>
-            {/* Toggle button */}
-            <button
-              onClick={() => setPanelCollapsed(!panelCollapsed)}
-              className="flex items-center justify-center w-full py-1.5 rounded-lg hover:bg-[hsl(var(--secondary))] text-[hsl(var(--muted-foreground))] transition-colors"
-              title={panelCollapsed ? '展开面板' : '收起面板'}
-            >
-              {panelCollapsed ? <PanelLeftOpen className="w-4 h-4"/> : <PanelLeftClose className="w-4 h-4"/>}
-            </button>
-
-            {panelCollapsed ? (
-              /* Collapsed: icon list */
-              <div className="h-[calc(100vh-280px)] overflow-y-auto space-y-1">
-                {Object.entries(byAsin).map(([asin, asinFiles]) => {
-                  const nickname = ASIN_NICKNAMES[asin]
-                  return asinFiles.map(f => {
-                    const isActive = selected?.filename === f.filename
-                    const isRead = readSet.has(f.filename)
-                    return (
-                      <button
-                        key={f.filename}
-                        onClick={() => setSelected(f)}
-                        title={`${nickname ?? asin} — ${f.filename}`}
-                        className={`w-full flex items-center justify-center p-2 rounded-lg transition-colors relative ${isActive ? 'bg-[hsl(var(--primary)/0.15)]' : 'hover:bg-[hsl(var(--secondary))]'}`}
-                      >
-                        <Package className={`w-4 h-4 ${isActive ? 'text-[hsl(var(--primary))]' : 'text-[hsl(var(--muted-foreground))]'}`}/>
-                        {!isRead && <div className="absolute top-1 right-1 w-1.5 h-1.5 rounded-full bg-[hsl(var(--primary))]"/>}
-                      </button>
-                    )
-                  })
-                })}
-              </div>
-            ) : (
-              /* Expanded: full list */
-              <>
+          <div className={cn('flex flex-shrink-0 transition-all duration-200', panelCollapsed ? 'w-[40px]' : 'w-[288px]', mobileShowContent ? 'hidden md:flex' : 'flex')}>
+            {/* Always-visible toggle strip */}
+            <div className="flex flex-col items-center pt-1 pr-1">
+              <button
+                onClick={() => setPanelCollapsed(!panelCollapsed)}
+                className="flex items-center justify-center w-7 h-7 rounded-lg hover:bg-[hsl(var(--secondary))] text-[hsl(var(--muted-foreground))] transition-colors"
+                title={panelCollapsed ? '展开面板' : '收起面板'}
+              >
+                {panelCollapsed ? <PanelLeftOpen className="w-4 h-4"/> : <PanelLeftClose className="w-4 h-4"/>}
+              </button>
+              {panelCollapsed && (
+                <div className="h-[calc(100vh-280px)] overflow-y-auto space-y-1 mt-2">
+                  {Object.entries(byAsin).map(([asin, asinFiles]) => {
+                    const nickname = ASIN_NICKNAMES[asin]
+                    return asinFiles.map(f => {
+                      const isActive = selected?.filename === f.filename
+                      const isRead = readSet.has(f.filename)
+                      return (
+                        <button
+                          key={f.filename}
+                          onClick={() => setSelected(f)}
+                          title={`${nickname ?? asin} — ${f.filename}`}
+                          className={`w-full flex items-center justify-center p-2 rounded-lg transition-colors relative ${isActive ? 'bg-[hsl(var(--primary)/0.15)]' : 'hover:bg-[hsl(var(--secondary))]'}`}
+                        >
+                          <Package className={`w-4 h-4 ${isActive ? 'text-[hsl(var(--primary))]' : 'text-[hsl(var(--muted-foreground))]'}`}/>
+                          {!isRead && <div className="absolute top-1 right-1 w-1.5 h-1.5 rounded-full bg-[hsl(var(--primary))]"/>}
+                        </button>
+                      )
+                    })
+                  })}
+                </div>
+              )}
+            </div>
+            {/* Content — only shown when not collapsed */}
+            {!panelCollapsed && (
+              <div className="flex flex-col gap-3 flex-1 min-w-0">
                 <div className="relative">
                   <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-[hsl(var(--muted-foreground))]"/>
                   <input
@@ -415,24 +417,30 @@ function ListingTab() {
                                   key={f.filename}
                                   className={`group rounded-lg border px-2.5 py-2 transition-all ${isActive ? 'border-[hsl(var(--primary)/0.6)] bg-[hsl(var(--primary)/0.08)]' : 'border-[hsl(var(--border))] bg-[hsl(var(--card))] hover:bg-[hsl(var(--secondary))]'}`}
                                 >
-                                  <button onClick={() => { setSelected(f); setPanelCollapsed(true); setMobileShowContent(true) }} className="w-full text-left">
-                                    <div className="flex items-center justify-between gap-2">
-                                      <div className="min-w-0">
-                                        <p className={`text-xs font-medium truncate ${isRead ? 'text-[hsl(var(--muted-foreground))]' : 'text-[hsl(var(--foreground))]'}`}>{nickname ?? asin}</p>
+                                  <div className="flex items-start gap-1">
+                                    <button onClick={() => { setSelected(f); setPanelCollapsed(true); setMobileShowContent(true) }} className="flex-1 min-w-0 text-left">
+                                      <div className="flex items-center justify-between gap-2">
+                                        <div className="min-w-0">
+                                          <p className={`text-xs font-medium truncate ${isRead ? 'text-[hsl(var(--muted-foreground))]' : 'text-[hsl(var(--foreground))]'}`}>{f.title || (nickname ?? asin)}</p>
+                                          {f.title && <p className="text-[9px] font-mono text-[hsl(var(--muted-foreground))] truncate">{f.filename.replace('.md','')}</p>}
+                                        </div>
+                                        <Badge className="text-[10px] font-semibold flex-shrink-0" variant={variant}>{label}</Badge>
                                       </div>
-                                      <Badge className="text-[10px] font-semibold flex-shrink-0" variant={variant}>{label}</Badge>
-                                    </div>
-                                    <div className="flex items-center gap-2 mt-1 text-[10px] text-[hsl(var(--muted-foreground))]">
-                                      <Calendar className="w-3 h-3"/>
-                                      <span>{fmtDate(f.modifiedAt)}</span>
-                                      <span>·</span>
-                                      <span className={isRead ? 'text-[hsl(var(--muted-foreground))]' : 'text-[hsl(var(--primary))]'}>{isRead ? '已读' : '未读'}</span>
-                                    </div>
-                                  </button>
-                                  <button
-                                    onClick={(e) => handleDelete(e, f)}
-                                    className="mt-1 text-[10px] text-[hsl(var(--muted-foreground))] hover:text-destructive opacity-0 group-hover:opacity-100 transition-opacity"
-                                  >删除</button>
+                                      <div className="flex items-center gap-2 mt-1 text-[10px] text-[hsl(var(--muted-foreground))]">
+                                        <Calendar className="w-3 h-3"/>
+                                        <span>{fmtDate(f.modifiedAt)}</span>
+                                        <span>·</span>
+                                        <span className={isRead ? 'text-[hsl(var(--muted-foreground))]' : 'text-[hsl(var(--primary))]'}>{isRead ? '已读' : '未读'}</span>
+                                      </div>
+                                    </button>
+                                    <button
+                                      onClick={(e) => handleDelete(e, f)}
+                                      className="flex-shrink-0 opacity-0 group-hover:opacity-100 transition-opacity p-1 rounded hover:bg-destructive/15 text-[hsl(var(--muted-foreground))] hover:text-destructive mt-0.5"
+                                      title="删除"
+                                    >
+                                      <Trash2 className="w-3.5 h-3.5"/>
+                                    </button>
+                                  </div>
                                 </div>
                               )
                             })}
@@ -442,7 +450,7 @@ function ListingTab() {
                     )
                   })}
                 </div>
-              </>
+              </div>
             )}
           </div>
 
@@ -492,6 +500,7 @@ interface DiscoveryFile {
   date:       string
   sizeKb:     number
   modifiedAt: string
+  title?:     string | null
 }
 
 const DISCOVERY_READ_KEY = 'discovery-reports-read'
@@ -659,36 +668,40 @@ function DiscoveryTab() {
       ) : (
         <div className="flex gap-4">
           {/* Left panel — collapsible */}
-          <div className={cn('flex flex-col gap-3 flex-shrink-0 transition-all duration-200 overflow-hidden', panelCollapsed ? 'w-[48px]' : 'w-[280px]', mobileShowContent ? 'hidden md:flex' : 'flex')}>
-            <button
-              onClick={() => setPanelCollapsed(!panelCollapsed)}
-              className="flex items-center justify-center w-full py-1.5 rounded-lg hover:bg-[hsl(var(--secondary))] text-[hsl(var(--muted-foreground))] transition-colors"
-              title={panelCollapsed ? '展开面板' : '收起面板'}
-            >
-              {panelCollapsed ? <PanelLeftOpen className="w-4 h-4"/> : <PanelLeftClose className="w-4 h-4"/>}
-            </button>
-
-            {panelCollapsed ? (
-              <div className="h-[calc(100vh-280px)] overflow-y-auto space-y-1">
-                {filtered.map(f => {
-                  const { icon: Icon } = discoveryBadge(f.prefix)
-                  const isActive = selected?.filename === f.filename
-                  const isRead = readSet.has(f.filename)
-                  return (
-                    <button
-                      key={f.filename}
-                      onClick={() => setSelected(f)}
-                      title={f.filename.replace('.md','')}
-                      className={`w-full flex items-center justify-center p-2 rounded-lg transition-colors relative ${isActive ? 'bg-[hsl(var(--primary)/0.15)]' : 'hover:bg-[hsl(var(--secondary))]'}`}
-                    >
-                      <Icon className={`w-4 h-4 ${isActive ? 'text-[hsl(var(--primary))]' : 'text-[hsl(var(--muted-foreground))]'}`}/>
-                      {!isRead && <div className="absolute top-1 right-1 w-1.5 h-1.5 rounded-full bg-[hsl(var(--primary))]"/>}
-                    </button>
-                  )
-                })}
-              </div>
-            ) : (
-              <>
+          <div className={cn('flex flex-shrink-0 transition-all duration-200', panelCollapsed ? 'w-[40px]' : 'w-[288px]', mobileShowContent ? 'hidden md:flex' : 'flex')}>
+            {/* Always-visible toggle strip */}
+            <div className="flex flex-col items-center pt-1 pr-1">
+              <button
+                onClick={() => setPanelCollapsed(!panelCollapsed)}
+                className="flex items-center justify-center w-7 h-7 rounded-lg hover:bg-[hsl(var(--secondary))] text-[hsl(var(--muted-foreground))] transition-colors"
+                title={panelCollapsed ? '展开面板' : '收起面板'}
+              >
+                {panelCollapsed ? <PanelLeftOpen className="w-4 h-4"/> : <PanelLeftClose className="w-4 h-4"/>}
+              </button>
+              {panelCollapsed && (
+                <div className="h-[calc(100vh-280px)] overflow-y-auto space-y-1 mt-2">
+                  {filtered.map(f => {
+                    const { icon: Icon } = discoveryBadge(f.prefix)
+                    const isActive = selected?.filename === f.filename
+                    const isRead = readSet.has(f.filename)
+                    return (
+                      <button
+                        key={f.filename}
+                        onClick={() => setSelected(f)}
+                        title={f.filename.replace('.md','')}
+                        className={`w-full flex items-center justify-center p-2 rounded-lg transition-colors relative ${isActive ? 'bg-[hsl(var(--primary)/0.15)]' : 'hover:bg-[hsl(var(--secondary))]'}`}
+                      >
+                        <Icon className={`w-4 h-4 ${isActive ? 'text-[hsl(var(--primary))]' : 'text-[hsl(var(--muted-foreground))]'}`}/>
+                        {!isRead && <div className="absolute top-1 right-1 w-1.5 h-1.5 rounded-full bg-[hsl(var(--primary))]"/>}
+                      </button>
+                    )
+                  })}
+                </div>
+              )}
+            </div>
+            {/* Content — only shown when not collapsed */}
+            {!panelCollapsed && (
+              <div className="flex flex-col gap-3 flex-1 min-w-0">
                 <div className="relative">
                   <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-[hsl(var(--muted-foreground))]"/>
                   <input
@@ -729,33 +742,39 @@ function DiscoveryTab() {
                         key={f.filename}
                         className={`group rounded-lg border px-2.5 py-2 transition-all ${isActive ? 'border-[hsl(var(--primary)/0.6)] bg-[hsl(var(--primary)/0.08)]' : 'border-[hsl(var(--border))] bg-[hsl(var(--card))] hover:bg-[hsl(var(--secondary))]'}`}
                       >
-                        <button onClick={() => { setSelected(f); setPanelCollapsed(true); setMobileShowContent(true) }} className="w-full text-left">
-                          <div className="flex items-center justify-between gap-2">
-                            <div className="flex items-center gap-2 min-w-0">
-                              <div className={`w-1.5 h-1.5 rounded-full flex-shrink-0 ${isRead ? 'bg-transparent' : 'bg-blue-500'}`} />
-                              <Icon className={`w-3.5 h-3.5 flex-shrink-0 transition-colors ${isActive ? 'text-[hsl(var(--primary))]' : 'text-[hsl(var(--muted-foreground))]'}`}/>
-                              <p className={`text-xs font-medium truncate ${isRead ? 'text-[hsl(var(--muted-foreground))]' : 'text-[hsl(var(--foreground))]'}`}>{f.filename.replace('.md','')}</p>
+                        <div className="flex items-start gap-1">
+                          <button onClick={() => { setSelected(f); setPanelCollapsed(true); setMobileShowContent(true) }} className="flex-1 min-w-0 text-left">
+                            <div className="flex items-center justify-between gap-2">
+                              <div className="flex items-center gap-2 min-w-0">
+                                <div className={`w-1.5 h-1.5 rounded-full flex-shrink-0 ${isRead ? 'bg-transparent' : 'bg-blue-500'}`} />
+                                <Icon className={`w-3.5 h-3.5 flex-shrink-0 transition-colors ${isActive ? 'text-[hsl(var(--primary))]' : 'text-[hsl(var(--muted-foreground))]'}`}/>
+                                <p className={`text-xs font-medium truncate ${isRead ? 'text-[hsl(var(--muted-foreground))]' : 'text-[hsl(var(--foreground))]'}`}>{f.title || f.filename.replace('.md','')}</p>
+                              </div>
+                              <Badge className="text-[10px] font-semibold flex-shrink-0" variant={variant}>{label}</Badge>
                             </div>
-                            <Badge className="text-[10px] font-semibold flex-shrink-0" variant={variant}>{label}</Badge>
-                          </div>
-                          <div className="flex items-center gap-2 mt-1 text-[10px] text-[hsl(var(--muted-foreground))]">
-                            <Calendar className="w-3 h-3"/>
-                            <span>{f.date || fmtDate(f.modifiedAt)}</span>
-                            <span>·</span>
-                            <span>{f.sizeKb} KB</span>
-                            <span>·</span>
-                            <span className={isRead ? 'text-[hsl(var(--muted-foreground))]' : 'text-[hsl(var(--primary))]'}>{isRead ? '已读' : '未读'}</span>
-                          </div>
-                        </button>
-                        <button
-                          onClick={(e) => handleDelete(e, f)}
-                          className="mt-1 text-[10px] text-[hsl(var(--muted-foreground))] hover:text-destructive opacity-0 group-hover:opacity-100 transition-opacity"
-                        >删除</button>
+                            {f.title && <p className="text-[9px] font-mono text-[hsl(var(--muted-foreground))] truncate mt-0.5 ml-5">{f.filename.replace('.md','')}</p>}
+                            <div className="flex items-center gap-2 mt-1 text-[10px] text-[hsl(var(--muted-foreground))]">
+                              <Calendar className="w-3 h-3"/>
+                              <span>{f.date || fmtDate(f.modifiedAt)}</span>
+                              <span>·</span>
+                              <span>{f.sizeKb} KB</span>
+                              <span>·</span>
+                              <span className={isRead ? 'text-[hsl(var(--muted-foreground))]' : 'text-[hsl(var(--primary))]'}>{isRead ? '已读' : '未读'}</span>
+                            </div>
+                          </button>
+                          <button
+                            onClick={(e) => handleDelete(e, f)}
+                            className="flex-shrink-0 opacity-0 group-hover:opacity-100 transition-opacity p-1 rounded hover:bg-destructive/15 text-[hsl(var(--muted-foreground))] hover:text-destructive mt-0.5"
+                            title="删除"
+                          >
+                            <Trash2 className="w-3.5 h-3.5"/>
+                          </button>
+                        </div>
                       </div>
                     )
                   })}
                 </div>
-              </>
+              </div>
             )}
           </div>
 
@@ -805,6 +824,7 @@ interface PpcReportFile {
   date:       string
   sizeKb:     number
   modifiedAt: string
+  title?:     string | null
 }
 
 const PPC_READ_KEY = 'ppc-reports-read'
@@ -973,36 +993,40 @@ function PpcTab() {
       ) : (
         <div className="flex gap-4">
           {/* Left panel — collapsible */}
-          <div className={cn('flex flex-col gap-3 flex-shrink-0 transition-all duration-200 overflow-hidden', panelCollapsed ? 'w-[48px]' : 'w-[280px]', mobileShowContent ? 'hidden md:flex' : 'flex')}>
-            <button
-              onClick={() => setPanelCollapsed(!panelCollapsed)}
-              className="flex items-center justify-center w-full py-1.5 rounded-lg hover:bg-[hsl(var(--secondary))] text-[hsl(var(--muted-foreground))] transition-colors"
-              title={panelCollapsed ? '展开面板' : '收起面板'}
-            >
-              {panelCollapsed ? <PanelLeftOpen className="w-4 h-4"/> : <PanelLeftClose className="w-4 h-4"/>}
-            </button>
-
-            {panelCollapsed ? (
-              <div className="h-[calc(100vh-280px)] overflow-y-auto space-y-1">
-                {filtered.map(f => {
-                  const { icon: Icon } = ppcBadge(f.prefix)
-                  const isActive = selected?.filename === f.filename
-                  const isRead = readSet.has(f.filename)
-                  return (
-                    <button
-                      key={f.filename}
-                      onClick={() => setSelected(f)}
-                      title={f.filename.replace('.md','')}
-                      className={`w-full flex items-center justify-center p-2 rounded-lg transition-colors relative ${isActive ? 'bg-[hsl(var(--primary)/0.15)]' : 'hover:bg-[hsl(var(--secondary))]'}`}
-                    >
-                      <Icon className={`w-4 h-4 ${isActive ? 'text-[hsl(var(--primary))]' : 'text-[hsl(var(--muted-foreground))]'}`}/>
-                      {!isRead && <div className="absolute top-1 right-1 w-1.5 h-1.5 rounded-full bg-[hsl(var(--primary))]"/>}
-                    </button>
-                  )
-                })}
-              </div>
-            ) : (
-              <>
+          <div className={cn('flex flex-shrink-0 transition-all duration-200', panelCollapsed ? 'w-[40px]' : 'w-[288px]', mobileShowContent ? 'hidden md:flex' : 'flex')}>
+            {/* Always-visible toggle strip */}
+            <div className="flex flex-col items-center pt-1 pr-1">
+              <button
+                onClick={() => setPanelCollapsed(!panelCollapsed)}
+                className="flex items-center justify-center w-7 h-7 rounded-lg hover:bg-[hsl(var(--secondary))] text-[hsl(var(--muted-foreground))] transition-colors"
+                title={panelCollapsed ? '展开面板' : '收起面板'}
+              >
+                {panelCollapsed ? <PanelLeftOpen className="w-4 h-4"/> : <PanelLeftClose className="w-4 h-4"/>}
+              </button>
+              {panelCollapsed && (
+                <div className="h-[calc(100vh-280px)] overflow-y-auto space-y-1 mt-2">
+                  {filtered.map(f => {
+                    const { icon: Icon } = ppcBadge(f.prefix)
+                    const isActive = selected?.filename === f.filename
+                    const isRead = readSet.has(f.filename)
+                    return (
+                      <button
+                        key={f.filename}
+                        onClick={() => setSelected(f)}
+                        title={f.filename.replace('.md','')}
+                        className={`w-full flex items-center justify-center p-2 rounded-lg transition-colors relative ${isActive ? 'bg-[hsl(var(--primary)/0.15)]' : 'hover:bg-[hsl(var(--secondary))]'}`}
+                      >
+                        <Icon className={`w-4 h-4 ${isActive ? 'text-[hsl(var(--primary))]' : 'text-[hsl(var(--muted-foreground))]'}`}/>
+                        {!isRead && <div className="absolute top-1 right-1 w-1.5 h-1.5 rounded-full bg-[hsl(var(--primary))]"/>}
+                      </button>
+                    )
+                  })}
+                </div>
+              )}
+            </div>
+            {/* Content — only shown when not collapsed */}
+            {!panelCollapsed && (
+              <div className="flex flex-col gap-3 flex-1 min-w-0">
                 <div className="relative">
                   <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-[hsl(var(--muted-foreground))]"/>
                   <input
@@ -1043,33 +1067,39 @@ function PpcTab() {
                         key={f.filename}
                         className={`group rounded-lg border px-2.5 py-2 transition-all ${isActive ? 'border-[hsl(var(--primary)/0.6)] bg-[hsl(var(--primary)/0.08)]' : 'border-[hsl(var(--border))] bg-[hsl(var(--card))] hover:bg-[hsl(var(--secondary))]'}`}
                       >
-                        <button onClick={() => { setSelected(f); setPanelCollapsed(true); setMobileShowContent(true) }} className="w-full text-left">
-                          <div className="flex items-center justify-between gap-2">
-                            <div className="flex items-center gap-2 min-w-0">
-                              <div className={`w-1.5 h-1.5 rounded-full flex-shrink-0 ${isRead ? 'bg-transparent' : 'bg-blue-500'}`} />
-                              <Icon className={`w-3.5 h-3.5 flex-shrink-0 transition-colors ${isActive ? 'text-[hsl(var(--primary))]' : 'text-[hsl(var(--muted-foreground))]'}`}/>
-                              <p className={`text-xs font-medium truncate ${isRead ? 'text-[hsl(var(--muted-foreground))]' : 'text-[hsl(var(--foreground))]'}`}>{f.filename.replace('.md','')}</p>
+                        <div className="flex items-start gap-1">
+                          <button onClick={() => { setSelected(f); setPanelCollapsed(true); setMobileShowContent(true) }} className="flex-1 min-w-0 text-left">
+                            <div className="flex items-center justify-between gap-2">
+                              <div className="flex items-center gap-2 min-w-0">
+                                <div className={`w-1.5 h-1.5 rounded-full flex-shrink-0 ${isRead ? 'bg-transparent' : 'bg-blue-500'}`} />
+                                <Icon className={`w-3.5 h-3.5 flex-shrink-0 transition-colors ${isActive ? 'text-[hsl(var(--primary))]' : 'text-[hsl(var(--muted-foreground))]'}`}/>
+                                <p className={`text-xs font-medium truncate ${isRead ? 'text-[hsl(var(--muted-foreground))]' : 'text-[hsl(var(--foreground))]'}`}>{f.title || f.filename.replace('.md','')}</p>
+                              </div>
+                              <Badge className="text-[10px] font-semibold flex-shrink-0" variant={variant}>{label}</Badge>
                             </div>
-                            <Badge className="text-[10px] font-semibold flex-shrink-0" variant={variant}>{label}</Badge>
-                          </div>
-                          <div className="flex items-center gap-2 mt-1 text-[10px] text-[hsl(var(--muted-foreground))]">
-                            <Calendar className="w-3 h-3"/>
-                            <span>{f.date || fmtDate(f.modifiedAt)}</span>
-                            <span>·</span>
-                            <span>{f.sizeKb} KB</span>
-                            <span>·</span>
-                            <span className={isRead ? 'text-[hsl(var(--muted-foreground))]' : 'text-[hsl(var(--primary))]'}>{isRead ? '已读' : '未读'}</span>
-                          </div>
-                        </button>
-                        <button
-                          onClick={(e) => handleDelete(e, f)}
-                          className="mt-1 text-[10px] text-[hsl(var(--muted-foreground))] hover:text-destructive opacity-0 group-hover:opacity-100 transition-opacity"
-                        >删除</button>
+                            {f.title && <p className="text-[9px] font-mono text-[hsl(var(--muted-foreground))] truncate mt-0.5 ml-5">{f.filename.replace('.md','')}</p>}
+                            <div className="flex items-center gap-2 mt-1 text-[10px] text-[hsl(var(--muted-foreground))]">
+                              <Calendar className="w-3 h-3"/>
+                              <span>{f.date || fmtDate(f.modifiedAt)}</span>
+                              <span>·</span>
+                              <span>{f.sizeKb} KB</span>
+                              <span>·</span>
+                              <span className={isRead ? 'text-[hsl(var(--muted-foreground))]' : 'text-[hsl(var(--primary))]'}>{isRead ? '已读' : '未读'}</span>
+                            </div>
+                          </button>
+                          <button
+                            onClick={(e) => handleDelete(e, f)}
+                            className="flex-shrink-0 opacity-0 group-hover:opacity-100 transition-opacity p-1 rounded hover:bg-destructive/15 text-[hsl(var(--muted-foreground))] hover:text-destructive mt-0.5"
+                            title="删除"
+                          >
+                            <Trash2 className="w-3.5 h-3.5"/>
+                          </button>
+                        </div>
                       </div>
                     )
                   })}
                 </div>
-              </>
+              </div>
             )}
           </div>
 
@@ -1119,6 +1149,7 @@ interface StrategyFile {
   date:       string
   sizeKb:     number
   modifiedAt: string
+  title?:     string | null
 }
 
 const STRATEGY_READ_KEY = 'strategy-reports-read'
@@ -1295,36 +1326,40 @@ function StrategyTab() {
       ) : (
         <div className="flex gap-4">
           {/* Left panel — collapsible */}
-          <div className={cn('flex flex-col gap-3 flex-shrink-0 transition-all duration-200 overflow-hidden', panelCollapsed ? 'w-[48px]' : 'w-[280px]', mobileShowContent ? 'hidden md:flex' : 'flex')}>
-            <button
-              onClick={() => setPanelCollapsed(!panelCollapsed)}
-              className="flex items-center justify-center w-full py-1.5 rounded-lg hover:bg-[hsl(var(--secondary))] text-[hsl(var(--muted-foreground))] transition-colors"
-              title={panelCollapsed ? '展开面板' : '收起面板'}
-            >
-              {panelCollapsed ? <PanelLeftOpen className="w-4 h-4"/> : <PanelLeftClose className="w-4 h-4"/>}
-            </button>
-
-            {panelCollapsed ? (
-              <div className="h-[calc(100vh-280px)] overflow-y-auto space-y-1">
-                {filtered.map(f => {
-                  const { icon: Icon } = strategyBadge(f.filename)
-                  const isActive = selected?.filename === f.filename
-                  const isRead = readSet.has(f.filename)
-                  return (
-                    <button
-                      key={f.filename}
-                      onClick={() => setSelected(f)}
-                      title={f.filename.replace('.md','')}
-                      className={`w-full flex items-center justify-center p-2 rounded-lg transition-colors relative ${isActive ? 'bg-[hsl(var(--primary)/0.15)]' : 'hover:bg-[hsl(var(--secondary))]'}`}
-                    >
-                      <Icon className={`w-4 h-4 ${isActive ? 'text-[hsl(var(--primary))]' : 'text-[hsl(var(--muted-foreground))]'}`}/>
-                      {!isRead && <div className="absolute top-1 right-1 w-1.5 h-1.5 rounded-full bg-[hsl(var(--primary))]"/>}
-                    </button>
-                  )
-                })}
-              </div>
-            ) : (
-              <>
+          <div className={cn('flex flex-shrink-0 transition-all duration-200', panelCollapsed ? 'w-[40px]' : 'w-[288px]', mobileShowContent ? 'hidden md:flex' : 'flex')}>
+            {/* Always-visible toggle strip */}
+            <div className="flex flex-col items-center pt-1 pr-1">
+              <button
+                onClick={() => setPanelCollapsed(!panelCollapsed)}
+                className="flex items-center justify-center w-7 h-7 rounded-lg hover:bg-[hsl(var(--secondary))] text-[hsl(var(--muted-foreground))] transition-colors"
+                title={panelCollapsed ? '展开面板' : '收起面板'}
+              >
+                {panelCollapsed ? <PanelLeftOpen className="w-4 h-4"/> : <PanelLeftClose className="w-4 h-4"/>}
+              </button>
+              {panelCollapsed && (
+                <div className="h-[calc(100vh-280px)] overflow-y-auto space-y-1 mt-2">
+                  {filtered.map(f => {
+                    const { icon: Icon } = strategyBadge(f.filename)
+                    const isActive = selected?.filename === f.filename
+                    const isRead = readSet.has(f.filename)
+                    return (
+                      <button
+                        key={f.filename}
+                        onClick={() => setSelected(f)}
+                        title={f.filename.replace('.md','')}
+                        className={`w-full flex items-center justify-center p-2 rounded-lg transition-colors relative ${isActive ? 'bg-[hsl(var(--primary)/0.15)]' : 'hover:bg-[hsl(var(--secondary))]'}`}
+                      >
+                        <Icon className={`w-4 h-4 ${isActive ? 'text-[hsl(var(--primary))]' : 'text-[hsl(var(--muted-foreground))]'}`}/>
+                        {!isRead && <div className="absolute top-1 right-1 w-1.5 h-1.5 rounded-full bg-[hsl(var(--primary))]"/>}
+                      </button>
+                    )
+                  })}
+                </div>
+              )}
+            </div>
+            {/* Content — only shown when not collapsed */}
+            {!panelCollapsed && (
+              <div className="flex flex-col gap-3 flex-1 min-w-0">
                 <div className="relative">
                   <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-[hsl(var(--muted-foreground))]"/>
                   <input
@@ -1362,33 +1397,39 @@ function StrategyTab() {
                         key={f.filename}
                         className={`group rounded-lg border px-2.5 py-2 transition-all ${isActive ? 'border-[hsl(var(--primary)/0.6)] bg-[hsl(var(--primary)/0.08)]' : 'border-[hsl(var(--border))] bg-[hsl(var(--card))] hover:bg-[hsl(var(--secondary))]'}`}
                       >
-                        <button onClick={() => { setSelected(f); setPanelCollapsed(true); setMobileShowContent(true) }} className="w-full text-left">
-                          <div className="flex items-center justify-between gap-2">
-                            <div className="flex items-center gap-2 min-w-0">
-                              <div className={`w-1.5 h-1.5 rounded-full flex-shrink-0 ${isRead ? 'bg-transparent' : 'bg-blue-500'}`} />
-                              <Icon className={`w-3.5 h-3.5 flex-shrink-0 transition-colors ${isActive ? 'text-[hsl(var(--primary))]' : 'text-[hsl(var(--muted-foreground))]'}`}/>
-                              <p className={`text-xs font-medium truncate ${isRead ? 'text-[hsl(var(--muted-foreground))]' : 'text-[hsl(var(--foreground))]'}`}>{f.filename.replace('.md','')}</p>
+                        <div className="flex items-start gap-1">
+                          <button onClick={() => { setSelected(f); setPanelCollapsed(true); setMobileShowContent(true) }} className="flex-1 min-w-0 text-left">
+                            <div className="flex items-center justify-between gap-2">
+                              <div className="flex items-center gap-2 min-w-0">
+                                <div className={`w-1.5 h-1.5 rounded-full flex-shrink-0 ${isRead ? 'bg-transparent' : 'bg-blue-500'}`} />
+                                <Icon className={`w-3.5 h-3.5 flex-shrink-0 transition-colors ${isActive ? 'text-[hsl(var(--primary))]' : 'text-[hsl(var(--muted-foreground))]'}`}/>
+                                <p className={`text-xs font-medium truncate ${isRead ? 'text-[hsl(var(--muted-foreground))]' : 'text-[hsl(var(--foreground))]'}`}>{f.title || f.filename.replace('.md','')}</p>
+                              </div>
+                              <Badge className="text-[10px] font-semibold flex-shrink-0" variant={variant}>{label}</Badge>
                             </div>
-                            <Badge className="text-[10px] font-semibold flex-shrink-0" variant={variant}>{label}</Badge>
-                          </div>
-                          <div className="flex items-center gap-2 mt-1 text-[10px] text-[hsl(var(--muted-foreground))]">
-                            <Calendar className="w-3 h-3"/>
-                            <span>{f.date || fmtDate(f.modifiedAt)}</span>
-                            <span>·</span>
-                            <span>{f.sizeKb} KB</span>
-                            <span>·</span>
-                            <span className={isRead ? 'text-[hsl(var(--muted-foreground))]' : 'text-[hsl(var(--primary))]'}>{isRead ? '已读' : '未读'}</span>
-                          </div>
-                        </button>
-                        <button
-                          onClick={(e) => handleDelete(e, f)}
-                          className="mt-1 text-[10px] text-[hsl(var(--muted-foreground))] hover:text-destructive opacity-0 group-hover:opacity-100 transition-opacity"
-                        >删除</button>
+                            {f.title && <p className="text-[9px] font-mono text-[hsl(var(--muted-foreground))] truncate mt-0.5 ml-5">{f.filename.replace('.md','')}</p>}
+                            <div className="flex items-center gap-2 mt-1 text-[10px] text-[hsl(var(--muted-foreground))]">
+                              <Calendar className="w-3 h-3"/>
+                              <span>{f.date || fmtDate(f.modifiedAt)}</span>
+                              <span>·</span>
+                              <span>{f.sizeKb} KB</span>
+                              <span>·</span>
+                              <span className={isRead ? 'text-[hsl(var(--muted-foreground))]' : 'text-[hsl(var(--primary))]'}>{isRead ? '已读' : '未读'}</span>
+                            </div>
+                          </button>
+                          <button
+                            onClick={(e) => handleDelete(e, f)}
+                            className="flex-shrink-0 opacity-0 group-hover:opacity-100 transition-opacity p-1 rounded hover:bg-destructive/15 text-[hsl(var(--muted-foreground))] hover:text-destructive mt-0.5"
+                            title="删除"
+                          >
+                            <Trash2 className="w-3.5 h-3.5"/>
+                          </button>
+                        </div>
                       </div>
                     )
                   })}
                 </div>
-              </>
+              </div>
             )}
           </div>
 
@@ -1438,6 +1479,7 @@ interface IntelReportFile {
   date:       string
   sizeKb:     number
   modifiedAt: string
+  title?:     string | null
 }
 
 interface IntelQueueItem {
@@ -1716,6 +1758,7 @@ function IntelTab() {
   const [readSet, setReadSet]           = useState<Set<string>>(new Set())
   const [panelCollapsed, setPanelCollapsed] = useState(false)
   const [mobileShowContent, setMobileShowContent] = useState(false)
+  const [queueOpen, setQueueOpen]       = useState(false)
 
   useEffect(() => {
     setReadSet(loadReadSet(INTEL_READ_KEY))
@@ -1790,13 +1833,15 @@ function IntelTab() {
             </>
           )}
         </div>
-        <Button variant="outline" size="sm" onClick={load} disabled={loading} className="gap-1.5">
-          <RefreshCw className={`w-3.5 h-3.5 ${loading ? 'animate-spin' : ''}`}/>刷新
-        </Button>
+        <div className="flex items-center gap-2">
+          <Button variant="outline" size="sm" onClick={() => setQueueOpen(true)} className="gap-1.5">
+            <ListTodo className="w-3.5 h-3.5"/>研究队列
+          </Button>
+          <Button variant="outline" size="sm" onClick={load} disabled={loading} className="gap-1.5">
+            <RefreshCw className={`w-3.5 h-3.5 ${loading ? 'animate-spin' : ''}`}/>刷新
+          </Button>
+        </div>
       </div>
-
-      {/* Intel Queue Manager — always shown */}
-      <IntelQueueManager />
 
       {loading ? (
         <div className="space-y-3">{[1,2,3].map(i=>(
@@ -1816,36 +1861,40 @@ function IntelTab() {
       ) : (
         <div className="flex gap-4">
           {/* Left panel — collapsible */}
-          <div className={cn('flex flex-col gap-3 flex-shrink-0 transition-all duration-200 overflow-hidden', panelCollapsed ? 'w-[48px]' : 'w-[280px]', mobileShowContent ? 'hidden md:flex' : 'flex')}>
-            <button
-              onClick={() => setPanelCollapsed(!panelCollapsed)}
-              className="flex items-center justify-center w-full py-1.5 rounded-lg hover:bg-[hsl(var(--secondary))] text-[hsl(var(--muted-foreground))] transition-colors"
-              title={panelCollapsed ? '展开面板' : '收起面板'}
-            >
-              {panelCollapsed ? <PanelLeftOpen className="w-4 h-4"/> : <PanelLeftClose className="w-4 h-4"/>}
-            </button>
-
-            {panelCollapsed ? (
-              <div className="h-[calc(100vh-420px)] overflow-y-auto space-y-1">
-                {filtered.map(f => {
-                  const isActive = selected?.filename === f.filename
-                  const isRead   = readSet.has(f.filename)
-                  const Icon     = f.type === 'weekly' ? BarChart2 : Moon
-                  return (
-                    <button
-                      key={f.filename}
-                      onClick={() => setSelected(f)}
-                      title={f.filename.replace('.md', '')}
-                      className={`w-full flex items-center justify-center p-2 rounded-lg transition-colors relative ${isActive ? 'bg-[hsl(var(--primary)/0.15)]' : 'hover:bg-[hsl(var(--secondary))]'}`}
-                    >
-                      <Icon className={`w-4 h-4 ${isActive ? 'text-[hsl(var(--primary))]' : 'text-[hsl(var(--muted-foreground))]'}`}/>
-                      {!isRead && <div className="absolute top-1 right-1 w-1.5 h-1.5 rounded-full bg-[hsl(var(--primary))]"/>}
-                    </button>
-                  )
-                })}
-              </div>
-            ) : (
-              <>
+          <div className={cn('flex flex-shrink-0 transition-all duration-200', panelCollapsed ? 'w-[40px]' : 'w-[288px]', mobileShowContent ? 'hidden md:flex' : 'flex')}>
+            {/* Always-visible toggle strip */}
+            <div className="flex flex-col items-center pt-1 pr-1">
+              <button
+                onClick={() => setPanelCollapsed(!panelCollapsed)}
+                className="flex items-center justify-center w-7 h-7 rounded-lg hover:bg-[hsl(var(--secondary))] text-[hsl(var(--muted-foreground))] transition-colors"
+                title={panelCollapsed ? '展开面板' : '收起面板'}
+              >
+                {panelCollapsed ? <PanelLeftOpen className="w-4 h-4"/> : <PanelLeftClose className="w-4 h-4"/>}
+              </button>
+              {panelCollapsed && (
+                <div className="h-[calc(100vh-280px)] overflow-y-auto space-y-1 mt-2">
+                  {filtered.map(f => {
+                    const isActive = selected?.filename === f.filename
+                    const isRead   = readSet.has(f.filename)
+                    const Icon     = f.type === 'weekly' ? BarChart2 : Moon
+                    return (
+                      <button
+                        key={f.filename}
+                        onClick={() => setSelected(f)}
+                        title={f.filename.replace('.md', '')}
+                        className={`w-full flex items-center justify-center p-2 rounded-lg transition-colors relative ${isActive ? 'bg-[hsl(var(--primary)/0.15)]' : 'hover:bg-[hsl(var(--secondary))]'}`}
+                      >
+                        <Icon className={`w-4 h-4 ${isActive ? 'text-[hsl(var(--primary))]' : 'text-[hsl(var(--muted-foreground))]'}`}/>
+                        {!isRead && <div className="absolute top-1 right-1 w-1.5 h-1.5 rounded-full bg-[hsl(var(--primary))]"/>}
+                      </button>
+                    )
+                  })}
+                </div>
+              )}
+            </div>
+            {/* Content — only shown when not collapsed */}
+            {!panelCollapsed && (
+              <div className="flex flex-col gap-3 flex-1 min-w-0">
                 <div className="relative">
                   <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-[hsl(var(--muted-foreground))]"/>
                   <input
@@ -1868,7 +1917,7 @@ function IntelTab() {
                     </button>
                   ))}
                 </div>
-                <div className="h-[calc(100vh-420px)] overflow-y-auto pr-1 space-y-2">
+                <div className="h-[calc(100vh-280px)] overflow-y-auto pr-1 space-y-2">
                   {filtered.length === 0 ? (
                     <div className="flex items-center justify-center py-10">
                       <p className="text-sm text-[hsl(var(--muted-foreground))]">没有匹配的报告</p>
@@ -1883,41 +1932,47 @@ function IntelTab() {
                         key={f.filename}
                         className={`group rounded-lg border px-2.5 py-2 transition-all ${isActive ? 'border-[hsl(var(--primary)/0.6)] bg-[hsl(var(--primary)/0.08)]' : 'border-[hsl(var(--border))] bg-[hsl(var(--card))] hover:bg-[hsl(var(--secondary))]'}`}
                       >
-                        <button onClick={() => { setSelected(f); setPanelCollapsed(true); setMobileShowContent(true) }} className="w-full text-left">
-                          <div className="flex items-center justify-between gap-2">
-                            <div className="flex items-center gap-2 min-w-0">
-                              <div className={`w-1.5 h-1.5 rounded-full flex-shrink-0 ${isRead ? 'bg-transparent' : 'bg-blue-500'}`}/>
-                              <Icon className={`w-3.5 h-3.5 flex-shrink-0 ${isActive ? 'text-[hsl(var(--primary))]' : 'text-[hsl(var(--muted-foreground))]'}`}/>
-                              <p className={`text-xs font-medium truncate ${isRead ? 'text-[hsl(var(--muted-foreground))]' : 'text-[hsl(var(--foreground))]'}`}>
-                                {f.filename.replace('.md', '')}
-                              </p>
+                        <div className="flex items-start gap-1">
+                          <button onClick={() => { setSelected(f); setPanelCollapsed(true); setMobileShowContent(true) }} className="flex-1 min-w-0 text-left">
+                            <div className="flex items-center justify-between gap-2">
+                              <div className="flex items-center gap-2 min-w-0">
+                                <div className={`w-1.5 h-1.5 rounded-full flex-shrink-0 ${isRead ? 'bg-transparent' : 'bg-blue-500'}`}/>
+                                <Icon className={`w-3.5 h-3.5 flex-shrink-0 ${isActive ? 'text-[hsl(var(--primary))]' : 'text-[hsl(var(--muted-foreground))]'}`}/>
+                                <p className={`text-xs font-medium truncate ${isRead ? 'text-[hsl(var(--muted-foreground))]' : 'text-[hsl(var(--foreground))]'}`}>
+                                  {f.title || f.filename.replace('.md', '')}
+                                </p>
+                              </div>
+                              <Badge className="text-[10px] font-semibold flex-shrink-0" variant={variant}>{label}</Badge>
                             </div>
-                            <Badge className="text-[10px] font-semibold flex-shrink-0" variant={variant}>{label}</Badge>
-                          </div>
-                          <div className="flex items-center gap-2 mt-1 text-[10px] text-[hsl(var(--muted-foreground))]">
-                            <Calendar className="w-3 h-3"/>
-                            <span>{f.date || fmtDate(f.modifiedAt)}</span>
-                            <span>·</span>
-                            <span>{f.sizeKb} KB</span>
-                            <span>·</span>
-                            <span className={isRead ? 'text-[hsl(var(--muted-foreground))]' : 'text-[hsl(var(--primary))]'}>{isRead ? '已读' : '未读'}</span>
-                          </div>
-                        </button>
-                        <button
-                          onClick={(e) => handleDelete(e, f)}
-                          className="mt-1 text-[10px] text-[hsl(var(--muted-foreground))] hover:text-destructive opacity-0 group-hover:opacity-100 transition-opacity"
-                        >删除</button>
+                            {f.title && <p className="text-[9px] font-mono text-[hsl(var(--muted-foreground))] truncate mt-0.5 ml-5">{f.filename.replace('.md','')}</p>}
+                            <div className="flex items-center gap-2 mt-1 text-[10px] text-[hsl(var(--muted-foreground))]">
+                              <Calendar className="w-3 h-3"/>
+                              <span>{f.date || fmtDate(f.modifiedAt)}</span>
+                              <span>·</span>
+                              <span>{f.sizeKb} KB</span>
+                              <span>·</span>
+                              <span className={isRead ? 'text-[hsl(var(--muted-foreground))]' : 'text-[hsl(var(--primary))]'}>{isRead ? '已读' : '未读'}</span>
+                            </div>
+                          </button>
+                          <button
+                            onClick={(e) => handleDelete(e, f)}
+                            className="flex-shrink-0 opacity-0 group-hover:opacity-100 transition-opacity p-1 rounded hover:bg-destructive/15 text-[hsl(var(--muted-foreground))] hover:text-destructive mt-0.5"
+                            title="删除"
+                          >
+                            <Trash2 className="w-3.5 h-3.5"/>
+                          </button>
+                        </div>
                       </div>
                     )
                   })}
                 </div>
-              </>
+              </div>
             )}
           </div>
 
           {/* Right panel — preview */}
           <div className="flex-1 min-w-0">
-            <div className="h-[calc(100vh-420px)] overflow-y-auto">
+            <div className="h-[calc(100vh-280px)] overflow-y-auto">
               {mobileShowContent && (
                 <button
                   onClick={() => { setSelected(null); setMobileShowContent(false); setPanelCollapsed(false) }}
@@ -1939,6 +1994,28 @@ function IntelTab() {
         </div>
       )}
     </div>
+
+    {/* Intel Queue Modal */}
+    {queueOpen && (
+      <div className="fixed inset-0 z-50 flex items-center justify-center" onClick={() => setQueueOpen(false)}>
+        <div className="absolute inset-0 bg-black/40 backdrop-blur-sm"/>
+        <div className="relative z-10 w-full max-w-lg mx-4 bg-[hsl(var(--card))] rounded-xl shadow-2xl max-h-[80vh] overflow-y-auto" onClick={e => e.stopPropagation()}>
+          <div className="flex items-center justify-between px-4 pt-4 pb-2">
+            <div className="flex items-center gap-2">
+              <ListTodo className="w-4 h-4 text-[hsl(var(--primary))]"/>
+              <span className="font-semibold text-sm">Intel 研究队列</span>
+            </div>
+            <button onClick={() => setQueueOpen(false)} className="p-1 rounded-lg hover:bg-[hsl(var(--secondary))] text-[hsl(var(--muted-foreground))]">
+              <X className="w-4 h-4"/>
+            </button>
+          </div>
+          <div className="px-4 pb-4">
+            <IntelQueueManager />
+          </div>
+        </div>
+      </div>
+    )}
+
     {isMobile && selected && (
       <MobileOverlay
         title={selected.filename.replace('.md', '')}
