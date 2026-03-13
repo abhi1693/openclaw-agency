@@ -1,13 +1,14 @@
 'use client'
 
 import { useEffect, useState, useCallback, useRef } from 'react'
+import { createPortal } from 'react-dom'
 import { Markdown } from '@/components/atoms/Markdown'
 import {
   FileText, RefreshCw, ChevronRight, ChevronLeft, ChevronDown, X, Maximize2, Minimize2,
   Package, BarChart2, Search, TrendingUp,
   Users, Megaphone, LayoutGrid, Clock, Trash2, Zap,
   Moon, Plus, ArrowUp, ArrowDown, CheckCircle2, ListTodo, List,
-  Bookmark, Lightbulb, Link2, Filter,
+  Bookmark, Lightbulb, Link2, Filter, Circle,
 } from 'lucide-react'
 import { Skeleton } from '@/components/ui/skeleton'
 import { Button } from '@/components/ui/button'
@@ -114,6 +115,7 @@ interface HighlightFormState {
   text: string
   note: string
   priority: string
+  status: string
   heading: string | null
 }
 
@@ -134,6 +136,9 @@ function ReportModal({ title, tag, date, sizeKb, onClose, onNavigate, reports, c
   const [floatingMenu, setFloatingMenu] = useState<FloatingMenuState | null>(null)
   const [highlightForm, setHighlightForm] = useState<HighlightFormState | null>(null)
   const [savingHighlight, setSavingHighlight] = useState(false)
+  // Existing highlights for this report (for DOM annotation)
+  const [reportHighlights, setReportHighlights] = useState<ReportHighlight[]>([])
+  const [highlightVersion, setHighlightVersion] = useState(0)
 
   const handleMouseUp = useCallback(() => {
     if (!highlightContext) return
@@ -178,6 +183,7 @@ function ReportModal({ title, tag, date, sizeKb, onClose, onNavigate, reports, c
       text: floatingMenu.text,
       note: '',
       priority: 'medium',
+      status: 'open',
       heading,
     })
     setFloatingMenu(null)
@@ -193,6 +199,7 @@ function ReportModal({ title, tag, date, sizeKb, onClose, onNavigate, reports, c
         text: highlightForm.text,
         note: highlightForm.note || null,
         priority: highlightForm.priority,
+        status: highlightForm.status,
         report_tab: highlightContext.tab,
         report_filename: highlightContext.filename,
         report_heading: highlightForm.heading,
@@ -205,6 +212,7 @@ function ReportModal({ title, tag, date, sizeKb, onClose, onNavigate, reports, c
       })
       if (!res.ok) throw new Error('保存失败')
       setHighlightForm(null)
+      setHighlightVersion(v => v + 1) // triggers re-fetch + DOM re-annotation
       onHighlightCreated?.()
     } catch (e) {
       alert(`保存失败: ${e}`)
@@ -277,6 +285,39 @@ function ReportModal({ title, tag, date, sizeKb, onClose, onNavigate, reports, c
     return () => observer.disconnect()
   }, [content, showToc])
 
+  // Fetch existing highlights for this report whenever the file or version changes
+  useEffect(() => {
+    if (!highlightContext) { setReportHighlights([]); return }
+    fetch(`/api/report-highlights?report_filename=${encodeURIComponent(highlightContext.filename)}`)
+      .then(r => r.json())
+      .then(d => setReportHighlights(d.highlights || []))
+      .catch(() => {})
+  }, [highlightContext?.filename, highlightVersion]) // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Apply / refresh DOM highlight marks after content renders or highlights change
+  useEffect(() => {
+    if (!contentScrollRef.current) return
+    // Remove old marks cleanly
+    contentScrollRef.current.querySelectorAll('mark[data-highlight-id]').forEach(m => {
+      const parent = m.parentNode
+      if (parent) {
+        parent.replaceChild(document.createTextNode(m.textContent || ''), m)
+        parent.normalize()
+      }
+    })
+    if (!reportHighlights.length) return
+    // Defer so markdown has finished painting (300ms is safer than 80ms)
+    const timer = setTimeout(() => {
+      if (!contentScrollRef.current) return
+      for (const h of reportHighlights) {
+        const snippet = h.text_snippet || h.text?.slice(0, 100)
+        if (!snippet) continue
+        highlightTextInDom(contentScrollRef.current!, snippet, h.id, h.type)
+      }
+    }, 300)
+    return () => clearTimeout(timer)
+  }, [reportHighlights, content])
+
   function scrollToHeading(id: string) {
     const el = contentScrollRef.current?.querySelector(`#${CSS.escape(id)}`)
     if (el) {
@@ -286,12 +327,32 @@ function ReportModal({ title, tag, date, sizeKb, onClose, onNavigate, reports, c
   }
 
   return (
-    <Dialog open onOpenChange={(open) => { if (!open) { setFloatingMenu(null); setHighlightForm(null); onClose() } }}>
+    <>
+    <Dialog open modal={false} onOpenChange={(open) => {
+      if (!open) {
+        // First click outside dismisses floating menu / form; second click closes Modal
+        if (floatingMenu) { setFloatingMenu(null); return }
+        if (highlightForm) { setHighlightForm(null); return }
+        onClose()
+      }
+    }}>
       <DialogContent
         className={cn(
           'max-h-[90vh] !overflow-hidden !p-0 flex flex-col gap-0 rounded-2xl transition-all duration-200',
           isWide ? 'max-w-[92vw]' : 'max-w-[62vw]'
         )}
+        onPointerDownOutside={(e) => {
+          const target = e.target as HTMLElement
+          if (target.closest('[data-highlight-menu]') || target.closest('[data-highlight-form]')) {
+            e.preventDefault()
+          }
+        }}
+        onInteractOutside={(e) => {
+          const target = e.target as HTMLElement
+          if ((target as HTMLElement).closest?.('[data-highlight-menu]') || (target as HTMLElement).closest?.('[data-highlight-form]')) {
+            e.preventDefault()
+          }
+        }}
       >
         <DialogTitle className="sr-only">报告阅读</DialogTitle>
         <DialogDescription className="sr-only">使用键盘 ← → 切换报告，ESC 关闭</DialogDescription>
@@ -399,10 +460,13 @@ function ReportModal({ title, tag, date, sizeKb, onClose, onNavigate, reports, c
         </div>
       </DialogContent>
 
-      {/* Floating type selector — fixed to viewport, outside DialogContent overflow */}
-      {floatingMenu && highlightContext && typeof document !== 'undefined' && (
+    </Dialog>
+
+    {/* Floating type selector — portaled to body to escape Dialog focus trap */}
+      {floatingMenu && highlightContext && typeof document !== 'undefined' && createPortal(
         <div
-          style={{ position: 'fixed', left: floatingMenu.x, top: floatingMenu.y, transform: 'translateX(-50%) translateY(-100%)', zIndex: 99999 }}
+          data-highlight-menu
+          style={{ position: 'fixed', left: floatingMenu.x, top: floatingMenu.y, transform: 'translateX(-50%) translateY(-100%)', zIndex: 99999, pointerEvents: 'auto' }}
           className="flex items-center gap-1 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 shadow-xl rounded-xl px-2 py-1.5"
           onMouseDown={e => e.preventDefault()}
         >
@@ -410,24 +474,25 @@ function ReportModal({ title, tag, date, sizeKb, onClose, onNavigate, reports, c
             <button
               key={t.id}
               onClick={() => openHighlightForm(t.id)}
-              className="flex items-center gap-1 px-2 py-1 rounded-lg text-xs font-medium hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors whitespace-nowrap"
+              className="flex items-center gap-1 px-2 py-1 rounded-lg text-xs font-medium cursor-pointer hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors whitespace-nowrap"
               title={t.label}
             >
               <span>{t.emoji}</span>
               <span className="text-slate-600 dark:text-slate-300">{t.label}</span>
             </button>
           ))}
-          <button onClick={() => setFloatingMenu(null)} className="ml-1 p-1 rounded-md text-slate-400 hover:text-slate-600 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors">
+          <button onClick={() => setFloatingMenu(null)} className="ml-1 p-1 rounded-md cursor-pointer text-slate-400 hover:text-slate-600 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors">
             <X className="w-3 h-3"/>
           </button>
-        </div>
+        </div>,
+        document.body
       )}
 
-      {/* Highlight creation form dialog */}
-      {highlightForm && (
+      {/* Highlight creation form dialog — portaled to body */}
+      {highlightForm && typeof document !== 'undefined' && createPortal(
         <div className="fixed inset-0 z-[99998] flex items-center justify-center" onClick={() => setHighlightForm(null)}>
           <div className="absolute inset-0 bg-black/30"/>
-          <div className="relative z-[99999] w-full max-w-md mx-4 bg-white dark:bg-slate-900 rounded-2xl shadow-2xl border border-slate-200 dark:border-slate-700 p-4" onClick={e => e.stopPropagation()}>
+          <div data-highlight-form className="relative z-[99999] w-full max-w-md mx-4 bg-white dark:bg-slate-900 rounded-2xl shadow-2xl border border-slate-200 dark:border-slate-700 p-4" onClick={e => e.stopPropagation()}>
             <div className="flex items-center gap-2 mb-3">
               <span className="text-base">{getHighlightType(highlightForm.type).emoji}</span>
               <span className="font-semibold text-sm text-foreground">{getHighlightType(highlightForm.type).label}</span>
@@ -460,15 +525,37 @@ function ReportModal({ title, tag, date, sizeKb, onClose, onNavigate, reports, c
                     key={p}
                     onClick={() => setHighlightForm(f => f ? { ...f, priority: p } : f)}
                     className={cn(
-                      'flex-1 py-1.5 rounded-lg text-xs font-medium transition-colors',
+                      'flex-1 py-1.5 rounded-lg text-xs font-medium cursor-pointer transition-colors',
                       highlightForm.priority === p
                         ? p === 'high' ? 'bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-300'
-                          : p === 'medium' ? 'bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-300'
+                          : p === 'medium' ? 'bg-yellow-100 text-yellow-700 dark:bg-yellow-900/30 dark:text-yellow-300'
                           : 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-300'
                         : 'bg-secondary text-muted-foreground hover:bg-secondary/80'
                     )}
                   >
                     {p === 'low' ? '低' : p === 'medium' ? '中' : '高'}
+                  </button>
+                ))}
+              </div>
+            </div>
+            {/* Status */}
+            <div className="mb-4">
+              <label className="text-xs font-medium text-muted-foreground block mb-1">状态</label>
+              <div className="flex gap-1.5">
+                {(['open', 'in_progress', 'done'] as const).map(s => (
+                  <button
+                    key={s}
+                    onClick={() => setHighlightForm(f => f ? { ...f, status: s } : f)}
+                    className={cn(
+                      'flex-1 py-1.5 rounded-lg text-xs font-medium cursor-pointer transition-colors',
+                      highlightForm.status === s
+                        ? s === 'done' ? 'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-300'
+                          : s === 'in_progress' ? 'bg-yellow-100 text-yellow-700 dark:bg-yellow-900/30 dark:text-yellow-300'
+                          : 'bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-300'
+                        : 'bg-secondary text-muted-foreground hover:bg-secondary/80'
+                    )}
+                  >
+                    {s === 'open' ? '待办' : s === 'in_progress' ? '进行中' : '已完成'}
                   </button>
                 ))}
               </div>
@@ -481,9 +568,10 @@ function ReportModal({ title, tag, date, sizeKb, onClose, onNavigate, reports, c
               </Button>
             </div>
           </div>
-        </div>
+        </div>,
+        document.body
       )}
-    </Dialog>
+    </>
   )
 }
 
@@ -567,6 +655,67 @@ const HIGHLIGHT_TYPES = [
 
 function getHighlightType(typeId: string) {
   return HIGHLIGHT_TYPES.find(t => t.id === typeId) ?? HIGHLIGHT_TYPES[2]
+}
+
+// ─── DOM highlight helpers ────────────────────────────────────────────────────
+
+const HIGHLIGHT_DOM_COLORS: Record<string, { bg: string; border: string }> = {
+  idea:     { bg: 'rgba(251, 191, 36, 0.25)',  border: 'rgba(251, 191, 36, 0.65)' },
+  action:   { bg: 'rgba(34, 197, 94, 0.25)',   border: 'rgba(34, 197, 94, 0.65)' },
+  bookmark: { bg: 'rgba(59, 130, 246, 0.25)',  border: 'rgba(59, 130, 246, 0.65)' },
+  research: { bg: 'rgba(168, 85, 247, 0.25)',  border: 'rgba(168, 85, 247, 0.65)' },
+}
+
+function highlightTextInDom(container: Element, snippet: string, id: string, type: string) {
+  if (!snippet || snippet.length < 3) return
+  const colors = HIGHLIGHT_DOM_COLORS[type] ?? HIGHLIGHT_DOM_COLORS['idea']
+  // Normalize whitespace for flexible matching (handles newlines, multiple spaces, etc.)
+  const normSnippet = snippet.replace(/\s+/g, ' ').trim().toLowerCase()
+  if (!normSnippet) return
+
+  const walker = document.createTreeWalker(container, NodeFilter.SHOW_TEXT)
+  let node: Node | null
+  while ((node = walker.nextNode())) {
+    const rawText = node.textContent || ''
+    if (rawText.replace(/\s+/g, ' ').length < normSnippet.length) continue
+    // Skip if already inside a highlight mark
+    if ((node.parentElement as Element)?.closest?.('mark[data-highlight-id]')) continue
+
+    // Build norm→raw index map (consecutive whitespace collapses to single space)
+    const normToRaw: number[] = []
+    let prevWasSpace = false
+    for (let i = 0; i < rawText.length; i++) {
+      if (/\s/.test(rawText[i])) {
+        if (!prevWasSpace) { normToRaw.push(i); prevWasSpace = true }
+      } else {
+        normToRaw.push(i); prevWasSpace = false
+      }
+    }
+
+    const normText = rawText.replace(/\s+/g, ' ').toLowerCase()
+    const normIdx = normText.indexOf(normSnippet)
+    if (normIdx === -1) continue
+
+    const rawStart = normToRaw[normIdx] ?? 0
+    const normEnd = normIdx + normSnippet.length
+    const rawEnd = normEnd < normToRaw.length ? normToRaw[normEnd] : rawText.length
+
+    try {
+      const range = document.createRange()
+      range.setStart(node, rawStart)
+      range.setEnd(node, rawEnd)
+      const mark = document.createElement('mark')
+      mark.setAttribute('data-highlight-id', id)
+      mark.setAttribute('data-highlight-type', type)
+      mark.style.cssText = `background-color:${colors.bg};border-bottom:2px solid ${colors.border};border-radius:2px;padding:0 1px;cursor:default;`
+      const ht = getHighlightType(type)
+      mark.title = `${ht.emoji} ${ht.label}`
+      range.surroundContents(mark)
+      break // first occurrence only
+    } catch {
+      // surroundContents throws when range crosses element boundaries — skip
+    }
+  }
 }
 
 const TAB_LABEL_MAP: Record<string, string> = {
@@ -1977,6 +2126,10 @@ function HighlightsTab({
   const [loading, setLoading] = useState(true)
   const [filterType, setFilterType] = useState('all')
   const [filterStatus, setFilterStatus] = useState('all')
+  const [viewMode, setViewMode] = useState<'list' | 'grid'>(() => {
+    if (typeof window === 'undefined') return 'list'
+    return (localStorage.getItem('highlights-view-mode') as 'list' | 'grid') ?? 'list'
+  })
 
   const load = useCallback(async () => {
     setLoading(true)
@@ -1998,8 +2151,9 @@ function HighlightsTab({
     } catch (e) { console.error(e) }
   }
 
-  const handleToggleDone = async (h: ReportHighlight) => {
-    const newStatus = h.status === 'done' ? 'open' : 'done'
+  const handleStatusChange = async (h: ReportHighlight) => {
+    const cycle: Record<string, string> = { open: 'in_progress', in_progress: 'done', done: 'open' }
+    const newStatus = cycle[h.status] ?? 'open'
     try {
       const res = await fetch(`/api/report-highlights/${h.id}`, {
         method: 'PATCH',
@@ -2049,15 +2203,32 @@ function HighlightsTab({
           ))}
         </div>
         <div className="flex items-center gap-1 p-0.5 rounded-lg bg-secondary/60 border border-border">
-          {(['all', 'open', 'done'] as const).map(s => (
+          {(['all', 'open', 'in_progress', 'done'] as const).map(s => (
             <button key={s} onClick={() => setFilterStatus(s === filterStatus ? 'all' : s)} className={cn('px-2.5 py-1 rounded-md text-xs font-medium transition-colors', filterStatus === s ? 'bg-white dark:bg-slate-800 text-foreground shadow-sm' : 'text-muted-foreground hover:text-foreground')}>
-              {s === 'all' ? '全部' : s === 'open' ? '进行中' : '已完成'}
+              {s === 'all' ? '全部' : s === 'open' ? '待办' : s === 'in_progress' ? '进行中' : '已完成'}
             </button>
           ))}
         </div>
+        {/* View mode toggle */}
+        <div className="ml-auto flex items-center gap-0.5 p-0.5 rounded-lg bg-secondary/60 border border-border">
+          <button
+            onClick={() => { setViewMode('list'); localStorage.setItem('highlights-view-mode', 'list') }}
+            className={cn('p-1.5 rounded-md transition-colors', viewMode === 'list' ? 'bg-white dark:bg-slate-800 text-foreground shadow-sm' : 'text-muted-foreground hover:text-foreground')}
+            title="列表视图"
+          >
+            <List className="w-3.5 h-3.5"/>
+          </button>
+          <button
+            onClick={() => { setViewMode('grid'); localStorage.setItem('highlights-view-mode', 'grid') }}
+            className={cn('p-1.5 rounded-md transition-colors', viewMode === 'grid' ? 'bg-white dark:bg-slate-800 text-foreground shadow-sm' : 'text-muted-foreground hover:text-foreground')}
+            title="网格视图"
+          >
+            <LayoutGrid className="w-3.5 h-3.5"/>
+          </button>
+        </div>
       </div>
 
-      {/* List */}
+      {/* Items */}
       {loading ? (
         <div className="space-y-2">{[1,2,3,4].map(i => <Skeleton key={i} className="h-16 w-full rounded-xl"/>)}</div>
       ) : highlights.length === 0 ? (
@@ -2068,17 +2239,63 @@ function HighlightsTab({
         </div>
       ) : filtered.length === 0 ? (
         <div className="flex items-center justify-center py-10 text-muted-foreground text-sm">没有匹配的标记</div>
+      ) : viewMode === 'grid' ? (
+        /* Grid view */
+        <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-3">
+          {filtered.map(h => {
+            const hType = getHighlightType(h.type)
+            const isDone = h.status === 'done'
+            const statusIcon = h.status === 'done' ? <CheckCircle2 className="w-3.5 h-3.5"/> : h.status === 'in_progress' ? <Clock className="w-3.5 h-3.5"/> : <Circle className="w-3.5 h-3.5"/>
+            const statusColor = h.status === 'done' ? 'text-emerald-500 hover:bg-emerald-50 dark:hover:bg-emerald-900/20' : h.status === 'in_progress' ? 'text-amber-500 hover:bg-amber-50 dark:hover:bg-amber-900/20' : 'text-muted-foreground hover:text-blue-500 hover:bg-blue-50 dark:hover:bg-blue-900/20'
+            const statusTitle = h.status === 'open' ? '标记进行中' : h.status === 'in_progress' ? '标记完成' : '重置为待办'
+            return (
+              <div key={h.id} className={cn('group rounded-xl border border-border bg-card p-3 flex flex-col gap-2 transition-all hover:border-primary/30', isDone && 'opacity-60')}>
+                <div className="flex items-center gap-2">
+                  <span className="text-base">{hType.emoji}</span>
+                  <span className="text-xs font-semibold text-muted-foreground">{hType.label}</span>
+                  <div className="ml-auto flex items-center gap-1">
+                    <button onClick={() => handleStatusChange(h)} className={cn('p-1 rounded-md transition-colors', statusColor)} title={statusTitle}>{statusIcon}</button>
+                    <button onClick={() => handleDelete(h.id)} className="p-1 rounded-md text-muted-foreground hover:text-destructive hover:bg-destructive/10 transition-colors opacity-0 group-hover:opacity-100" title="删除"><Trash2 className="w-3.5 h-3.5"/></button>
+                  </div>
+                </div>
+                <p className={cn('text-sm text-foreground line-clamp-3 flex-1', isDone && 'line-through text-muted-foreground')}>
+                  &ldquo;{h.text_snippet || h.text}&rdquo;
+                </p>
+                {h.note && <p className="text-xs text-muted-foreground line-clamp-2">{h.note}</p>}
+                <div className="flex items-center gap-2 flex-wrap mt-auto pt-2 border-t border-border/50">
+                  <button onClick={() => onBacklink(h.report_tab, h.report_filename)} className="flex items-center gap-1 text-xs text-primary hover:underline min-w-0" title="打开来源报告">
+                    <Link2 className="w-3 h-3 flex-shrink-0"/>
+                    <span className="truncate max-w-[120px]">{TAB_LABEL_MAP[h.report_tab] ?? h.report_tab}</span>
+                  </button>
+                  <span className={cn(
+                    'inline-flex items-center rounded-full px-1.5 py-0.5 text-[10px] font-semibold ml-auto',
+                    h.priority === 'high' ? 'bg-red-100 text-red-600 dark:bg-red-900/30 dark:text-red-400'
+                    : h.priority === 'medium' ? 'bg-yellow-100 text-yellow-700 dark:bg-yellow-900/30 dark:text-yellow-300'
+                    : 'bg-green-100 text-green-600 dark:bg-green-900/30 dark:text-green-400'
+                  )}>
+                    {h.priority === 'high' ? '高' : h.priority === 'medium' ? '中' : '低'}
+                  </span>
+                  <span className="text-xs text-muted-foreground">{fmtDate(h.created_at.slice(0, 10))}</span>
+                </div>
+              </div>
+            )
+          })}
+        </div>
       ) : (
+        /* List view */
         <div className="space-y-2">
           {filtered.map(h => {
             const hType = getHighlightType(h.type)
             const isDone = h.status === 'done'
+            const statusIcon = h.status === 'done' ? <CheckCircle2 className="w-4 h-4"/> : h.status === 'in_progress' ? <Clock className="w-4 h-4"/> : <Circle className="w-4 h-4"/>
+            const statusColor = h.status === 'done' ? 'text-emerald-500 hover:bg-emerald-50 dark:hover:bg-emerald-900/20' : h.status === 'in_progress' ? 'text-amber-500 hover:bg-amber-50 dark:hover:bg-amber-900/20' : 'text-muted-foreground hover:text-blue-500 hover:bg-blue-50 dark:hover:bg-blue-900/20'
+            const statusTitle = h.status === 'open' ? '标记进行中' : h.status === 'in_progress' ? '标记完成' : '重置为待办'
             return (
               <div
                 key={h.id}
                 className={cn(
                   'group rounded-xl border border-border bg-card p-3 transition-all',
-                  isDone && h.type === 'action' ? 'opacity-50' : 'hover:border-primary/30'
+                  isDone ? 'opacity-50' : 'hover:border-primary/30'
                 )}
               >
                 <div className="flex items-start gap-3">
@@ -2109,7 +2326,7 @@ function HighlightsTab({
                       <span className={cn(
                         'inline-flex items-center rounded-full px-1.5 py-0.5 text-[10px] font-semibold',
                         h.priority === 'high' ? 'bg-red-100 text-red-600 dark:bg-red-900/30 dark:text-red-400'
-                        : h.priority === 'medium' ? 'bg-amber-100 text-amber-600 dark:bg-amber-900/30 dark:text-amber-400'
+                        : h.priority === 'medium' ? 'bg-yellow-100 text-yellow-700 dark:bg-yellow-900/30 dark:text-yellow-300'
                         : 'bg-green-100 text-green-600 dark:bg-green-900/30 dark:text-green-400'
                       )}>
                         {h.priority === 'high' ? '高' : h.priority === 'medium' ? '中' : '低'}
@@ -2122,16 +2339,14 @@ function HighlightsTab({
                   </div>
                   {/* Actions */}
                   <div className="flex items-center gap-1 flex-shrink-0">
-                    {/* Toggle done (action type) */}
-                    {h.type === 'action' && (
-                      <button
-                        onClick={() => handleToggleDone(h)}
-                        className={cn('p-1.5 rounded-lg transition-colors', isDone ? 'text-emerald-500 hover:bg-emerald-50 dark:hover:bg-emerald-900/20' : 'text-muted-foreground hover:text-emerald-500 hover:bg-emerald-50 dark:hover:bg-emerald-900/20')}
-                        title={isDone ? '标记为未完成' : '标记完成'}
-                      >
-                        <CheckCircle2 className="w-4 h-4"/>
-                      </button>
-                    )}
+                    {/* Status toggle — all types */}
+                    <button
+                      onClick={() => handleStatusChange(h)}
+                      className={cn('p-1.5 rounded-lg transition-colors', statusColor)}
+                      title={statusTitle}
+                    >
+                      {statusIcon}
+                    </button>
                     {/* Delete */}
                     <button
                       onClick={() => handleDelete(h.id)}
