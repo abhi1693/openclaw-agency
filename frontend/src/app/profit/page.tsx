@@ -111,18 +111,21 @@ function SummaryCard({ icon, label, value, sub }: { icon: React.ReactNode; label
 
 type SortKey = 'netProfit' | 'revenue' | 'unitsSold' | 'profitMargin' | 'adSpend' | 'tacos'
 
+const DAY_OPTIONS = [7, 14, 30, 90] as const
+
 function DashboardTab() {
   const [data, setData] = useState<ProfitData | null>(null)
   const [loading, setLoading] = useState(true)
   const [refreshing, setRefreshing] = useState(false)
   const [sortKey, setSortKey] = useState<SortKey>('netProfit')
   const [sortDir, setSortDir] = useState<'desc' | 'asc'>('desc')
+  const [days, setDays] = useState<(typeof DAY_OPTIONS)[number]>(30)
 
-  const load = useCallback(async (force = false) => {
+  const load = useCallback(async (force = false, selectedDays = days) => {
     if (force) setRefreshing(true)
     else setLoading(true)
     try {
-      const res = await fetch('/api/profit', { method: force ? 'POST' : 'GET' })
+      const res = await fetch(`/api/profit?days=${selectedDays}`, { method: force ? 'POST' : 'GET' })
       const json = await res.json() as ProfitData
       setData(json)
     } catch (e) {
@@ -131,9 +134,9 @@ function DashboardTab() {
       setLoading(false)
       setRefreshing(false)
     }
-  }, [])
+  }, [days])
 
-  useEffect(() => { load() }, [load])
+  useEffect(() => { load(false, days) }, [days, load])
 
   const handleSort = (key: SortKey) => {
     if (sortKey === key) setSortDir(d => d === 'desc' ? 'asc' : 'desc')
@@ -198,7 +201,25 @@ function DashboardTab() {
       {/* Table */}
       <div className="rounded-xl border border-slate-200 bg-white shadow-sm overflow-hidden">
         <div className="flex items-center justify-between px-5 py-4 border-b border-[hsl(var(--border))]">
-          <h2 className="font-semibold text-slate-900">SKU 利润明细 <span className="text-[hsl(var(--muted-foreground))] text-sm font-normal">· 近 30 天</span></h2>
+          <div className="flex items-center gap-3">
+            <h2 className="font-semibold text-slate-900">SKU 利润明细 <span className="text-[hsl(var(--muted-foreground))] text-sm font-normal">· 近 {days} 天</span></h2>
+            <div className="inline-flex rounded-lg border border-slate-200 bg-slate-50 p-0.5">
+              {DAY_OPTIONS.map(option => (
+                <button
+                  key={option}
+                  onClick={() => setDays(option)}
+                  className={cn(
+                    'rounded-md px-2.5 py-1 text-xs font-medium transition-colors',
+                    days === option
+                      ? 'bg-white text-slate-900 shadow-sm'
+                      : 'text-slate-500 hover:text-slate-700'
+                  )}
+                >
+                  {option}d
+                </button>
+              ))}
+            </div>
+          </div>
           <div className="flex items-center gap-3">
             {data?.cachedAt && (
               <span className="text-[11px] text-[hsl(var(--muted-foreground))]">更新于 {minutesAgo(data.cachedAt)}</span>

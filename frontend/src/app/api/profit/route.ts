@@ -1,4 +1,4 @@
-import { NextResponse } from 'next/server'
+import { NextRequest, NextResponse } from 'next/server'
 import { fetchBackend } from '../amazon/_backend'
 
 export interface ProfitItem {
@@ -15,9 +15,11 @@ export interface ProfitItem {
   profitMargin?: number
 }
 
-export async function GET() {
+export async function GET(request: NextRequest) {
   try {
-    const resp = await fetchBackend('/api/v1/amazon/profit')
+    const days = request.nextUrl.searchParams.get('days')?.trim()
+    const query = days ? `?days=${encodeURIComponent(days)}` : ''
+    const resp = await fetchBackend(`/api/v1/amazon/profit${query}`)
     if (!resp.ok) throw new Error(`Backend responded ${resp.status}`)
     const data = await resp.json()
     // Normalize snake_case → camelCase for frontend compatibility
@@ -60,12 +62,14 @@ export async function GET() {
   }
 }
 
-export async function POST() {
+export async function POST(request: NextRequest) {
   try {
+    const days = request.nextUrl.searchParams.get('days')?.trim()
+    const query = days ? `?days=${encodeURIComponent(days)}` : ''
     const resp = await fetchBackend('/api/v1/amazon/profit/refresh', { method: 'POST' })
     if (!resp.ok) throw new Error(`Backend responded ${resp.status}`)
     // After refresh, return updated profit data
-    const profitResp = await fetchBackend('/api/v1/amazon/profit')
+    const profitResp = await fetchBackend(`/api/v1/amazon/profit${query}`)
     const data = await profitResp.json()
     return NextResponse.json({
       summary: {
