@@ -870,3 +870,48 @@ async def sync_ppc_analyses(session: AsyncSession) -> tuple[int, datetime]:
 
     await session.commit()
     return synced, now
+
+
+async def sync_reimbursements(session: AsyncSession, *, days: int = 180) -> AmazonSyncResult:
+    """Sync reimbursement data from SP-API into ReimbursementEvent table."""
+    from app.models.amazon_orders import ReimbursementEvent
+
+    synced_at = utcnow()
+    payload = await _run_sp_api("reimbursements", "--days", str(days))
+    reimbursements = list(payload.get("reimbursements") or [])
+    count = 0
+
+    for item in reimbursements:
+        reimb_id = str(item.get("reimbursementId") or "").strip()
+        if not reimb_id:
+            continue
+        existing = await session.exec(
+            select(ReimbursementEvent).where(
+                col(ReimbursementEvent.reimbursement_id) == reimb_id
+            )
+        )
+        row = existing.one_or_none()
+        if row is None:
+            row = ReimbursementEvent(
+                reimbursement_id=reimb_id,
+                order_id=str(item.get("orderId") or ""),
+            )
+            session.add(row)
+
+        row.reimbursement_id = reimb_id
+        row.order_id = str(item.get("orderId") or "")
+        row.sku = str(item.get("sku") or "")
+        row.asin = str(item.get("asin") or "")
+        row.fnsku = str(item.get("fnSku") or item.get("fnsku") or "")
+        row.reason = str(item.get("reason") or "")
+        row.amount_total = _to_decimal(item.get("amountTotal") or item.get("amount")) or Decimal(0)
+        row.amount_cash = _to_decimal(item.get("amountCash") or item.get("cashAmount")) or Decimal(0)
+        row.amount_inventory = _to_int(item.get("amountInventory") or item.get("inventoryAmount"))
+        reimb_date = item.get("reimbursementDate") or item.get("date")
+        row.reimbursement_date = _to_datetime(reimb_date) if reimb_date else None
+        row.synced_at = synced_at
+        row.updated_at = synced_at
+        count += 1
+
+    await session.commit()
+    return AmazonSyncResult(synced_at=synced_at, return_events_synced=count)

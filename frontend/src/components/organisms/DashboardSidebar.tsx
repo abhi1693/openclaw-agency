@@ -21,6 +21,7 @@ import {
   MessageSquare,
   Network,
   Package,
+  ReceiptText,
   Search,
   Settings,
   Store,
@@ -177,6 +178,7 @@ export function DashboardSidebar() {
                     { href: "/competitors", icon: Swords, label: "Competitors", sub: "竞品监控" },
                     { href: "/restock", icon: Package, label: "Restock", sub: "补货预测" },
                     { href: "/profit", icon: DollarSign, label: "Profit", sub: "利润分析" },
+                    { href: "/refunds", icon: ReceiptText, label: "Refunds", sub: "FBA 退款追回" },
                     { href: "/content", icon: Clapperboard, label: "Content", sub: "内容营销矩阵" },
                     { href: "/system", icon: Cpu, label: "System", sub: "系统 & 模型用量" },
                   ].map((item) => {

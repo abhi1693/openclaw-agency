@@ -360,3 +360,90 @@ class KeywordRanking(QueryModel, table=True):
     source: str = Field(default="h10_cerebro")  # h10_cerebro, sp_api, manual
     snapshot_date: date = Field(index=True)
     created_at: datetime = Field(default_factory=utcnow)
+
+
+class ReimbursementEvent(QueryModel, table=True):
+    """Amazon FBA reimbursement records."""
+
+    __tablename__ = "reimbursement_events"  # pyright: ignore[reportAssignmentType]
+    __table_args__ = (UniqueConstraint("reimbursement_id", name="uq_reimbursement_events_id"),)
+
+    id: int | None = Field(default=None, primary_key=True)
+    reimbursement_id: str = Field(index=True)
+    order_id: str = Field(index=True)
+    sku: str = ""
+    asin: str = ""
+    fnsku: str = ""
+    reason: str = ""
+    amount_total: Decimal = Field(default=Decimal(0), sa_column=Column(Numeric(12, 2), nullable=False, server_default="0"))
+    amount_cash: Decimal = Field(default=Decimal(0), sa_column=Column(Numeric(12, 2), nullable=False, server_default="0"))
+    amount_inventory: int = 0
+    reimbursement_date: datetime | None = Field(default=None, index=True)
+    synced_at: datetime = Field(default_factory=utcnow)
+    created_at: datetime = Field(default_factory=utcnow)
+    updated_at: datetime = Field(default_factory=utcnow)
+
+
+class ProductCost(QueryModel, table=True):
+    """COGS (Cost of Goods Sold) data per SKU — migrated from cogs.json."""
+
+    __tablename__ = "product_costs"  # pyright: ignore[reportAssignmentType]
+
+    id: int | None = Field(default=None, primary_key=True)
+    sku: str = Field(unique=True, index=True)
+    asin: str = ""
+    product_name: str = ""
+    unit_cost: Decimal = Field(default=Decimal(0), sa_column=Column(Numeric(12, 4), nullable=False, server_default="0"))
+    shipping_to_port: Decimal = Field(default=Decimal(0), sa_column=Column(Numeric(12, 4), nullable=False, server_default="0"))
+    freight: Decimal = Field(default=Decimal(0), sa_column=Column(Numeric(12, 4), nullable=False, server_default="0"))
+    customs: Decimal = Field(default=Decimal(0), sa_column=Column(Numeric(12, 4), nullable=False, server_default="0"))
+    duty_rate: Decimal = Field(default=Decimal(0), sa_column=Column(Numeric(8, 4), nullable=False, server_default="0"))
+    last_mile: Decimal = Field(default=Decimal(0), sa_column=Column(Numeric(12, 4), nullable=False, server_default="0"))
+    prep: Decimal = Field(default=Decimal(0), sa_column=Column(Numeric(12, 4), nullable=False, server_default="0"))
+    other_cost: Decimal = Field(default=Decimal(0), sa_column=Column(Numeric(12, 4), nullable=False, server_default="0"))
+    total_landed_cost: Decimal = Field(default=Decimal(0), sa_column=Column(Numeric(12, 4), nullable=False, server_default="0"))
+    currency: str = "USD"
+    updated_at: datetime = Field(default_factory=utcnow)
+    created_at: datetime = Field(default_factory=utcnow)
+
+
+class RestockConfig(QueryModel, table=True):
+    """Per-ASIN restock configuration (lead times, safety stock)."""
+
+    __tablename__ = "restock_configs"  # pyright: ignore[reportAssignmentType]
+
+    id: int | None = Field(default=None, primary_key=True)
+    asin: str = Field(unique=True, index=True)
+    lead_time_days: int = Field(default=30)
+    fba_prep_days: int = Field(default=7)
+    safety_stock_days: int = Field(default=14)
+    created_at: datetime = Field(default_factory=utcnow)
+    updated_at: datetime = Field(default_factory=utcnow)
+
+
+class RefundClaim(QueryModel, table=True):
+    """Refund recovery claim tracking — replaces JSON case files."""
+
+    __tablename__ = "refund_claims"  # pyright: ignore[reportAssignmentType]
+
+    id: int | None = Field(default=None, primary_key=True)
+    order_id: str = Field(unique=True, index=True)
+    sku: str = ""
+    asin: str = ""
+    refund_date: datetime | None = Field(default=None, index=True)
+    refund_amount: Decimal = Field(default=Decimal(0), sa_column=Column(Numeric(12, 2), nullable=False, server_default="0"))
+    refund_reason: str = ""
+    days_since_refund: int = 0
+    has_return: bool = False
+    has_reimbursement: bool = False
+    claim_type: str = ""   # "reimbursement" | "safe-t"
+    claim_scenario: str = ""  # "A" | "B" | "C" | "D" | "E"
+    priority: str = "low"  # "high" | "medium" | "low"
+    status: str = "actionable"  # "actionable" | "waiting" | "pending" | "submitted" | "approved" | "denied"
+    amazon_case_id: str = ""
+    submitted_at: datetime | None = None
+    evidence: str = ""
+    template_text: str = ""
+    notes: str = ""
+    created_at: datetime = Field(default_factory=utcnow)
+    updated_at: datetime = Field(default_factory=utcnow)

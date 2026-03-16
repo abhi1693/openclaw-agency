@@ -9,12 +9,16 @@ function backendBaseUrl(): string {
 }
 
 export async function fetchBackend(path: string, init?: RequestInit): Promise<Response> {
+  const headers = new Headers(init?.headers || undefined)
+  const body = init?.body
+  const isFormData = typeof FormData !== 'undefined' && body instanceof FormData
+  if (!headers.has('content-type') && body && !isFormData) {
+    headers.set('content-type', 'application/json')
+  }
+
   return fetch(`${backendBaseUrl()}${path}`, {
     ...init,
-    headers: {
-      'content-type': 'application/json',
-      ...(init?.headers || {}),
-    },
+    headers,
     cache: 'no-store',
   })
 }

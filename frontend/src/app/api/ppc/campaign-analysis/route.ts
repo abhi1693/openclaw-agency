@@ -1,28 +1,21 @@
+/**
+ * GET /api/ppc/campaign-analysis — PPC campaign analysis
+ * Migrated Phase 3: reads from FastAPI backend → /api/v1/amazon/ppc/campaign-analysis
+ */
 import { NextResponse } from 'next/server'
-import fs from 'fs'
-import path from 'path'
-import os from 'os'
-
-const CACHE_DIR = path.join(os.homedir(), '.openclaw/skills/amazon-advertising/cache')
-
-function getLatestMatchingFile(prefix: string): string | null {
-  try {
-    const files = fs.readdirSync(CACHE_DIR)
-      .filter(f => f.startsWith(prefix) && f.endsWith('.json'))
-      .sort()
-      .reverse()
-    return files.length ? path.join(CACHE_DIR, files[0]) : null
-  } catch {
-    return null
-  }
-}
+import { fetchBackend } from '../../amazon/_backend'
 
 export async function GET() {
-  const file = getLatestMatchingFile('campaign-analysis-')
-  if (!file) {
+  try {
+    const response = await fetchBackend('/api/v1/amazon/ppc/campaign-analysis')
+    if (!response.ok) throw new Error(`Backend responded ${response.status}`)
+    return NextResponse.json(await response.json())
+  } catch (err: unknown) {
+    console.error('PPC campaign-analysis backend error:', err)
     return NextResponse.json({
       empty: true,
-      message: '暂无 Campaign 分析数据。请运行 node ppc-campaign-analyzer.js',
+      error: true,
+      message: 'Campaign 分析数据加载失败',
       summary: null,
       duplicates: [],
       asinCoverage: { whitelist: [], covered: [], uncovered: [] },
@@ -30,16 +23,6 @@ export async function GET() {
       zombieCampaigns: [],
       naming: { issueCount: 0, issues: [] },
       recommendations: [],
-    })
-  }
-
-  try {
-    const raw = JSON.parse(fs.readFileSync(file, 'utf-8'))
-    return NextResponse.json({ ...raw, empty: false, source: path.basename(file) })
-  } catch {
-    return NextResponse.json(
-      { empty: true, error: true, message: '缓存文件读取失败' },
-      { status: 500 }
-    )
+    }, { status: 503 })
   }
 }

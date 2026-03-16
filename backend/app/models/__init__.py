@@ -13,6 +13,8 @@ from app.models.amazon_orders import (
     PpcAnalysisSnapshot,
     PricingSnapshot,
     ProductSales,
+    RefundClaim,
+    ReimbursementEvent,
     ReturnEvent,
     SearchTermReport,
 )
@@ -78,6 +80,8 @@ __all__ = [
     "PpcAnalysisSnapshot",
     "PricingSnapshot",
     "ProductSales",
+    "RefundClaim",
+    "ReimbursementEvent",
     "ReturnEvent",
     "SearchTermReport",
     "TaskDependency",

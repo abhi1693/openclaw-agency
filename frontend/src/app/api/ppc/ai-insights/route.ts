@@ -1,41 +1,21 @@
+/**
+ * GET /api/ppc/ai-insights — PPC AI insights
+ * Migrated Phase 3: reads from FastAPI backend → /api/v1/amazon/ppc/ai-insights
+ */
 import { NextResponse } from 'next/server'
-import fs from 'fs'
-import path from 'path'
-import os from 'os'
-
-const CACHE_DIR = path.join(os.homedir(), '.openclaw/skills/amazon-advertising/cache')
-
-function getLatestMatchingFile(prefix: string): string | null {
-  try {
-    const files = fs.readdirSync(CACHE_DIR)
-      .filter(f => f.startsWith(prefix) && f.endsWith('.json'))
-      .sort()
-      .reverse()
-    return files.length ? path.join(CACHE_DIR, files[0]) : null
-  } catch {
-    return null
-  }
-}
+import { fetchBackend } from '../../amazon/_backend'
 
 export async function GET() {
-  const file = getLatestMatchingFile('ai-insights-result-')
-
-  if (!file) {
-    return NextResponse.json({
-      empty: true,
-      message: '等待下次 AI 分析运行',
-      hint: 'node ~/.openclaw/skills/amazon-advertising/ppc-ai-insights.js --format prompt',
-    })
-  }
-
   try {
-    const raw = fs.readFileSync(file, 'utf8')
-    const data = JSON.parse(raw)
-    return NextResponse.json({ empty: false, ...data })
-  } catch {
+    const response = await fetchBackend('/api/v1/amazon/ppc/ai-insights')
+    if (!response.ok) throw new Error(`Backend responded ${response.status}`)
+    return NextResponse.json(await response.json())
+  } catch (err: unknown) {
+    console.error('PPC ai-insights backend error:', err)
     return NextResponse.json({
       empty: true,
-      message: 'AI 洞察文件解析失败，请重新运行分析',
-    })
+      error: true,
+      message: 'AI 洞察数据加载失败',
+    }, { status: 503 })
   }
 }

@@ -1,44 +1,27 @@
+/**
+ * GET /api/ppc/weekly-report — PPC weekly report
+ * Migrated Phase 3: reads from FastAPI backend → /api/v1/amazon/ppc/weekly
+ */
 import { NextResponse } from 'next/server'
-import fs from 'fs'
-import path from 'path'
-import os from 'os'
-
-const CACHE_DIR = path.join(os.homedir(), '.openclaw/skills/amazon-advertising/cache')
-
-function getLatestMatchingFile(prefix: string): string | null {
-  try {
-    const files = fs.readdirSync(CACHE_DIR)
-      .filter(f => f.startsWith(prefix) && f.endsWith('.json'))
-      .sort()
-      .reverse()
-    return files.length ? path.join(CACHE_DIR, files[0]) : null
-  } catch {
-    return null
-  }
-}
+import { fetchBackend } from '../../amazon/_backend'
 
 export async function GET() {
-  const file = getLatestMatchingFile('weekly-report-')
-  if (!file) {
+  try {
+    const response = await fetchBackend('/api/v1/amazon/ppc/weekly')
+    if (!response.ok) throw new Error(`Backend responded ${response.status}`)
+    return NextResponse.json(await response.json())
+  } catch (err: unknown) {
+    console.error('PPC weekly-report backend error:', err)
     return NextResponse.json({
       empty: true,
-      message: '暂无周报数据。请运行 node ppc-weekly-report.js',
+      error: true,
+      message: '周报数据加载失败',
       overview: { totalSpend: null, totalSales: null, totalOrders: null, acos: null, roas: null },
       moneyKeywords: [],
       burnKeywords: [],
       actionItems: [],
       riskAlerts: [],
       summary: { highPriorityActions: 0, mediumPriorityActions: 0, criticalAlerts: 0, warningAlerts: 0 },
-    })
-  }
-
-  try {
-    const raw = JSON.parse(fs.readFileSync(file, 'utf-8'))
-    return NextResponse.json({ ...raw, empty: false, source: path.basename(file) })
-  } catch {
-    return NextResponse.json(
-      { empty: true, error: true, message: '缓存文件读取失败' },
-      { status: 500 }
-    )
+    }, { status: 503 })
   }
 }

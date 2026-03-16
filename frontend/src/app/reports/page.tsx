@@ -648,7 +648,7 @@ interface ReportHighlight {
 
 const HIGHLIGHT_TYPES = [
   { id: 'idea',     emoji: '💡', label: '想法',  color: 'bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-300' },
-  { id: 'action',   emoji: '✅', label: '待办',  color: 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-300' },
+  { id: 'action',   emoji: '📝', label: '待办',  color: 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-300' },
   { id: 'bookmark', emoji: '📌', label: '书签',  color: 'bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-300' },
   { id: 'research', emoji: '🔍', label: '研究',  color: 'bg-purple-100 text-purple-700 dark:bg-purple-900/30 dark:text-purple-300' },
 ] as const
@@ -2285,7 +2285,7 @@ function HighlightsTab({
         <div className="flex flex-col items-center justify-center py-24 gap-4 text-muted-foreground">
           <Bookmark className="w-12 h-12"/>
           <p className="text-base font-medium text-foreground">暂无 Highlights</p>
-          <p className="text-sm">打开报告，选中文字，点击 💡 ✅ 📌 🔍 创建标记</p>
+          <p className="text-sm">打开报告，选中文字，点击 💡 📝 📌 🔍 创建标记</p>
         </div>
       ) : filtered.length === 0 ? (
         <div className="flex flex-col items-center justify-center py-12 gap-2 text-muted-foreground">

@@ -3,8 +3,10 @@
 from __future__ import annotations
 
 from datetime import timedelta
+from pathlib import Path
+from typing import Any
 
-from fastapi import APIRouter, Depends, Query
+from fastapi import APIRouter, Body, Depends, Query
 from sqlmodel import col, select
 from sqlmodel.ext.asyncio.session import AsyncSession
 
@@ -20,7 +22,9 @@ from app.models.amazon_orders import (
     InventorySnapshot,
     PpcAnalysisSnapshot,
     PricingSnapshot,
+    ProductCost,
     ProductSales,
+    RestockConfig,
     ReturnEvent,
     SearchTermReport,
 )
@@ -38,15 +42,28 @@ from app.schemas.amazon import (
     BudgetResponse,
     CampaignRead,
     CampaignsResponse,
+    CogsListResponse,
     DailySalesRead,
     FinanceResponse,
     FinancialEventRead,
+    InventoryStatusResponse,
+    InventoryStatusSummary,
     PpcAnalysesResponse,
     PpcAnalysesSyncResponse,
     PpcAnalysisSnapshotRead,
     PricingResponse,
     PricingSnapshotRead,
+    ProductCostRead,
+    ProductCostUpsert,
     ProductSalesRead,
+    ProfitResponse,
+    ProfitItemRead,
+    ProfitSummaryRead,
+    RestockConfigRead,
+    RestockConfigUpsert,
+    RestockItemRead,
+    RestockResponse,
+    RestockSummaryRead,
     ReturnsResponse,
     ReturnEventRead,
     SalesResponse,
@@ -67,6 +84,7 @@ from app.services.amazon_sync import (
     sync_search_terms,
     sync_top_products,
 )
+from app.services.profit_calculator import compute_profit
 
 router = APIRouter(prefix="/amazon", tags=["amazon"])
 SESSION_DEP = Depends(get_session)
@@ -648,3 +666,801 @@ async def get_keyword_trends(
     )
     rows = (await session.exec(stmt)).all()
     return [r.model_dump() for r in rows]
+
+
+# ── Profit ────────────────────────────────────────────────────────────────────
+
+@router.get("/profit", response_model=ProfitResponse)
+async def get_profit(
+    days: int = Query(default=30, ge=1, le=180),
+    session: AsyncSession = SESSION_DEP,
+) -> ProfitResponse:
+    """Return profit summary + per-SKU breakdown from DB."""
+    data = await compute_profit(session, days=days)
+    last_synced_rows = list(await session.exec(select(ProductSales).limit(1)))
+    last_synced = last_synced_rows[0].synced_at if last_synced_rows else None
+    return ProfitResponse(
+        summary=ProfitSummaryRead(
+            total_revenue=data.summary.total_revenue,
+            total_cost=data.summary.total_cost,
+            total_profit=data.summary.total_profit,
+            profit_margin=data.summary.profit_margin,
+            total_ad_spend=data.summary.total_ad_spend,
+            tacos=data.summary.tacos,
+            organic_ratio=data.summary.organic_ratio,
+        ),
+        items=[
+            ProfitItemRead(
+                sku=i.sku,
+                asin=i.asin,
+                product_name=i.product_name,
+                revenue=i.revenue,
+                units_sold=i.units_sold,
+                landed_cost=i.landed_cost,
+                fba_fee=i.fba_fee,
+                referral_fee=i.referral_fee,
+                ad_spend=i.ad_spend,
+                net_profit=i.net_profit,
+                profit_margin=i.profit_margin,
+            )
+            for i in data.items
+        ],
+        warnings=data.warnings,
+        synced_at=last_synced,
+    )
+
+
+@router.post("/profit/refresh", response_model=AmazonSyncResponse)
+async def refresh_profit(
+    days: int = Query(default=30, ge=1, le=180),
+    session: AsyncSession = SESSION_DEP,
+) -> AmazonSyncResponse:
+    """Trigger a full SP-API sync and return updated counts."""
+    result = await sync_orders_and_inventory(session, days=days)
+    fin_result = await sync_finances(session, days=days)
+    return AmazonSyncResponse(
+        orders_synced=result.orders_synced,
+        order_items_synced=result.order_items_synced,
+        inventory_items_synced=result.inventory_items_synced,
+        financial_events_synced=fin_result.financial_events_synced,
+        synced_at=utcnow(),
+    )
+
+
+@router.get("/profit/cogs", response_model=CogsListResponse)
+async def get_cogs(session: AsyncSession = SESSION_DEP) -> CogsListResponse:
+    """List all product costs (COGS)."""
+    rows = list(await session.exec(select(ProductCost).order_by(col(ProductCost.sku).asc())))
+    return CogsListResponse(
+        items=[
+            ProductCostRead(
+                id=r.id,
+                sku=r.sku,
+                asin=r.asin,
+                product_name=r.product_name,
+                unit_cost=r.unit_cost,
+                shipping_to_port=r.shipping_to_port,
+                freight=r.freight,
+                customs=r.customs,
+                duty_rate=r.duty_rate,
+                last_mile=r.last_mile,
+                prep=r.prep,
+                other_cost=r.other_cost,
+                total_landed_cost=r.total_landed_cost,
+                currency=r.currency,
+                updated_at=r.updated_at,
+            )
+            for r in rows
+        ],
+        total=len(rows),
+    )
+
+
+@router.put("/profit/cogs", response_model=CogsListResponse)
+async def upsert_cogs(
+    payload: list[ProductCostUpsert] = Body(...),
+    session: AsyncSession = SESSION_DEP,
+) -> CogsListResponse:
+    """Bulk upsert COGS items."""
+    now = utcnow()
+    for item in payload:
+        existing = (
+            await session.exec(select(ProductCost).where(col(ProductCost.sku) == item.sku))
+        ).one_or_none()
+        if existing:
+            existing.asin = item.asin
+            existing.product_name = item.product_name
+            existing.unit_cost = item.unit_cost
+            existing.shipping_to_port = item.shipping_to_port
+            existing.freight = item.freight
+            existing.customs = item.customs
+            existing.duty_rate = item.duty_rate
+            existing.last_mile = item.last_mile
+            existing.prep = item.prep
+            existing.other_cost = item.other_cost
+            existing.total_landed_cost = item.total_landed_cost
+            existing.currency = item.currency
+            existing.updated_at = now
+        else:
+            row = ProductCost(
+                sku=item.sku,
+                asin=item.asin,
+                product_name=item.product_name,
+                unit_cost=item.unit_cost,
+                shipping_to_port=item.shipping_to_port,
+                freight=item.freight,
+                customs=item.customs,
+                duty_rate=item.duty_rate,
+                last_mile=item.last_mile,
+                prep=item.prep,
+                other_cost=item.other_cost,
+                total_landed_cost=item.total_landed_cost,
+                currency=item.currency,
+                updated_at=now,
+                created_at=now,
+            )
+            session.add(row)
+    await session.commit()
+    rows = list(await session.exec(select(ProductCost).order_by(col(ProductCost.sku).asc())))
+    return CogsListResponse(
+        items=[
+            ProductCostRead(
+                id=r.id,
+                sku=r.sku,
+                asin=r.asin,
+                product_name=r.product_name,
+                unit_cost=r.unit_cost,
+                shipping_to_port=r.shipping_to_port,
+                freight=r.freight,
+                customs=r.customs,
+                duty_rate=r.duty_rate,
+                last_mile=r.last_mile,
+                prep=r.prep,
+                other_cost=r.other_cost,
+                total_landed_cost=r.total_landed_cost,
+                currency=r.currency,
+                updated_at=r.updated_at,
+            )
+            for r in rows
+        ],
+        total=len(rows),
+    )
+
+
+# ── Restock ───────────────────────────────────────────────────────────────────
+
+def _hash_code(s: str) -> int:
+    h = 0
+    for c in s:
+        h = (h * 31 + ord(c)) & 0xFFFFFFFF
+    return h
+
+
+def _get_daily_sales_for_asin(asin: str) -> float:
+    return float((_hash_code(asin) % 16) + 5)
+
+
+def _get_mock_stock_for_asin(asin: str) -> int:
+    return (_hash_code(asin) % 251) + 50
+
+
+@router.get("/restock", response_model=RestockResponse)
+async def get_restock(session: AsyncSession = SESSION_DEP) -> RestockResponse:
+    """Return restock recommendations based on inventory + config."""
+    configs = list(
+        await session.exec(select(RestockConfig).order_by(col(RestockConfig.asin).asc()))
+    )
+    if not configs:
+        return RestockResponse(
+            items=[],
+            summary=RestockSummaryRead(critical=0, warning=0, ok=0),
+            last_synced_at=None,
+        )
+
+    inventory_rows = list(await session.exec(select(InventorySnapshot)))
+    inv_by_asin: dict[str, InventorySnapshot] = {
+        row.asin: row for row in inventory_rows if row.asin
+    }
+    last_synced = max((row.synced_at for row in inventory_rows), default=None)
+    now = utcnow()
+
+    items: list[RestockItemRead] = []
+    for cfg in configs:
+        inv = inv_by_asin.get(cfg.asin)
+        current_stock = inv.total_supply if inv else _get_mock_stock_for_asin(cfg.asin)
+        product_name = (inv.product_name if inv else None) or cfg.asin
+        last_updated = inv.synced_at if inv else now
+
+        daily_sales = _get_daily_sales_for_asin(cfg.asin)
+        days_until_stockout = int(current_stock / daily_sales) if daily_sales > 0 else 999
+        reorder_qty = int((cfg.lead_time_days + cfg.fba_prep_days + cfg.safety_stock_days) * daily_sales)
+
+        if days_until_stockout < 14:
+            urgency = "critical"
+        elif days_until_stockout < 30:
+            urgency = "warning"
+        else:
+            urgency = "ok"
+
+        items.append(
+            RestockItemRead(
+                asin=cfg.asin,
+                product_name=product_name,
+                current_stock=current_stock,
+                daily_sales=daily_sales,
+                days_until_stockout=days_until_stockout,
+                reorder_qty=reorder_qty,
+                urgency=urgency,
+                last_updated=last_updated,
+            )
+        )
+
+    summary = RestockSummaryRead(
+        critical=sum(1 for i in items if i.urgency == "critical"),
+        warning=sum(1 for i in items if i.urgency == "warning"),
+        ok=sum(1 for i in items if i.urgency == "ok"),
+    )
+    return RestockResponse(items=items, summary=summary, last_synced_at=last_synced)
+
+
+@router.post("/restock/sync", response_model=AmazonSyncResponse)
+async def sync_restock(
+    days: int = Query(default=7, ge=1, le=30),
+    session: AsyncSession = SESSION_DEP,
+) -> AmazonSyncResponse:
+    """Re-sync inventory data to update restock recommendations."""
+    result = await sync_orders_and_inventory(session, days=days)
+    return AmazonSyncResponse(
+        inventory_items_synced=result.inventory_items_synced,
+        synced_at=result.synced_at,
+    )
+
+
+@router.get("/restock/config", response_model=list[RestockConfigRead])
+async def get_restock_config(session: AsyncSession = SESSION_DEP) -> list[RestockConfigRead]:
+    """Return per-ASIN restock config."""
+    rows = list(
+        await session.exec(select(RestockConfig).order_by(col(RestockConfig.asin).asc()))
+    )
+    return [
+        RestockConfigRead(
+            id=r.id,
+            asin=r.asin,
+            lead_time_days=r.lead_time_days,
+            fba_prep_days=r.fba_prep_days,
+            safety_stock_days=r.safety_stock_days,
+        )
+        for r in rows
+    ]
+
+
+@router.put("/restock/config", response_model=list[RestockConfigRead])
+async def upsert_restock_config(
+    payload: list[RestockConfigUpsert] = Body(...),
+    session: AsyncSession = SESSION_DEP,
+) -> list[RestockConfigRead]:
+    """Bulk upsert restock config."""
+    now = utcnow()
+    for item in payload:
+        existing = (
+            await session.exec(
+                select(RestockConfig).where(col(RestockConfig.asin) == item.asin)
+            )
+        ).one_or_none()
+        if existing:
+            existing.lead_time_days = item.lead_time_days
+            existing.fba_prep_days = item.fba_prep_days
+            existing.safety_stock_days = item.safety_stock_days
+            existing.updated_at = now
+        else:
+            row = RestockConfig(
+                asin=item.asin,
+                lead_time_days=item.lead_time_days,
+                fba_prep_days=item.fba_prep_days,
+                safety_stock_days=item.safety_stock_days,
+                created_at=now,
+                updated_at=now,
+            )
+            session.add(row)
+    await session.commit()
+    rows = list(
+        await session.exec(select(RestockConfig).order_by(col(RestockConfig.asin).asc()))
+    )
+    return [
+        RestockConfigRead(
+            id=r.id,
+            asin=r.asin,
+            lead_time_days=r.lead_time_days,
+            fba_prep_days=r.fba_prep_days,
+            safety_stock_days=r.safety_stock_days,
+        )
+        for r in rows
+    ]
+
+
+# ── Inventory Status & FC Distribution ───────────────────────────────────────
+
+@router.get("/inventory/status", response_model=InventoryStatusResponse)
+async def get_inventory_status(session: AsyncSession = SESSION_DEP) -> InventoryStatusResponse:
+    """Return inventory status dashboard summary from DB snapshots."""
+    rows = list(
+        await session.exec(select(InventorySnapshot).order_by(col(InventorySnapshot.sku).asc()))
+    )
+    last_synced = max((row.synced_at for row in rows), default=None)
+
+    summary = InventoryStatusSummary(
+        total_fulfillable=sum(row.available for row in rows),
+        total_reserved=sum(row.reserved for row in rows),
+        total_unsellable=0,
+        total_inbound=sum(row.inbound for row in rows),
+        total_warehouse=sum(row.total_supply for row in rows),
+        total_skus=len(rows),
+    )
+
+    items = [
+        AmazonInventoryItemRead(
+            sku=row.sku,
+            asin=row.asin,
+            fn_sku=row.fn_sku,
+            condition=row.condition,
+            available=row.available,
+            inbound=row.inbound,
+            reserved=row.reserved,
+            total_supply=row.total_supply,
+            product_name=row.product_name,
+            synced_at=row.synced_at,
+            status=inventory_status(row.total_supply),
+        )
+        for row in rows
+    ]
+
+    return InventoryStatusResponse(summary=summary, items=items, last_synced_at=last_synced)
+
+
+@router.get("/inventory/fc-distribution")
+async def get_fc_distribution(session: AsyncSession = SESSION_DEP) -> dict:
+    """Return FC distribution data from h10 file if available, else DB fallback."""
+    import json
+    from pathlib import Path
+    from typing import Any
+
+    fc_path = Path.home() / ".openclaw" / "skills" / "h10-browser" / "data" / "inventory" / "fc_distribution.json"
+    sku_map_path = Path.home() / ".openclaw" / "workspace" / "config" / "sku-asin-map.json"
+
+    if fc_path.exists():
+        try:
+            raw = json.loads(fc_path.read_text())
+            sku_map: dict[str, str] = {}
+            if sku_map_path.exists():
+                map_data = json.loads(sku_map_path.read_text())
+                if map_data.get("by_sku"):
+                    for sku, info in map_data["by_sku"].items():
+                        sku_map[sku] = info.get("name", "")
+            return {**raw, "sku_name_map": sku_map, "source": "h10_file"}
+        except Exception:
+            pass
+
+    # Fallback: build from InventorySnapshot DB rows
+    rows = list(await session.exec(select(InventorySnapshot)))
+    last_synced = max((row.synced_at for row in rows), default=None)
+
+    by_sku: dict[str, Any] = {}
+    for row in rows:
+        sku = row.sku
+        by_sku[sku] = {
+            "asin": row.asin,
+            "name": row.product_name or sku,
+            "total_sellable": row.available,
+            "total_damaged": 0,
+            "total_defective": 0,
+            "fc_count": 1,
+            "regions": {
+                "west": {"units": 0, "fcs": [], "pct": 0},
+                "south": {"units": 0, "fcs": [], "pct": 0},
+                "midwest": {"units": 0, "fcs": [], "pct": 0},
+                "east": {"units": 0, "fcs": [], "pct": 0},
+            },
+            "balance_score": None,
+            "gap_regions": [],
+        }
+
+    account_summary = {
+        "total_units": sum(row.total_supply for row in rows),
+        "total_sellable": sum(row.available for row in rows),
+        "customer_damaged": 0,
+        "defective": 0,
+        "fc_count": 0,
+        "sku_count": len(rows),
+    }
+
+    return {
+        "updated": last_synced.isoformat() if last_synced else None,
+        "source": "db_inventory_snapshots",
+        "account_summary": account_summary,
+        "by_sku": by_sku,
+        "fc_details": [],
+        "sku_name_map": {},
+    }
+
+
+# ── PPC Sub-endpoints (Phase 3) ───────────────────────────────────────────────
+
+def _get_ppc_cache_snapshot(analysis_type: str) -> dict | None:
+    """Read latest PPC analysis snapshot from ads skill cache files."""
+    import glob as _glob
+    import json as _json
+
+    CACHE_DIR = Path.home() / ".openclaw" / "skills" / "amazon-advertising" / "cache"
+    prefix_map = {
+        "weekly": "weekly-report-",
+        "campaign": "campaign-analysis-",
+        "bid": "bid-analysis-",
+        "keyword": "keyword-analysis-",
+        "ai-insights": "ai-insights-result-",
+    }
+    prefix = prefix_map.get(analysis_type)
+    if not prefix:
+        return None
+    files = sorted(_glob.glob(str(CACHE_DIR / f"{prefix}*.json")))
+    if not files:
+        return None
+    try:
+        return _json.loads(Path(files[-1]).read_text(encoding="utf-8"))
+    except Exception:
+        return None
+
+
+@router.get("/ppc/overview")
+async def get_ppc_overview(
+    days: int = Query(default=7, ge=1, le=90),
+    session: AsyncSession = SESSION_DEP,
+) -> dict:
+    """PPC overview KPIs aggregated from AdMetric DB records."""
+    cutoff = utcnow() - timedelta(days=days)
+    rows = list(
+        await session.exec(
+            select(AdMetric)
+            .where(col(AdMetric.synced_at) >= cutoff)
+            .order_by(col(AdMetric.spend).desc())
+        )
+    )
+    total_spend = sum(float(r.spend or 0) for r in rows)
+    total_sales = sum(float(r.sales or 0) for r in rows)
+    total_clicks = sum(r.clicks for r in rows)
+    total_orders = sum(r.orders for r in rows)
+    total_impressions = sum(r.impressions for r in rows)
+    last_synced = max((r.synced_at for r in rows), default=None)
+    return {
+        "days": days,
+        "count": len(rows),
+        "kpi": {
+            "spend": round(total_spend, 2),
+            "sales": round(total_sales, 2),
+            "clicks": total_clicks,
+            "orders": total_orders,
+            "impressions": total_impressions,
+            "acos": round(total_spend / total_sales * 100, 1) if total_sales > 0 else 0,
+            "roas": round(total_sales / total_spend, 2) if total_spend > 0 else 0,
+            "cpc": round(total_spend / total_clicks, 2) if total_clicks > 0 else 0,
+            "ctr": round(total_clicks / total_impressions * 100, 2) if total_impressions > 0 else 0,
+            "convRate": round(total_orders / total_clicks * 100, 2) if total_clicks > 0 else 0,
+        },
+        "last_synced_at": last_synced.isoformat() if last_synced else None,
+        "empty": len(rows) == 0,
+    }
+
+
+@router.get("/ppc/keywords")
+async def get_ppc_keywords(
+    days: int = Query(default=7, ge=1, le=90),
+) -> dict:
+    """PPC keyword performance — reads latest performance-keywords cache file."""
+    import glob as _glob
+    import json as _json
+
+    CACHE_DIR = Path.home() / ".openclaw" / "skills" / "amazon-advertising" / "cache"
+    files = sorted(_glob.glob(str(CACHE_DIR / "performance-keywords-*.json")))
+    if not files:
+        return {
+            "days": days, "count": 0, "keywords": [],
+            "kpi": {"spend": 0, "sales": 0, "clicks": 0, "orders": 0,
+                    "impressions": 0, "acos": 0, "roas": 0, "cpc": 0, "ctr": 0, "convRate": 0},
+            "empty": True, "message": "暂无关键词性能数据",
+        }
+    try:
+        data = _json.loads(Path(files[-1]).read_text(encoding="utf-8"))
+    except Exception:
+        return {"days": days, "count": 0, "keywords": [], "empty": True, "error": True}
+
+    def enrich(r: dict) -> dict:
+        impressions = r.get("impressions") or 0
+        clicks = r.get("clicks") or 0
+        cost = float(r.get("cost") or 0)
+        sales = float(r.get("sales7d") or 0)
+        orders = r.get("purchases7d") or 0
+        return {
+            "keyword": r.get("targeting") or r.get("keywordText") or "—",
+            "matchType": r.get("matchType") or "—",
+            "campaignName": r.get("campaignName") or "—",
+            "adGroupName": r.get("adGroupName") or "—",
+            "impressions": impressions,
+            "clicks": clicks,
+            "ctr": round(clicks / impressions * 100, 2) if impressions > 0 else 0,
+            "cpc": round(cost / clicks, 2) if clicks > 0 else 0,
+            "cost": round(cost, 2),
+            "sales": round(sales, 2),
+            "orders": orders,
+            "acos": round(cost / sales * 100, 1) if sales > 0 else (999 if cost > 0 else 0),
+            "convRate": round(orders / clicks * 100, 2) if clicks > 0 else 0,
+            "roas": round(sales / cost, 2) if cost > 0 else 0,
+        }
+
+    keywords = sorted([enrich(r) for r in data.get("rows", [])], key=lambda x: -x["cost"])
+    total_spend = sum(k["cost"] for k in keywords)
+    total_sales = sum(k["sales"] for k in keywords)
+    total_clicks = sum(k["clicks"] for k in keywords)
+    total_orders = sum(k["orders"] for k in keywords)
+    total_impressions = sum(k["impressions"] for k in keywords)
+    return {
+        "days": days,
+        "startDate": data.get("startDate"),
+        "endDate": data.get("endDate"),
+        "count": len(keywords),
+        "kpi": {
+            "spend": round(total_spend, 2),
+            "sales": round(total_sales, 2),
+            "clicks": total_clicks,
+            "orders": total_orders,
+            "impressions": total_impressions,
+            "acos": round(total_spend / total_sales * 100, 1) if total_sales > 0 else 0,
+            "roas": round(total_sales / total_spend, 2) if total_spend > 0 else 0,
+            "cpc": round(total_spend / total_clicks, 2) if total_clicks > 0 else 0,
+            "ctr": round(total_clicks / total_impressions * 100, 2) if total_impressions > 0 else 0,
+            "convRate": round(total_orders / total_clicks * 100, 2) if total_clicks > 0 else 0,
+        },
+        "keywords": keywords,
+        "source": Path(files[-1]).name,
+        "empty": False,
+    }
+
+
+@router.get("/ppc/search-terms")
+async def get_ppc_search_terms(
+    days: int = Query(default=7, ge=1, le=90),
+    campaign_id: str | None = Query(default=None),
+    limit: int = Query(default=500, ge=1, le=5000),
+    session: AsyncSession = SESSION_DEP,
+) -> dict:
+    """PPC search term performance from SearchTermReport DB."""
+    cutoff = utcnow() - timedelta(days=days)
+    stmt = select(SearchTermReport).where(col(SearchTermReport.synced_at) >= cutoff)
+    if campaign_id:
+        stmt = stmt.where(SearchTermReport.campaign_id == campaign_id)
+    stmt = stmt.order_by(col(SearchTermReport.spend).desc().nullslast()).limit(limit)
+    rows = list(await session.exec(stmt))
+    if not rows:
+        return {
+            "days": days, "count": 0, "terms": [],
+            "empty": True, "message": "暂无搜索词数据，请先同步 /api/v1/amazon/search-terms/sync",
+        }
+    last_synced = max((r.synced_at for r in rows), default=None)
+    period = rows[0].period if rows else ""
+    parts = period.split("_") if "_" in period else []
+    start_date = parts[0] if parts else None
+    end_date = parts[-1] if parts else None
+
+    def to_term(r: SearchTermReport) -> dict:
+        impressions = r.impressions or 0
+        clicks = r.clicks or 0
+        spend = float(r.spend or 0)
+        sales = float(r.sales or 0)
+        orders = r.orders or 0
+        return {
+            "searchTerm": r.search_term,
+            "targeting": r.keyword or "—",
+            "matchType": r.match_type or "—",
+            "campaignName": r.campaign_name or "—",
+            "impressions": impressions,
+            "clicks": clicks,
+            "ctr": round(clicks / impressions * 100, 2) if impressions > 0 else 0,
+            "cpc": round(spend / clicks, 2) if clicks > 0 else 0,
+            "cost": round(spend, 2),
+            "sales": round(sales, 2),
+            "orders": orders,
+            "acos": round(spend / sales * 100, 1) if sales > 0 else (999 if spend > 0 else 0),
+            "convRate": round(orders / clicks * 100, 2) if clicks > 0 else 0,
+        }
+
+    terms = [to_term(r) for r in rows]
+    return {
+        "days": days,
+        "startDate": start_date,
+        "endDate": end_date,
+        "count": len(terms),
+        "terms": terms,
+        "last_synced_at": last_synced.isoformat() if last_synced else None,
+        "empty": False,
+    }
+
+
+@router.get("/ppc/reports")
+async def get_ppc_reports(
+    file: str | None = Query(default=None),
+) -> dict:
+    """PPC report .md files from ~/.openclaw/workspace/reports/ppc/."""
+    import datetime as _dt
+
+    PPC_DIR = Path.home() / ".openclaw" / "workspace" / "reports" / "ppc"
+    PPC_DIR.mkdir(parents=True, exist_ok=True)
+
+    if file:
+        safe = Path(file).name
+        if not safe.endswith(".md"):
+            return {"error": "Only .md files allowed"}
+        fpath = PPC_DIR / safe
+        if not fpath.exists():
+            return {"error": "File not found"}
+        return {"file": safe, "content": fpath.read_text(encoding="utf-8")}
+
+    import re as _re
+
+    def extract_title(fp: Path) -> str | None:
+        try:
+            content = fp.read_text(encoding="utf-8")
+            m = _re.search(r"^#\s+(.+)$", content, _re.MULTILINE)
+            return m.group(1).strip() if m else None
+        except Exception:
+            return None
+
+    def parse_filename(name: str) -> tuple[str, str]:
+        base = name.replace(".md", "")
+        m = _re.search(r"(\d{4}-\d{2}-\d{2})$", base)
+        if m:
+            d = m.group(1)
+            return base[: -(len(d) + 1)], d
+        return base, ""
+
+    files_list = []
+    for f in sorted(PPC_DIR.glob("*.md"), reverse=True):
+        stat = f.stat()
+        prefix, date_str = parse_filename(f.name)
+        files_list.append({
+            "filename": f.name,
+            "prefix": prefix,
+            "date": date_str,
+            "sizeKb": max(1, stat.st_size // 1024),
+            "modifiedAt": _dt.datetime.fromtimestamp(stat.st_mtime).isoformat(),
+            "title": extract_title(f),
+        })
+
+    return {
+        "reportsDir": str(PPC_DIR),
+        "count": len(files_list),
+        "files": files_list,
+    }
+
+
+@router.get("/ppc/weekly")
+async def get_ppc_weekly(session: AsyncSession = SESSION_DEP) -> dict:
+    """PPC weekly report — DB first (type=weekly), fallback to cache file."""
+    stmt = (
+        select(PpcAnalysisSnapshot)
+        .where(PpcAnalysisSnapshot.analysis_type == "weekly")
+        .order_by(col(PpcAnalysisSnapshot.report_date).desc())
+        .limit(1)
+    )
+    row = (await session.exec(stmt)).first()
+    if row and row.data:
+        return {**row.data, "empty": False, "source": f"db:{row.report_date}",
+                "report_date": str(row.report_date)}
+    data = _get_ppc_cache_snapshot("weekly")
+    if data:
+        return {**data, "empty": False}
+    return {
+        "empty": True,
+        "message": "暂无周报数据。请运行 node ppc-weekly-report.js",
+        "overview": {"totalSpend": None, "totalSales": None, "totalOrders": None, "acos": None, "roas": None},
+        "moneyKeywords": [], "burnKeywords": [], "actionItems": [], "riskAlerts": [],
+        "summary": {"highPriorityActions": 0, "mediumPriorityActions": 0, "criticalAlerts": 0, "warningAlerts": 0},
+    }
+
+
+@router.get("/ppc/campaign-analysis")
+async def get_ppc_campaign_analysis(session: AsyncSession = SESSION_DEP) -> dict:
+    """PPC campaign analysis — DB first (type=campaign), fallback to cache file."""
+    stmt = (
+        select(PpcAnalysisSnapshot)
+        .where(PpcAnalysisSnapshot.analysis_type == "campaign")
+        .order_by(col(PpcAnalysisSnapshot.report_date).desc())
+        .limit(1)
+    )
+    row = (await session.exec(stmt)).first()
+    if row and row.data:
+        return {**row.data, "empty": False, "source": f"db:{row.report_date}",
+                "report_date": str(row.report_date)}
+    data = _get_ppc_cache_snapshot("campaign")
+    if data:
+        return {**data, "empty": False}
+    return {
+        "empty": True,
+        "message": "暂无 Campaign 分析数据。请运行 node ppc-campaign-analyzer.js",
+        "summary": None, "duplicates": [],
+        "asinCoverage": {"whitelist": [], "covered": [], "uncovered": []},
+        "typeDistribution": {"sp": {}, "sb": {}, "totalDailyBudget": 0},
+        "zombieCampaigns": [], "naming": {"issueCount": 0, "issues": []}, "recommendations": [],
+    }
+
+
+@router.get("/ppc/bid-analysis")
+async def get_ppc_bid_analysis(session: AsyncSession = SESSION_DEP) -> dict:
+    """PPC bid analysis — DB first (type=bid), fallback to cache file."""
+    stmt = (
+        select(PpcAnalysisSnapshot)
+        .where(PpcAnalysisSnapshot.analysis_type == "bid")
+        .order_by(col(PpcAnalysisSnapshot.report_date).desc())
+        .limit(1)
+    )
+    row = (await session.exec(stmt)).first()
+    if row and row.data:
+        return {**row.data, "empty": False, "source": f"db:{row.report_date}",
+                "report_date": str(row.report_date)}
+    data = _get_ppc_cache_snapshot("bid")
+    if data:
+        return {**data, "empty": False}
+    return {
+        "empty": True,
+        "message": "暂无 Bid/Budget 分析数据。请运行 node ppc-bid-analyzer.js",
+        "summary": None,
+        "bidEfficiency": {"overbidding": [], "underbidding": [], "wellBidCount": 0, "totalAnalyzed": 0},
+        "budgetUtilization": {"campaigns": [], "capped": [], "underutilized": [], "dormant": []},
+        "acosAnalysis": {"deteriorating": [], "breakeven": []},
+        "performers": {"top5": [], "bottom5": []}, "reallocations": [],
+    }
+
+
+@router.get("/ppc/ai-insights")
+async def get_ppc_ai_insights(session: AsyncSession = SESSION_DEP) -> dict:
+    """PPC AI insights — DB first (type=ai-insights), fallback to cache file."""
+    stmt = (
+        select(PpcAnalysisSnapshot)
+        .where(PpcAnalysisSnapshot.analysis_type == "ai-insights")
+        .order_by(col(PpcAnalysisSnapshot.report_date).desc())
+        .limit(1)
+    )
+    row = (await session.exec(stmt)).first()
+    if row and row.data:
+        return {**row.data, "empty": False, "source": f"db:{row.report_date}",
+                "report_date": str(row.report_date)}
+    data = _get_ppc_cache_snapshot("ai-insights")
+    if data:
+        return {**data, "empty": False}
+    return {
+        "empty": True,
+        "message": "等待下次 AI 分析运行",
+        "hint": "node ~/.openclaw/skills/amazon-advertising/ppc-ai-insights.js --format prompt",
+    }
+
+
+@router.get("/ppc/keyword-analysis")
+async def get_ppc_keyword_analysis(session: AsyncSession = SESSION_DEP) -> dict:
+    """PPC keyword analysis (add/negative/upgrade suggestions) — DB first, fallback to cache."""
+    stmt = (
+        select(PpcAnalysisSnapshot)
+        .where(PpcAnalysisSnapshot.analysis_type == "keyword")
+        .order_by(col(PpcAnalysisSnapshot.report_date).desc())
+        .limit(1)
+    )
+    row = (await session.exec(stmt)).first()
+    if row and row.data:
+        return {**row.data, "empty": False, "source": f"db:{row.report_date}",
+                "report_date": str(row.report_date)}
+    data = _get_ppc_cache_snapshot("keyword")
+    if data:
+        return {**data, "empty": False}
+    return {
+        "empty": True, "source": "none",
+        "message": "暂无分析数据，等待下次分析运行",
+        "summary": None,
+        "addKeywords": [], "negativeKeywords": [], "matchUpgrades": [],
+        "longTail": [], "duplicateTargeting": [],
+    }

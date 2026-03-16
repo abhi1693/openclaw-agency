@@ -1,10 +1,3 @@
 import { NextResponse } from 'next/server'
-
-export async function GET() {
-  try {
-    const { mockContent } = await import('@/lib/mock/data')
-    return NextResponse.json({ ...mockContent, demo: true })
-  } catch (err) {
-    return NextResponse.json({ error: 'Failed to fetch content' }, { status: 500 })
-  }
-}
+import { fetchBackend } from '../amazon/_backend'
+export async function GET() { const res = await fetchBackend('/api/content'); return NextResponse.json(await res.json(), { status: res.status }) }

@@ -14,6 +14,7 @@ from app.api.activity import router as activity_router
 from app.api.agent import router as agent_router
 from app.api.agents import router as agents_router
 from app.api.amazon import router as amazon_router
+from app.api.refunds import router as refunds_router
 from app.api.approvals import router as approvals_router
 from app.api.auth import router as auth_router
 from app.api.board_group_memory import router as board_group_memory_router
@@ -25,6 +26,12 @@ from app.api.boards import router as boards_router
 from app.api.gateway import router as gateway_router
 from app.api.gateways import router as gateways_router
 from app.api.intel import router as intel_router
+from app.api.reports import router as reports_router
+from app.api.competitors_api import router as competitors_router
+from app.api.reviews_api import router as reviews_router
+from app.api.keywords_api import router as keywords_router
+from app.api.content_api import router as content_router
+from app.api.agents_api import router as local_agents_router
 from app.api.report_highlights import router as report_highlights_router
 from app.api.metrics import router as metrics_router
 from app.api.organizations import router as organizations_router
@@ -33,7 +40,7 @@ from app.api.souls_directory import router as souls_directory_router
 from app.api.tags import router as tags_router
 from app.api.task_custom_fields import router as task_custom_fields_router
 from app.api.tasks import router as tasks_router
-from app.api.system import router as system_router
+from app.api.system import router as system_router, public_router as public_system_router
 from app.api.users import router as users_router
 from app.core.config import settings
 from app.core.error_handling import install_error_handling
@@ -557,6 +564,7 @@ api_v1.include_router(gateway_router)
 api_v1.include_router(gateways_router)
 api_v1.include_router(metrics_router)
 api_v1.include_router(amazon_router)
+api_v1.include_router(refunds_router)
 api_v1.include_router(organizations_router)
 api_v1.include_router(souls_directory_router)
 api_v1.include_router(skills_marketplace_router)
@@ -575,6 +583,13 @@ api_v1.include_router(system_router)
 api_v1.include_router(report_highlights_router)
 app.include_router(api_v1)
 app.include_router(intel_router)
+app.include_router(reports_router)
+app.include_router(competitors_router)
+app.include_router(reviews_router)
+app.include_router(keywords_router)
+app.include_router(content_router)
+app.include_router(local_agents_router)
+app.include_router(public_system_router)
 
 add_pagination(app)
 logger.debug("app.routes.registered count=%s", len(app.routes))

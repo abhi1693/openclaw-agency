@@ -296,3 +296,132 @@ class PpcAnalysesResponse(SQLModel):
 class PpcAnalysesSyncResponse(SQLModel):
     analyses_synced: int = 0
     synced_at: datetime
+
+
+# ── Profit / COGS ─────────────────────────────────────────────────────────────
+
+class ProductCostRead(SQLModel):
+    id: int | None = None
+    sku: str
+    asin: str
+    product_name: str
+    unit_cost: Decimal
+    shipping_to_port: Decimal
+    freight: Decimal
+    customs: Decimal
+    duty_rate: Decimal
+    last_mile: Decimal
+    prep: Decimal
+    other_cost: Decimal
+    total_landed_cost: Decimal
+    currency: str
+    updated_at: datetime
+
+
+class ProductCostUpsert(SQLModel):
+    sku: str
+    asin: str = ""
+    product_name: str = ""
+    unit_cost: Decimal = Decimal(0)
+    shipping_to_port: Decimal = Decimal(0)
+    freight: Decimal = Decimal(0)
+    customs: Decimal = Decimal(0)
+    duty_rate: Decimal = Decimal(0)
+    last_mile: Decimal = Decimal(0)
+    prep: Decimal = Decimal(0)
+    other_cost: Decimal = Decimal(0)
+    total_landed_cost: Decimal = Decimal(0)
+    currency: str = "USD"
+
+
+class CogsListResponse(SQLModel):
+    items: list[ProductCostRead]
+    total: int
+
+
+class ProfitItemRead(SQLModel):
+    sku: str
+    asin: str
+    product_name: str
+    revenue: Decimal
+    units_sold: int
+    landed_cost: Decimal
+    fba_fee: Decimal
+    referral_fee: Decimal
+    ad_spend: Decimal
+    net_profit: Decimal
+    profit_margin: Decimal
+
+
+class ProfitSummaryRead(SQLModel):
+    total_revenue: Decimal
+    total_cost: Decimal
+    total_profit: Decimal
+    profit_margin: Decimal
+    total_ad_spend: Decimal
+    tacos: Decimal
+    organic_ratio: Decimal
+
+
+class ProfitResponse(SQLModel):
+    summary: ProfitSummaryRead
+    items: list[ProfitItemRead]
+    warnings: list[str] = []
+    synced_at: datetime | None = None
+
+
+# ── Restock ───────────────────────────────────────────────────────────────────
+
+class RestockConfigRead(SQLModel):
+    id: int | None = None
+    asin: str
+    lead_time_days: int
+    fba_prep_days: int
+    safety_stock_days: int
+
+
+class RestockConfigUpsert(SQLModel):
+    asin: str
+    lead_time_days: int = 30
+    fba_prep_days: int = 7
+    safety_stock_days: int = 14
+
+
+class RestockItemRead(SQLModel):
+    asin: str
+    product_name: str
+    current_stock: int
+    daily_sales: float
+    days_until_stockout: int
+    reorder_qty: int
+    urgency: str  # "critical" | "warning" | "ok"
+    last_updated: datetime | None = None
+
+
+class RestockSummaryRead(SQLModel):
+    critical: int
+    warning: int
+    ok: int
+
+
+class RestockResponse(SQLModel):
+    items: list[RestockItemRead]
+    summary: RestockSummaryRead
+    last_synced_at: datetime | None = None
+
+
+# ── Inventory Status ──────────────────────────────────────────────────────────
+
+class InventoryStatusSummary(SQLModel):
+    total_fulfillable: int = 0
+    total_reserved: int = 0
+    total_unsellable: int = 0
+    total_inbound: int = 0
+    total_warehouse: int = 0
+    total_skus: int = 0
+
+
+class InventoryStatusResponse(SQLModel):
+    summary: InventoryStatusSummary
+    items: list[AmazonInventoryItemRead]
+    last_synced_at: datetime | None = None
