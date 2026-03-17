@@ -28,6 +28,9 @@ dependencies = [
     "redis==6.3.0",
     "rq==2.6.0",
     "cryptography==45.0.7",
+    "playwright>=1.58.0",
+    "beautifulsoup4>=4.14.3",
+    "lxml>=6.0.2",
 ]
 
 [project.optional-dependencies]

@@ -1,0 +1,693 @@
+'use client'
+
+import { useState, useEffect, useCallback } from 'react'
+import { DashboardPageLayout } from '@/components/templates/DashboardPageLayout'
+import {
+  Ship, Plus, RefreshCw, ChevronDown, ChevronRight,
+  Anchor, MapPin, Calendar, Package, DollarSign, X, Loader2,
+} from 'lucide-react'
+import { cn } from '@/lib/utils'
+
+// ─── Types ────────────────────────────────────────────────────────────────────
+
+interface ShipmentEvent {
+  id: number
+  shipment_id: number
+  event_type: string
+  description: string
+  location: string
+  vessel_name: string
+  event_at: string | null
+  source: string
+  created_at: string
+}
+
+interface Shipment {
+  id: number
+  booking_number: string
+  container_number: string
+  bl_number: string
+  carrier: string
+  carrier_scac: string
+  vessel_name: string
+  voyage_number: string
+  port_of_loading: string
+  port_of_discharge: string
+  container_type: string
+  weight_kg: number
+  etd: string | null
+  eta: string | null
+  actual_departure: string | null
+  actual_arrival: string | null
+  status: string
+  last_event: string
+  last_event_at: string | null
+  tracking_source: string
+  description: string
+  supplier: string
+  reference: string
+  notes: string
+  freight_cost: string
+  customs_cost: string
+  other_cost: string
+  created_at: string
+  updated_at: string
+  events?: ShipmentEvent[]
+}
+
+interface DashboardData {
+  in_transit: number
+  arriving_soon: number
+  year_total: number
+  total_freight_cost: number
+}
+
+// ─── Status helpers ───────────────────────────────────────────────────────────
+
+const STATUS_LABEL: Record<string, string> = {
+  booked: '已订舱',
+  departed: '已出发',
+  in_transit: '在途',
+  arrived: '已到港',
+  discharged: '已卸货',
+  picked_up: '已提柜',
+  delivered: '已送达',
+  delayed: '延误',
+}
+
+const STATUS_COLOR: Record<string, string> = {
+  booked:    'bg-slate-100 text-slate-600',
+  departed:  'bg-green-100 text-green-700',
+  in_transit:'bg-blue-100 text-blue-700',
+  arrived:   'bg-yellow-100 text-yellow-700',
+  discharged:'bg-orange-100 text-orange-700',
+  picked_up: 'bg-purple-100 text-purple-700',
+  delivered: 'bg-slate-200 text-slate-500',
+  delayed:   'bg-red-100 text-red-700',
+}
+
+const CARRIERS = [
+  'Evergreen', 'COSCO', 'OOCL', 'Yang Ming', 'ONE',
+  'Maersk', 'MSC', 'Hapag-Lloyd', 'CMA CGM',
+]
+
+// ─── Utility ──────────────────────────────────────────────────────────────────
+
+function fmtDate(iso: string | null | undefined): string {
+  if (!iso) return '—'
+  const d = new Date(iso)
+  return d.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })
+}
+
+function daysUntil(iso: string | null | undefined): number | null {
+  if (!iso) return null
+  const diff = new Date(iso).getTime() - Date.now()
+  return Math.round(diff / 86_400_000)
+}
+
+function totalCost(s: Shipment): number {
+  return (parseFloat(s.freight_cost) || 0)
+       + (parseFloat(s.customs_cost) || 0)
+       + (parseFloat(s.other_cost) || 0)
+}
+
+// ─── Add Shipment Modal ───────────────────────────────────────────────────────
+
+interface AddModalProps {
+  onClose: () => void
+  onCreated: () => void
+}
+
+function AddShipmentModal({ onClose, onCreated }: AddModalProps) {
+  const [form, setForm] = useState({
+    booking_number: '',
+    carrier: 'Evergreen',
+    carrier_scac: '',
+    vessel_name: '',
+    voyage_number: '',
+    port_of_loading: '',
+    port_of_discharge: '',
+    container_type: '',
+    weight_kg: '',
+    etd: '',
+    eta: '',
+    description: '',
+    supplier: '',
+    reference: '',
+    notes: '',
+    freight_cost: '',
+    customs_cost: '',
+    other_cost: '',
+  })
+  const [saving, setSaving] = useState(false)
+  const [error, setError] = useState('')
+
+  const set = (k: keyof typeof form) => (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) =>
+    setForm(f => ({ ...f, [k]: e.target.value }))
+
+  async function submit(e: React.FormEvent) {
+    e.preventDefault()
+    if (!form.booking_number.trim()) { setError('订舱号不能为空'); return }
+    setSaving(true); setError('')
+    try {
+      const payload: Record<string, unknown> = { ...form }
+      if (form.weight_kg) payload.weight_kg = parseInt(form.weight_kg)
+      if (form.freight_cost) payload.freight_cost = parseFloat(form.freight_cost)
+      if (form.customs_cost) payload.customs_cost = parseFloat(form.customs_cost)
+      if (form.other_cost) payload.other_cost = parseFloat(form.other_cost)
+      if (!form.etd) delete payload.etd
+      if (!form.eta) delete payload.eta
+
+      const res = await fetch('/api/shipments', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload),
+      })
+      if (!res.ok) {
+        const d = await res.json()
+        throw new Error(d.detail || '创建失败')
+      }
+      onCreated()
+      onClose()
+    } catch (err: unknown) {
+      setError(err instanceof Error ? err.message : '创建失败')
+    } finally {
+      setSaving(false)
+    }
+  }
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm p-4">
+      <div className="bg-white dark:bg-slate-900 rounded-2xl shadow-2xl w-full max-w-2xl max-h-[90vh] overflow-y-auto border border-slate-200">
+        <div className="flex items-center justify-between px-6 py-4 border-b border-slate-200 sticky top-0 bg-white dark:bg-slate-900 z-10">
+          <div className="flex items-center gap-2">
+            <Ship className="w-5 h-5 text-blue-600" />
+            <h2 className="text-lg font-semibold">添加柜子</h2>
+          </div>
+          <button onClick={onClose} className="p-1 hover:bg-slate-100 rounded-lg"><X className="w-5 h-5" /></button>
+        </div>
+
+        <form onSubmit={submit} className="p-6 space-y-5">
+          {/* Basic */}
+          <div className="grid grid-cols-2 gap-4">
+            <div className="col-span-2">
+              <label className="block text-sm font-medium text-slate-700 mb-1">订舱号 <span className="text-red-500">*</span></label>
+              <input
+                value={form.booking_number}
+                onChange={set('booking_number')}
+                placeholder="e.g. 147600270372"
+                className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+              />
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-slate-700 mb-1">船公司</label>
+              <select
+                value={form.carrier}
+                onChange={set('carrier')}
+                className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white"
+              >
+                {CARRIERS.map(c => <option key={c}>{c}</option>)}
+              </select>
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-slate-700 mb-1">柜型</label>
+              <input
+                value={form.container_type}
+                onChange={set('container_type')}
+                placeholder="e.g. 40'HC"
+                className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+              />
+            </div>
+          </div>
+
+          {/* Vessel */}
+          <div className="grid grid-cols-2 gap-4">
+            <div>
+              <label className="block text-sm font-medium text-slate-700 mb-1">船名</label>
+              <input value={form.vessel_name} onChange={set('vessel_name')} placeholder="e.g. EVER MILD"
+                className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" />
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-slate-700 mb-1">航次</label>
+              <input value={form.voyage_number} onChange={set('voyage_number')} placeholder="e.g. 1445-009E"
+                className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" />
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-slate-700 mb-1">装货港 (POL)</label>
+              <input value={form.port_of_loading} onChange={set('port_of_loading')} placeholder="e.g. YANTIAN"
+                className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" />
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-slate-700 mb-1">卸货港 (POD)</label>
+              <input value={form.port_of_discharge} onChange={set('port_of_discharge')} placeholder="e.g. LOS ANGELES"
+                className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" />
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-slate-700 mb-1">ETD (预计离港)</label>
+              <input type="date" value={form.etd} onChange={set('etd')}
+                className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" />
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-slate-700 mb-1">ETA (预计到港)</label>
+              <input type="date" value={form.eta} onChange={set('eta')}
+                className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" />
+            </div>
+          </div>
+
+          {/* Business */}
+          <div className="grid grid-cols-2 gap-4">
+            <div>
+              <label className="block text-sm font-medium text-slate-700 mb-1">货物描述</label>
+              <input value={form.description} onChange={set('description')} placeholder="e.g. Hand sanitizer, 500 cartons"
+                className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" />
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-slate-700 mb-1">供应商</label>
+              <input value={form.supplier} onChange={set('supplier')}
+                className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" />
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-slate-700 mb-1">内部参考号</label>
+              <input value={form.reference} onChange={set('reference')}
+                className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" />
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-slate-700 mb-1">毛重 (KG)</label>
+              <input type="number" value={form.weight_kg} onChange={set('weight_kg')}
+                className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" />
+            </div>
+          </div>
+
+          {/* Costs */}
+          <div>
+            <p className="text-xs font-semibold uppercase tracking-wider text-slate-400 mb-2">费用（选填）</p>
+            <div className="grid grid-cols-3 gap-4">
+              <div>
+                <label className="block text-sm font-medium text-slate-700 mb-1">运费 ($)</label>
+                <input type="number" step="0.01" value={form.freight_cost} onChange={set('freight_cost')}
+                  className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-slate-700 mb-1">关务费 ($)</label>
+                <input type="number" step="0.01" value={form.customs_cost} onChange={set('customs_cost')}
+                  className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-slate-700 mb-1">其他 ($)</label>
+                <input type="number" step="0.01" value={form.other_cost} onChange={set('other_cost')}
+                  className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" />
+              </div>
+            </div>
+          </div>
+
+          {error && <p className="text-sm text-red-600 bg-red-50 rounded-lg px-3 py-2">{error}</p>}
+
+          <div className="flex justify-end gap-3 pt-2">
+            <button type="button" onClick={onClose}
+              className="px-4 py-2 rounded-lg text-sm text-slate-600 hover:bg-slate-100 transition">
+              取消
+            </button>
+            <button type="submit" disabled={saving}
+              className="px-5 py-2 rounded-lg text-sm bg-blue-600 text-white font-medium hover:bg-blue-700 transition disabled:opacity-50 flex items-center gap-2">
+              {saving && <Loader2 className="w-4 h-4 animate-spin" />}
+              添加
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>
+  )
+}
+
+// ─── Shipment Row ─────────────────────────────────────────────────────────────
+
+interface ShipmentRowProps {
+  shipment: Shipment
+  onRefresh: (id: number) => Promise<void>
+  onDelete: (id: number) => Promise<void>
+  refreshing: boolean
+}
+
+function ShipmentRow({ shipment: s, onRefresh, onDelete, refreshing }: ShipmentRowProps) {
+  const [expanded, setExpanded] = useState(false)
+  const [detail, setDetail] = useState<Shipment | null>(null)
+  const [loading, setLoading] = useState(false)
+
+  async function expand() {
+    if (expanded) { setExpanded(false); return }
+    setExpanded(true)
+    if (!detail) {
+      setLoading(true)
+      try {
+        const res = await fetch(`/api/shipments/${s.id}`)
+        if (res.ok) setDetail(await res.json())
+      } finally {
+        setLoading(false)
+      }
+    }
+  }
+
+  const days = daysUntil(s.eta)
+  const route = [s.port_of_loading, s.port_of_discharge].filter(Boolean).join(' → ')
+  const cost = totalCost(s)
+
+  return (
+    <>
+      <tr
+        className="border-b border-slate-100 hover:bg-slate-50 transition cursor-pointer"
+        onClick={expand}
+      >
+        <td className="px-4 py-3">
+          <div className="flex items-center gap-2">
+            {expanded
+              ? <ChevronDown className="w-4 h-4 text-slate-400 shrink-0" />
+              : <ChevronRight className="w-4 h-4 text-slate-400 shrink-0" />
+            }
+            <div>
+              <p className="text-sm font-semibold text-slate-800">{s.booking_number}</p>
+              {s.container_number && (
+                <p className="text-xs text-slate-500">{s.container_number}</p>
+              )}
+            </div>
+          </div>
+        </td>
+        <td className="px-4 py-3">
+          <p className="text-sm font-medium text-slate-700">{s.vessel_name || '—'}</p>
+          {s.voyage_number && <p className="text-xs text-slate-500">{s.voyage_number}</p>}
+        </td>
+        <td className="px-4 py-3">
+          <p className="text-sm text-slate-700">{route || '—'}</p>
+          {s.carrier && <p className="text-xs text-slate-500">{s.carrier}</p>}
+        </td>
+        <td className="px-4 py-3 text-sm text-slate-700">{fmtDate(s.etd)}</td>
+        <td className="px-4 py-3">
+          <p className="text-sm text-slate-700">{fmtDate(s.eta)}</p>
+          {days !== null && days >= 0 && days <= 14 && (
+            <p className={cn('text-xs font-medium', days <= 3 ? 'text-red-600' : days <= 7 ? 'text-orange-600' : 'text-slate-500')}>
+              {days === 0 ? '今天到' : `${days}天后`}
+            </p>
+          )}
+        </td>
+        <td className="px-4 py-3">
+          <span className={cn(
+            'inline-flex items-center rounded-full px-2.5 py-0.5 text-[11px] font-semibold uppercase tracking-wide',
+            STATUS_COLOR[s.status] ?? STATUS_COLOR.booked,
+          )}>
+            {STATUS_LABEL[s.status] ?? s.status}
+          </span>
+        </td>
+        <td className="px-4 py-3 text-sm text-slate-500">
+          {cost > 0 ? `$${cost.toLocaleString()}` : '—'}
+        </td>
+        <td className="px-4 py-3" onClick={e => e.stopPropagation()}>
+          <div className="flex items-center gap-1">
+            <button
+              onClick={() => onRefresh(s.id)}
+              disabled={refreshing}
+              title="从 ShipmentLink 刷新"
+              className="p-1.5 rounded-lg hover:bg-slate-100 text-slate-500 hover:text-blue-600 transition disabled:opacity-40"
+            >
+              <RefreshCw className={cn('w-4 h-4', refreshing && 'animate-spin')} />
+            </button>
+            <button
+              onClick={() => onDelete(s.id)}
+              title="删除"
+              className="p-1.5 rounded-lg hover:bg-red-50 text-slate-500 hover:text-red-600 transition"
+            >
+              <X className="w-4 h-4" />
+            </button>
+          </div>
+        </td>
+      </tr>
+      {expanded && (
+        <tr className="bg-slate-50 border-b border-slate-200">
+          <td colSpan={8} className="px-6 py-4">
+            {loading ? (
+              <div className="flex items-center gap-2 text-slate-500 text-sm">
+                <Loader2 className="w-4 h-4 animate-spin" />
+                <span>加载中…</span>
+              </div>
+            ) : detail ? (
+              <div className="grid grid-cols-2 gap-6">
+                {/* Detail fields */}
+                <div className="space-y-3">
+                  <h4 className="text-xs font-semibold uppercase tracking-wider text-slate-400">货物详情</h4>
+                  <dl className="space-y-1 text-sm">
+                    {[
+                      ['货物描述', detail.description],
+                      ['供应商', detail.supplier],
+                      ['参考号', detail.reference],
+                      ['柜号', detail.container_number],
+                      ['柜型', detail.container_type],
+                      ['毛重', detail.weight_kg ? `${detail.weight_kg.toLocaleString()} KG` : ''],
+                      ['提单号', detail.bl_number],
+                      ['数据来源', detail.tracking_source],
+                    ].filter(([, v]) => v).map(([k, v]) => (
+                      <div key={k} className="flex gap-2">
+                        <dt className="text-slate-500 shrink-0 w-20">{k}</dt>
+                        <dd className="text-slate-700 font-medium">{v}</dd>
+                      </div>
+                    ))}
+                  </dl>
+                  {detail.last_event && (
+                    <div className="bg-blue-50 rounded-lg px-3 py-2 text-sm text-blue-800">
+                      <span className="font-medium">最新动态: </span>{detail.last_event}
+                    </div>
+                  )}
+                  {detail.notes && (
+                    <div className="bg-slate-100 rounded-lg px-3 py-2 text-sm text-slate-700">
+                      <span className="font-medium">备注: </span>{detail.notes}
+                    </div>
+                  )}
+                </div>
+
+                {/* Events timeline */}
+                <div className="space-y-3">
+                  <h4 className="text-xs font-semibold uppercase tracking-wider text-slate-400">
+                    追踪时间线 ({detail.events?.length ?? 0} 条记录)
+                  </h4>
+                  {detail.events && detail.events.length > 0 ? (
+                    <ol className="relative border-l border-slate-200 space-y-3 ml-2">
+                      {detail.events.map((ev, i) => (
+                        <li key={ev.id ?? i} className="pl-4 relative">
+                          <div className="absolute -left-1.5 w-3 h-3 rounded-full bg-blue-500 top-1" />
+                          <p className="text-sm font-medium text-slate-700">{ev.description || ev.event_type}</p>
+                          {ev.location && <p className="text-xs text-slate-500 flex items-center gap-1"><MapPin className="w-3 h-3" />{ev.location}</p>}
+                          {ev.event_at && <p className="text-xs text-slate-400">{fmtDate(ev.event_at)}</p>}
+                        </li>
+                      ))}
+                    </ol>
+                  ) : (
+                    <p className="text-sm text-slate-400 italic">
+                      暂无追踪记录 — 点击刷新按钮从 ShipmentLink 获取
+                    </p>
+                  )}
+                </div>
+              </div>
+            ) : null}
+          </td>
+        </tr>
+      )}
+    </>
+  )
+}
+
+// ─── Main Page ────────────────────────────────────────────────────────────────
+
+export default function ShipmentsPage() {
+  const [shipments, setShipments] = useState<Shipment[]>([])
+  const [dashboard, setDashboard] = useState<DashboardData | null>(null)
+  const [loading, setLoading] = useState(true)
+  const [showAdd, setShowAdd] = useState(false)
+  const [refreshingId, setRefreshingId] = useState<number | null>(null)
+  const [search, setSearch] = useState('')
+  const [statusFilter, setStatusFilter] = useState('')
+
+  const load = useCallback(async () => {
+    setLoading(true)
+    try {
+      const [listRes, dashRes] = await Promise.all([
+        fetch('/api/shipments'),
+        fetch('/api/shipments/dashboard'),
+      ])
+      if (listRes.ok) {
+        const d = await listRes.json()
+        setShipments(d.shipments ?? [])
+      }
+      if (dashRes.ok) {
+        setDashboard(await dashRes.json())
+      }
+    } finally {
+      setLoading(false)
+    }
+  }, [])
+
+  useEffect(() => { load() }, [load])
+
+  const handleRefresh = useCallback(async (id: number) => {
+    setRefreshingId(id)
+    try {
+      await fetch(`/api/shipments/${id}/refresh`, { method: 'POST' })
+      await load()
+    } finally {
+      setRefreshingId(null)
+    }
+  }, [load])
+
+  const handleDelete = useCallback(async (id: number) => {
+    if (!confirm('确定删除这条记录？')) return
+    await fetch(`/api/shipments/${id}`, { method: 'DELETE' })
+    await load()
+  }, [load])
+
+  const filtered = shipments.filter(s => {
+    const q = search.toLowerCase()
+    const matchSearch = !q || (
+      s.booking_number.toLowerCase().includes(q) ||
+      s.vessel_name.toLowerCase().includes(q) ||
+      s.container_number.toLowerCase().includes(q) ||
+      s.description.toLowerCase().includes(q) ||
+      s.supplier.toLowerCase().includes(q)
+    )
+    const matchStatus = !statusFilter || s.status === statusFilter
+    return matchSearch && matchStatus
+  })
+
+  const statusOptions = [
+    { value: '', label: '全部状态' },
+    ...Object.entries(STATUS_LABEL).map(([v, l]) => ({ value: v, label: l })),
+  ]
+
+  return (
+    <DashboardPageLayout
+      title="🚢 海运追踪"
+      description="集装箱状态追踪，数据来自 ShipmentLink"
+      signedOut={{ message: 'Sign in to view shipments', forceRedirectUrl: '/shipments' }}
+      headerActions={
+        <button
+          onClick={() => setShowAdd(true)}
+          className="flex items-center gap-2 px-4 py-2 rounded-xl bg-blue-600 text-white text-sm font-medium hover:bg-blue-700 transition shadow-sm"
+        >
+          <Plus className="w-4 h-4" />
+          添加柜子
+        </button>
+      }
+    >
+      {/* Dashboard Cards */}
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
+        {[
+          {
+            label: '在途柜数',
+            value: loading ? '…' : String(dashboard?.in_transit ?? 0),
+            icon: <Ship className="w-5 h-5 text-blue-500" />,
+            color: 'text-blue-700',
+          },
+          {
+            label: '7天内到港',
+            value: loading ? '…' : String(dashboard?.arriving_soon ?? 0),
+            icon: <Anchor className="w-5 h-5 text-orange-500" />,
+            color: 'text-orange-700',
+          },
+          {
+            label: '今年总柜数',
+            value: loading ? '…' : String(dashboard?.year_total ?? 0),
+            icon: <Package className="w-5 h-5 text-slate-500" />,
+            color: 'text-slate-700',
+          },
+          {
+            label: '今年运费合计',
+            value: loading ? '…' : `$${(dashboard?.total_freight_cost ?? 0).toLocaleString()}`,
+            icon: <DollarSign className="w-5 h-5 text-green-500" />,
+            color: 'text-green-700',
+          },
+        ].map(card => (
+          <div key={card.label} className="bg-white rounded-2xl border border-slate-200 shadow-sm p-4 flex items-center gap-3">
+            <div className="p-2 bg-slate-50 rounded-xl">{card.icon}</div>
+            <div>
+              <p className="text-xs text-slate-500">{card.label}</p>
+              <p className={cn('text-2xl font-bold', card.color)}>{card.value}</p>
+            </div>
+          </div>
+        ))}
+      </div>
+
+      {/* Filters */}
+      <div className="flex items-center gap-3 mb-4">
+        <input
+          value={search}
+          onChange={e => setSearch(e.target.value)}
+          placeholder="搜索订舱号、船名、描述…"
+          className="flex-1 rounded-xl border border-slate-200 px-4 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white shadow-sm"
+        />
+        <select
+          value={statusFilter}
+          onChange={e => setStatusFilter(e.target.value)}
+          className="rounded-xl border border-slate-200 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white shadow-sm"
+        >
+          {statusOptions.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
+        </select>
+        <button
+          onClick={load}
+          className="p-2 rounded-xl border border-slate-200 bg-white shadow-sm hover:bg-slate-50 transition text-slate-500"
+          title="刷新列表"
+        >
+          <RefreshCw className={cn('w-4 h-4', loading && 'animate-spin')} />
+        </button>
+      </div>
+
+      {/* Table */}
+      <div className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
+        <div className="overflow-x-auto">
+          <table className="w-full text-left">
+            <thead className="bg-slate-50 border-b border-slate-200">
+              <tr>
+                {['订舱号', '船名/航次', '路线', 'ETD', 'ETA', '状态', '费用', '操作'].map(h => (
+                  <th key={h} className="px-4 py-3 text-[11px] font-semibold uppercase tracking-wider text-slate-500">{h}</th>
+                ))}
+              </tr>
+            </thead>
+            <tbody>
+              {loading ? (
+                <tr>
+                  <td colSpan={8} className="px-4 py-12 text-center">
+                    <div className="flex items-center justify-center gap-2 text-slate-400">
+                      <Loader2 className="w-5 h-5 animate-spin" />
+                      <span>加载中…</span>
+                    </div>
+                  </td>
+                </tr>
+              ) : filtered.length === 0 ? (
+                <tr>
+                  <td colSpan={8} className="px-4 py-12 text-center text-slate-400 text-sm">
+                    {search || statusFilter ? '没有匹配的记录' : '暂无海运记录，点击「添加柜子」开始追踪'}
+                  </td>
+                </tr>
+              ) : (
+                filtered.map(s => (
+                  <ShipmentRow
+                    key={s.id}
+                    shipment={s}
+                    onRefresh={handleRefresh}
+                    onDelete={handleDelete}
+                    refreshing={refreshingId === s.id}
+                  />
+                ))
+              )}
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      <p className="mt-3 text-xs text-slate-400 text-center">
+        追踪数据来自 ShipmentLink。点击刷新按钮获取最新状态（Playwright 抓取，约需 30 秒）。
+      </p>
+
+      {showAdd && (
+        <AddShipmentModal
+          onClose={() => setShowAdd(false)}
+          onCreated={load}
+        />
+      )}
+    </DashboardPageLayout>
+  )
+}

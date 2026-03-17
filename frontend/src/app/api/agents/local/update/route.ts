@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { fetchBackend } from '../../amazon/_backend'
+import { fetchBackend } from '../../../amazon/_backend'
 
 export async function PUT(req: NextRequest) {
   try {

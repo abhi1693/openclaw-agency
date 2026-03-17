@@ -41,6 +41,7 @@ from app.api.tags import router as tags_router
 from app.api.task_custom_fields import router as task_custom_fields_router
 from app.api.tasks import router as tasks_router
 from app.api.system import router as system_router, public_router as public_system_router
+from app.api.shipments import router as shipments_router
 from app.api.users import router as users_router
 from app.core.config import settings
 from app.core.error_handling import install_error_handling
@@ -581,6 +582,7 @@ api_v1.include_router(tags_router)
 api_v1.include_router(users_router)
 api_v1.include_router(system_router)
 api_v1.include_router(report_highlights_router)
+api_v1.include_router(shipments_router)
 app.include_router(api_v1)
 app.include_router(intel_router)
 app.include_router(reports_router)

@@ -24,6 +24,7 @@ import {
   ReceiptText,
   Search,
   Settings,
+  Ship,
   Store,
   Swords,
   Tags,
@@ -181,6 +182,7 @@ export function DashboardSidebar() {
                     { href: "/refunds", icon: ReceiptText, label: "Refunds", sub: "FBA 退款追回" },
                     { href: "/content", icon: Clapperboard, label: "Content", sub: "内容营销矩阵" },
                     { href: "/system", icon: Cpu, label: "System", sub: "系统 & 模型用量" },
+                    { href: "/shipments", icon: Ship, label: "Shipments", sub: "海运追踪" },
                   ].map((item) => {
                     const Icon = item.icon;
                     const active = pathname === item.href || pathname.startsWith(`${item.href}/`);
