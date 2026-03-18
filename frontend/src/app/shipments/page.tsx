@@ -10,6 +10,16 @@ import { cn } from '@/lib/utils'
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
+interface ContainerMove {
+  id: number
+  shipment_id: number
+  date: string
+  move_type: string
+  location: string
+  vessel_voyage: string | null
+  created_at: string
+}
+
 interface ShipmentEvent {
   id: number
   shipment_id: number
@@ -19,16 +29,6 @@ interface ShipmentEvent {
   vessel_name: string
   event_at: string | null
   source: string
-  created_at: string
-}
-
-interface ContainerMove {
-  id: number
-  shipment_id: number
-  date: string
-  move_type: string
-  location: string
-  vessel_voyage: string | null
   created_at: string
 }
 
@@ -205,8 +205,10 @@ function ContainerMovesSection({ shipmentId }: ContainerMovesSectionProps) {
     await loadMoves()
   }
 
-  const set = (k: keyof typeof form) => (e: React.ChangeEvent<HTMLInputElement>) =>
+  const setField = (k: keyof typeof form) => (e: React.ChangeEvent<HTMLInputElement>) =>
     setForm(f => ({ ...f, [k]: e.target.value }))
+
+  const badge = moveStatusBadge(moves)
 
   return (
     <div className="bg-white rounded-xl border border-slate-200 p-4 space-y-3">
@@ -215,14 +217,11 @@ function ContainerMovesSection({ shipmentId }: ContainerMovesSectionProps) {
           <h4 className="text-xs font-semibold uppercase tracking-wider text-slate-400">
             📦 Container Moves ({moves.length})
           </h4>
-          {(() => {
-            const badge = moveStatusBadge(moves)
-            return badge ? (
-              <span className={cn('inline-flex items-center rounded-full px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide', badge.color)}>
-                {badge.label}
-              </span>
-            ) : null
-          })()}
+          {badge && (
+            <span className={cn('inline-flex items-center rounded-full px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide', badge.color)}>
+              {badge.label}
+            </span>
+          )}
         </div>
         <button
           onClick={() => setShowForm(v => !v)}
@@ -239,7 +238,7 @@ function ContainerMovesSection({ shipmentId }: ContainerMovesSectionProps) {
             <label className="block text-[10px] font-medium text-slate-500 mb-0.5">日期 *</label>
             <input
               value={form.date}
-              onChange={set('date')}
+              onChange={setField('date')}
               placeholder="MAR-12-2026"
               required
               className="w-full rounded border border-slate-300 px-2 py-1 text-xs focus:outline-none focus:ring-1 focus:ring-blue-500"
@@ -249,7 +248,7 @@ function ContainerMovesSection({ shipmentId }: ContainerMovesSectionProps) {
             <label className="block text-[10px] font-medium text-slate-500 mb-0.5">动作 *</label>
             <input
               value={form.move_type}
-              onChange={set('move_type')}
+              onChange={setField('move_type')}
               placeholder="Loaded (FCL) on vessel"
               required
               className="w-full rounded border border-slate-300 px-2 py-1 text-xs focus:outline-none focus:ring-1 focus:ring-blue-500"
@@ -259,7 +258,7 @@ function ContainerMovesSection({ shipmentId }: ContainerMovesSectionProps) {
             <label className="block text-[10px] font-medium text-slate-500 mb-0.5">地点</label>
             <input
               value={form.location}
-              onChange={set('location')}
+              onChange={setField('location')}
               placeholder="YANTIAN, CHINA (CN)"
               className="w-full rounded border border-slate-300 px-2 py-1 text-xs focus:outline-none focus:ring-1 focus:ring-blue-500"
             />
@@ -268,7 +267,7 @@ function ContainerMovesSection({ shipmentId }: ContainerMovesSectionProps) {
             <label className="block text-[10px] font-medium text-slate-500 mb-0.5">船名/航次</label>
             <input
               value={form.vessel_voyage}
-              onChange={set('vessel_voyage')}
+              onChange={setField('vessel_voyage')}
               placeholder="EVER MILD 1445-009E"
               className="w-full rounded border border-slate-300 px-2 py-1 text-xs focus:outline-none focus:ring-1 focus:ring-blue-500"
             />
