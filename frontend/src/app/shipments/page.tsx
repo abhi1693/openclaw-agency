@@ -155,9 +155,10 @@ function moveStatusBadge(moves: ContainerMove[]): { label: string; color: string
 
 interface ContainerMovesSectionProps {
   shipmentId: number
+  containerNumber: string
 }
 
-function ContainerMovesSection({ shipmentId }: ContainerMovesSectionProps) {
+function ContainerMovesSection({ shipmentId, containerNumber }: ContainerMovesSectionProps) {
   const [moves, setMoves] = useState<ContainerMove[]>([])
   const [loading, setLoading] = useState(true)
   const [showForm, setShowForm] = useState(false)
@@ -211,11 +212,11 @@ function ContainerMovesSection({ shipmentId }: ContainerMovesSectionProps) {
   const badge = moveStatusBadge(moves)
 
   return (
-    <div className="bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-700 p-4 space-y-3">
+    <div className="space-y-2">
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-2">
-          <h4 className="text-xs font-semibold uppercase tracking-wider text-slate-400 dark:text-slate-500">
-            📦 Container Moves ({moves.length})
+          <h4 className="text-xs font-semibold uppercase tracking-wider text-slate-500 dark:text-slate-400">
+            Container Moves : {containerNumber}
           </h4>
           {badge && (
             <span className={cn('inline-flex items-center rounded-full px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide', badge.color)}>
@@ -239,7 +240,7 @@ function ContainerMovesSection({ shipmentId }: ContainerMovesSectionProps) {
             <input
               value={form.date}
               onChange={setField('date')}
-              placeholder="MAR-12-2026"
+              placeholder="2026-03-12"
               required
               className="w-full rounded border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-900 text-slate-800 dark:text-slate-100 px-2 py-1 text-xs focus:outline-none focus:ring-1 focus:ring-blue-500 dark:placeholder-slate-500"
             />
@@ -307,28 +308,31 @@ function ContainerMovesSection({ shipmentId }: ContainerMovesSectionProps) {
           </p>
         </div>
       ) : (
-        <div className="overflow-x-auto">
+        <div className="overflow-x-auto border border-slate-200 dark:border-slate-700 rounded-lg">
           <table className="w-full text-xs">
             <thead>
-              <tr className="bg-slate-50 dark:bg-slate-800 border-b border-slate-200 dark:border-slate-700">
-                <th className="px-2 py-1.5 text-left font-semibold text-slate-500 dark:text-slate-400 whitespace-nowrap">Date</th>
-                <th className="px-2 py-1.5 text-left font-semibold text-slate-500 dark:text-slate-400">Container Moves</th>
-                <th className="px-2 py-1.5 text-left font-semibold text-slate-500 dark:text-slate-400">Location</th>
-                <th className="px-2 py-1.5 text-left font-semibold text-slate-500 dark:text-slate-400 whitespace-nowrap">Vessel Voyage</th>
-                <th className="px-2 py-1.5"></th>
+              <tr className="bg-slate-100 dark:bg-slate-800 border-b border-slate-200 dark:border-slate-700">
+                <th className="px-3 py-2 text-left font-semibold text-slate-600 dark:text-slate-300 whitespace-nowrap">Date</th>
+                <th className="px-3 py-2 text-left font-semibold text-slate-600 dark:text-slate-300">Container Moves</th>
+                <th className="px-3 py-2 text-left font-semibold text-slate-600 dark:text-slate-300">Location</th>
+                <th className="px-3 py-2 text-left font-semibold text-slate-600 dark:text-slate-300 whitespace-nowrap">Vessel Voyage</th>
+                <th className="px-3 py-2"></th>
               </tr>
             </thead>
             <tbody>
               {moves.map((m, i) => (
                 <tr
                   key={m.id}
-                  className={cn('border-b border-slate-100 dark:border-slate-700', i % 2 === 0 ? 'bg-white dark:bg-slate-900' : 'bg-slate-50/60 dark:bg-slate-800/40')}
+                  className={cn(i % 2 === 0
+                    ? 'bg-white dark:bg-slate-900'
+                    : 'bg-slate-50 dark:bg-slate-800/50',
+                    'border-b border-slate-100 dark:border-slate-700 last:border-0')}
                 >
-                  <td className="px-2 py-1.5 font-mono text-slate-600 dark:text-slate-300 whitespace-nowrap">{m.date}</td>
-                  <td className="px-2 py-1.5 text-slate-700 dark:text-slate-200">{m.move_type}</td>
-                  <td className="px-2 py-1.5 text-slate-500 dark:text-slate-400">{m.location || '—'}</td>
-                  <td className="px-2 py-1.5 text-slate-500 dark:text-slate-400">{m.vessel_voyage || '—'}</td>
-                  <td className="px-2 py-1.5">
+                  <td className="px-3 py-2 font-mono text-slate-600 dark:text-slate-300 whitespace-nowrap">{m.date}</td>
+                  <td className="px-3 py-2 text-slate-700 dark:text-slate-200">{m.move_type}</td>
+                  <td className="px-3 py-2 text-slate-500 dark:text-slate-400">{m.location || '—'}</td>
+                  <td className="px-3 py-2 text-slate-500 dark:text-slate-400">{m.vessel_voyage || '—'}</td>
+                  <td className="px-3 py-2">
                     <button
                       onClick={() => deleteMove(m.id)}
                       className="p-0.5 rounded hover:bg-red-50 dark:hover:bg-red-950 text-slate-400 dark:text-slate-500 hover:text-red-500 dark:hover:text-red-400 transition"
@@ -742,7 +746,7 @@ function ShipmentRow({ shipment: s, onRefresh, onDelete, refreshing }: ShipmentR
                 </div>
 
                 {/* Row 2: Container Moves */}
-                <ContainerMovesSection shipmentId={detail.id} />
+                <ContainerMovesSection shipmentId={detail.id} containerNumber={detail.container_number} />
 
                 {/* Row 3: Tracking Timeline */}
                 <div className="bg-white rounded-xl border border-slate-200 p-4 space-y-3">
