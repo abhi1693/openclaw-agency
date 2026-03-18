@@ -211,10 +211,10 @@ function ContainerMovesSection({ shipmentId }: ContainerMovesSectionProps) {
   const badge = moveStatusBadge(moves)
 
   return (
-    <div className="bg-white rounded-xl border border-slate-200 p-4 space-y-3">
+    <div className="bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-700 p-4 space-y-3">
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-2">
-          <h4 className="text-xs font-semibold uppercase tracking-wider text-slate-400">
+          <h4 className="text-xs font-semibold uppercase tracking-wider text-slate-400 dark:text-slate-500">
             📦 Container Moves ({moves.length})
           </h4>
           {badge && (
@@ -225,7 +225,7 @@ function ContainerMovesSection({ shipmentId }: ContainerMovesSectionProps) {
         </div>
         <button
           onClick={() => setShowForm(v => !v)}
-          className="flex items-center gap-1 text-xs text-blue-600 hover:text-blue-800 transition font-medium"
+          className="flex items-center gap-1 text-xs text-blue-600 dark:text-blue-400 hover:text-blue-800 dark:hover:text-blue-300 transition font-medium"
         >
           <Plus className="w-3 h-3" />
           添加
@@ -233,50 +233,50 @@ function ContainerMovesSection({ shipmentId }: ContainerMovesSectionProps) {
       </div>
 
       {showForm && (
-        <form onSubmit={addMove} className="grid grid-cols-2 gap-2 bg-slate-50 rounded-lg p-3">
+        <form onSubmit={addMove} className="grid grid-cols-2 gap-2 bg-slate-50 dark:bg-slate-800 rounded-lg p-3">
           <div>
-            <label className="block text-[10px] font-medium text-slate-500 mb-0.5">日期 *</label>
+            <label className="block text-[10px] font-medium text-slate-500 dark:text-slate-400 mb-0.5">日期 *</label>
             <input
               value={form.date}
               onChange={setField('date')}
               placeholder="MAR-12-2026"
               required
-              className="w-full rounded border border-slate-300 px-2 py-1 text-xs focus:outline-none focus:ring-1 focus:ring-blue-500"
+              className="w-full rounded border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-900 text-slate-800 dark:text-slate-100 px-2 py-1 text-xs focus:outline-none focus:ring-1 focus:ring-blue-500 dark:placeholder-slate-500"
             />
           </div>
           <div>
-            <label className="block text-[10px] font-medium text-slate-500 mb-0.5">动作 *</label>
+            <label className="block text-[10px] font-medium text-slate-500 dark:text-slate-400 mb-0.5">动作 *</label>
             <input
               value={form.move_type}
               onChange={setField('move_type')}
               placeholder="Loaded (FCL) on vessel"
               required
-              className="w-full rounded border border-slate-300 px-2 py-1 text-xs focus:outline-none focus:ring-1 focus:ring-blue-500"
+              className="w-full rounded border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-900 text-slate-800 dark:text-slate-100 px-2 py-1 text-xs focus:outline-none focus:ring-1 focus:ring-blue-500 dark:placeholder-slate-500"
             />
           </div>
           <div>
-            <label className="block text-[10px] font-medium text-slate-500 mb-0.5">地点</label>
+            <label className="block text-[10px] font-medium text-slate-500 dark:text-slate-400 mb-0.5">地点</label>
             <input
               value={form.location}
               onChange={setField('location')}
               placeholder="YANTIAN, CHINA (CN)"
-              className="w-full rounded border border-slate-300 px-2 py-1 text-xs focus:outline-none focus:ring-1 focus:ring-blue-500"
+              className="w-full rounded border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-900 text-slate-800 dark:text-slate-100 px-2 py-1 text-xs focus:outline-none focus:ring-1 focus:ring-blue-500 dark:placeholder-slate-500"
             />
           </div>
           <div>
-            <label className="block text-[10px] font-medium text-slate-500 mb-0.5">船名/航次</label>
+            <label className="block text-[10px] font-medium text-slate-500 dark:text-slate-400 mb-0.5">船名/航次</label>
             <input
               value={form.vessel_voyage}
               onChange={setField('vessel_voyage')}
               placeholder="EVER MILD 1445-009E"
-              className="w-full rounded border border-slate-300 px-2 py-1 text-xs focus:outline-none focus:ring-1 focus:ring-blue-500"
+              className="w-full rounded border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-900 text-slate-800 dark:text-slate-100 px-2 py-1 text-xs focus:outline-none focus:ring-1 focus:ring-blue-500 dark:placeholder-slate-500"
             />
           </div>
           <div className="col-span-2 flex justify-end gap-2 mt-1">
             <button
               type="button"
               onClick={() => setShowForm(false)}
-              className="px-3 py-1 rounded text-xs text-slate-500 hover:bg-slate-100 transition"
+              className="px-3 py-1 rounded text-xs text-slate-500 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-700 transition"
             >
               取消
             </button>
@@ -293,21 +293,28 @@ function ContainerMovesSection({ shipmentId }: ContainerMovesSectionProps) {
       )}
 
       {loading ? (
-        <div className="flex items-center gap-2 text-slate-400 text-xs">
+        <div className="flex items-center gap-2 text-slate-400 dark:text-slate-500 text-xs">
           <Loader2 className="w-3 h-3 animate-spin" />
           <span>加载中…</span>
         </div>
       ) : moves.length === 0 ? (
-        <p className="text-xs text-slate-400 italic">暂无移动记录，点击「添加」手动录入</p>
+        <div className="flex flex-col items-center justify-center py-6 text-center rounded-lg bg-slate-50 dark:bg-slate-800/50 border border-dashed border-slate-200 dark:border-slate-700">
+          <p className="text-xs text-slate-400 dark:text-slate-500 italic mb-2">暂无移动记录</p>
+          <p className="text-xs text-slate-400 dark:text-slate-500">
+            点击上方{' '}
+            <span className="text-blue-600 dark:text-blue-400 font-medium">「添加」</span>
+            {' '}按钮手动录入
+          </p>
+        </div>
       ) : (
         <div className="overflow-x-auto">
           <table className="w-full text-xs">
             <thead>
-              <tr className="bg-slate-50 border-b border-slate-200">
-                <th className="px-2 py-1.5 text-left font-semibold text-slate-500 whitespace-nowrap">Date</th>
-                <th className="px-2 py-1.5 text-left font-semibold text-slate-500">Container Moves</th>
-                <th className="px-2 py-1.5 text-left font-semibold text-slate-500">Location</th>
-                <th className="px-2 py-1.5 text-left font-semibold text-slate-500 whitespace-nowrap">Vessel Voyage</th>
+              <tr className="bg-slate-50 dark:bg-slate-800 border-b border-slate-200 dark:border-slate-700">
+                <th className="px-2 py-1.5 text-left font-semibold text-slate-500 dark:text-slate-400 whitespace-nowrap">Date</th>
+                <th className="px-2 py-1.5 text-left font-semibold text-slate-500 dark:text-slate-400">Container Moves</th>
+                <th className="px-2 py-1.5 text-left font-semibold text-slate-500 dark:text-slate-400">Location</th>
+                <th className="px-2 py-1.5 text-left font-semibold text-slate-500 dark:text-slate-400 whitespace-nowrap">Vessel Voyage</th>
                 <th className="px-2 py-1.5"></th>
               </tr>
             </thead>
@@ -315,16 +322,16 @@ function ContainerMovesSection({ shipmentId }: ContainerMovesSectionProps) {
               {moves.map((m, i) => (
                 <tr
                   key={m.id}
-                  className={cn('border-b border-slate-100', i % 2 === 0 ? 'bg-white' : 'bg-slate-50/60')}
+                  className={cn('border-b border-slate-100 dark:border-slate-700', i % 2 === 0 ? 'bg-white dark:bg-slate-900' : 'bg-slate-50/60 dark:bg-slate-800/40')}
                 >
-                  <td className="px-2 py-1.5 font-mono text-slate-600 whitespace-nowrap">{m.date}</td>
-                  <td className="px-2 py-1.5 text-slate-700">{m.move_type}</td>
-                  <td className="px-2 py-1.5 text-slate-500">{m.location || '—'}</td>
-                  <td className="px-2 py-1.5 text-slate-500">{m.vessel_voyage || '—'}</td>
+                  <td className="px-2 py-1.5 font-mono text-slate-600 dark:text-slate-300 whitespace-nowrap">{m.date}</td>
+                  <td className="px-2 py-1.5 text-slate-700 dark:text-slate-200">{m.move_type}</td>
+                  <td className="px-2 py-1.5 text-slate-500 dark:text-slate-400">{m.location || '—'}</td>
+                  <td className="px-2 py-1.5 text-slate-500 dark:text-slate-400">{m.vessel_voyage || '—'}</td>
                   <td className="px-2 py-1.5">
                     <button
                       onClick={() => deleteMove(m.id)}
-                      className="p-0.5 rounded hover:bg-red-50 text-slate-400 hover:text-red-500 transition"
+                      className="p-0.5 rounded hover:bg-red-50 dark:hover:bg-red-950 text-slate-400 dark:text-slate-500 hover:text-red-500 dark:hover:text-red-400 transition"
                       title="删除"
                     >
                       <Trash2 className="w-3 h-3" />
