@@ -6,6 +6,7 @@ from datetime import datetime, timedelta
 from typing import Any
 
 from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi.responses import JSONResponse
 from sqlmodel import col, func, select
 from sqlmodel.ext.asyncio.session import AsyncSession
 
@@ -239,5 +240,14 @@ async def refresh_shipment(
     if not shipment:
         raise HTTPException(status_code=404, detail="Shipment not found")
 
-    result = await refresh_shipment_from_shipmentlink(shipment, session)
+    try:
+        result = await refresh_shipment_from_shipmentlink(shipment, session)
+    except ImportError:
+        return JSONResponse(
+            status_code=503,
+            content={
+                "error": "Playwright not available — manual tracking update required",
+                "playwright_missing": True,
+            },
+        )
     return result

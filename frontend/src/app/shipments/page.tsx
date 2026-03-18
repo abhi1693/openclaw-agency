@@ -500,6 +500,7 @@ export default function ShipmentsPage() {
   const [loading, setLoading] = useState(true)
   const [showAdd, setShowAdd] = useState(false)
   const [refreshingId, setRefreshingId] = useState<number | null>(null)
+  const [toast, setToast] = useState<string | null>(null)
   const [search, setSearch] = useState('')
   const [statusFilter, setStatusFilter] = useState('')
 
@@ -527,8 +528,17 @@ export default function ShipmentsPage() {
   const handleRefresh = useCallback(async (id: number) => {
     setRefreshingId(id)
     try {
-      await fetch(`/api/shipments/${id}/refresh`, { method: 'POST' })
+      const res = await fetch(`/api/shipments/${id}/refresh`, { method: 'POST' })
+      if (!res.ok) {
+        const data = await res.json().catch(() => null)
+        throw new Error(data?.error || data?.detail || '刷新失败，请稍后重试')
+      }
+      setToast('✅ 追踪信息已刷新')
+      setTimeout(() => setToast(null), 3000)
       await load()
+    } catch (err) {
+      setToast(`❌ ${err instanceof Error ? err.message : '刷新失败，请稍后重试'}`)
+      setTimeout(() => setToast(null), 4000)
     } finally {
       setRefreshingId(null)
     }
@@ -573,6 +583,12 @@ export default function ShipmentsPage() {
         </button>
       }
     >
+      {toast && (
+        <div className="fixed bottom-6 right-6 z-50 rounded-lg bg-slate-900 px-4 py-3 text-sm text-white shadow-lg">
+          {toast}
+        </div>
+      )}
+
       {/* Dashboard Cards */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
         {[
