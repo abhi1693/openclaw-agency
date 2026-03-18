@@ -736,6 +736,10 @@ function SystemPageContent({ forceRefresh, onAutoRefresh }: { forceRefresh: numb
                     : '默认'
                   const nextRunMs = job.state?.nextRunAtMs
                   const lastStatus = job.state?.lastStatus || job.state?.lastRunStatus
+                  const consecutiveErrors = job.state?.consecutiveErrors ?? 0
+                  const errorBadgeColor = consecutiveErrors >= 5
+                    ? 'bg-red-50 text-red-500'
+                    : 'bg-amber-50 text-amber-500'
                   const fmtTime = (ms?: number) => ms ? new Date(ms).toLocaleString('zh-CN', { month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit' }) : '—'
                   const jobColor = getJobColor(job, cronJobs.jobs)
 
@@ -754,9 +758,16 @@ function SystemPageContent({ forceRefresh, onAutoRefresh }: { forceRefresh: numb
                       >{schedHuman}</span>
                       <span className="text-xs text-[hsl(var(--muted-foreground))] truncate">{agentLabel}</span>
                       <span className={`text-xs truncate ${rawModel ? 'text-[hsl(var(--foreground))]' : 'text-[hsl(var(--muted-foreground))]'}`}>{modelLabel}</span>
-                      <span className="text-sm">
-                        {!job.enabled ? '⏸️' : lastStatus === 'ok' ? '✅' : lastStatus === 'error' ? '❌' : '—'}
-                      </span>
+                      <div className="flex items-center gap-2 text-sm">
+                        <span>
+                          {!job.enabled ? '⏸️' : lastStatus === 'ok' ? '✅' : lastStatus === 'error' ? '❌' : '—'}
+                        </span>
+                        {consecutiveErrors >= 2 && (
+                          <span className={`inline-flex items-center rounded-full px-2 py-0.5 text-[10px] font-medium ${errorBadgeColor}`}>
+                            ×{consecutiveErrors} errors
+                          </span>
+                        )}
+                      </div>
                       {(() => {
                         const now = Date.now()
                         const diffMs = nextRunMs ? nextRunMs - now : null
