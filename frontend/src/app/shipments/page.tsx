@@ -1,10 +1,10 @@
 'use client'
 
-import { useState, useEffect, useCallback } from 'react'
+import { useState, useEffect, useCallback, useMemo } from 'react'
 import { DashboardPageLayout } from '@/components/templates/DashboardPageLayout'
 import {
   Ship, Plus, RefreshCw, ChevronDown, ChevronRight,
-  Anchor, MapPin, Package, DollarSign, X, Loader2, Trash2,
+  Anchor, MapPin, Package, DollarSign, X, Loader2, Pencil, Check,
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 
@@ -83,13 +83,6 @@ interface Shipment {
   events?: ShipmentEvent[]
 }
 
-interface DashboardData {
-  in_transit: number
-  arriving_soon: number
-  year_total: number
-  total_freight_cost: number
-}
-
 // ─── Status helpers ───────────────────────────────────────────────────────────
 
 const STATUS_LABEL: Record<string, string> = {
@@ -151,6 +144,16 @@ function moveStatusBadge(moves: ContainerMove[]): { label: string; color: string
   return { label: 'In Transit', color: 'bg-yellow-100 text-yellow-700' }
 }
 
+// Derive shipment status from the latest container move (used for display only, DB unchanged)
+function deriveStatus(moves: ContainerMove[], dbStatus: string): string {
+  if (!moves.length) return dbStatus
+  const latest = moves[moves.length - 1].move_type.toLowerCase()
+  if (latest.includes('loaded')) return 'in_transit'
+  if (latest.includes('discharged') || latest.includes('unloaded') || latest.includes('arrived') || latest.includes('deliver')) return 'arrived'
+  if (latest.includes('received') || latest.includes('pick-up') || latest.includes('pickup')) return 'booked'
+  return dbStatus
+}
+
 // ─── Container Moves Section ──────────────────────────────────────────────────
 
 interface ContainerMovesSectionProps {
@@ -199,11 +202,6 @@ function ContainerMovesSection({ shipmentId, containerNumber }: ContainerMovesSe
     } finally {
       setSaving(false)
     }
-  }
-
-  async function deleteMove(moveId: number) {
-    await fetch(`/api/shipments/${shipmentId}/moves/${moveId}`, { method: 'DELETE' })
-    await loadMoves()
   }
 
   const setField = (k: keyof typeof form) => (e: React.ChangeEvent<HTMLInputElement>) =>
@@ -316,7 +314,6 @@ function ContainerMovesSection({ shipmentId, containerNumber }: ContainerMovesSe
                 <th className="px-3 py-2 text-left font-semibold text-slate-600 dark:text-slate-300">Container Moves</th>
                 <th className="px-3 py-2 text-left font-semibold text-slate-600 dark:text-slate-300">Location</th>
                 <th className="px-3 py-2 text-left font-semibold text-slate-600 dark:text-slate-300 whitespace-nowrap">Vessel Voyage</th>
-                <th className="px-3 py-2"></th>
               </tr>
             </thead>
             <tbody>
@@ -332,15 +329,6 @@ function ContainerMovesSection({ shipmentId, containerNumber }: ContainerMovesSe
                   <td className="px-3 py-2 text-slate-700 dark:text-slate-200">{m.move_type}</td>
                   <td className="px-3 py-2 text-slate-500 dark:text-slate-400">{m.location || '—'}</td>
                   <td className="px-3 py-2 text-slate-500 dark:text-slate-400">{m.vessel_voyage || '—'}</td>
-                  <td className="px-3 py-2">
-                    <button
-                      onClick={() => deleteMove(m.id)}
-                      className="p-0.5 rounded hover:bg-red-50 dark:hover:bg-red-950 text-slate-400 dark:text-slate-500 hover:text-red-500 dark:hover:text-red-400 transition"
-                      title="删除"
-                    >
-                      <Trash2 className="w-3 h-3" />
-                    </button>
-                  </td>
                 </tr>
               ))}
             </tbody>
@@ -567,12 +555,15 @@ function AddShipmentModal({ onClose, onCreated }: AddModalProps) {
 
 interface ShipmentRowProps {
   shipment: Shipment
+  moves: ContainerMove[]
   onRefresh: (id: number) => Promise<void>
   onDelete: (id: number) => Promise<void>
   refreshing: boolean
+  onCostUpdate?: (id: number, costs: { freight_cost: number; customs_cost: number; other_cost: number }) => void
 }
 
-function ShipmentRow({ shipment: s, onRefresh, onDelete, refreshing }: ShipmentRowProps) {
+function ShipmentRow({ shipment: s, moves, onRefresh, onDelete, refreshing, onCostUpdate }: ShipmentRowProps) {
+  const derivedStatus = deriveStatus(moves, s.status)
   const [expanded, setExpanded] = useState(false)
   const [detail, setDetail] = useState<Shipment | null>(null)
   const [loading, setLoading] = useState(false)
@@ -635,9 +626,9 @@ function ShipmentRow({ shipment: s, onRefresh, onDelete, refreshing }: ShipmentR
         <td className="px-4 py-3">
           <span className={cn(
             'inline-flex items-center rounded-full px-2.5 py-0.5 text-[11px] font-semibold uppercase tracking-wide',
-            STATUS_COLOR[s.status] ?? STATUS_COLOR.booked,
+            STATUS_COLOR[derivedStatus] ?? STATUS_COLOR.booked,
           )}>
-            {STATUS_LABEL[s.status] ?? s.status}
+            {STATUS_LABEL[derivedStatus] ?? derivedStatus}
           </span>
         </td>
         <td className="px-4 py-3 text-sm text-slate-500">
@@ -745,10 +736,103 @@ function ShipmentRow({ shipment: s, onRefresh, onDelete, refreshing }: ShipmentR
                   </div>
                 </div>
 
-                {/* Row 2: Container Moves */}
+                {/* Row 2: Costs Section */}
+                {(() => {
+                  const d = detail!
+                  const [editing, setEditing] = useState<'freight' | 'customs' | 'other' | null>(null)
+                  const [form, setForm] = useState({
+                    freight_cost: d.freight_cost ?? '0',
+                    customs_cost: d.customs_cost ?? '0',
+                    other_cost: d.other_cost ?? '0',
+                  })
+                  const [saving, setSaving] = useState(false)
+
+                  const freight = parseFloat(form.freight_cost) || 0
+                  const customs = parseFloat(form.customs_cost) || 0
+                  const other = parseFloat(form.other_cost) || 0
+                  const subtotal = freight + customs + other
+
+                  async function save(field: 'freight' | 'customs' | 'other') {
+                    setSaving(true)
+                    const updates = {
+                      freight_cost: parseFloat(form.freight_cost) || 0,
+                      customs_cost: parseFloat(form.customs_cost) || 0,
+                      other_cost: parseFloat(form.other_cost) || 0,
+                    }
+                    await onCostUpdate?.(d.id, updates)
+                    setEditing(null)
+                    setSaving(false)
+                  }
+
+                  function startEdit(field: 'freight' | 'customs' | 'other') {
+                    setForm({
+                      freight_cost: d.freight_cost ?? '0',
+                      customs_cost: d.customs_cost ?? '0',
+                      other_cost: d.other_cost ?? '0',
+                    })
+                    setEditing(field)
+                  }
+
+                  const fields: { key: 'freight' | 'customs' | 'other'; label: string }[] = [
+                    { key: 'freight', label: '海运费' },
+                    { key: 'customs', label: '清关费' },
+                    { key: 'other', label: '其他费用' },
+                  ]
+
+                  return (
+                    <div className="bg-white rounded-xl border border-slate-200 p-4 space-y-3">
+                      <div className="flex items-center justify-between">
+                        <h4 className="text-xs font-semibold uppercase tracking-wider text-slate-400">费用信息</h4>
+                        <span className="text-xs font-semibold text-slate-600">
+                          合计: <span className="text-green-600">${subtotal.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
+                        </span>
+                      </div>
+                      <div className="grid grid-cols-3 gap-4">
+                        {fields.map(({ key, label }) => (
+                          <div key={key}>
+                            <label className="block text-[11px] font-medium text-slate-500 mb-1">{label} ($)</label>
+                            {editing === key ? (
+                              <div className="flex items-center gap-1">
+                                <input
+                                  type="number"
+                                  step="0.01"
+                                  value={form[key === 'freight' ? 'freight_cost' : key === 'customs' ? 'customs_cost' : 'other_cost']}
+                                  onChange={e => setForm(f => ({ ...f, [key === 'freight' ? 'freight_cost' : key === 'customs' ? 'customs_cost' : 'other_cost']: e.target.value }))}
+                                  className="w-full rounded border border-slate-300 px-2 py-1 text-xs focus:outline-none focus:ring-1 focus:ring-blue-500"
+                                  autoFocus
+                                />
+                                <button
+                                  onClick={() => save(key)}
+                                  disabled={saving}
+                                  className="p-1 rounded hover:bg-green-50 text-green-600 transition"
+                                >
+                                  <Check className="w-3 h-3" />
+                                </button>
+                              </div>
+                            ) : (
+                              <div className="flex items-center gap-1">
+                                <span className="text-sm font-medium text-slate-700">
+                                  ${(key === 'freight' ? (parseFloat(d.freight_cost) || 0) : key === 'customs' ? (parseFloat(d.customs_cost) || 0) : (parseFloat(d.other_cost) || 0)).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                                </span>
+                                <button
+                                  onClick={() => startEdit(key)}
+                                  className="p-0.5 rounded hover:bg-slate-100 text-slate-400 hover:text-blue-600 transition"
+                                >
+                                  <Pencil className="w-3 h-3" />
+                                </button>
+                              </div>
+                            )}
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )
+                })()}
+
+                {/* Row 3: Container Moves */}
                 <ContainerMovesSection shipmentId={detail.id} containerNumber={detail.container_number} />
 
-                {/* Row 3: Tracking Timeline */}
+                {/* Row 4: Tracking Timeline */}
                 <div className="bg-white rounded-xl border border-slate-200 p-4 space-y-3">
                   <h4 className="text-xs font-semibold uppercase tracking-wider text-slate-400">
                     追踪时间线 ({detail.events?.length ?? 0} 条记录)
@@ -782,7 +866,7 @@ function ShipmentRow({ shipment: s, onRefresh, onDelete, refreshing }: ShipmentR
 
 export default function ShipmentsPage() {
   const [shipments, setShipments] = useState<Shipment[]>([])
-  const [dashboard, setDashboard] = useState<DashboardData | null>(null)
+  const [movesMap, setMovesMap] = useState<Record<number, ContainerMove[]>>({})
   const [loading, setLoading] = useState(true)
   const [showAdd, setShowAdd] = useState(false)
   const [refreshingId, setRefreshingId] = useState<number | null>(null)
@@ -793,16 +877,23 @@ export default function ShipmentsPage() {
   const load = useCallback(async () => {
     setLoading(true)
     try {
-      const [listRes, dashRes] = await Promise.all([
-        fetch('/api/shipments'),
-        fetch('/api/shipments/dashboard'),
-      ])
+      const listRes = await fetch('/api/shipments')
       if (listRes.ok) {
         const d = await listRes.json()
-        setShipments(d.shipments ?? [])
-      }
-      if (dashRes.ok) {
-        setDashboard(await dashRes.json())
+        const shps: Shipment[] = d.shipments ?? []
+        setShipments(shps)
+
+        // Fetch all moves in parallel for all shipments to compute derived status
+        const movesResults = await Promise.all(
+          shps.map(s =>
+            fetch(`/api/shipments/${s.id}/moves`)
+              .then(r => r.json().catch(() => ({ moves: [] })))
+              .catch(() => ({ moves: [] } as { moves: ContainerMove[] }))
+          )
+        )
+        const mm: Record<number, ContainerMove[]> = {}
+        shps.forEach((s, i) => { mm[s.id] = movesResults[i].moves ?? [] })
+        setMovesMap(mm)
       }
     } finally {
       setLoading(false)
@@ -810,6 +901,40 @@ export default function ShipmentsPage() {
   }, [])
 
   useEffect(() => { load() }, [load])
+
+  // Compute dashboard stats from derived status (based on container moves)
+  const dashboardStats = useMemo(() => {
+    if (!shipments.length) return { in_transit: 0, arriving_soon: 0, year_total: 0, total_freight_cost: 0 }
+    const now = new Date()
+    const yearStart = new Date(now.getFullYear(), 0, 1)
+    const sevenDaysLater = new Date(now.getTime() + 7 * 86_400_000)
+
+    let in_transit = 0
+    let arriving_soon = 0
+    let year_total = 0
+    let total_freight_cost = 0
+
+    for (const s of shipments) {
+      const moves = movesMap[s.id] ?? []
+      const derived = deriveStatus(moves, s.status)
+      const createdAt = new Date(s.created_at)
+
+      if (derived === 'in_transit') in_transit++
+
+      const etaDate = s.eta ? new Date(s.eta) : null
+      if (etaDate && etaDate >= now && etaDate <= sevenDaysLater) {
+        if (['booked', 'departed', 'in_transit', 'arrived'].includes(derived)) arriving_soon++
+      }
+
+      if (createdAt >= yearStart) {
+        year_total++
+        total_freight_cost += (parseFloat(s.freight_cost) || 0)
+          + (parseFloat(s.customs_cost) || 0)
+          + (parseFloat(s.other_cost) || 0)
+      }
+    }
+    return { in_transit, arriving_soon, year_total, total_freight_cost }
+  }, [shipments, movesMap])
 
   const handleRefresh = useCallback(async (id: number) => {
     setRefreshingId(id)
@@ -836,6 +961,22 @@ export default function ShipmentsPage() {
     await load()
   }, [load])
 
+  const handleCostUpdate = useCallback(async (id: number, costs: { freight_cost: number; customs_cost: number; other_cost: number }) => {
+    const res = await fetch(`/api/shipments/${id}`, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(costs),
+    })
+    if (res.ok) {
+      setShipments(shps => shps.map(s => s.id === id ? { ...s, freight_cost: String(costs.freight_cost), customs_cost: String(costs.customs_cost), other_cost: String(costs.other_cost) } : s))
+      setToast('✅ 费用已更新')
+      setTimeout(() => setToast(null), 3000)
+    } else {
+      setToast('❌ 更新失败')
+      setTimeout(() => setToast(null), 3000)
+    }
+  }, [])
+
   const filtered = shipments.filter(s => {
     const q = search.toLowerCase()
     const matchSearch = !q || (
@@ -845,7 +986,9 @@ export default function ShipmentsPage() {
       s.description.toLowerCase().includes(q) ||
       s.supplier.toLowerCase().includes(q)
     )
-    const matchStatus = !statusFilter || s.status === statusFilter
+    const moves = movesMap[s.id] ?? []
+    const derived = deriveStatus(moves, s.status)
+    const matchStatus = !statusFilter || derived === statusFilter
     return matchSearch && matchStatus
   })
 
@@ -880,25 +1023,25 @@ export default function ShipmentsPage() {
         {[
           {
             label: '在途柜数',
-            value: loading ? '…' : String(dashboard?.in_transit ?? 0),
+            value: loading ? '…' : String(dashboardStats.in_transit),
             icon: <Ship className="w-5 h-5 text-blue-500" />,
             color: 'text-blue-700',
           },
           {
             label: '7天内到港',
-            value: loading ? '…' : String(dashboard?.arriving_soon ?? 0),
+            value: loading ? '…' : String(dashboardStats.arriving_soon),
             icon: <Anchor className="w-5 h-5 text-orange-500" />,
             color: 'text-orange-700',
           },
           {
             label: '今年总柜数',
-            value: loading ? '…' : String(dashboard?.year_total ?? 0),
+            value: loading ? '…' : String(dashboardStats.year_total),
             icon: <Package className="w-5 h-5 text-slate-500" />,
             color: 'text-slate-700',
           },
           {
             label: '今年运费合计',
-            value: loading ? '…' : `$${(dashboard?.total_freight_cost ?? 0).toLocaleString()}`,
+            value: loading ? '…' : `$${dashboardStats.total_freight_cost.toLocaleString()}`,
             icon: <DollarSign className="w-5 h-5 text-green-500" />,
             color: 'text-green-700',
           },
@@ -969,9 +1112,11 @@ export default function ShipmentsPage() {
                   <ShipmentRow
                     key={s.id}
                     shipment={s}
+                    moves={movesMap[s.id] ?? []}
                     onRefresh={handleRefresh}
                     onDelete={handleDelete}
                     refreshing={refreshingId === s.id}
+                    onCostUpdate={handleCostUpdate}
                   />
                 ))
               )}
