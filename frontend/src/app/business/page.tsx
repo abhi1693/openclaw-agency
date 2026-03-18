@@ -385,11 +385,11 @@ function MarginBadge({ asin, profitData }: { asin: string; profitData: ProfitIte
 const salesChartConfig = {
   current: {
     label: "本周期",
-    color: "hsl(var(--primary))",
+    color: "#3B82F6",
   },
   previous: {
     label: "上周期",
-    color: "hsl(var(--muted-foreground))",
+    color: "#9CA3AF",
   },
 } satisfies ChartConfig;
 
@@ -699,12 +699,12 @@ export default function BusinessPage() {
                 <AreaChart data={chartData} margin={{ top: 4, right: 4, bottom: 0, left: 0 }}>
                   <defs>
                     <linearGradient id="gradCurrent" x1="0" y1="0" x2="0" y2="1">
-                      <stop offset="5%" stopColor="hsl(var(--primary))" stopOpacity={0.3} />
-                      <stop offset="95%" stopColor="hsl(var(--primary))" stopOpacity={0} />
+                      <stop offset="5%" stopColor="#3B82F6" stopOpacity={0.3} />
+                      <stop offset="95%" stopColor="#3B82F6" stopOpacity={0} />
                     </linearGradient>
                     <linearGradient id="gradPrevious" x1="0" y1="0" x2="0" y2="1">
-                      <stop offset="5%" stopColor="hsl(var(--muted-foreground))" stopOpacity={0.15} />
-                      <stop offset="95%" stopColor="hsl(var(--muted-foreground))" stopOpacity={0} />
+                      <stop offset="5%" stopColor="#9CA3AF" stopOpacity={0.15} />
+                      <stop offset="95%" stopColor="#9CA3AF" stopOpacity={0} />
                     </linearGradient>
                   </defs>
                   <CartesianGrid vertical={false} stroke="hsl(var(--border))" strokeOpacity={0.5} />
@@ -726,7 +726,7 @@ export default function BusinessPage() {
                   <Area
                     type="monotone"
                     dataKey="previous"
-                    stroke="hsl(var(--muted-foreground))"
+                    stroke="#9CA3AF"
                     strokeWidth={1.5}
                     strokeDasharray="4 2"
                     fill="url(#gradPrevious)"
@@ -737,7 +737,7 @@ export default function BusinessPage() {
                   <Area
                     type="monotone"
                     dataKey="current"
-                    stroke="hsl(var(--primary))"
+                    stroke="#3B82F6"
                     strokeWidth={2}
                     fill="url(#gradCurrent)"
                     dot={false}
