@@ -4,7 +4,7 @@ import { useState, useEffect, useCallback } from 'react'
 import { DashboardPageLayout } from '@/components/templates/DashboardPageLayout'
 import {
   Ship, Plus, RefreshCw, ChevronDown, ChevronRight,
-  Anchor, MapPin, Calendar, Package, DollarSign, X, Loader2,
+  Anchor, MapPin, Package, DollarSign, X, Loader2, Trash2,
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 
@@ -19,6 +19,16 @@ interface ShipmentEvent {
   vessel_name: string
   event_at: string | null
   source: string
+  created_at: string
+}
+
+interface ContainerMove {
+  id: number
+  shipment_id: number
+  date: string
+  move_type: string
+  location: string
+  vessel_voyage: string | null
   created_at: string
 }
 
@@ -127,6 +137,208 @@ function totalCost(s: Shipment): number {
   return (parseFloat(s.freight_cost) || 0)
        + (parseFloat(s.customs_cost) || 0)
        + (parseFloat(s.other_cost) || 0)
+}
+
+// Derive a short status badge label from the latest container move_type
+function moveStatusBadge(moves: ContainerMove[]): { label: string; color: string } | null {
+  if (!moves.length) return null
+  const latest = moves[moves.length - 1].move_type.toLowerCase()
+  if (latest.includes('loaded')) return { label: 'Loaded', color: 'bg-blue-100 text-blue-700' }
+  if (latest.includes('discharged') || latest.includes('unloaded')) return { label: 'Discharged', color: 'bg-orange-100 text-orange-700' }
+  if (latest.includes('received')) return { label: 'Received', color: 'bg-green-100 text-green-700' }
+  if (latest.includes('pick-up') || latest.includes('pickup')) return { label: 'Picked Up', color: 'bg-purple-100 text-purple-700' }
+  if (latest.includes('deliver')) return { label: 'Delivered', color: 'bg-slate-200 text-slate-500' }
+  return { label: 'In Transit', color: 'bg-yellow-100 text-yellow-700' }
+}
+
+// ─── Container Moves Section ──────────────────────────────────────────────────
+
+interface ContainerMovesSectionProps {
+  shipmentId: number
+}
+
+function ContainerMovesSection({ shipmentId }: ContainerMovesSectionProps) {
+  const [moves, setMoves] = useState<ContainerMove[]>([])
+  const [loading, setLoading] = useState(true)
+  const [showForm, setShowForm] = useState(false)
+  const [saving, setSaving] = useState(false)
+  const [form, setForm] = useState({ date: '', move_type: '', location: '', vessel_voyage: '' })
+
+  const loadMoves = useCallback(async () => {
+    const res = await fetch(`/api/shipments/${shipmentId}/moves`)
+    if (res.ok) {
+      const d = await res.json()
+      setMoves(d.moves ?? [])
+    }
+    setLoading(false)
+  }, [shipmentId])
+
+  useEffect(() => { loadMoves() }, [loadMoves])
+
+  async function addMove(e: React.FormEvent) {
+    e.preventDefault()
+    if (!form.date || !form.move_type) return
+    setSaving(true)
+    try {
+      const res = await fetch(`/api/shipments/${shipmentId}/moves`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          date: form.date,
+          move_type: form.move_type,
+          location: form.location,
+          vessel_voyage: form.vessel_voyage || null,
+        }),
+      })
+      if (res.ok) {
+        setForm({ date: '', move_type: '', location: '', vessel_voyage: '' })
+        setShowForm(false)
+        await loadMoves()
+      }
+    } finally {
+      setSaving(false)
+    }
+  }
+
+  async function deleteMove(moveId: number) {
+    await fetch(`/api/shipments/${shipmentId}/moves/${moveId}`, { method: 'DELETE' })
+    await loadMoves()
+  }
+
+  const set = (k: keyof typeof form) => (e: React.ChangeEvent<HTMLInputElement>) =>
+    setForm(f => ({ ...f, [k]: e.target.value }))
+
+  return (
+    <div className="bg-white rounded-xl border border-slate-200 p-4 space-y-3">
+      <div className="flex items-center justify-between">
+        <div className="flex items-center gap-2">
+          <h4 className="text-xs font-semibold uppercase tracking-wider text-slate-400">
+            📦 Container Moves ({moves.length})
+          </h4>
+          {(() => {
+            const badge = moveStatusBadge(moves)
+            return badge ? (
+              <span className={cn('inline-flex items-center rounded-full px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide', badge.color)}>
+                {badge.label}
+              </span>
+            ) : null
+          })()}
+        </div>
+        <button
+          onClick={() => setShowForm(v => !v)}
+          className="flex items-center gap-1 text-xs text-blue-600 hover:text-blue-800 transition font-medium"
+        >
+          <Plus className="w-3 h-3" />
+          添加
+        </button>
+      </div>
+
+      {showForm && (
+        <form onSubmit={addMove} className="grid grid-cols-2 gap-2 bg-slate-50 rounded-lg p-3">
+          <div>
+            <label className="block text-[10px] font-medium text-slate-500 mb-0.5">日期 *</label>
+            <input
+              value={form.date}
+              onChange={set('date')}
+              placeholder="MAR-12-2026"
+              required
+              className="w-full rounded border border-slate-300 px-2 py-1 text-xs focus:outline-none focus:ring-1 focus:ring-blue-500"
+            />
+          </div>
+          <div>
+            <label className="block text-[10px] font-medium text-slate-500 mb-0.5">动作 *</label>
+            <input
+              value={form.move_type}
+              onChange={set('move_type')}
+              placeholder="Loaded (FCL) on vessel"
+              required
+              className="w-full rounded border border-slate-300 px-2 py-1 text-xs focus:outline-none focus:ring-1 focus:ring-blue-500"
+            />
+          </div>
+          <div>
+            <label className="block text-[10px] font-medium text-slate-500 mb-0.5">地点</label>
+            <input
+              value={form.location}
+              onChange={set('location')}
+              placeholder="YANTIAN, CHINA (CN)"
+              className="w-full rounded border border-slate-300 px-2 py-1 text-xs focus:outline-none focus:ring-1 focus:ring-blue-500"
+            />
+          </div>
+          <div>
+            <label className="block text-[10px] font-medium text-slate-500 mb-0.5">船名/航次</label>
+            <input
+              value={form.vessel_voyage}
+              onChange={set('vessel_voyage')}
+              placeholder="EVER MILD 1445-009E"
+              className="w-full rounded border border-slate-300 px-2 py-1 text-xs focus:outline-none focus:ring-1 focus:ring-blue-500"
+            />
+          </div>
+          <div className="col-span-2 flex justify-end gap-2 mt-1">
+            <button
+              type="button"
+              onClick={() => setShowForm(false)}
+              className="px-3 py-1 rounded text-xs text-slate-500 hover:bg-slate-100 transition"
+            >
+              取消
+            </button>
+            <button
+              type="submit"
+              disabled={saving}
+              className="px-3 py-1 rounded text-xs bg-blue-600 text-white font-medium hover:bg-blue-700 transition disabled:opacity-50 flex items-center gap-1"
+            >
+              {saving && <Loader2 className="w-3 h-3 animate-spin" />}
+              保存
+            </button>
+          </div>
+        </form>
+      )}
+
+      {loading ? (
+        <div className="flex items-center gap-2 text-slate-400 text-xs">
+          <Loader2 className="w-3 h-3 animate-spin" />
+          <span>加载中…</span>
+        </div>
+      ) : moves.length === 0 ? (
+        <p className="text-xs text-slate-400 italic">暂无移动记录，点击「添加」手动录入</p>
+      ) : (
+        <div className="overflow-x-auto">
+          <table className="w-full text-xs">
+            <thead>
+              <tr className="bg-slate-50 border-b border-slate-200">
+                <th className="px-2 py-1.5 text-left font-semibold text-slate-500 whitespace-nowrap">Date</th>
+                <th className="px-2 py-1.5 text-left font-semibold text-slate-500">Container Moves</th>
+                <th className="px-2 py-1.5 text-left font-semibold text-slate-500">Location</th>
+                <th className="px-2 py-1.5 text-left font-semibold text-slate-500 whitespace-nowrap">Vessel Voyage</th>
+                <th className="px-2 py-1.5"></th>
+              </tr>
+            </thead>
+            <tbody>
+              {moves.map((m, i) => (
+                <tr
+                  key={m.id}
+                  className={cn('border-b border-slate-100', i % 2 === 0 ? 'bg-white' : 'bg-slate-50/60')}
+                >
+                  <td className="px-2 py-1.5 font-mono text-slate-600 whitespace-nowrap">{m.date}</td>
+                  <td className="px-2 py-1.5 text-slate-700">{m.move_type}</td>
+                  <td className="px-2 py-1.5 text-slate-500">{m.location || '—'}</td>
+                  <td className="px-2 py-1.5 text-slate-500">{m.vessel_voyage || '—'}</td>
+                  <td className="px-2 py-1.5">
+                    <button
+                      onClick={() => deleteMove(m.id)}
+                      className="p-0.5 rounded hover:bg-red-50 text-slate-400 hover:text-red-500 transition"
+                      title="删除"
+                    >
+                      <Trash2 className="w-3 h-3" />
+                    </button>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )}
+    </div>
+  )
 }
 
 // ─── Add Shipment Modal ───────────────────────────────────────────────────────
@@ -523,7 +735,10 @@ function ShipmentRow({ shipment: s, onRefresh, onDelete, refreshing }: ShipmentR
                   </div>
                 </div>
 
-                {/* Row 2: Tracking Timeline */}
+                {/* Row 2: Container Moves */}
+                <ContainerMovesSection shipmentId={detail.id} />
+
+                {/* Row 3: Tracking Timeline */}
                 <div className="bg-white rounded-xl border border-slate-200 p-4 space-y-3">
                   <h4 className="text-xs font-semibold uppercase tracking-wider text-slate-400">
                     追踪时间线 ({detail.events?.length ?? 0} 条记录)

@@ -119,3 +119,19 @@ class ShipmentEvent(QueryModel, table=True):
     raw_data: str = Field(default="")  # JSON of raw scraped data
 
     created_at: datetime = Field(default_factory=utcnow)
+
+
+class ContainerMove(QueryModel, table=True):
+    """Manual container movement history entries."""
+
+    __tablename__ = "container_moves"  # pyright: ignore[reportAssignmentType]
+
+    id: int | None = Field(default=None, primary_key=True)
+    shipment_id: int = Field(foreign_key="shipments.id", index=True)
+
+    date: str = Field(default="")          # e.g. "MAR-12-2026"
+    move_type: str = Field(default="")     # e.g. "Loaded (FCL) on vessel"
+    location: str = Field(default="")      # e.g. "YANTIAN, CHINA (CN)"
+    vessel_voyage: Optional[str] = Field(default=None)  # e.g. "EVER MILD 1445-009E"
+
+    created_at: datetime = Field(default_factory=utcnow)

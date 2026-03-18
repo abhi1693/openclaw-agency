@@ -13,7 +13,7 @@ from sqlmodel.ext.asyncio.session import AsyncSession
 from app.api.deps import get_session
 from app.core.logging import get_logger
 from app.core.time import utcnow
-from app.models.shipments import Shipment, ShipmentEvent
+from app.models.shipments import ContainerMove, Shipment, ShipmentEvent
 from app.services.shipment_tracking import (
     refresh_all_active_shipments,
     refresh_shipment_from_shipmentlink,
@@ -251,6 +251,63 @@ async def delete_shipment(
     for event in events_result.all():
         await session.delete(event)
     await session.delete(shipment)
+    await session.commit()
+
+
+@router.get("/{shipment_id}/moves")
+async def list_moves(
+    shipment_id: int,
+    session: AsyncSession = Depends(get_session),
+) -> dict[str, Any]:
+    """List container moves for a shipment, ordered by date ascending."""
+    shipment = await session.get(Shipment, shipment_id)
+    if not shipment:
+        raise HTTPException(status_code=404, detail="Shipment not found")
+    result = await session.exec(
+        select(ContainerMove)
+        .where(ContainerMove.shipment_id == shipment_id)
+        .order_by(col(ContainerMove.date).asc(), col(ContainerMove.created_at).asc())
+    )
+    moves = result.all()
+    return {"moves": [m.model_dump() for m in moves]}
+
+
+@router.post("/{shipment_id}/moves", status_code=status.HTTP_201_CREATED)
+async def create_move(
+    shipment_id: int,
+    payload: dict[str, Any],
+    session: AsyncSession = Depends(get_session),
+) -> dict[str, Any]:
+    """Add a container move entry."""
+    shipment = await session.get(Shipment, shipment_id)
+    if not shipment:
+        raise HTTPException(status_code=404, detail="Shipment not found")
+    if not payload.get("date") or not payload.get("move_type"):
+        raise HTTPException(status_code=400, detail="date and move_type are required")
+    move = ContainerMove(
+        shipment_id=shipment_id,
+        date=payload["date"].strip(),
+        move_type=payload["move_type"].strip(),
+        location=payload.get("location", "").strip(),
+        vessel_voyage=payload.get("vessel_voyage") or None,
+    )
+    session.add(move)
+    await session.commit()
+    await session.refresh(move)
+    return move.model_dump()
+
+
+@router.delete("/{shipment_id}/moves/{move_id}", status_code=status.HTTP_204_NO_CONTENT)
+async def delete_move(
+    shipment_id: int,
+    move_id: int,
+    session: AsyncSession = Depends(get_session),
+) -> None:
+    """Delete a container move entry."""
+    move = await session.get(ContainerMove, move_id)
+    if not move or move.shipment_id != shipment_id:
+        raise HTTPException(status_code=404, detail="Move not found")
+    await session.delete(move)
     await session.commit()
 
 
