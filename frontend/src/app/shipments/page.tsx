@@ -31,18 +31,36 @@ interface Shipment {
   carrier_scac: string
   vessel_name: string
   voyage_number: string
+  place_of_receipt: string
   port_of_loading: string
   port_of_discharge: string
+  place_of_delivery: string
   container_type: string
+  service_type: string
+  cargo_quantity: string
+  cbm: string | null
   weight_kg: number
+  tare_weight_kg: number | null
+  weight_method: string
+  vgm_weight: number | null
+  pickup_date: string | null
+  pickup_depot: string
+  full_in_date: string | null
+  full_return_to: string
+  vgm_cutoff_date: string | null
+  cutoff_date: string | null
   etd: string | null
   eta: string | null
+  estimated_on_board_date: string | null
+  issue_date: string | null
   actual_departure: string | null
   actual_arrival: string | null
   status: string
   last_event: string
   last_event_at: string | null
   tracking_source: string
+  stowage_code: string
+  exchange_rate: string | null
   description: string
   supplier: string
   reference: string
@@ -432,52 +450,91 @@ function ShipmentRow({ shipment: s, onRefresh, onDelete, refreshing }: ShipmentR
                 <span>加载中…</span>
               </div>
             ) : detail ? (
-              <div className="grid grid-cols-2 gap-6">
-                {/* Detail fields */}
-                <div className="space-y-3">
-                  <h4 className="text-xs font-semibold uppercase tracking-wider text-slate-400">货物详情</h4>
-                  <dl className="space-y-1 text-sm">
-                    {[
-                      ['货物描述', detail.description],
-                      ['供应商', detail.supplier],
-                      ['参考号', detail.reference],
-                      ['柜号', detail.container_number],
-                      ['柜型', detail.container_type],
-                      ['毛重', detail.weight_kg ? `${detail.weight_kg.toLocaleString()} KG` : ''],
-                      ['提单号', detail.bl_number],
-                      ['数据来源', detail.tracking_source],
-                    ].filter(([, v]) => v).map(([k, v]) => (
-                      <div key={k} className="flex gap-2">
-                        <dt className="text-slate-500 shrink-0 w-20">{k}</dt>
-                        <dd className="text-slate-700 font-medium">{v}</dd>
+              <div className="space-y-5">
+                {/* Row 1: Basic Info + Container Activity */}
+                <div className="grid grid-cols-2 gap-5">
+                  {/* Basic Information */}
+                  <div className="bg-white rounded-xl border border-slate-200 p-4 space-y-3">
+                    <h4 className="text-xs font-semibold uppercase tracking-wider text-slate-400">Basic Information</h4>
+                    <dl className="grid grid-cols-2 gap-x-4 gap-y-1.5 text-sm">
+                      {([
+                        ['收货地', detail.place_of_receipt],
+                        ['装货港 (POL)', detail.port_of_loading],
+                        ['卸货港 (POD)', detail.port_of_discharge],
+                        ['交货地', detail.place_of_delivery],
+                        ['VGM截止', fmtDate(detail.vgm_cutoff_date)],
+                        ['截关日', fmtDate(detail.cutoff_date)],
+                        ['ETD', fmtDate(detail.etd)],
+                        ['ETA', fmtDate(detail.eta)],
+                        ['预计上船', fmtDate(detail.estimated_on_board_date)],
+                        ['签单日期', fmtDate(detail.issue_date)],
+                        ['汇率', detail.exchange_rate || ''],
+                        ['订舱状态', detail.status ? (STATUS_LABEL[detail.status] ?? detail.status) : ''],
+                        ['积载码', detail.stowage_code],
+                        ['提单号', detail.bl_number],
+                      ] as [string, string][]).filter(([, v]) => v && v !== '—').map(([k, v]) => (
+                        <div key={k} className="flex flex-col">
+                          <dt className="text-[11px] text-slate-400 font-medium">{k}</dt>
+                          <dd className="text-slate-700 font-medium text-sm">{v}</dd>
+                        </div>
+                      ))}
+                    </dl>
+                    {detail.last_event && (
+                      <div className="bg-blue-50 rounded-lg px-3 py-2 text-xs text-blue-800 mt-1">
+                        <span className="font-semibold">最新动态: </span>{detail.last_event}
                       </div>
-                    ))}
-                  </dl>
-                  {detail.last_event && (
-                    <div className="bg-blue-50 rounded-lg px-3 py-2 text-sm text-blue-800">
-                      <span className="font-medium">最新动态: </span>{detail.last_event}
-                    </div>
-                  )}
-                  {detail.notes && (
-                    <div className="bg-slate-100 rounded-lg px-3 py-2 text-sm text-slate-700">
-                      <span className="font-medium">备注: </span>{detail.notes}
-                    </div>
-                  )}
+                    )}
+                    {detail.notes && (
+                      <div className="bg-slate-50 rounded-lg px-3 py-2 text-xs text-slate-600 mt-1">
+                        <span className="font-semibold">备注: </span>{detail.notes}
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Container Activity Information */}
+                  <div className="bg-white rounded-xl border border-slate-200 p-4 space-y-3">
+                    <h4 className="text-xs font-semibold uppercase tracking-wider text-slate-400">Container Activity Information</h4>
+                    <dl className="grid grid-cols-2 gap-x-4 gap-y-1.5 text-sm">
+                      {([
+                        ['柜号', detail.container_number],
+                        ['柜型', detail.container_type],
+                        ['服务类型', detail.service_type],
+                        ['货物数量', detail.cargo_quantity],
+                        ['体积 (CBM)', detail.cbm ? `${parseFloat(detail.cbm).toFixed(4)} CBM` : ''],
+                        ['毛重', detail.weight_kg ? `${detail.weight_kg.toLocaleString()} KG` : ''],
+                        ['皮重', detail.tare_weight_kg ? `${detail.tare_weight_kg.toLocaleString()} KG` : ''],
+                        ['称重方式', detail.weight_method],
+                        ['VGM', detail.vgm_weight ? `${detail.vgm_weight.toLocaleString()} KG` : ''],
+                        ['提柜日期', fmtDate(detail.pickup_date)],
+                        ['提柜地点', detail.pickup_depot],
+                        ['重箱进场', fmtDate(detail.full_in_date)],
+                        ['还箱地点', detail.full_return_to],
+                        ['船名/航次', [detail.vessel_name, detail.voyage_number].filter(Boolean).join(' / ')],
+                        ['供应商', detail.supplier],
+                        ['参考号', detail.reference],
+                        ['货物描述', detail.description],
+                      ] as [string, string][]).filter(([, v]) => v && v !== '—').map(([k, v]) => (
+                        <div key={k} className="flex flex-col">
+                          <dt className="text-[11px] text-slate-400 font-medium">{k}</dt>
+                          <dd className="text-slate-700 font-medium text-sm">{v}</dd>
+                        </div>
+                      ))}
+                    </dl>
+                  </div>
                 </div>
 
-                {/* Events timeline */}
-                <div className="space-y-3">
+                {/* Row 2: Tracking Timeline */}
+                <div className="bg-white rounded-xl border border-slate-200 p-4 space-y-3">
                   <h4 className="text-xs font-semibold uppercase tracking-wider text-slate-400">
                     追踪时间线 ({detail.events?.length ?? 0} 条记录)
                   </h4>
                   {detail.events && detail.events.length > 0 ? (
-                    <ol className="relative border-l border-slate-200 space-y-3 ml-2">
+                    <ol className="flex flex-wrap gap-3">
                       {detail.events.map((ev, i) => (
-                        <li key={ev.id ?? i} className="pl-4 relative">
-                          <div className="absolute -left-1.5 w-3 h-3 rounded-full bg-blue-500 top-1" />
+                        <li key={ev.id ?? i} className="flex-1 min-w-[200px] bg-slate-50 rounded-lg px-3 py-2">
                           <p className="text-sm font-medium text-slate-700">{ev.description || ev.event_type}</p>
-                          {ev.location && <p className="text-xs text-slate-500 flex items-center gap-1"><MapPin className="w-3 h-3" />{ev.location}</p>}
-                          {ev.event_at && <p className="text-xs text-slate-400">{fmtDate(ev.event_at)}</p>}
+                          {ev.location && <p className="text-xs text-slate-500 flex items-center gap-1 mt-0.5"><MapPin className="w-3 h-3" />{ev.location}</p>}
+                          {ev.event_at && <p className="text-xs text-slate-400 mt-0.5">{fmtDate(ev.event_at)}</p>}
                         </li>
                       ))}
                     </ol>

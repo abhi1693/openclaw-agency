@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from datetime import datetime
 from decimal import Decimal
+from typing import Optional
 
 from sqlalchemy import Column, Numeric
 from sqlmodel import Field
@@ -31,16 +32,35 @@ class Shipment(QueryModel, table=True):
     voyage_number: str = Field(default="")
 
     # 路线
+    place_of_receipt: str = Field(default="")
     port_of_loading: str = Field(default="")
     port_of_discharge: str = Field(default="")
+    place_of_delivery: str = Field(default="")
 
     # 货柜详情
     container_type: str = Field(default="")
+    service_type: str = Field(default="")  # e.g. FCL/FCL
+    cargo_quantity: str = Field(default="")  # e.g. "1,332 CARTONS"
+    cbm: Optional[Decimal] = Field(
+        default=None,
+        sa_column=Column(Numeric(10, 4), nullable=True),
+    )
     weight_kg: int = Field(default=0)
+    tare_weight_kg: Optional[int] = Field(default=None)
+    weight_method: str = Field(default="")
+    vgm_weight: Optional[int] = Field(default=None)
+    pickup_date: Optional[datetime] = Field(default=None)
+    pickup_depot: str = Field(default="")
+    full_in_date: Optional[datetime] = Field(default=None)
+    full_return_to: str = Field(default="")
 
     # 时间节点
+    vgm_cutoff_date: Optional[datetime] = Field(default=None)
+    cutoff_date: Optional[datetime] = Field(default=None)
     etd: datetime | None = Field(default=None)
     eta: datetime | None = Field(default=None)
+    estimated_on_board_date: Optional[datetime] = Field(default=None)
+    issue_date: Optional[datetime] = Field(default=None)
     actual_departure: datetime | None = Field(default=None)
     actual_arrival: datetime | None = Field(default=None)
 
@@ -52,6 +72,11 @@ class Shipment(QueryModel, table=True):
 
     # 追踪来源: "shipmentlink" | "manual"
     tracking_source: str = Field(default="manual")
+    stowage_code: str = Field(default="")
+    exchange_rate: Optional[Decimal] = Field(
+        default=None,
+        sa_column=Column(Numeric(10, 4), nullable=True),
+    )
 
     # 业务信息
     description: str = Field(default="")
