@@ -1041,7 +1041,7 @@ export default function ShipmentsPage() {
           },
           {
             label: '今年运费合计',
-            value: loading ? '…' : `$${dashboardStats.total_freight_cost.toLocaleString()}`,
+            value: loading ? '…' : `$${dashboardStats.total_freight_cost.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`,
             icon: <DollarSign className="w-5 h-5 text-green-500" />,
             color: 'text-green-700',
           },
