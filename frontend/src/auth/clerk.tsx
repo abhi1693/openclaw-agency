@@ -79,10 +79,16 @@ export function SignOutButton(
 }
 
 export function useUser() {
+  // Defer sessionStorage check to after mount to avoid SSR/hydration mismatch.
+  // Server renders with mounted=false (isSignedIn=false); client matches that
+  // on first render, then re-renders after effect with the real token.
+  const [mounted, setMounted] = useState(false);
+  useEffect(() => { setMounted(true); }, []);
+
   if (isLocalAuthMode()) {
     return {
-      isLoaded: true,
-      isSignedIn: hasLocalAuthToken(),
+      isLoaded: mounted,
+      isSignedIn: mounted ? hasLocalAuthToken() : false,
       user: null,
     } as const;
   }
@@ -93,10 +99,16 @@ export function useUser() {
 }
 
 export function useAuth() {
+  // Defer sessionStorage check to after mount to avoid SSR/hydration mismatch.
+  // Server renders with mounted=false (isSignedIn=false); client matches that
+  // on first render, then re-renders after effect with the real token.
+  const [mounted, setMounted] = useState(false);
+  useEffect(() => { setMounted(true); }, []);
+
   if (isLocalAuthMode()) {
-    const token = getLocalAuthToken();
+    const token = mounted ? getLocalAuthToken() : null;
     return {
-      isLoaded: true,
+      isLoaded: mounted,
       isSignedIn: Boolean(token),
       userId: token ? "local-user" : null,
       sessionId: token ? "local-session" : null,
