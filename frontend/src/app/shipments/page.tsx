@@ -551,6 +551,104 @@ function AddShipmentModal({ onClose, onCreated }: AddModalProps) {
   )
 }
 
+// ─── Cost Section ─────────────────────────────────────────────────────────────
+
+interface CostSectionProps {
+  detail: Shipment
+  onCostUpdate?: (id: number, costs: { freight_cost: number; customs_cost: number; other_cost: number }) => void
+}
+
+function CostSection({ detail: d, onCostUpdate }: CostSectionProps) {
+  const [editing, setEditing] = useState<'freight' | 'customs' | 'other' | null>(null)
+  const [form, setForm] = useState({
+    freight_cost: d.freight_cost ?? '0',
+    customs_cost: d.customs_cost ?? '0',
+    other_cost: d.other_cost ?? '0',
+  })
+  const [saving, setSaving] = useState(false)
+
+  const freight = parseFloat(form.freight_cost) || 0
+  const customs = parseFloat(form.customs_cost) || 0
+  const other = parseFloat(form.other_cost) || 0
+  const subtotal = freight + customs + other
+
+  async function save(field: 'freight' | 'customs' | 'other') {
+    setSaving(true)
+    const updates = {
+      freight_cost: parseFloat(form.freight_cost) || 0,
+      customs_cost: parseFloat(form.customs_cost) || 0,
+      other_cost: parseFloat(form.other_cost) || 0,
+    }
+    await onCostUpdate?.(d.id, updates)
+    setEditing(null)
+    setSaving(false)
+  }
+
+  function startEdit(field: 'freight' | 'customs' | 'other') {
+    setForm({
+      freight_cost: d.freight_cost ?? '0',
+      customs_cost: d.customs_cost ?? '0',
+      other_cost: d.other_cost ?? '0',
+    })
+    setEditing(field)
+  }
+
+  const fields: { key: 'freight' | 'customs' | 'other'; label: string }[] = [
+    { key: 'freight', label: '海运费' },
+    { key: 'customs', label: '清关费' },
+    { key: 'other', label: '其他费用' },
+  ]
+
+  return (
+    <div className="bg-white rounded-xl border border-slate-200 p-4 space-y-3">
+      <div className="flex items-center justify-between">
+        <h4 className="text-xs font-semibold uppercase tracking-wider text-slate-400">费用信息</h4>
+        <span className="text-xs font-semibold text-slate-600">
+          合计: <span className="text-green-600">${subtotal.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
+        </span>
+      </div>
+      <div className="grid grid-cols-3 gap-4">
+        {fields.map(({ key, label }) => (
+          <div key={key}>
+            <label className="block text-[11px] font-medium text-slate-500 mb-1">{label} ($)</label>
+            {editing === key ? (
+              <div className="flex items-center gap-1">
+                <input
+                  type="number"
+                  step="0.01"
+                  value={form[key === 'freight' ? 'freight_cost' : key === 'customs' ? 'customs_cost' : 'other_cost']}
+                  onChange={e => setForm(f => ({ ...f, [key === 'freight' ? 'freight_cost' : key === 'customs' ? 'customs_cost' : 'other_cost']: e.target.value }))}
+                  className="w-full rounded border border-slate-300 px-2 py-1 text-xs focus:outline-none focus:ring-1 focus:ring-blue-500"
+                  autoFocus
+                />
+                <button
+                  onClick={() => save(key)}
+                  disabled={saving}
+                  className="p-1 rounded hover:bg-green-50 text-green-600 transition"
+                >
+                  <Check className="w-3 h-3" />
+                </button>
+              </div>
+            ) : (
+              <div className="flex items-center gap-1">
+                <span className="text-sm font-medium text-slate-700">
+                  ${(key === 'freight' ? (parseFloat(d.freight_cost) || 0) : key === 'customs' ? (parseFloat(d.customs_cost) || 0) : (parseFloat(d.other_cost) || 0)).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                </span>
+                <button
+                  onClick={() => startEdit(key)}
+                  className="p-0.5 rounded hover:bg-slate-100 text-slate-400 hover:text-blue-600 transition"
+                >
+                  <Pencil className="w-3 h-3" />
+                </button>
+              </div>
+            )}
+          </div>
+        ))}
+      </div>
+    </div>
+  )
+}
+
 // ─── Shipment Row ─────────────────────────────────────────────────────────────
 
 interface ShipmentRowProps {
@@ -737,97 +835,7 @@ function ShipmentRow({ shipment: s, moves, onRefresh, onDelete, refreshing, onCo
                 </div>
 
                 {/* Row 2: Costs Section */}
-                {(() => {
-                  const d = detail!
-                  const [editing, setEditing] = useState<'freight' | 'customs' | 'other' | null>(null)
-                  const [form, setForm] = useState({
-                    freight_cost: d.freight_cost ?? '0',
-                    customs_cost: d.customs_cost ?? '0',
-                    other_cost: d.other_cost ?? '0',
-                  })
-                  const [saving, setSaving] = useState(false)
-
-                  const freight = parseFloat(form.freight_cost) || 0
-                  const customs = parseFloat(form.customs_cost) || 0
-                  const other = parseFloat(form.other_cost) || 0
-                  const subtotal = freight + customs + other
-
-                  async function save(field: 'freight' | 'customs' | 'other') {
-                    setSaving(true)
-                    const updates = {
-                      freight_cost: parseFloat(form.freight_cost) || 0,
-                      customs_cost: parseFloat(form.customs_cost) || 0,
-                      other_cost: parseFloat(form.other_cost) || 0,
-                    }
-                    await onCostUpdate?.(d.id, updates)
-                    setEditing(null)
-                    setSaving(false)
-                  }
-
-                  function startEdit(field: 'freight' | 'customs' | 'other') {
-                    setForm({
-                      freight_cost: d.freight_cost ?? '0',
-                      customs_cost: d.customs_cost ?? '0',
-                      other_cost: d.other_cost ?? '0',
-                    })
-                    setEditing(field)
-                  }
-
-                  const fields: { key: 'freight' | 'customs' | 'other'; label: string }[] = [
-                    { key: 'freight', label: '海运费' },
-                    { key: 'customs', label: '清关费' },
-                    { key: 'other', label: '其他费用' },
-                  ]
-
-                  return (
-                    <div className="bg-white rounded-xl border border-slate-200 p-4 space-y-3">
-                      <div className="flex items-center justify-between">
-                        <h4 className="text-xs font-semibold uppercase tracking-wider text-slate-400">费用信息</h4>
-                        <span className="text-xs font-semibold text-slate-600">
-                          合计: <span className="text-green-600">${subtotal.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
-                        </span>
-                      </div>
-                      <div className="grid grid-cols-3 gap-4">
-                        {fields.map(({ key, label }) => (
-                          <div key={key}>
-                            <label className="block text-[11px] font-medium text-slate-500 mb-1">{label} ($)</label>
-                            {editing === key ? (
-                              <div className="flex items-center gap-1">
-                                <input
-                                  type="number"
-                                  step="0.01"
-                                  value={form[key === 'freight' ? 'freight_cost' : key === 'customs' ? 'customs_cost' : 'other_cost']}
-                                  onChange={e => setForm(f => ({ ...f, [key === 'freight' ? 'freight_cost' : key === 'customs' ? 'customs_cost' : 'other_cost']: e.target.value }))}
-                                  className="w-full rounded border border-slate-300 px-2 py-1 text-xs focus:outline-none focus:ring-1 focus:ring-blue-500"
-                                  autoFocus
-                                />
-                                <button
-                                  onClick={() => save(key)}
-                                  disabled={saving}
-                                  className="p-1 rounded hover:bg-green-50 text-green-600 transition"
-                                >
-                                  <Check className="w-3 h-3" />
-                                </button>
-                              </div>
-                            ) : (
-                              <div className="flex items-center gap-1">
-                                <span className="text-sm font-medium text-slate-700">
-                                  ${(key === 'freight' ? (parseFloat(d.freight_cost) || 0) : key === 'customs' ? (parseFloat(d.customs_cost) || 0) : (parseFloat(d.other_cost) || 0)).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-                                </span>
-                                <button
-                                  onClick={() => startEdit(key)}
-                                  className="p-0.5 rounded hover:bg-slate-100 text-slate-400 hover:text-blue-600 transition"
-                                >
-                                  <Pencil className="w-3 h-3" />
-                                </button>
-                              </div>
-                            )}
-                          </div>
-                        ))}
-                      </div>
-                    </div>
-                  )
-                })()}
+                <CostSection detail={detail} onCostUpdate={onCostUpdate} />
 
                 {/* Row 3: Container Moves */}
                 <ContainerMovesSection shipmentId={detail.id} containerNumber={detail.container_number} />
