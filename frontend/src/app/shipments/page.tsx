@@ -152,9 +152,13 @@ function AddShipmentModal({ onClose, onCreated }: AddModalProps) {
     try {
       const payload: Record<string, unknown> = { ...form }
       if (form.weight_kg) payload.weight_kg = parseInt(form.weight_kg)
+      else delete payload.weight_kg
       if (form.freight_cost) payload.freight_cost = parseFloat(form.freight_cost)
+      else delete payload.freight_cost
       if (form.customs_cost) payload.customs_cost = parseFloat(form.customs_cost)
+      else delete payload.customs_cost
       if (form.other_cost) payload.other_cost = parseFloat(form.other_cost)
+      else delete payload.other_cost
       if (!form.etd) delete payload.etd
       if (!form.eta) delete payload.eta
 

@@ -21,7 +21,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, [localMode]);
 
   if (localMode) {
-    if (!getLocalAuthToken()) {
+    if (typeof window !== "undefined" && !getLocalAuthToken()) {
       return <LocalAuthLogin />;
     }
     return <>{children}</>;
