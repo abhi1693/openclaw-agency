@@ -141,67 +141,97 @@ function OrderIdCell({ orderId }: { orderId: string }) {
 
 // ─── Claim Instructions Accordion ─────────────────────────────────────────────
 
+const SC_HELP = 'https://sellercentral.amazon.com/help/hub/support'
+
 function ClaimInstructions({ scenario, claimType }: { scenario: string; claimType: string }) {
   const [open, setOpen] = useState(false)
 
   const s = (scenario || '').toUpperCase().trim()
   const type = (claimType || '').toLowerCase()
 
-  // Determine filing type: scenario letter takes priority, fall back to claimType string
-  const isSafeT = s === 'A' || type.includes('safe')
-  const isReimburse = s === 'B' || s === 'C' || s === 'D' || (!isSafeT && type.includes('reimburse'))
+  // Scenario A or safe-t claimType → SAFE-T via FBA Returns Reimbursement menu
+  const isSafeT = s === 'A' || (!s && type.includes('safe'))
 
-  let title = '📋 申请指引'
-  let content: React.ReactNode
+  type Instructions = { title: string; menuItem: string; steps: React.ReactNode; materials: string }
 
-  if (isSafeT) {
-    title = '🛡️ 申请指引 — SAFE-T Claim'
-    content = (
-      <div className="space-y-3 text-xs text-slate-700">
+  let inst: Instructions
+
+  if (isSafeT || s === 'A') {
+    inst = {
+      title: '🛡️ 申请指引 — Scenario A (SAFE-T)',
+      menuItem: 'FBA Returns Reimbursement',
+      steps: (
         <ol className="list-decimal list-inside space-y-1.5">
-          <li>登录 <a href="https://sellercentral.amazon.com/safet-claims" target="_blank" rel="noopener noreferrer" className="text-blue-600 underline hover:text-blue-800">Seller Central → Performance → SAFE-T Claims</a></li>
-          <li>点击 <strong>File New Claim</strong></li>
-          <li>输入上方的 Order ID</li>
-          <li>填写问题描述，上传证据截图（物流记录、照片等）</li>
+          <li>进入 <a href={SC_HELP} target="_blank" rel="noopener noreferrer" className="text-blue-600 underline hover:text-blue-800">Seller Central → Help → Get Support</a></li>
+          <li>快捷菜单选择 <strong className="text-slate-900">FBA Returns Reimbursement</strong></li>
+          <li>按提示填写 Order ID 和退款原因说明</li>
+          <li>上传证据截图（物流记录、买家通信等）</li>
           <li>提交后记录 Case ID</li>
         </ol>
-        <div className="mt-2 p-2 rounded bg-slate-50 border border-slate-200 text-slate-500">
-          <strong className="text-slate-600">需要准备：</strong> Order ID · 问题描述 · 证据截图
-        </div>
-      </div>
-    )
-  } else if (isReimburse) {
-    title = '📦 申请指引 — FBA Reimbursement'
-    content = (
-      <div className="space-y-3 text-xs text-slate-700">
+      ),
+      materials: 'Order ID · 退款原因说明 · 证据截图',
+    }
+  } else if (s === 'B') {
+    inst = {
+      title: '📦 申请指引 — Scenario B (库存丢失)',
+      menuItem: 'Inventory lost in FBA warehouse',
+      steps: (
         <ol className="list-decimal list-inside space-y-1.5">
-          <li>登录 <a href="https://sellercentral.amazon.com/help/center" target="_blank" rel="noopener noreferrer" className="text-blue-600 underline hover:text-blue-800">Seller Central → Help → Get Support</a></li>
-          <li>选择 <strong>Selling on Amazon → FBA Issues → FBA inventory reimbursement</strong></li>
-          <li>输入 Order ID 或 Shipment ID</li>
-          <li>填写问题描述并提交</li>
+          <li>进入 <a href={SC_HELP} target="_blank" rel="noopener noreferrer" className="text-blue-600 underline hover:text-blue-800">Seller Central → Help → Get Support</a></li>
+          <li>快捷菜单选择 <strong className="text-slate-900">Inventory lost in FBA warehouse</strong></li>
+          <li>提供 Shipment ID 和丢失数量</li>
+          <li>描述问题后提交</li>
           <li>保存 Case ID 至下方</li>
         </ol>
-        <div className="mt-2 p-2 rounded bg-slate-50 border border-slate-200 text-slate-500">
-          <strong className="text-slate-600">需要准备：</strong> Order ID / Shipment ID · 问题描述
-        </div>
-      </div>
-    )
+      ),
+      materials: 'Shipment ID · 丢失 FNSKU / 数量',
+    }
+  } else if (s === 'C') {
+    inst = {
+      title: '🏭 申请指引 — Scenario C (仓库损坏/销毁)',
+      menuItem: 'Inventory damaged in FBA warehouse',
+      steps: (
+        <ol className="list-decimal list-inside space-y-1.5">
+          <li>进入 <a href={SC_HELP} target="_blank" rel="noopener noreferrer" className="text-blue-600 underline hover:text-blue-800">Seller Central → Help → Get Support</a></li>
+          <li>快捷菜单选择 <strong className="text-slate-900">Inventory damaged in FBA warehouse</strong></li>
+          <li>提供相关 FNSKU 和受损/销毁数量</li>
+          <li>附上仓库报告截图后提交</li>
+          <li>保存 Case ID 至下方</li>
+        </ol>
+      ),
+      materials: 'FNSKU · 受损/销毁数量 · 仓库报告',
+    }
+  } else if (s === 'D') {
+    inst = {
+      title: '⚖️ 申请指引 — Scenario D (Reimbursement 争议)',
+      menuItem: 'Submit a reimbursement claim dispute',
+      steps: (
+        <ol className="list-decimal list-inside space-y-1.5">
+          <li>进入 <a href={SC_HELP} target="_blank" rel="noopener noreferrer" className="text-blue-600 underline hover:text-blue-800">Seller Central → Help → Get Support</a></li>
+          <li>快捷菜单选择 <strong className="text-slate-900">Submit a reimbursement claim dispute</strong></li>
+          <li>填写原 Reimbursement ID 和争议理由</li>
+          <li>说明金额差异或被拒原因后提交</li>
+          <li>保存 Case ID 至下方</li>
+        </ol>
+      ),
+      materials: '原 Reimbursement ID · 争议理由 · 金额说明',
+    }
   } else {
-    title = '📬 申请指引 — Seller Support'
-    content = (
-      <div className="space-y-3 text-xs text-slate-700">
+    inst = {
+      title: '📬 申请指引 — Scenario E / 其他',
+      menuItem: 'My issue is not listed',
+      steps: (
         <ol className="list-decimal list-inside space-y-1.5">
-          <li>登录 <a href="https://sellercentral.amazon.com/help/center" target="_blank" rel="noopener noreferrer" className="text-blue-600 underline hover:text-blue-800">Seller Central → Help → Contact Us</a></li>
-          <li>根据具体情况选择对应问题类型</li>
-          <li>在消息中注明此 Order ID</li>
-          <li>附上相关证据后提交</li>
-          <li>保存 Case ID 至下方</li>
+          <li>进入 <a href={SC_HELP} target="_blank" rel="noopener noreferrer" className="text-blue-600 underline hover:text-blue-800">Seller Central → Help → Get Support</a></li>
+          <li>如菜单无匹配选项，点击 <strong className="text-slate-900">My issue is not listed</strong></li>
+          <li><strong>What do you need help with?</strong> — 填写问题描述（参考 claim reason）</li>
+          <li><strong>What steps have you taken already?</strong> — "Checked FBA reports and identified discrepancy"</li>
+          <li><strong>Reference numbers</strong> — 填写 Order ID</li>
+          <li>附上截图等证据后提交，等待客服回复</li>
         </ol>
-        <div className="mt-2 p-2 rounded bg-slate-50 border border-slate-200 text-slate-500">
-          <strong className="text-slate-600">说明：</strong> 根据具体情况联系 Seller Support
-        </div>
-      </div>
-    )
+      ),
+      materials: 'Order ID · 问题描述 · 相关截图',
+    }
   }
 
   return (
@@ -210,12 +240,19 @@ function ClaimInstructions({ scenario, claimType }: { scenario: string; claimTyp
         onClick={() => setOpen(o => !o)}
         className="w-full flex items-center justify-between px-3 py-2.5 bg-slate-50 hover:bg-slate-100 transition-colors text-left"
       >
-        <span className="text-xs font-semibold text-slate-600">{title}</span>
+        <span className="text-xs font-semibold text-slate-600">{inst.title}</span>
         <span className="text-slate-400 text-xs">{open ? '▲' : '▼'}</span>
       </button>
       {open && (
-        <div className="px-4 py-3 bg-white border-t border-slate-100">
-          {content}
+        <div className="px-4 py-3 bg-white border-t border-slate-100 space-y-3 text-xs text-slate-700">
+          <div className="flex items-start gap-2 p-2 rounded bg-blue-50 border border-blue-200">
+            <span className="text-blue-600 font-semibold shrink-0">快捷菜单：</span>
+            <span className="font-semibold text-blue-800">{inst.menuItem}</span>
+          </div>
+          {inst.steps}
+          <div className="p-2 rounded bg-slate-50 border border-slate-200 text-slate-500">
+            <strong className="text-slate-600">需要准备：</strong> {inst.materials}
+          </div>
         </div>
       )}
     </div>
@@ -298,7 +335,7 @@ function CasePanel({
         <div className="flex items-center justify-between px-5 py-4 border-b border-slate-200">
           <div>
             <h2 className="font-semibold text-slate-900 text-sm">Case Details</h2>
-            <p className="text-[11px] text-slate-500 font-mono">{claim.orderId}</p>
+            <OrderIdCell orderId={claim.orderId} />
           </div>
           <button onClick={onClose} className="p-1.5 rounded-lg hover:bg-slate-100 transition-colors">
             <X className="w-4 h-4 text-slate-500" />
