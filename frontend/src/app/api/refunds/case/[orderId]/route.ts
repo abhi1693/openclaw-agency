@@ -8,6 +8,8 @@ function mapClaim(c: any) {
     sku: c.sku,
     asin: c.asin,
     fnsku: c.fnsku || '',
+    shipmentId: c.shipment_id || '',
+    quantity: c.quantity || 0,
     refundDate: c.refund_date,
     amount: c.refund_amount,
     reason: c.refund_reason,

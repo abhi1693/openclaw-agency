@@ -36,6 +36,8 @@ def _claim_to_read(claim: RefundClaim) -> RefundClaimRead:
         sku=claim.sku,
         asin=claim.asin,
         fnsku=claim.fnsku,
+        shipment_id=claim.shipment_id,
+        quantity=claim.quantity,
         refund_date=claim.refund_date.isoformat() if claim.refund_date else None,
         refund_amount=float(claim.refund_amount),
         refund_reason=claim.refund_reason,

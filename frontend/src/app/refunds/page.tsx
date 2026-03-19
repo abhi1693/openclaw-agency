@@ -19,6 +19,8 @@ interface Claim {
   sku: string
   asin: string
   fnsku: string
+  shipmentId: string
+  quantity: number
   daysSinceRefund: number
   hasReturn: boolean
   hasReimbursement: boolean
@@ -299,14 +301,20 @@ function FilingMaterials({ claim }: { claim: Claim }) {
   const date = claim.refundDate ? new Date(claim.refundDate).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }) : ''
   const amt = `$${Number(claim.amount).toFixed(2)}`
 
+  const qty = claim.quantity > 0 ? String(claim.quantity) : ''
+  const shipId = claim.shipmentId || ''
+
   // Generate a compact, pasteable description per scenario
   let descTemplate = ''
   if (s === 'A') {
     descTemplate = `Order ${claim.orderId} was refunded ${amt} on ${date} with reason "${claim.reason}". The item was not returned to our inventory. FNSKU: ${claim.fnsku || 'N/A'}, ASIN: ${claim.asin || 'N/A'}, SKU: ${claim.sku || 'N/A'}. We request SAFE-T reimbursement of ${amt}.`
   } else if (s === 'B') {
-    descTemplate = `FBA inventory with FNSKU ${claim.fnsku || 'N/A'} (ASIN: ${claim.asin || 'N/A'}, SKU: ${claim.sku || 'N/A'}) was lost in the fulfillment center. Order ID: ${claim.orderId}. We request reimbursement for the lost unit.`
+    const shipPart = shipId ? `, Shipment ID: ${shipId}` : ''
+    const qtyPart = qty ? ` (quantity: ${qty})` : ''
+    descTemplate = `FBA inventory with FNSKU ${claim.fnsku || 'N/A'} (ASIN: ${claim.asin || 'N/A'}, SKU: ${claim.sku || 'N/A'}) was lost in the fulfillment center${shipPart}. Order ID: ${claim.orderId}${qtyPart}. We request reimbursement for the lost unit(s).`
   } else if (s === 'C') {
-    descTemplate = `FBA inventory with FNSKU ${claim.fnsku || 'N/A'} (ASIN: ${claim.asin || 'N/A'}, SKU: ${claim.sku || 'N/A'}) was damaged or disposed of in the fulfillment center without reimbursement. We request reimbursement for the affected unit(s).`
+    const qtyPart = qty ? ` (quantity: ${qty})` : ''
+    descTemplate = `FBA inventory with FNSKU ${claim.fnsku || 'N/A'} (ASIN: ${claim.asin || 'N/A'}, SKU: ${claim.sku || 'N/A'}) was damaged or disposed of in the fulfillment center without reimbursement${qtyPart}. We request reimbursement for the affected unit(s).`
   } else if (s === 'D') {
     descTemplate = `We are disputing the reimbursement for Order ID ${claim.orderId}. The customer refund amount was ${amt} but the reimbursement received did not match. FNSKU: ${claim.fnsku || 'N/A'}, ASIN: ${claim.asin || 'N/A'}. We request re-evaluation of this claim.`
   } else {
@@ -337,6 +345,8 @@ function FilingMaterials({ claim }: { claim: Claim }) {
       { label: 'FNSKU', value: claim.fnsku },
       { label: 'ASIN', value: claim.asin },
       { label: 'SKU', value: claim.sku },
+      { label: 'Shipment ID', value: shipId },
+      { label: 'Quantity', value: qty },
       { label: 'Order ID', value: claim.orderId },
       { label: 'Refund Amount', value: amt },
     )
@@ -345,6 +355,7 @@ function FilingMaterials({ claim }: { claim: Claim }) {
       { label: 'FNSKU', value: claim.fnsku },
       { label: 'ASIN', value: claim.asin },
       { label: 'SKU', value: claim.sku },
+      { label: 'Quantity', value: qty },
       { label: 'Order ID', value: claim.orderId },
     )
   } else if (s === 'D') {

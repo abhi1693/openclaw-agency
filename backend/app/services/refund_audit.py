@@ -226,6 +226,8 @@ async def run_refund_audit(session: AsyncSession, *, days: int = 180) -> dict:
         sku: str,
         asin: str,
         fnsku: str = "",
+        shipment_id: str = "",
+        quantity: int = 0,
         refund_date: datetime | None,
         refund_amount: Decimal,
         refund_reason: str,
@@ -246,6 +248,8 @@ async def run_refund_audit(session: AsyncSession, *, days: int = 180) -> dict:
                 sku=sku,
                 asin=asin,
                 fnsku=fnsku,
+                shipment_id=shipment_id,
+                quantity=quantity,
                 refund_date=refund_date,
                 refund_amount=refund_amount,
                 refund_reason=refund_reason,
@@ -269,6 +273,8 @@ async def run_refund_audit(session: AsyncSession, *, days: int = 180) -> dict:
                 existing.sku = sku or existing.sku
                 existing.asin = asin or existing.asin
                 existing.fnsku = fnsku or existing.fnsku
+                existing.shipment_id = shipment_id or existing.shipment_id
+                existing.quantity = quantity or existing.quantity
                 existing.refund_date = refund_date or existing.refund_date
                 existing.refund_amount = refund_amount if refund_amount > 0 else existing.refund_amount
                 existing.refund_reason = refund_reason or existing.refund_reason
@@ -330,12 +336,16 @@ async def run_refund_audit(session: AsyncSession, *, days: int = 180) -> dict:
         rp = (return_records[0].raw_payload or {}) if return_records else {}
         asin = rp.get("asin", "")
         fnsku = rp.get("fnsku", "")
+        shipment_id = str(rp.get("shipmentId") or rp.get("shipment_id") or "")
+        quantity = return_records[0].quantity if return_records else 0
 
         await _upsert_claim(
             order_id,
             sku=sku or "",
             asin=asin or "",
             fnsku=fnsku or "",
+            shipment_id=shipment_id,
+            quantity=quantity,
             refund_date=refund_date,
             refund_amount=amount,
             refund_reason=return_reason or "unknown",
@@ -388,12 +398,15 @@ async def run_refund_audit(session: AsyncSession, *, days: int = 180) -> dict:
         rp_r = (r.raw_payload or {}) if r.raw_payload else {}
         asin_val = rp_r.get("asin", "")
         fnsku_val = rp_r.get("fnsku", "")
+        shipment_id_val = str(rp_r.get("shipmentId") or rp_r.get("shipment_id") or "")
 
         await _upsert_claim(
             order_id,
             sku=r.sku or "",
             asin=asin_val or "",
             fnsku=fnsku_val or "",
+            shipment_id=shipment_id_val,
+            quantity=r.quantity,
             refund_date=r.event_date,
             refund_amount=Decimal(str(amount)) if amount else Decimal(0),
             refund_reason=r.reason or "unknown",

@@ -19,6 +19,8 @@ class RefundClaimRead(BaseModel):
     sku: str
     asin: str
     fnsku: str = ""
+    shipment_id: str = ""
+    quantity: int = 0
     refund_date: str | None = None
     refund_amount: float
     refund_reason: str
