@@ -384,6 +384,34 @@ class ReimbursementEvent(QueryModel, table=True):
     updated_at: datetime = Field(default_factory=utcnow)
 
 
+class InventoryLedgerEvent(QueryModel, table=True):
+    """Amazon Inventory Ledger events from GET_LEDGER_DETAIL_VIEW_DATA report."""
+
+    __tablename__ = "inventory_ledger_events"  # pyright: ignore[reportAssignmentType]
+    __table_args__ = (
+        UniqueConstraint(
+            "event_date", "fnsku", "event_type", "reference_id", "quantity", "fulfillment_center",
+            name="uq_inventory_ledger_identity",
+        ),
+    )
+
+    id: int | None = Field(default=None, primary_key=True)
+    event_date: date = Field(index=True)
+    fnsku: str = Field(index=True)
+    asin: str = ""
+    sku: str = ""
+    title: str = ""
+    disposition: str = ""  # SELLABLE, CUSTOMER_DAMAGED, DEFECTIVE, etc.
+    event_type: str = Field(index=True)  # Receipts, CustomerShipments, CustomerReturns, Lost, Damaged, Disposed, Found
+    reference_id: str = Field(default="", index=True)  # Order ID for CustomerReturns/CustomerShipments
+    quantity: int = 0
+    fulfillment_center: str = ""
+    country: str = "US"
+    synced_at: datetime = Field(default_factory=utcnow)
+    created_at: datetime = Field(default_factory=utcnow)
+    updated_at: datetime = Field(default_factory=utcnow)
+
+
 class ProductCost(QueryModel, table=True):
     """COGS (Cost of Goods Sold) data per SKU — migrated from cogs.json."""
 

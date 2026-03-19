@@ -11,8 +11,11 @@ from fastapi.responses import StreamingResponse
 from sqlmodel import col, or_, select
 from sqlmodel.ext.asyncio.session import AsyncSession
 
+from app.core.logging import get_logger
 from app.core.time import utcnow
 from app.db.session import get_session
+
+logger = get_logger(__name__)
 from app.models.amazon_orders import RefundClaim
 from app.schemas.refunds import (
     BatchStatusResponse,
@@ -26,7 +29,7 @@ from app.schemas.refunds import (
     RefundSummary,
 )
 from app.services.refund_audit import generate_claim_template, run_refund_audit
-from app.services.amazon_sync import sync_returns, sync_finances, sync_reimbursements
+from app.services.amazon_sync import sync_returns, sync_finances, sync_reimbursements, sync_ledger
 
 router = APIRouter(prefix="/amazon/refunds", tags=["refunds"])
 SESSION_DEP = Depends(get_session)
@@ -150,10 +153,14 @@ async def trigger_audit(
     days: int = Query(default=180, ge=1, le=365),
     session: AsyncSession = SESSION_DEP,
 ) -> RefundAuditResponse:
-    """Sync returns + reimbursements + finances, then run cross-reference audit."""
+    """Sync returns + reimbursements + finances + ledger, then run cross-reference audit."""
     await sync_returns(session, days=days)
     await sync_finances(session, days=days)
     await sync_reimbursements(session, days=days)
+    try:
+        await sync_ledger(session, days=min(days, 90))
+    except Exception as e:
+        logger.warning("Ledger sync failed (non-fatal): %s", e)
 
     result = await run_refund_audit(session, days=days)
     summary_data = result["summary"]

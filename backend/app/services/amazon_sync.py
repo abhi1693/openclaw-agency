@@ -915,3 +915,69 @@ async def sync_reimbursements(session: AsyncSession, *, days: int = 180) -> Amaz
 
     await session.commit()
     return AmazonSyncResult(synced_at=synced_at, return_events_synced=count)
+
+
+async def sync_ledger(session: AsyncSession, *, days: int = 90) -> AmazonSyncResult:
+    """Sync Inventory Ledger data from SP-API into InventoryLedgerEvent table."""
+    from app.models.amazon_orders import InventoryLedgerEvent
+    from datetime import date as date_type
+
+    synced_at = utcnow()
+    payload = await _run_sp_api("ledger", "--days", str(days))
+    events = list(payload.get("ledgerEvents") or [])
+    count = 0
+
+    for item in events:
+        event_date_str = str(item.get("date") or "").split("T")[0].split(" ")[0]
+        if not event_date_str:
+            continue
+        try:
+            event_date_val = date_type.fromisoformat(event_date_str)
+        except ValueError:
+            continue
+
+        fnsku = str(item.get("fnsku") or "").strip()
+        event_type = str(item.get("eventType") or "").strip()
+        if not fnsku or not event_type:
+            continue
+
+        reference_id = str(item.get("referenceId") or "").strip()
+        quantity = int(item.get("quantity") or 0)
+        fc = str(item.get("fulfillmentCenter") or "").strip()
+
+        existing = await session.exec(
+            select(InventoryLedgerEvent).where(
+                InventoryLedgerEvent.event_date == event_date_val,
+                col(InventoryLedgerEvent.fnsku) == fnsku,
+                col(InventoryLedgerEvent.event_type) == event_type,
+                col(InventoryLedgerEvent.reference_id) == reference_id,
+                InventoryLedgerEvent.quantity == quantity,
+                col(InventoryLedgerEvent.fulfillment_center) == fc,
+            )
+        )
+        row = existing.one_or_none()
+        if row is None:
+            row = InventoryLedgerEvent(
+                event_date=event_date_val,
+                fnsku=fnsku,
+                event_type=event_type,
+                reference_id=reference_id,
+                quantity=quantity,
+                fulfillment_center=fc,
+                synced_at=synced_at,
+                created_at=synced_at,
+                updated_at=synced_at,
+            )
+            session.add(row)
+
+        row.asin = str(item.get("asin") or "")
+        row.sku = str(item.get("sku") or "")
+        row.title = str(item.get("title") or "")[:500]
+        row.disposition = str(item.get("disposition") or "")
+        row.country = str(item.get("country") or "US")
+        row.synced_at = synced_at
+        row.updated_at = synced_at
+        count += 1
+
+    await session.commit()
+    return AmazonSyncResult(synced_at=synced_at, return_events_synced=count)

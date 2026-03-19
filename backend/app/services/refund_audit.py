@@ -14,6 +14,7 @@ from app.models.amazon_orders import (
     AmazonOrder,
     AmazonOrderItem,
     FinancialEvent,
+    InventoryLedgerEvent,
     ProductCost,
     RefundClaim,
     ReimbursementEvent,
@@ -225,15 +226,33 @@ async def run_refund_audit(session: AsyncSession, *, days: int = 180) -> dict:
             fnsku_by_sku[r.sku] = r.fnsku
         if r.sku:
             reimb_by_sku.setdefault(r.sku, []).append(r)
-        if r.fnsku and r.amount_cash > 0:
-            reimb_cash_by_fnsku[r.fnsku] = reimb_cash_by_fnsku.get(r.fnsku, Decimal(0)) + r.amount_cash
-        if r.sku and r.amount_cash > 0:
-            reimb_cash_by_sku[r.sku] = reimb_cash_by_sku.get(r.sku, Decimal(0)) + r.amount_cash
+        # Use amount_total (not amount_cash — it is always 0 in SP-API report data).
+        # Only count positive amounts (filter out reversals).
+        if r.amount_total > 0:
+            if r.fnsku:
+                reimb_cash_by_fnsku[r.fnsku] = reimb_cash_by_fnsku.get(r.fnsku, Decimal(0)) + r.amount_total
+            if r.sku:
+                reimb_cash_by_sku[r.sku] = reimb_cash_by_sku.get(r.sku, Decimal(0)) + r.amount_total
 
     # Also collect CSI from return events
     for r in return_rows:
         if r.order_id and (r.reason or "").lower().replace("_", "") == "customerserviceissue":
             csi_order_ids.add(r.order_id)
+
+    # ── Load inventory ledger events ──────────────────────────────────────────
+    # CustomerReturns events: reference_id = Amazon Order ID — used to detect
+    # returns that our return_events table missed.
+    # Lost/Damaged events: used to cross-reference with reimb totals for IDR detection.
+    ledger_rows = list(await session.exec(select(InventoryLedgerEvent)))
+    ledger_return_order_ids: set[str] = set()   # order IDs found in ledger CustomerReturns
+    ledger_defect_fnskus: set[str] = set()       # FNSKUs with Lost/Damaged ledger events
+    for le in ledger_rows:
+        et = (le.event_type or "").lower().replace(" ", "")
+        if et == "customerreturns" and le.reference_id:
+            ledger_return_order_ids.add(le.reference_id)
+        elif et in ("lost", "damaged", "disposed"):
+            if le.fnsku:
+                ledger_defect_fnskus.add(le.fnsku)
 
     # ── Build quantity lookup from order items ────────────────────────────────
     # AmazonOrderItem.order_id is a UUID FK to AmazonOrder.id; we need
@@ -389,7 +408,7 @@ async def run_refund_audit(session: AsyncSession, *, days: int = 180) -> dict:
         if refund["amount"] <= 0:
             continue
 
-        has_return = order_id in returns_by_order
+        has_return = (order_id in returns_by_order) or (order_id in ledger_return_order_ids)
         has_reimb = order_id in reimb_by_order
         refund_date: datetime | None = refund["date"]
         days_since = _days_since(refund_date)
@@ -485,7 +504,9 @@ async def run_refund_audit(session: AsyncSession, *, days: int = 180) -> dict:
         )
         if sku_reimb_cash > 0:
             has_reimb = True  # some reimbursement exists for this SKU/FNSKU
-        if sku_reimb_cash >= amount * Decimal("0.9"):
+        # Resolved if: reimb cash covers ≥90% of claim OR (ledger logged defect + any reimb exists)
+        ledger_defect_known = bool(fnsku and fnsku in ledger_defect_fnskus)
+        if sku_reimb_cash >= amount * Decimal("0.9") or (ledger_defect_known and sku_reimb_cash > 0):
             status = "resolved"
 
         await _upsert_claim(
