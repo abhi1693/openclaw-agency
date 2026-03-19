@@ -12,6 +12,9 @@ import { GlobalLoader } from "@/components/ui/global-loader";
 export const metadata: Metadata = {
   title: "Zoviro Mission Control",
   description: "ZOVIRO 内部运营指挥中心",
+  icons: {
+    apple: "/apple-icon.png",
+  },
 };
 
 const bodyFont = IBM_Plex_Sans({
