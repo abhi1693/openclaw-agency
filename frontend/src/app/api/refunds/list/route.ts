@@ -23,6 +23,7 @@ function mapClaim(c: any) {
     status: c.status,
     caseStatus: c.status,
     amazonCaseId: c.amazon_case_id,
+    reimbursementId: c.reimbursement_id || '',
     evidence: c.evidence,
     template: c.template_text,
     notes: c.notes,

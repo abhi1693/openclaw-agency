@@ -55,6 +55,7 @@ def _claim_to_read(claim: RefundClaim) -> RefundClaimRead:
         priority=claim.priority,
         status=claim.status,
         amazon_case_id=claim.amazon_case_id,
+        reimbursement_id=claim.reimbursement_id or "",
         evidence=claim.evidence,
         template_text=claim.template_text,
         notes=claim.notes,

@@ -212,6 +212,7 @@ async def run_refund_audit(session: AsyncSession, *, days: int = 180) -> dict:
     reimb_by_order: dict[str, list[ReimbursementEvent]] = {}
     fnsku_by_sku: dict[str, str] = {}
     reimb_by_sku: dict[str, list[ReimbursementEvent]] = {}
+    reimb_by_fnsku: dict[str, list[ReimbursementEvent]] = {}
     csi_order_ids: set[str] = set()  # orders with CustomerServiceIssue reimbursement reason
     # NOTE: SP-API reimbursement events frequently have empty order_id, so we also build
     # per-FNSKU and per-SKU cash totals for approximate auto-resolved detection (IDR matching).
@@ -226,6 +227,8 @@ async def run_refund_audit(session: AsyncSession, *, days: int = 180) -> dict:
             fnsku_by_sku[r.sku] = r.fnsku
         if r.sku:
             reimb_by_sku.setdefault(r.sku, []).append(r)
+        if r.fnsku:
+            reimb_by_fnsku.setdefault(r.fnsku, []).append(r)
         # Use amount_total (not amount_cash — it is always 0 in SP-API report data).
         # Only count positive amounts (filter out reversals).
         if r.amount_total > 0:
@@ -233,6 +236,14 @@ async def run_refund_audit(session: AsyncSession, *, days: int = 180) -> dict:
                 reimb_cash_by_fnsku[r.fnsku] = reimb_cash_by_fnsku.get(r.fnsku, Decimal(0)) + r.amount_total
             if r.sku:
                 reimb_cash_by_sku[r.sku] = reimb_cash_by_sku.get(r.sku, Decimal(0)) + r.amount_total
+
+    # Sort each FNSKU/SKU event list by reimbursement_date desc (most recent first)
+    # so the first entry is the best candidate for per-claim reimbursement_id linking.
+    _sort_key = lambda r: r.reimbursement_date or datetime.min.replace(tzinfo=timezone.utc)
+    for lst in reimb_by_fnsku.values():
+        lst.sort(key=_sort_key, reverse=True)
+    for lst in reimb_by_sku.values():
+        lst.sort(key=_sort_key, reverse=True)
 
     # Also collect CSI from return events
     for r in return_rows:
@@ -340,6 +351,7 @@ async def run_refund_audit(session: AsyncSession, *, days: int = 180) -> dict:
         claim_type: str,
         claim_scenario: str,
         status: str = "actionable",
+        reimbursement_id: str = "",
     ) -> None:
         nonlocal created, updated
         days_since = _days_since(refund_date)
@@ -365,6 +377,7 @@ async def run_refund_audit(session: AsyncSession, *, days: int = 180) -> dict:
                 claim_scenario=claim_scenario,
                 priority=priority,
                 status=status,
+                reimbursement_id=reimbursement_id,
                 created_at=now,
                 updated_at=now,
             )
@@ -398,6 +411,8 @@ async def run_refund_audit(session: AsyncSession, *, days: int = 180) -> dict:
                 existing.claim_scenario = claim_scenario
                 existing.priority = priority
                 existing.status = status
+                if reimbursement_id:
+                    existing.reimbursement_id = reimbursement_id
                 existing.updated_at = now
                 if not existing.template_text:
                     existing.template_text = generate_claim_template(existing)
@@ -531,6 +546,18 @@ async def run_refund_audit(session: AsyncSession, *, days: int = 180) -> dict:
             else return_reason
         )
 
+        # ── Link a reimbursement_id to this claim ──────────────────────────────
+        # Priority 1: direct order_id match (rare — SP-API often omits order_id)
+        # Priority 2: FNSKU-level most-recent match for B/C (warehouse loss/damage)
+        # Priority 3: SKU-level fallback
+        claim_reimb_id = ""
+        if order_id in reimb_by_order:
+            claim_reimb_id = reimb_by_order[order_id][0].reimbursement_id
+        elif claim_scenario in ("B", "C") and fnsku and fnsku in reimb_by_fnsku:
+            claim_reimb_id = reimb_by_fnsku[fnsku][0].reimbursement_id
+        elif claim_scenario in ("B", "C") and sku and sku in reimb_by_sku:
+            claim_reimb_id = reimb_by_sku[sku][0].reimbursement_id
+
         await _upsert_claim(
             order_id,
             sku=sku or "",
@@ -547,6 +574,7 @@ async def run_refund_audit(session: AsyncSession, *, days: int = 180) -> dict:
             claim_type=claim_type,
             claim_scenario=claim_scenario,
             status=status,
+            reimbursement_id=claim_reimb_id,
         )
         claimed_order_ids.add(order_id)
 

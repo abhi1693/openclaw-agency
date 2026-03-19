@@ -30,6 +30,7 @@ interface Claim {
   priority: string
   status: string
   caseStatus: string
+  reimbursementId: string
 }
 
 interface Summary {
@@ -736,8 +737,9 @@ function FnSkuGroupView({
   const [copiedKey, setCopiedKey] = useState<string | null>(null)
   const [filingState, setFilingState] = useState<Record<string, FilingEntry>>({})
 
-  // SC form fields for Scenario B/C — three discrete copyable fields matching the SC form
-  interface ScFields { fnsku: string; reimbId: string; details: string }
+  // SC form fields for Scenario B/C — two copyable fields matching the SC form
+  // (Reimbursement ID is shown per-claim row, not at the group level)
+  interface ScFields { fnsku: string; details: string }
   const [scFields, setScFields] = useState<Record<string, ScFields>>({})
   const [copiedField, setCopiedField] = useState<string | null>(null)
 
@@ -820,20 +822,7 @@ function FnSkuGroupView({
         `We have verified through our FBA inventory reports that these units are unaccounted for and no corresponding reimbursement has been issued. Please investigate and issue the appropriate reimbursement.`,
       ].join('\n')
 
-      // Fetch the most relevant reimbursement ID for this FNSKU/SKU from backend
-      let reimbId = 'N/A — no prior reimbursement on file'
-      try {
-        const params = new URLSearchParams({ scenario: group.scenario })
-        if (group.fnsku) params.set('fnsku', group.fnsku)
-        else if (group.sku) params.set('sku', group.sku)
-        const resp = await fetch(`/api/refunds/reimb-id?${params}`)
-        if (resp.ok) {
-          const data = await resp.json()
-          if (data.reimbursement_id) reimbId = data.reimbursement_id
-        }
-      } catch { /* ignore — show N/A */ }
-
-      setScFields(prev => ({ ...prev, [key]: { fnsku: group.fnsku || '', reimbId, details } }))
+      setScFields(prev => ({ ...prev, [key]: { fnsku: group.fnsku || '', details } }))
       return
     }
 
@@ -1066,8 +1055,21 @@ function FnSkuGroupView({
                             )}>{claim.priority}</span>
                           )}
                         </div>
-                        <p className="text-[11px] text-slate-400 mt-0.5">
-                          {fmtDate(claim.refundDate)} · qty: {fmtQty(claim.quantity || 1, claim.quantityEstimated)} · {displayReason(claim.reason, claim.claimScenario)} · Scenario {claim.claimScenario}
+                        <p className="text-[11px] text-slate-400 mt-0.5 flex items-center gap-1.5 flex-wrap">
+                          <span>{fmtDate(claim.refundDate)} · qty: {fmtQty(claim.quantity || 1, claim.quantityEstimated)} · {displayReason(claim.reason, claim.claimScenario)} · Scenario {claim.claimScenario}</span>
+                          {claim.reimbursementId && (
+                            <>
+                              <span className="text-slate-300">·</span>
+                              <span className="font-mono text-[10px] text-slate-500">Reimb: {claim.reimbursementId}</span>
+                              <button
+                                onClick={e => { e.stopPropagation(); copyField(`reimb:${claim.orderId}`, claim.reimbursementId) }}
+                                className="flex items-center gap-0.5 px-1 py-0.5 rounded bg-slate-100 hover:bg-slate-200 text-[10px] text-slate-500 transition-colors"
+                              >
+                                {copiedField === `reimb:${claim.orderId}` ? <Check className="w-2.5 h-2.5 text-emerald-600" /> : <Copy className="w-2.5 h-2.5" />}
+                                {copiedField === `reimb:${claim.orderId}` ? 'Copied' : 'Copy'}
+                              </button>
+                            </>
+                          )}
                         </p>
                       </div>
                       <span className="font-semibold text-slate-900 text-sm shrink-0">{fmtUSD(claim.amount)}</span>
@@ -1104,18 +1106,10 @@ function FnSkuGroupView({
                             {copiedField === `${key}:fnsku` ? 'Copied' : 'Copy'}
                           </button>
                         </div>
-                        {/* Reimbursement ID */}
-                        <div className="flex items-center gap-2 rounded-lg border border-slate-200 bg-white px-3 py-2">
-                          <span className="text-[11px] text-slate-400 w-28 shrink-0">Reimbursement ID</span>
-                          <span className="flex-1 font-mono text-[12px] text-slate-800 truncate">{scF.reimbId}</span>
-                          <button
-                            onClick={() => copyField(`${key}:reimbId`, scF.reimbId)}
-                            className="shrink-0 flex items-center gap-1 px-2 py-0.5 rounded bg-slate-100 hover:bg-slate-200 text-[11px] text-slate-600 transition-colors"
-                          >
-                            {copiedField === `${key}:reimbId` ? <Check className="w-3 h-3 text-emerald-600" /> : <Copy className="w-3 h-3" />}
-                            {copiedField === `${key}:reimbId` ? 'Copied' : 'Copy'}
-                          </button>
-                        </div>
+                        {/* Reimbursement ID note */}
+                        <p className="text-[11px] text-slate-400 px-1">
+                          💡 Reimbursement ID is shown per claim row below — copy it from there when filling the SC form.
+                        </p>
                         {/* Additional Details */}
                         <div className="rounded-lg border border-slate-200 bg-white overflow-hidden">
                           <div className="flex items-center justify-between px-3 py-1.5 border-b border-slate-100">

@@ -33,6 +33,7 @@ class RefundClaimRead(BaseModel):
     priority: str
     status: str
     amazon_case_id: str
+    reimbursement_id: str = ""
     evidence: str
     template_text: str
     notes: str

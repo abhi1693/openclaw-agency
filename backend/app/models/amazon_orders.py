@@ -473,6 +473,7 @@ class RefundClaim(QueryModel, table=True):
     priority: str = "low"  # "high" | "medium" | "low"
     status: str = "actionable"  # "actionable" | "waiting" | "pending" | "submitted" | "approved" | "denied"
     amazon_case_id: str = ""
+    reimbursement_id: str = ""   # Linked SP-API reimbursement_id (if found)
     submitted_at: datetime | None = None
     evidence: str = ""
     template_text: str = ""
