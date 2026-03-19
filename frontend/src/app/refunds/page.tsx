@@ -742,9 +742,12 @@ function FnSkuGroupView({
       if (!map[key]) map[key] = { key, fnsku: c.fnsku, asin: c.asin, sku: c.sku, scenario: c.claimScenario || 'E', claims: [] }
       map[key].claims.push(c)
     }
+    // Priority order: A & F (high, Amazon won't auto-process) → D (disputes) → B & C (check IDR first) → E (other)
+    const SCENARIO_ORDER: Record<string, number> = { A: 0, F: 1, D: 2, B: 3, C: 4, E: 5 }
     return Object.values(map).sort((a, b) => {
-      // Sort by scenario first (A→E), then by total amount desc
-      if (a.scenario !== b.scenario) return a.scenario.localeCompare(b.scenario)
+      const oa = SCENARIO_ORDER[a.scenario] ?? 9
+      const ob = SCENARIO_ORDER[b.scenario] ?? 9
+      if (oa !== ob) return oa - ob
       const totA = a.claims.reduce((s, c) => s + c.amount, 0)
       const totB = b.claims.reduce((s, c) => s + c.amount, 0)
       return totB - totA
@@ -1262,36 +1265,55 @@ export default function RefundsPage() {
       signedOut={{ message: 'Sign in to view refunds', forceRedirectUrl: '/refunds' }}
     >
       <div className="space-y-6">
-        {/* KPI Cards */}
-        <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
-          <KpiCard
-            icon={<DollarSign className="w-5 h-5" />}
-            label="待追回总额"
-            value={fmtUSD(summary?.pendingAmount ?? 0)}
-            sub={summary?.period || '最近 180 天'}
-            accent="bg-rose-50 text-rose-600"
-          />
-          <KpiCard
-            icon={<AlertTriangle className="w-5 h-5" />}
-            label="可追回订单"
-            value={String(summary?.claimableCount ?? 0)}
-            sub={`共 ${summary?.totalRefunds ?? 0} 退款`}
-            accent="bg-amber-50 text-amber-600"
-          />
-          <KpiCard
-            icon={<CheckCircle2 className="w-5 h-5" />}
-            label="已追回金额"
-            value={fmtUSD(summary?.recoveredAmount ?? 0)}
-            accent="bg-emerald-50 text-emerald-600"
-          />
-          <KpiCard
-            icon={<Clock className="w-5 h-5" />}
-            label="已提交 Cases"
-            value={String(summary?.submittedCount ?? 0)}
-            sub={summary?.auditDate ? `审计日期 ${summary.auditDate}` : undefined}
-            accent="bg-purple-50 text-purple-600"
-          />
-        </div>
+        {/* KPI Cards — scenario-priority breakdown */}
+        {(() => {
+          const actionable = (scenarios: string[]) => claims.filter(c => c.status === 'actionable' && scenarios.includes(c.claimScenario))
+          const highPri = actionable(['A', 'F'])
+          const checkFirst = actionable(['B', 'C'])
+          const disputes = actionable(['D'])
+          const filed = claims.filter(c => ['submitted', 'filed', 'approved'].includes(c.status))
+          const resolved = claims.filter(c => c.status === 'resolved')
+          const sum = (cs: Claim[]) => cs.reduce((s, c) => s + c.amount, 0)
+          return (
+            <div className="grid grid-cols-2 lg:grid-cols-5 gap-3">
+              <KpiCard
+                icon={<AlertTriangle className="w-5 h-5" />}
+                label="高优先级 (A+F)"
+                value={`${highPri.length} claims`}
+                sub={fmtUSD(sum(highPri))}
+                accent="bg-rose-50 text-rose-600"
+              />
+              <KpiCard
+                icon={<DollarSign className="w-5 h-5" />}
+                label="先查 IDR (B+C)"
+                value={`${checkFirst.length} claims`}
+                sub={fmtUSD(sum(checkFirst))}
+                accent="bg-amber-50 text-amber-600"
+              />
+              <KpiCard
+                icon={<Clock className="w-5 h-5" />}
+                label="争议 (D)"
+                value={`${disputes.length} claims`}
+                sub={fmtUSD(sum(disputes))}
+                accent="bg-orange-50 text-orange-600"
+              />
+              <KpiCard
+                icon={<CheckCircle2 className="w-5 h-5" />}
+                label="已提交"
+                value={`${filed.length} claims`}
+                sub={summary?.auditDate ? `审计 ${summary.auditDate}` : summary?.period || ''}
+                accent="bg-purple-50 text-purple-600"
+              />
+              <KpiCard
+                icon={<CheckCircle2 className="w-5 h-5" />}
+                label="已自动赔偿"
+                value={`${resolved.length} claims`}
+                sub={fmtUSD(sum(resolved))}
+                accent="bg-emerald-50 text-emerald-600"
+              />
+            </div>
+          )
+        })()}
 
         {/* Toolbar */}
         <div className="flex flex-wrap items-center gap-2">
