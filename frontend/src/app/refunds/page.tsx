@@ -263,6 +263,146 @@ function ClaimInstructions({ scenario, claimType, fnsku }: { scenario: string; c
   )
 }
 
+// ─── Filing Materials ──────────────────────────────────────────────────────────
+
+function CopyRow({ label, value }: { label: string; value: string }) {
+  const [copied, setCopied] = useState(false)
+  if (!value) return null
+  const copy = () => {
+    navigator.clipboard.writeText(value).then(() => {
+      setCopied(true)
+      setTimeout(() => setCopied(false), 2000)
+    })
+  }
+  return (
+    <div className="flex items-center justify-between gap-2 py-1.5 border-b border-slate-100 last:border-0">
+      <span className="text-[11px] text-slate-400 w-28 shrink-0">{label}</span>
+      <span className="font-mono text-xs text-slate-800 flex-1 truncate">{value}</span>
+      <button
+        onClick={copy}
+        className="shrink-0 p-1 rounded hover:bg-slate-100 transition-colors"
+        title={`Copy ${label}`}
+      >
+        {copied
+          ? <Check className="w-3 h-3 text-emerald-600" />
+          : <Copy className="w-3 h-3 text-slate-400" />}
+      </button>
+    </div>
+  )
+}
+
+function FilingMaterials({ claim }: { claim: Claim }) {
+  const [open, setOpen] = useState(true)
+  const [descCopied, setDescCopied] = useState(false)
+
+  const s = (claim.claimScenario || '').toUpperCase().trim()
+  const date = claim.refundDate ? new Date(claim.refundDate).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }) : ''
+  const amt = `$${Number(claim.amount).toFixed(2)}`
+
+  // Generate a compact, pasteable description per scenario
+  let descTemplate = ''
+  if (s === 'A') {
+    descTemplate = `Order ${claim.orderId} was refunded ${amt} on ${date} with reason "${claim.reason}". The item was not returned to our inventory. FNSKU: ${claim.fnsku || 'N/A'}, ASIN: ${claim.asin || 'N/A'}, SKU: ${claim.sku || 'N/A'}. We request SAFE-T reimbursement of ${amt}.`
+  } else if (s === 'B') {
+    descTemplate = `FBA inventory with FNSKU ${claim.fnsku || 'N/A'} (ASIN: ${claim.asin || 'N/A'}, SKU: ${claim.sku || 'N/A'}) was lost in the fulfillment center. Order ID: ${claim.orderId}. We request reimbursement for the lost unit.`
+  } else if (s === 'C') {
+    descTemplate = `FBA inventory with FNSKU ${claim.fnsku || 'N/A'} (ASIN: ${claim.asin || 'N/A'}, SKU: ${claim.sku || 'N/A'}) was damaged or disposed of in the fulfillment center without reimbursement. We request reimbursement for the affected unit(s).`
+  } else if (s === 'D') {
+    descTemplate = `We are disputing the reimbursement for Order ID ${claim.orderId}. The customer refund amount was ${amt} but the reimbursement received did not match. FNSKU: ${claim.fnsku || 'N/A'}, ASIN: ${claim.asin || 'N/A'}. We request re-evaluation of this claim.`
+  } else {
+    descTemplate = `Order ID: ${claim.orderId}. FNSKU: ${claim.fnsku || 'N/A'}, ASIN: ${claim.asin || 'N/A'}, SKU: ${claim.sku || 'N/A'}. Refunded ${amt} on ${date} for reason "${claim.reason}". We have checked FBA reports and identified a discrepancy. Please assist.`
+  }
+
+  const copyDesc = () => {
+    navigator.clipboard.writeText(descTemplate).then(() => {
+      setDescCopied(true)
+      setTimeout(() => setDescCopied(false), 2000)
+    })
+  }
+
+  // Build field list per scenario
+  const showFields: { label: string; value: string }[] = []
+  if (s === 'A') {
+    showFields.push(
+      { label: 'Order ID', value: claim.orderId },
+      { label: 'FNSKU', value: claim.fnsku },
+      { label: 'ASIN', value: claim.asin },
+      { label: 'SKU', value: claim.sku },
+      { label: 'Refund Date', value: date },
+      { label: 'Refund Amount', value: amt },
+      { label: 'Return Reason', value: claim.reason },
+    )
+  } else if (s === 'B') {
+    showFields.push(
+      { label: 'FNSKU', value: claim.fnsku },
+      { label: 'ASIN', value: claim.asin },
+      { label: 'SKU', value: claim.sku },
+      { label: 'Order ID', value: claim.orderId },
+      { label: 'Refund Amount', value: amt },
+    )
+  } else if (s === 'C') {
+    showFields.push(
+      { label: 'FNSKU', value: claim.fnsku },
+      { label: 'ASIN', value: claim.asin },
+      { label: 'SKU', value: claim.sku },
+      { label: 'Order ID', value: claim.orderId },
+    )
+  } else if (s === 'D') {
+    showFields.push(
+      { label: 'Order ID', value: claim.orderId },
+      { label: 'FNSKU', value: claim.fnsku },
+      { label: 'ASIN', value: claim.asin },
+      { label: 'Refund Amount', value: amt },
+    )
+  } else {
+    showFields.push(
+      { label: 'Order ID', value: claim.orderId },
+      { label: 'FNSKU', value: claim.fnsku },
+      { label: 'ASIN', value: claim.asin },
+      { label: 'SKU', value: claim.sku },
+      { label: 'Refund Date', value: date },
+      { label: 'Refund Amount', value: amt },
+    )
+  }
+
+  return (
+    <div className="rounded-lg border border-slate-200 overflow-hidden">
+      <button
+        onClick={() => setOpen(o => !o)}
+        className="w-full flex items-center justify-between px-3 py-2.5 bg-amber-50 hover:bg-amber-100 transition-colors text-left"
+      >
+        <span className="text-xs font-semibold text-amber-700">📋 申请材料 Filing Materials</span>
+        <span className="text-amber-400 text-xs">{open ? '▲' : '▼'}</span>
+      </button>
+      {open && (
+        <div className="px-4 py-3 bg-white border-t border-slate-100 space-y-3">
+          {/* Field rows */}
+          <div>
+            {showFields.map(f => <CopyRow key={f.label} label={f.label} value={f.value} />)}
+          </div>
+
+          {/* Description template */}
+          <div>
+            <div className="flex items-center justify-between mb-1.5">
+              <span className="text-[11px] font-semibold text-slate-500 uppercase tracking-wider">Description</span>
+              <button
+                onClick={copyDesc}
+                className="flex items-center gap-1 px-2 py-0.5 rounded bg-slate-100 hover:bg-slate-200 text-[11px] text-slate-600 transition-colors"
+              >
+                {descCopied ? <Check className="w-3 h-3 text-emerald-600" /> : <Copy className="w-3 h-3" />}
+                {descCopied ? '已复制' : '复制'}
+              </button>
+            </div>
+            <p className="text-[11px] text-slate-700 bg-slate-50 rounded p-2.5 border border-slate-200 leading-relaxed">
+              {descTemplate}
+            </p>
+          </div>
+        </div>
+      )}
+    </div>
+  )
+}
+
 // ─── Case Detail Panel ─────────────────────────────────────────────────────────
 
 function CasePanel({
@@ -370,6 +510,9 @@ function CasePanel({
 
             {/* How to File */}
             <ClaimInstructions scenario={claim.claimScenario} claimType={claim.claimType} fnsku={claim.fnsku} />
+
+            {/* Filing Materials */}
+            <FilingMaterials claim={claim} />
 
             {/* Template */}
             {templateText ? (
