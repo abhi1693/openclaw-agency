@@ -737,14 +737,14 @@ function SystemPageContent({ forceRefresh, onAutoRefresh }: { forceRefresh: numb
                   const nextRunMs = job.state?.nextRunAtMs
                   const lastStatus = job.state?.lastStatus || job.state?.lastRunStatus
                   const consecutiveErrors = job.state?.consecutiveErrors ?? 0
-                  const errorBadgeColor = consecutiveErrors >= 5
-                    ? 'bg-red-50 text-red-500'
-                    : 'bg-amber-50 text-amber-500'
+                  const errorBadgeColor = consecutiveErrors >= 3
+                    ? 'bg-red-500/15 text-red-400'
+                    : 'bg-amber-500/15 text-amber-400'
                   const fmtTime = (ms?: number) => ms ? new Date(ms).toLocaleString('zh-CN', { month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit' }) : '—'
                   const jobColor = getJobColor(job, cronJobs.jobs)
 
                   return (
-                    <div key={job.id} onClick={() => openEdit(job)} className={`grid grid-cols-[2fr_1fr_1fr_1fr_80px_1fr] gap-3 px-4 py-3 items-center cursor-pointer hover:bg-[hsl(var(--secondary)/0.3)] transition-colors ${i < cronJobs.jobs.length - 1 ? 'border-b border-[hsl(var(--border)/0.5)]' : ''} ${!job.enabled ? 'opacity-60' : ''}`}>
+                    <div key={job.id} onClick={() => openEdit(job)} className={`grid grid-cols-[2fr_1fr_1fr_1fr_80px_1fr] gap-3 px-4 py-3 items-center cursor-pointer hover:bg-[hsl(var(--secondary)/0.3)] transition-colors ${i < cronJobs.jobs.length - 1 ? 'border-b border-[hsl(var(--border)/0.5)]' : ''} ${!job.enabled ? 'opacity-60' : ''} ${consecutiveErrors >= 3 ? 'bg-red-500/5' : consecutiveErrors >= 1 ? 'bg-amber-500/5' : ''}`}>
                       <div className="flex items-center gap-2">
                         <div
                           className="w-2 h-2 rounded-full flex-shrink-0"
@@ -762,7 +762,7 @@ function SystemPageContent({ forceRefresh, onAutoRefresh }: { forceRefresh: numb
                         <span>
                           {!job.enabled ? '⏸️' : lastStatus === 'ok' ? '✅' : lastStatus === 'error' ? '❌' : '—'}
                         </span>
-                        {consecutiveErrors >= 2 && (
+                        {consecutiveErrors >= 1 && (
                           <span className={`inline-flex items-center rounded-full px-2 py-0.5 text-[10px] font-medium ${errorBadgeColor}`}>
                             ×{consecutiveErrors} errors
                           </span>
