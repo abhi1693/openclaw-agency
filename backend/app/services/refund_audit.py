@@ -173,15 +173,17 @@ async def run_refund_audit(session: AsyncSession, *, days: int = 180) -> dict:
             returns_by_order.setdefault(oid, []).append(r)
 
     # ── Load reimbursements ───────────────────────────────────────────────────
-    reimb_rows = list(
-        await session.exec(
-            select(ReimbursementEvent).where(col(ReimbursementEvent.order_id) != "")
-        )
-    )
+    # Load ALL reimbursement events — used for two purposes:
+    # 1. reimb_by_order: check if a specific order has been reimbursed
+    # 2. fnsku_by_sku: fallback FNSKU lookup by SKU (some rows have empty order_id)
+    reimb_rows = list(await session.exec(select(ReimbursementEvent)))
     reimb_by_order: dict[str, list[ReimbursementEvent]] = {}
+    fnsku_by_sku: dict[str, str] = {}
     for r in reimb_rows:
         if r.order_id:
             reimb_by_order.setdefault(r.order_id, []).append(r)
+        if r.fnsku and r.sku and r.sku not in fnsku_by_sku:
+            fnsku_by_sku[r.sku] = r.fnsku
 
     # ── Load financial refund events ──────────────────────────────────────────
     fin_rows = list(
@@ -334,8 +336,8 @@ async def run_refund_audit(session: AsyncSession, *, days: int = 180) -> dict:
 
         sku = return_records[0].sku or refund["sku"] if return_records else refund["sku"]
         rp = (return_records[0].raw_payload or {}) if return_records else {}
-        asin = rp.get("asin", "")
-        fnsku = rp.get("fnsku", "")
+        asin = str(rp.get("asin") or "")
+        fnsku = str(rp.get("fnSku") or rp.get("fnsku") or fnsku_by_sku.get(sku or "") or "")
         shipment_id = str(rp.get("shipmentId") or rp.get("shipment_id") or "")
         quantity = return_records[0].quantity if return_records else 0
 
@@ -396,8 +398,8 @@ async def run_refund_audit(session: AsyncSession, *, days: int = 180) -> dict:
             continue
 
         rp_r = (r.raw_payload or {}) if r.raw_payload else {}
-        asin_val = rp_r.get("asin", "")
-        fnsku_val = rp_r.get("fnsku", "")
+        asin_val = str(rp_r.get("asin") or "")
+        fnsku_val = str(rp_r.get("fnSku") or rp_r.get("fnsku") or fnsku_by_sku.get(r.sku or "") or "")
         shipment_id_val = str(rp_r.get("shipmentId") or rp_r.get("shipment_id") or "")
 
         await _upsert_claim(
