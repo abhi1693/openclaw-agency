@@ -686,7 +686,7 @@ interface FnSkuGroup {
 }
 
 const SCENARIO_META: Record<string, { label: string; path: string; color: string }> = {
-  A: { label: 'SAFE-T Claim',        path: 'Performance → SAFE-T Claims',                         color: 'bg-rose-100 text-rose-700' },
+  A: { label: 'SAFE-T Claim',        path: 'Orders → Manage SAFE-T Claims',                       color: 'bg-rose-100 text-rose-700' },
   B: { label: 'Inventory Lost',      path: 'Help → Inventory lost in FBA warehouse',               color: 'bg-blue-100 text-blue-700' },
   C: { label: 'Inventory Damaged',   path: 'Help → Inventory damaged in FBA warehouse',            color: 'bg-amber-100 text-amber-700' },
   D: { label: 'Dispute',             path: 'Help → Submit a reimbursement claim dispute',          color: 'bg-purple-100 text-purple-700' },
