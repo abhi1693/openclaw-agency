@@ -741,8 +741,15 @@ function FnSkuGroupView({
 
   const generateTemplate = (group: FnSkuGroup) => {
     const key = group.key
-    const sel = selections[key] || new Set()
-    const selected = sel.size > 0 ? group.claims.filter(c => sel.has(c.orderId)) : group.claims.slice(0, 10)
+    let sel = selections[key] || new Set()
+    // Auto-select top 10 actionable if user hasn't made a manual selection
+    if (sel.size === 0) {
+      const actionable = group.claims.filter(c => c.status === 'actionable')
+      const top10 = (actionable.length > 0 ? actionable : group.claims).slice(0, 10)
+      sel = new Set(top10.map(c => c.orderId))
+      setSelections(prev => ({ ...prev, [key]: sel }))
+    }
+    const selected = group.claims.filter(c => sel.has(c.orderId))
 
     const totalAmt = selected.reduce((s, c) => s + c.amount, 0)
     const totalQty = selected.reduce((s, c) => s + (c.quantity || 1), 0)
@@ -824,13 +831,18 @@ function FnSkuGroupView({
     }
   }
 
-  if (groups.length === 0) return (
+  // Split into active (actionable/pending) and filed
+  const FILED_STATUSES = new Set(['filed', 'submitted', 'approved', 'resolved', 'denied'])
+  const activeGroups = useMemo(() => groups.map(g => ({ ...g, claims: g.claims.filter(c => !FILED_STATUSES.has(c.status)) })).filter(g => g.claims.length > 0), [groups])
+  const filedGroups = useMemo(() => groups.map(g => ({ ...g, claims: g.claims.filter(c => FILED_STATUSES.has(c.status)) })).filter(g => g.claims.length > 0), [groups])
+
+  if (activeGroups.length === 0 && filedGroups.length === 0) return (
     <div className="py-16 text-center text-slate-400">No data — run Audit first</div>
   )
 
   return (
     <div className="space-y-3">
-      {groups.map(group => {
+      {activeGroups.map(group => {
         const key = group.key
         const isExpanded = expandedFnskus.has(key)
         const sel = selections[key] || new Set()
@@ -1013,6 +1025,70 @@ function FnSkuGroupView({
           </div>
         )
       })}
+
+      {/* Filed Cases section */}
+      {filedGroups.length > 0 && (
+        <FiledCasesSection groups={filedGroups} onViewCase={onViewCase} />
+      )}
+    </div>
+  )
+}
+
+// ─── Filed Cases Section ───────────────────────────────────────────────────────
+
+function FiledCasesSection({ groups, onViewCase }: { groups: FnSkuGroup[]; onViewCase: (c: Claim) => void }) {
+  const [open, setOpen] = useState(false)
+  const totalFiled = groups.reduce((s, g) => s + g.claims.length, 0)
+  const totalAmt = groups.reduce((s, g) => s + g.claims.reduce((a, c) => a + c.amount, 0), 0)
+
+  return (
+    <div className="rounded-xl border border-slate-200 bg-white shadow-sm overflow-hidden">
+      <button
+        onClick={() => setOpen(o => !o)}
+        className="w-full flex items-center justify-between px-5 py-3.5 hover:bg-slate-50 transition-colors text-left"
+      >
+        <div className="flex items-center gap-3">
+          <span className="text-[11px] font-bold px-2 py-0.5 rounded bg-indigo-100 text-indigo-700">Filed</span>
+          <span className="text-sm font-semibold text-slate-700">Filed Cases</span>
+          <span className="bg-slate-100 text-slate-600 text-[11px] font-semibold px-2.5 py-0.5 rounded-full">{totalFiled} claims</span>
+        </div>
+        <div className="flex items-center gap-3">
+          <span className="font-bold text-slate-500 text-sm">{fmtUSD(totalAmt)}</span>
+          <span className="text-slate-400 text-xs">{open ? '▲' : '▼'}</span>
+        </div>
+      </button>
+      {open && (
+        <div className="border-t border-slate-100 divide-y divide-slate-100">
+          {groups.map(group => {
+            const meta = SCENARIO_META[group.scenario.toUpperCase()] || SCENARIO_META['E']
+            return (
+              <div key={group.key} className="px-5 py-3">
+                <div className="flex items-center gap-2 mb-2">
+                  <span className={cn('text-[11px] font-bold px-2 py-0.5 rounded', meta.color)}>{group.scenario}</span>
+                  <span className="font-mono text-xs font-semibold text-slate-800">{group.fnsku || '—'}</span>
+                  <span className="text-[11px] text-slate-400">{meta.label} · {group.claims.length} claims</span>
+                </div>
+                <div className="space-y-1.5">
+                  {group.claims.map(claim => (
+                    <div key={claim.orderId} className="flex items-center gap-3 text-[11px]">
+                      <OrderIdCell orderId={claim.orderId} />
+                      <StatusPill status={claim.status} />
+                      <span className="text-slate-500">{fmtDate(claim.refundDate)}</span>
+                      <span className="font-semibold text-slate-700">{fmtUSD(claim.amount)}</span>
+                      <button
+                        onClick={() => onViewCase(claim)}
+                        className="ml-auto flex items-center gap-1 px-2 py-0.5 rounded bg-slate-100 hover:bg-blue-50 hover:text-blue-700 text-slate-500 transition-colors"
+                      >
+                        <FileText className="w-3 h-3" /> View
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )
+          })}
+        </div>
+      )}
     </div>
   )
 }

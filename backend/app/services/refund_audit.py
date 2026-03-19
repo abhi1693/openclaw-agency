@@ -10,7 +10,14 @@ from sqlmodel.ext.asyncio.session import AsyncSession
 
 from app.core.logging import get_logger
 from app.core.time import utcnow
-from app.models.amazon_orders import FinancialEvent, RefundClaim, ReimbursementEvent, ReturnEvent
+from app.models.amazon_orders import (
+    AmazonOrder,
+    AmazonOrderItem,
+    FinancialEvent,
+    RefundClaim,
+    ReimbursementEvent,
+    ReturnEvent,
+)
 
 logger = get_logger(__name__)
 
@@ -206,6 +213,20 @@ async def run_refund_audit(session: AsyncSession, *, days: int = 180) -> dict:
         if r.sku:
             reimb_by_sku.setdefault(r.sku, []).append(r)
 
+    # ── Build quantity lookup from order items ────────────────────────────────
+    # AmazonOrderItem.order_id is a UUID FK to AmazonOrder.id; we need
+    # amazon_order_id (string) → so we join through AmazonOrder first.
+    order_rows = list(await session.exec(select(AmazonOrder)))
+    order_uuid_to_amazon_id: dict[str, str] = {str(o.id): o.amazon_order_id for o in order_rows}
+    item_rows = list(await session.exec(select(AmazonOrderItem)))
+    qty_by_order_sku: dict[tuple[str, str], int] = {}
+    for item in item_rows:
+        amazon_oid = order_uuid_to_amazon_id.get(str(item.order_id))
+        if amazon_oid and item.sku and item.quantity_ordered:
+            # Keep the max in case of duplicate rows
+            key = (amazon_oid, item.sku)
+            qty_by_order_sku[key] = max(qty_by_order_sku.get(key, 0), item.quantity_ordered)
+
     # ── Load financial refund events ──────────────────────────────────────────
     fin_rows = list(
         await session.exec(
@@ -364,7 +385,11 @@ async def run_refund_audit(session: AsyncSession, *, days: int = 180) -> dict:
         asin = str(rp.get("asin") or "")
         fnsku = str(rp.get("fnSku") or rp.get("fnsku") or fnsku_by_sku.get(sku or "") or "")
         shipment_id = str(rp.get("shipmentId") or rp.get("shipment_id") or "")
+        # Priority 1: return_events.quantity
         quantity = return_records[0].quantity if return_records else 0
+        # Priority 2: amazon_order_items.quantity_ordered
+        if not quantity:
+            quantity = qty_by_order_sku.get((order_id, sku or ""), 0)
 
         # Scenario B: no return records — enrich reason/quantity from reimbursement events by SKU
         if claim_scenario == "B":
@@ -376,8 +401,9 @@ async def run_refund_audit(session: AsyncSession, *, days: int = 180) -> dict:
                     return_reason = b_reimb[0].reason or ""
                 if not quantity and b_reimb[0].amount_inventory:
                     quantity = b_reimb[0].amount_inventory
-            if not quantity:
-                quantity = 1  # at minimum 1 unit refunded
+        # Priority 3: fallback to 1
+        if not quantity:
+            quantity = 1
 
         await _upsert_claim(
             order_id,
@@ -439,6 +465,8 @@ async def run_refund_audit(session: AsyncSession, *, days: int = 180) -> dict:
         asin_val = str(rp_r.get("asin") or "")
         fnsku_val = str(rp_r.get("fnSku") or rp_r.get("fnsku") or fnsku_by_sku.get(r.sku or "") or "")
         shipment_id_val = str(rp_r.get("shipmentId") or rp_r.get("shipment_id") or "")
+        # Priority 1: return_events.quantity; Priority 2: order items; Priority 3: 1
+        r_quantity = r.quantity or qty_by_order_sku.get((order_id, r.sku or ""), 0) or 1
 
         await _upsert_claim(
             order_id,
@@ -446,7 +474,7 @@ async def run_refund_audit(session: AsyncSession, *, days: int = 180) -> dict:
             asin=asin_val or "",
             fnsku=fnsku_val or "",
             shipment_id=shipment_id_val,
-            quantity=r.quantity,
+            quantity=r_quantity,
             refund_date=r.event_date,
             refund_amount=Decimal(str(amount)) if amount else Decimal(0),
             refund_reason=_resolve_reason(r.reason, claim_scenario),
