@@ -63,9 +63,9 @@ function fmtUSD(n: number) {
   return new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD', maximumFractionDigits: 0 }).format(n)
 }
 
-function fmtQty(qty: number, estimated: boolean) {
+function fmtQty(qty: number, _estimated: boolean) {
   if (!qty) return ''
-  return estimated ? `~${qty} (est.)` : String(qty)
+  return String(qty)
 }
 
 function fmtDate(iso: string) {
