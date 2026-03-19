@@ -14,6 +14,24 @@ from app.models.amazon_orders import FinancialEvent, RefundClaim, ReimbursementE
 
 logger = get_logger(__name__)
 
+# Default human-readable reason per scenario — used when raw reason is unavailable/unknown
+SCENARIO_DEFAULT_REASON: dict[str, str] = {
+    "A": "Customer refund issued - item not returned to FBA inventory",
+    "B": "Inventory lost in FBA warehouse - not reimbursed",
+    "C": "Inventory damaged/disposed in FBA warehouse",
+    "D": "Reimbursement amount disputed",
+    "E": "FBA fulfillment issue - requires investigation",
+}
+
+
+def _resolve_reason(raw_reason: str | None, claim_scenario: str) -> str:
+    """Return a clean human-readable reason, never 'unknown' or empty."""
+    r = (raw_reason or "").strip()
+    if r and r.lower() != "unknown":
+        return r
+    return SCENARIO_DEFAULT_REASON.get(claim_scenario, "FBA fulfillment issue - requires investigation")
+
+
 # Non-buyer fault reasons that qualify for reimbursement/SAFE-T
 NON_BUYER_REASONS = {
     "undeliverable_unknown",
@@ -282,7 +300,11 @@ async def run_refund_audit(session: AsyncSession, *, days: int = 180) -> dict:
                 existing.quantity = quantity or existing.quantity
                 existing.refund_date = refund_date or existing.refund_date
                 existing.refund_amount = refund_amount if refund_amount > 0 else existing.refund_amount
-                existing.refund_reason = refund_reason or existing.refund_reason
+                # Only overwrite reason if new value is non-empty and non-"unknown"
+                if refund_reason and refund_reason.lower() != "unknown":
+                    existing.refund_reason = refund_reason
+                elif not existing.refund_reason or existing.refund_reason.lower() == "unknown":
+                    existing.refund_reason = refund_reason
                 existing.days_since_refund = days_since
                 existing.has_return = has_return
                 existing.has_reimbursement = has_reimbursement
@@ -366,7 +388,7 @@ async def run_refund_audit(session: AsyncSession, *, days: int = 180) -> dict:
             quantity=quantity,
             refund_date=refund_date,
             refund_amount=amount,
-            refund_reason=return_reason or "unknown",
+            refund_reason=_resolve_reason(return_reason, claim_scenario),
             has_return=has_return,
             has_reimbursement=has_reimb,
             claim_type=claim_type,
@@ -427,7 +449,7 @@ async def run_refund_audit(session: AsyncSession, *, days: int = 180) -> dict:
             quantity=r.quantity,
             refund_date=r.event_date,
             refund_amount=Decimal(str(amount)) if amount else Decimal(0),
-            refund_reason=r.reason or "unknown",
+            refund_reason=_resolve_reason(r.reason, claim_scenario),
             has_return=True,
             has_reimbursement=has_reimb,
             claim_type=claim_type,

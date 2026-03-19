@@ -309,7 +309,7 @@ function FilingMaterials({ claim }: { claim: Claim }) {
   // Generate a compact, pasteable description per scenario
   let descTemplate = ''
   if (s === 'A') {
-    descTemplate = `Order ${claim.orderId} was refunded ${amt} on ${date} with reason "${claim.reason}". The item was not returned to our inventory. FNSKU: ${claim.fnsku || 'N/A'}, ASIN: ${claim.asin || 'N/A'}, SKU: ${claim.sku || 'N/A'}. We request SAFE-T reimbursement of ${amt}.`
+    descTemplate = `Order ${claim.orderId} was refunded ${amt} on ${date} with reason "${displayReason(claim.reason, claim.claimScenario)}". The item was not returned to our inventory. FNSKU: ${claim.fnsku || 'N/A'}, ASIN: ${claim.asin || 'N/A'}, SKU: ${claim.sku || 'N/A'}. We request SAFE-T reimbursement of ${amt}.`
   } else if (s === 'B') {
     const shipPart = shipId ? `, Shipment ID: ${shipId}` : ''
     const qtyPart = qty ? ` (quantity: ${qty})` : ''
@@ -320,7 +320,7 @@ function FilingMaterials({ claim }: { claim: Claim }) {
   } else if (s === 'D') {
     descTemplate = `We are disputing the reimbursement for Order ID ${claim.orderId}. The customer refund amount was ${amt} but the reimbursement received did not match. FNSKU: ${claim.fnsku || 'N/A'}, ASIN: ${claim.asin || 'N/A'}. We request re-evaluation of this claim.`
   } else {
-    descTemplate = `Order ID: ${claim.orderId}. FNSKU: ${claim.fnsku || 'N/A'}, ASIN: ${claim.asin || 'N/A'}, SKU: ${claim.sku || 'N/A'}. Refunded ${amt} on ${date} for reason "${claim.reason}". We have checked FBA reports and identified a discrepancy. Please assist.`
+    descTemplate = `Order ID: ${claim.orderId}. FNSKU: ${claim.fnsku || 'N/A'}, ASIN: ${claim.asin || 'N/A'}, SKU: ${claim.sku || 'N/A'}. Refunded ${amt} on ${date} for reason "${displayReason(claim.reason, claim.claimScenario)}". We have checked FBA reports and identified a discrepancy. Please assist.`
   }
 
   const copyDesc = () => {
@@ -340,7 +340,7 @@ function FilingMaterials({ claim }: { claim: Claim }) {
       { label: 'SKU', value: claim.sku },
       { label: 'Refund Date', value: date },
       { label: 'Refund Amount', value: amt },
-      { label: 'Return Reason', value: claim.reason },
+      { label: 'Return Reason', value: displayReason(claim.reason, claim.claimScenario) },
     )
   } else if (s === 'B') {
     showFields.push(
@@ -511,7 +511,7 @@ function CasePanel({
               <div><span className="text-slate-400 text-xs">Claim Type</span><p className="font-medium text-slate-900 capitalize">{claim.claimType}</p></div>
               <div><span className="text-slate-400 text-xs">SKU</span><p className="font-mono text-xs text-slate-700">{claim.sku}</p></div>
               <div><span className="text-slate-400 text-xs">Days Since Refund</span><p className="font-medium text-slate-900">{claim.daysSinceRefund}</p></div>
-              <div><span className="text-slate-400 text-xs">Reason</span><p className="text-slate-700 text-xs">{claim.reason}</p></div>
+              <div><span className="text-slate-400 text-xs">Reason</span><p className="text-slate-700 text-xs">{displayReason(claim.reason, claim.claimScenario)}</p></div>
               <div><span className="text-slate-400 text-xs">Scenario</span><p className="font-medium text-slate-900">{claim.claimScenario}</p></div>
               {claim.fnsku && (
                 <div className="col-span-2">
@@ -623,23 +623,42 @@ function CasePanel({
 // ─── Reason translation ────────────────────────────────────────────────────────
 
 const REASON_LABELS: Record<string, string> = {
-  UNDELIVERABLE_UNKNOWN:        'Shipping address undeliverable - item not returned',
-  undeliverable_unknown:        'Shipping address undeliverable - item not returned',
-  DAMAGED_BY_CARRIER:           'Carrier damaged - item not returned',
-  damaged_by_carrier:           'Carrier damaged - item not returned',
-  MISSED_ESTIMATED_DELIVERY:    'Missed estimated delivery - item not returned',
-  missed_estimated_delivery:    'Missed estimated delivery - item not returned',
-  NEVER_ARRIVED:                'Item never arrived - lost in transit',
-  never_arrived:                'Item never arrived - lost in transit',
-  CustomerReturn:               'Customer return - item not received back in inventory',
-  FREE_REPLACEMENT_REFUND_ITEMS:'Free replacement issued - original item not returned',
-  REVERSAL_REIMBURSEMENT:       'Reimbursement reversal',
-  unknown:                      'Refund issued - item not returned to inventory',
+  UNDELIVERABLE_UNKNOWN:          'Shipping address undeliverable - item not returned',
+  undeliverable_unknown:          'Shipping address undeliverable - item not returned',
+  DAMAGED_BY_CARRIER:             'Carrier damaged - item not returned',
+  damaged_by_carrier:             'Carrier damaged - item not returned',
+  MISSED_ESTIMATED_DELIVERY:      'Missed estimated delivery - item not returned',
+  missed_estimated_delivery:      'Missed estimated delivery - item not returned',
+  NEVER_ARRIVED:                  'Item never arrived - lost in transit',
+  never_arrived:                  'Item never arrived - lost in transit',
+  CustomerReturn:                 'Customer return - item not received back',
+  CUSTOMER_RETURN:                'Customer return - item not received back',
+  customer_return:                'Customer return - item not received back',
+  FREE_REPLACEMENT_REFUND_ITEMS:  'Free replacement issued - original not returned',
+  free_replacement_refund_items:  'Free replacement issued - original not returned',
+  REVERSAL_REIMBURSEMENT:         'Previous reimbursement reversed',
+  reversal_reimbursement:         'Previous reimbursement reversed',
+  DAMAGED:                        'Item damaged in FBA warehouse',
+  damaged:                        'Item damaged in FBA warehouse',
+  LOST:                           'Item lost in FBA warehouse',
+  lost:                           'Item lost in FBA warehouse',
 }
 
-function translateReason(raw: string): string {
-  if (!raw || raw === 'unknown') return 'Refund issued - item not returned to inventory'
-  return REASON_LABELS[raw] || raw.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase())
+const SCENARIO_FALLBACK_REASON: Record<string, string> = {
+  A: 'Customer refund issued - item not returned to FBA inventory',
+  B: 'Inventory lost in FBA warehouse - not reimbursed',
+  C: 'Inventory damaged/disposed in FBA warehouse',
+  D: 'Reimbursement amount disputed',
+  E: 'FBA fulfillment issue - requires investigation',
+}
+
+function displayReason(raw: string, scenario?: string): string {
+  if (!raw || raw.toLowerCase() === 'unknown') {
+    return scenario
+      ? (SCENARIO_FALLBACK_REASON[scenario.toUpperCase()] ?? 'FBA fulfillment issue - requires investigation')
+      : 'Refund issued - item not returned to inventory'
+  }
+  return REASON_LABELS[raw] ?? raw.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase())
 }
 
 // ─── FNSKU Group View ──────────────────────────────────────────────────────────
@@ -731,7 +750,7 @@ function FnSkuGroupView({
     // Group by translated reason
     const byReason: Record<string, Claim[]> = {}
     for (const c of selected) {
-      const r = translateReason(c.reason)
+      const r = displayReason(c.reason, c.claimScenario)
       if (!byReason[r]) byReason[r] = []
       byReason[r].push(c)
     }
@@ -746,7 +765,7 @@ function FnSkuGroupView({
       for (const c of selected) {
         const date = c.refundDate ? new Date(c.refundDate).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }) : '—'
         const qty = c.quantity || 1
-        lines.push(`- Order ${c.orderId}, refunded $${c.amount.toFixed(2)} on ${date}, qty: ${qty}, reason: ${translateReason(c.reason)}`)
+        lines.push(`- Order ${c.orderId}, refunded $${c.amount.toFixed(2)} on ${date}, qty: ${qty}, reason: ${displayReason(c.reason, c.claimScenario)}`)
       }
     } else {
       for (const [reason, reasonClaims] of Object.entries(byReason)) {
@@ -919,7 +938,7 @@ function FnSkuGroupView({
                           )}>{claim.priority}</span>
                         </div>
                         <p className="text-[11px] text-slate-400 mt-0.5">
-                          {fmtDate(claim.refundDate)} · qty: {claim.quantity || 1} · {translateReason(claim.reason)} · Scenario {claim.claimScenario}
+                          {fmtDate(claim.refundDate)} · qty: {claim.quantity || 1} · {displayReason(claim.reason, claim.claimScenario)} · Scenario {claim.claimScenario}
                         </p>
                       </div>
                       <span className="font-semibold text-slate-900 text-sm shrink-0">{fmtUSD(claim.amount)}</span>
@@ -1339,7 +1358,7 @@ export default function RefundsPage() {
                         {claim.fnsku ? <OrderIdCell orderId={claim.fnsku} /> : <span className="text-slate-300 text-xs">—</span>}
                       </td>
                       <td className="px-4 py-2.5 text-slate-500 text-xs hidden lg:table-cell font-mono">{claim.asin || '—'}</td>
-                      <td className="px-4 py-2.5 text-slate-500 text-xs hidden lg:table-cell max-w-[140px] truncate">{claim.reason || '—'}</td>
+                      <td className="px-4 py-2.5 text-slate-500 text-xs hidden lg:table-cell max-w-[140px] truncate">{displayReason(claim.reason, claim.claimScenario)}</td>
                       <td className="px-4 py-2.5 text-right font-semibold text-slate-900">{fmtUSD(claim.amount)}</td>
                       <td className="px-4 py-2.5 text-center text-slate-600 text-xs hidden md:table-cell">{claim.daysSinceRefund}</td>
                       <td className="px-4 py-2.5 text-center hidden lg:table-cell">
