@@ -736,6 +736,11 @@ function FnSkuGroupView({
   const [copiedKey, setCopiedKey] = useState<string | null>(null)
   const [filingState, setFilingState] = useState<Record<string, FilingEntry>>({})
 
+  // SC form fields for Scenario B/C — three discrete copyable fields matching the SC form
+  interface ScFields { fnsku: string; reimbId: string; details: string }
+  const [scFields, setScFields] = useState<Record<string, ScFields>>({})
+  const [copiedField, setCopiedField] = useState<string | null>(null)
+
   const groups: FnSkuGroup[] = useMemo(() => {
     const map: Record<string, FnSkuGroup> = {}
     for (const c of claims) {
@@ -771,7 +776,7 @@ function FnSkuGroupView({
   const selectTop10 = (key: string, groupClaims: Claim[]) =>
     setSelections(prev => ({ ...prev, [key]: new Set(groupClaims.slice(0, 10).map(c => c.orderId)) }))
 
-  const generateTemplate = (group: FnSkuGroup) => {
+  const generateTemplate = async (group: FnSkuGroup) => {
     const key = group.key
     let sel = selections[key] || new Set()
     // Auto-select top 10 actionable if user hasn't made a manual selection.
@@ -787,11 +792,52 @@ function FnSkuGroupView({
       setSelections(prev => ({ ...prev, [key]: sel }))
     }
     const selected = group.claims.filter(c => sel.has(c.orderId))
-
     const totalAmt = selected.reduce((s, c) => s + c.amount, 0)
     const totalQty = selected.reduce((s, c) => s + (c.quantity || 1), 0)
 
-    // Group by translated reason
+    // ── Scenario B/C: generate three SC form fields instead of a text blob ──
+    if (['B', 'C'].includes(group.scenario)) {
+      const dates = selected
+        .map(c => c.refundDate ? new Date(c.refundDate).getTime() : null)
+        .filter((t): t is number => t !== null)
+      const fmtD = (t: number) =>
+        new Date(t).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })
+      const dateRange = dates.length
+        ? (Math.min(...dates) === Math.max(...dates)
+          ? fmtD(dates[0])
+          : `${fmtD(Math.min(...dates))} – ${fmtD(Math.max(...dates))}`)
+        : 'N/A'
+      const actionVerb = group.scenario === 'B'
+        ? 'lost in your fulfillment center'
+        : 'damaged or disposed in your fulfillment center'
+      const details = [
+        `We identified ${totalQty} unit${totalQty !== 1 ? 's' : ''} of FNSKU ${group.fnsku || 'N/A'} (ASIN: ${group.asin || 'N/A'}, SKU: ${group.sku || 'N/A'}) that were ${actionVerb} but not reimbursed or insufficiently reimbursed.`,
+        '',
+        `Affected orders: ${selected.length} (${dateRange})`,
+        `Total refund amount: $${totalAmt.toFixed(2)}`,
+        `Total units: ${totalQty}`,
+        '',
+        `We have verified through our FBA inventory reports that these units are unaccounted for and no corresponding reimbursement has been issued. Please investigate and issue the appropriate reimbursement.`,
+      ].join('\n')
+
+      // Fetch the most relevant reimbursement ID for this FNSKU/SKU from backend
+      let reimbId = 'N/A — no prior reimbursement on file'
+      try {
+        const params = new URLSearchParams({ scenario: group.scenario })
+        if (group.fnsku) params.set('fnsku', group.fnsku)
+        else if (group.sku) params.set('sku', group.sku)
+        const resp = await fetch(`/api/refunds/reimb-id?${params}`)
+        if (resp.ok) {
+          const data = await resp.json()
+          if (data.reimbursement_id) reimbId = data.reimbursement_id
+        }
+      } catch { /* ignore — show N/A */ }
+
+      setScFields(prev => ({ ...prev, [key]: { fnsku: group.fnsku || '', reimbId, details } }))
+      return
+    }
+
+    // ── All other scenarios: generate full text template ──
     const byReason: Record<string, Claim[]> = {}
     for (const c of selected) {
       const r = displayReason(c.reason, c.claimScenario)
@@ -847,6 +893,13 @@ function FnSkuGroupView({
     })
   }
 
+  const copyField = (fieldKey: string, value: string) => {
+    navigator.clipboard.writeText(value).then(() => {
+      setCopiedField(fieldKey)
+      setTimeout(() => setCopiedField(null), 2000)
+    })
+  }
+
   const markFiled = async (group: FnSkuGroup) => {
     const key = group.key
     const sel = selections[key] || new Set()
@@ -886,6 +939,7 @@ function FnSkuGroupView({
         const total = group.claims.reduce((s, c) => s + c.amount, 0)
         const actionable = group.claims.filter(c => c.status === 'actionable').length
         const tmpl = templates[key]
+        const scF = scFields[key]
         const filing = filingState[key]
         const hasMultiReason = multiReasonKeys.has(key)
         const meta = SCENARIO_META[group.scenario.toUpperCase()] || SCENARIO_META['E']
@@ -1029,32 +1083,84 @@ function FnSkuGroupView({
                 </div>
 
                 {/* Generated template + filing */}
-                {tmpl && (
+                {(scF || tmpl) && (
                   <div className="px-5 py-4 border-t border-slate-100 bg-slate-50 space-y-3">
-                    {/* Multi-reason warning */}
-                    {hasMultiReason && (
-                      <div className="flex items-start gap-2 p-2.5 rounded-lg bg-amber-50 border border-amber-200 text-amber-700 text-[11px]">
-                        <AlertTriangle className="w-3.5 h-3.5 mt-0.5 shrink-0" />
-                        <span>This batch contains more than 2 different refund reasons. Consider filing separately by reason for better approval rates.</span>
+
+                    {/* ── Scenario B/C: SC form fields ── */}
+                    {scF && (
+                      <div className="space-y-2">
+                        <span className="text-[11px] font-semibold text-slate-500 uppercase tracking-wider">
+                          SC Form Fields (Step 3)
+                        </span>
+                        {/* FNSKU */}
+                        <div className="flex items-center gap-2 rounded-lg border border-slate-200 bg-white px-3 py-2">
+                          <span className="text-[11px] text-slate-400 w-28 shrink-0">FNSKU</span>
+                          <span className="flex-1 font-mono text-[12px] text-slate-800 truncate">{scF.fnsku || 'N/A'}</span>
+                          <button
+                            onClick={() => copyField(`${key}:fnsku`, scF.fnsku)}
+                            className="shrink-0 flex items-center gap-1 px-2 py-0.5 rounded bg-slate-100 hover:bg-slate-200 text-[11px] text-slate-600 transition-colors"
+                          >
+                            {copiedField === `${key}:fnsku` ? <Check className="w-3 h-3 text-emerald-600" /> : <Copy className="w-3 h-3" />}
+                            {copiedField === `${key}:fnsku` ? 'Copied' : 'Copy'}
+                          </button>
+                        </div>
+                        {/* Reimbursement ID */}
+                        <div className="flex items-center gap-2 rounded-lg border border-slate-200 bg-white px-3 py-2">
+                          <span className="text-[11px] text-slate-400 w-28 shrink-0">Reimbursement ID</span>
+                          <span className="flex-1 font-mono text-[12px] text-slate-800 truncate">{scF.reimbId}</span>
+                          <button
+                            onClick={() => copyField(`${key}:reimbId`, scF.reimbId)}
+                            className="shrink-0 flex items-center gap-1 px-2 py-0.5 rounded bg-slate-100 hover:bg-slate-200 text-[11px] text-slate-600 transition-colors"
+                          >
+                            {copiedField === `${key}:reimbId` ? <Check className="w-3 h-3 text-emerald-600" /> : <Copy className="w-3 h-3" />}
+                            {copiedField === `${key}:reimbId` ? 'Copied' : 'Copy'}
+                          </button>
+                        </div>
+                        {/* Additional Details */}
+                        <div className="rounded-lg border border-slate-200 bg-white overflow-hidden">
+                          <div className="flex items-center justify-between px-3 py-1.5 border-b border-slate-100">
+                            <span className="text-[11px] text-slate-400">Additional Details</span>
+                            <button
+                              onClick={() => copyField(`${key}:details`, scF.details)}
+                              className="flex items-center gap-1 px-2 py-0.5 rounded bg-slate-100 hover:bg-slate-200 text-[11px] text-slate-600 transition-colors"
+                            >
+                              {copiedField === `${key}:details` ? <Check className="w-3 h-3 text-emerald-600" /> : <Copy className="w-3 h-3" />}
+                              {copiedField === `${key}:details` ? 'Copied' : 'Copy'}
+                            </button>
+                          </div>
+                          <pre className="text-[11px] text-slate-700 p-3 whitespace-pre-wrap font-mono leading-relaxed max-h-40 overflow-y-auto">
+                            {scF.details}
+                          </pre>
+                        </div>
                       </div>
                     )}
 
-                    {/* Template */}
-                    <div>
-                      <div className="flex items-center justify-between mb-2">
-                        <span className="text-[11px] font-semibold text-slate-500 uppercase tracking-wider">Filing Template</span>
-                        <button
-                          onClick={() => copyTemplate(key)}
-                          className="flex items-center gap-1 px-2.5 py-1 rounded bg-slate-200 hover:bg-slate-300 text-[11px] text-slate-700 transition-colors"
-                        >
-                          {copiedKey === key ? <Check className="w-3 h-3 text-emerald-600" /> : <Copy className="w-3 h-3" />}
-                          {copiedKey === key ? 'Copied' : 'Copy'}
-                        </button>
-                      </div>
-                      <pre className="text-[11px] text-slate-700 bg-white rounded border border-slate-200 p-2.5 whitespace-pre-wrap font-mono leading-relaxed max-h-60 overflow-y-auto">
-                        {tmpl}
-                      </pre>
-                    </div>
+                    {/* ── Other scenarios: full text template ── */}
+                    {tmpl && !scF && (
+                      <>
+                        {hasMultiReason && (
+                          <div className="flex items-start gap-2 p-2.5 rounded-lg bg-amber-50 border border-amber-200 text-amber-700 text-[11px]">
+                            <AlertTriangle className="w-3.5 h-3.5 mt-0.5 shrink-0" />
+                            <span>This batch contains more than 2 different refund reasons. Consider filing separately by reason for better approval rates.</span>
+                          </div>
+                        )}
+                        <div>
+                          <div className="flex items-center justify-between mb-2">
+                            <span className="text-[11px] font-semibold text-slate-500 uppercase tracking-wider">Filing Template</span>
+                            <button
+                              onClick={() => copyTemplate(key)}
+                              className="flex items-center gap-1 px-2.5 py-1 rounded bg-slate-200 hover:bg-slate-300 text-[11px] text-slate-700 transition-colors"
+                            >
+                              {copiedKey === key ? <Check className="w-3 h-3 text-emerald-600" /> : <Copy className="w-3 h-3" />}
+                              {copiedKey === key ? 'Copied' : 'Copy'}
+                            </button>
+                          </div>
+                          <pre className="text-[11px] text-slate-700 bg-white rounded border border-slate-200 p-2.5 whitespace-pre-wrap font-mono leading-relaxed max-h-60 overflow-y-auto">
+                            {tmpl}
+                          </pre>
+                        </div>
+                      </>
+                    )}
 
                     {/* Mark as Filed */}
                     <div className="flex items-center gap-2 pt-2 border-t border-slate-200">

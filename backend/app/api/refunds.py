@@ -16,7 +16,7 @@ from app.core.time import utcnow
 from app.db.session import get_session
 
 logger = get_logger(__name__)
-from app.models.amazon_orders import RefundClaim
+from app.models.amazon_orders import RefundClaim, ReimbursementEvent
 from app.schemas.refunds import (
     BatchStatusResponse,
     BatchStatusUpdate,
@@ -171,6 +171,49 @@ async def trigger_audit(
         claims_created=result["claims_created"],
         claims_updated=result["claims_updated"],
     )
+
+
+@router.get("/reimb-id")
+async def get_reimb_id_for_fnsku(
+    fnsku: str = Query(default=""),
+    sku: str = Query(default=""),
+    scenario: str = Query(default="B"),
+    session: AsyncSession = SESSION_DEP,
+) -> dict:
+    """Return the most recent reimbursement_id for a given FNSKU/SKU and scenario.
+
+    Used to pre-fill the Seller Central 'Reimbursement ID' field when filing
+    a Scenario B (lost) or C (damaged) claim.
+    """
+    if not fnsku and not sku:
+        return {"reimbursement_id": None}
+
+    reason_keywords = {
+        "B": ["lost_warehouse", "lost"],
+        "C": ["damaged_warehouse", "damaged"],
+    }
+    keywords = reason_keywords.get(scenario.upper(), [])
+
+    stmt = select(ReimbursementEvent).order_by(
+        col(ReimbursementEvent.reimbursement_date).desc()
+    )
+    if fnsku:
+        stmt = stmt.where(col(ReimbursementEvent.fnsku) == fnsku)
+    elif sku:
+        stmt = stmt.where(col(ReimbursementEvent.sku) == sku)
+
+    rows = list(await session.exec(stmt))
+
+    # Prefer a row whose reason matches the scenario (e.g. Lost_Warehouse for B)
+    for r in rows:
+        if any(k in (r.reason or "").lower() for k in keywords):
+            return {"reimbursement_id": r.reimbursement_id}
+
+    # Fallback: most recent reimbursement for this FNSKU/SKU regardless of reason
+    if rows:
+        return {"reimbursement_id": rows[0].reimbursement_id}
+
+    return {"reimbursement_id": None}
 
 
 @router.post("/sync", response_model=dict)
