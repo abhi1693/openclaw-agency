@@ -144,44 +144,63 @@ function OrderIdCell({ orderId }: { orderId: string }) {
 function ClaimInstructions({ scenario, claimType }: { scenario: string; claimType: string }) {
   const [open, setOpen] = useState(false)
 
-  const key = (scenario || '').toLowerCase()
+  const s = (scenario || '').toUpperCase().trim()
   const type = (claimType || '').toLowerCase()
 
-  let title = '📋 How to File'
+  // Determine filing type: scenario letter takes priority, fall back to claimType string
+  const isSafeT = s === 'A' || type.includes('safe')
+  const isReimburse = s === 'B' || s === 'C' || s === 'D' || (!isSafeT && type.includes('reimburse'))
+
+  let title = '📋 申请指引'
   let content: React.ReactNode
 
-  if (key.includes('safe') || type.includes('safe')) {
-    title = '🛡️ How to File — SAFE-T Claim'
+  if (isSafeT) {
+    title = '🛡️ 申请指引 — SAFE-T Claim'
     content = (
-      <ol className="list-decimal list-inside space-y-1.5 text-xs text-slate-700">
-        <li>Log in to <a href="https://sellercentral.amazon.com/safet-claims" target="_blank" rel="noopener noreferrer" className="text-blue-600 underline hover:text-blue-800">Seller Central → SAFE-T Claims</a></li>
-        <li>Click <strong>File New Claim</strong></li>
-        <li>Enter the order ID shown above</li>
-        <li>Select claim reason and upload evidence (tracking, photos, etc.)</li>
-        <li>Submit and note the Case ID below</li>
-      </ol>
+      <div className="space-y-3 text-xs text-slate-700">
+        <ol className="list-decimal list-inside space-y-1.5">
+          <li>登录 <a href="https://sellercentral.amazon.com/safet-claims" target="_blank" rel="noopener noreferrer" className="text-blue-600 underline hover:text-blue-800">Seller Central → Performance → SAFE-T Claims</a></li>
+          <li>点击 <strong>File New Claim</strong></li>
+          <li>输入上方的 Order ID</li>
+          <li>填写问题描述，上传证据截图（物流记录、照片等）</li>
+          <li>提交后记录 Case ID</li>
+        </ol>
+        <div className="mt-2 p-2 rounded bg-slate-50 border border-slate-200 text-slate-500">
+          <strong className="text-slate-600">需要准备：</strong> Order ID · 问题描述 · 证据截图
+        </div>
+      </div>
     )
-  } else if (key.includes('reimburse') || type.includes('reimburse') || key.includes('fba') || type.includes('fba')) {
-    title = '📦 How to File — Reimbursement Request'
+  } else if (isReimburse) {
+    title = '📦 申请指引 — FBA Reimbursement'
     content = (
-      <ol className="list-decimal list-inside space-y-1.5 text-xs text-slate-700">
-        <li>Log in to <a href="https://sellercentral.amazon.com/reportcentral/REIMBURSEMENTS/1" target="_blank" rel="noopener noreferrer" className="text-blue-600 underline hover:text-blue-800">Seller Central → FBA Inventory → Reimbursements</a></li>
-        <li>Click <strong>Create Reimbursement Request</strong></li>
-        <li>Enter the order ID and select the affected shipment</li>
-        <li>Describe the issue and attach supporting documents</li>
-        <li>Submit and save the Case ID below</li>
-      </ol>
+      <div className="space-y-3 text-xs text-slate-700">
+        <ol className="list-decimal list-inside space-y-1.5">
+          <li>登录 <a href="https://sellercentral.amazon.com/help/center" target="_blank" rel="noopener noreferrer" className="text-blue-600 underline hover:text-blue-800">Seller Central → Help → Get Support</a></li>
+          <li>选择 <strong>Selling on Amazon → FBA Issues → FBA inventory reimbursement</strong></li>
+          <li>输入 Order ID 或 Shipment ID</li>
+          <li>填写问题描述并提交</li>
+          <li>保存 Case ID 至下方</li>
+        </ol>
+        <div className="mt-2 p-2 rounded bg-slate-50 border border-slate-200 text-slate-500">
+          <strong className="text-slate-600">需要准备：</strong> Order ID / Shipment ID · 问题描述
+        </div>
+      </div>
     )
   } else {
-    title = '📬 How to File — Seller Support'
+    title = '📬 申请指引 — Seller Support'
     content = (
-      <ol className="list-decimal list-inside space-y-1.5 text-xs text-slate-700">
-        <li>Go to <a href="https://sellercentral.amazon.com/help/center" target="_blank" rel="noopener noreferrer" className="text-blue-600 underline hover:text-blue-800">Seller Central → Help → Contact Us</a></li>
-        <li>Select <strong>FBA Issue → Refund / Reimbursement</strong></li>
-        <li>Reference this Order ID in your message</li>
-        <li>Attach relevant evidence and submit</li>
-        <li>Save the resulting Case ID below</li>
-      </ol>
+      <div className="space-y-3 text-xs text-slate-700">
+        <ol className="list-decimal list-inside space-y-1.5">
+          <li>登录 <a href="https://sellercentral.amazon.com/help/center" target="_blank" rel="noopener noreferrer" className="text-blue-600 underline hover:text-blue-800">Seller Central → Help → Contact Us</a></li>
+          <li>根据具体情况选择对应问题类型</li>
+          <li>在消息中注明此 Order ID</li>
+          <li>附上相关证据后提交</li>
+          <li>保存 Case ID 至下方</li>
+        </ol>
+        <div className="mt-2 p-2 rounded bg-slate-50 border border-slate-200 text-slate-500">
+          <strong className="text-slate-600">说明：</strong> 根据具体情况联系 Seller Support
+        </div>
+      </div>
     )
   }
 
