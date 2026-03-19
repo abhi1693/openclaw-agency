@@ -112,6 +112,97 @@ function KpiCard({ icon, label, value, sub, accent }: {
   )
 }
 
+// ─── Order ID Cell ─────────────────────────────────────────────────────────────
+
+function OrderIdCell({ orderId }: { orderId: string }) {
+  const [copied, setCopied] = useState(false)
+  const copy = () => {
+    navigator.clipboard.writeText(orderId).then(() => {
+      setCopied(true)
+      setTimeout(() => setCopied(false), 2000)
+    })
+  }
+  return (
+    <div className="flex items-center gap-1 group">
+      <span className="font-mono text-xs text-slate-700">{orderId}</span>
+      <button
+        onClick={e => { e.stopPropagation(); copy() }}
+        className="opacity-0 group-hover:opacity-100 transition-opacity p-0.5 rounded hover:bg-slate-200"
+        title="Copy order number"
+      >
+        {copied
+          ? <Check className="w-3 h-3 text-emerald-600" />
+          : <Copy className="w-3 h-3 text-slate-400" />}
+      </button>
+      {copied && <span className="text-[10px] text-emerald-600 font-medium">Copied!</span>}
+    </div>
+  )
+}
+
+// ─── Claim Instructions Accordion ─────────────────────────────────────────────
+
+function ClaimInstructions({ scenario, claimType }: { scenario: string; claimType: string }) {
+  const [open, setOpen] = useState(false)
+
+  const key = (scenario || '').toLowerCase()
+  const type = (claimType || '').toLowerCase()
+
+  let title = '📋 How to File'
+  let content: React.ReactNode
+
+  if (key.includes('safe') || type.includes('safe')) {
+    title = '🛡️ How to File — SAFE-T Claim'
+    content = (
+      <ol className="list-decimal list-inside space-y-1.5 text-xs text-slate-700">
+        <li>Log in to <a href="https://sellercentral.amazon.com/safet-claims" target="_blank" rel="noopener noreferrer" className="text-blue-600 underline hover:text-blue-800">Seller Central → SAFE-T Claims</a></li>
+        <li>Click <strong>File New Claim</strong></li>
+        <li>Enter the order ID shown above</li>
+        <li>Select claim reason and upload evidence (tracking, photos, etc.)</li>
+        <li>Submit and note the Case ID below</li>
+      </ol>
+    )
+  } else if (key.includes('reimburse') || type.includes('reimburse') || key.includes('fba') || type.includes('fba')) {
+    title = '📦 How to File — Reimbursement Request'
+    content = (
+      <ol className="list-decimal list-inside space-y-1.5 text-xs text-slate-700">
+        <li>Log in to <a href="https://sellercentral.amazon.com/reportcentral/REIMBURSEMENTS/1" target="_blank" rel="noopener noreferrer" className="text-blue-600 underline hover:text-blue-800">Seller Central → FBA Inventory → Reimbursements</a></li>
+        <li>Click <strong>Create Reimbursement Request</strong></li>
+        <li>Enter the order ID and select the affected shipment</li>
+        <li>Describe the issue and attach supporting documents</li>
+        <li>Submit and save the Case ID below</li>
+      </ol>
+    )
+  } else {
+    title = '📬 How to File — Seller Support'
+    content = (
+      <ol className="list-decimal list-inside space-y-1.5 text-xs text-slate-700">
+        <li>Go to <a href="https://sellercentral.amazon.com/help/center" target="_blank" rel="noopener noreferrer" className="text-blue-600 underline hover:text-blue-800">Seller Central → Help → Contact Us</a></li>
+        <li>Select <strong>FBA Issue → Refund / Reimbursement</strong></li>
+        <li>Reference this Order ID in your message</li>
+        <li>Attach relevant evidence and submit</li>
+        <li>Save the resulting Case ID below</li>
+      </ol>
+    )
+  }
+
+  return (
+    <div className="rounded-lg border border-slate-200 overflow-hidden">
+      <button
+        onClick={() => setOpen(o => !o)}
+        className="w-full flex items-center justify-between px-3 py-2.5 bg-slate-50 hover:bg-slate-100 transition-colors text-left"
+      >
+        <span className="text-xs font-semibold text-slate-600">{title}</span>
+        <span className="text-slate-400 text-xs">{open ? '▲' : '▼'}</span>
+      </button>
+      {open && (
+        <div className="px-4 py-3 bg-white border-t border-slate-100">
+          {content}
+        </div>
+      )}
+    </div>
+  )
+}
+
 // ─── Case Detail Panel ─────────────────────────────────────────────────────────
 
 function CasePanel({
@@ -210,6 +301,9 @@ function CasePanel({
               <div><span className="text-slate-400 text-xs">Reason</span><p className="text-slate-700 text-xs">{claim.reason}</p></div>
               <div><span className="text-slate-400 text-xs">Scenario</span><p className="font-medium text-slate-900">{claim.claimScenario}</p></div>
             </div>
+
+            {/* How to File */}
+            <ClaimInstructions scenario={claim.claimScenario} claimType={claim.claimType} />
 
             {/* Template */}
             {templateText ? (
@@ -607,7 +701,9 @@ export default function RefundsPage() {
                           className="rounded"
                         />
                       </td>
-                      <td className="px-4 py-2.5 font-mono text-xs text-slate-700">{claim.orderId}</td>
+                      <td className="px-4 py-2.5">
+                        <OrderIdCell orderId={claim.orderId} />
+                      </td>
                       <td className="px-4 py-2.5 text-slate-600 text-xs whitespace-nowrap">{fmtDate(claim.refundDate)}</td>
                       <td className="px-4 py-2.5 text-slate-600 text-xs hidden md:table-cell">{claim.sku}</td>
                       <td className="px-4 py-2.5 text-slate-500 text-xs hidden lg:table-cell font-mono">{claim.asin || '—'}</td>
