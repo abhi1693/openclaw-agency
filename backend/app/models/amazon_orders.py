@@ -436,6 +436,7 @@ class RefundClaim(QueryModel, table=True):
     days_since_refund: int = 0
     has_return: bool = False
     has_reimbursement: bool = False
+    fnsku: str = ""
     claim_type: str = ""   # "reimbursement" | "safe-t"
     claim_scenario: str = ""  # "A" | "B" | "C" | "D" | "E"
     priority: str = "low"  # "high" | "medium" | "low"

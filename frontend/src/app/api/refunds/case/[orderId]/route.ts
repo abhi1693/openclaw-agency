@@ -7,6 +7,7 @@ function mapClaim(c: any) {
     orderId: c.order_id,
     sku: c.sku,
     asin: c.asin,
+    fnsku: c.fnsku || '',
     refundDate: c.refund_date,
     amount: c.refund_amount,
     reason: c.refund_reason,

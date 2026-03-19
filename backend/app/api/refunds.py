@@ -35,6 +35,7 @@ def _claim_to_read(claim: RefundClaim) -> RefundClaimRead:
         order_id=claim.order_id,
         sku=claim.sku,
         asin=claim.asin,
+        fnsku=claim.fnsku,
         refund_date=claim.refund_date.isoformat() if claim.refund_date else None,
         refund_amount=float(claim.refund_amount),
         refund_reason=claim.refund_reason,
@@ -185,7 +186,7 @@ async def export_claims_csv(
     output = io.StringIO()
     writer = csv_module.writer(output)
     writer.writerow([
-        "Order ID", "Refund Date", "SKU", "ASIN", "Reason",
+        "Order ID", "Refund Date", "SKU", "ASIN", "FNSKU", "Reason",
         "Amount", "Days Since Refund", "Has Return", "Has Reimbursement",
         "Claim Type", "Claim Scenario", "Priority", "Status", "Amazon Case ID", "Notes",
     ])
@@ -195,6 +196,7 @@ async def export_claims_csv(
             c.refund_date.strftime("%Y-%m-%d") if c.refund_date else "",
             c.sku,
             c.asin,
+            c.fnsku,
             c.refund_reason,
             float(c.refund_amount),
             c.days_since_refund,

@@ -18,6 +18,7 @@ interface Claim {
   amount: number
   sku: string
   asin: string
+  fnsku: string
   daysSinceRefund: number
   hasReturn: boolean
   hasReimbursement: boolean
@@ -143,7 +144,7 @@ function OrderIdCell({ orderId }: { orderId: string }) {
 
 const SC_HELP = 'https://sellercentral.amazon.com/help/hub/support'
 
-function ClaimInstructions({ scenario, claimType }: { scenario: string; claimType: string }) {
+function ClaimInstructions({ scenario, claimType, fnsku }: { scenario: string; claimType: string; fnsku?: string }) {
   const [open, setOpen] = useState(false)
 
   const s = (scenario || '').toUpperCase().trim()
@@ -179,12 +180,15 @@ function ClaimInstructions({ scenario, claimType }: { scenario: string; claimTyp
         <ol className="list-decimal list-inside space-y-1.5">
           <li>进入 <a href={SC_HELP} target="_blank" rel="noopener noreferrer" className="text-blue-600 underline hover:text-blue-800">Seller Central → Help → Get Support</a></li>
           <li>快捷菜单选择 <strong className="text-slate-900">Inventory lost in FBA warehouse</strong></li>
-          <li>提供 Shipment ID 和丢失数量</li>
-          <li>描述问题后提交</li>
-          <li>保存 Case ID 至下方</li>
+          <li>
+            在 <strong>Enter FNSKU</strong> 输入框粘贴 FNSKU
+            {fnsku ? <span className="ml-1 font-mono bg-slate-100 px-1 py-0.5 rounded text-slate-800">{fnsku}</span> : <span className="ml-1 text-slate-400">（见上方）</span>}
+          </li>
+          <li>填写 Shipment ID 和丢失数量</li>
+          <li>描述问题后提交，保存 Case ID 至下方</li>
         </ol>
       ),
-      materials: 'Shipment ID · 丢失 FNSKU / 数量',
+      materials: 'FNSKU · Shipment ID · 丢失数量',
     }
   } else if (s === 'C') {
     inst = {
@@ -356,10 +360,16 @@ function CasePanel({
               <div><span className="text-slate-400 text-xs">Days Since Refund</span><p className="font-medium text-slate-900">{claim.daysSinceRefund}</p></div>
               <div><span className="text-slate-400 text-xs">Reason</span><p className="text-slate-700 text-xs">{claim.reason}</p></div>
               <div><span className="text-slate-400 text-xs">Scenario</span><p className="font-medium text-slate-900">{claim.claimScenario}</p></div>
+              {claim.fnsku && (
+                <div className="col-span-2">
+                  <span className="text-slate-400 text-xs">FNSKU</span>
+                  <OrderIdCell orderId={claim.fnsku} />
+                </div>
+              )}
             </div>
 
             {/* How to File */}
-            <ClaimInstructions scenario={claim.claimScenario} claimType={claim.claimType} />
+            <ClaimInstructions scenario={claim.claimScenario} claimType={claim.claimType} fnsku={claim.fnsku} />
 
             {/* Template */}
             {templateText ? (
@@ -728,6 +738,7 @@ export default function RefundsPage() {
                     <th className="px-4 py-3 text-left">Order ID</th>
                     <th className="px-4 py-3 text-left">Date</th>
                     <th className="px-4 py-3 text-left hidden md:table-cell">SKU</th>
+                    <th className="px-4 py-3 text-left hidden lg:table-cell">FNSKU</th>
                     <th className="px-4 py-3 text-left hidden lg:table-cell">ASIN</th>
                     <th className="px-4 py-3 text-left hidden lg:table-cell">Reason</th>
                     <th className="px-4 py-3 text-right">Amount</th>
@@ -762,6 +773,9 @@ export default function RefundsPage() {
                       </td>
                       <td className="px-4 py-2.5 text-slate-600 text-xs whitespace-nowrap">{fmtDate(claim.refundDate)}</td>
                       <td className="px-4 py-2.5 text-slate-600 text-xs hidden md:table-cell">{claim.sku}</td>
+                      <td className="px-4 py-2.5 hidden lg:table-cell">
+                        {claim.fnsku ? <OrderIdCell orderId={claim.fnsku} /> : <span className="text-slate-300 text-xs">—</span>}
+                      </td>
                       <td className="px-4 py-2.5 text-slate-500 text-xs hidden lg:table-cell font-mono">{claim.asin || '—'}</td>
                       <td className="px-4 py-2.5 text-slate-500 text-xs hidden lg:table-cell max-w-[140px] truncate">{claim.reason || '—'}</td>
                       <td className="px-4 py-2.5 text-right font-semibold text-slate-900">{fmtUSD(claim.amount)}</td>

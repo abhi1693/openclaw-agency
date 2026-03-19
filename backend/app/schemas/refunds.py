@@ -18,6 +18,7 @@ class RefundClaimRead(BaseModel):
     order_id: str
     sku: str
     asin: str
+    fnsku: str = ""
     refund_date: str | None = None
     refund_amount: float
     refund_reason: str

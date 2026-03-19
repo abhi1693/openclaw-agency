@@ -225,6 +225,7 @@ async def run_refund_audit(session: AsyncSession, *, days: int = 180) -> dict:
         *,
         sku: str,
         asin: str,
+        fnsku: str = "",
         refund_date: datetime | None,
         refund_amount: Decimal,
         refund_reason: str,
@@ -244,6 +245,7 @@ async def run_refund_audit(session: AsyncSession, *, days: int = 180) -> dict:
                 order_id=order_id,
                 sku=sku,
                 asin=asin,
+                fnsku=fnsku,
                 refund_date=refund_date,
                 refund_amount=refund_amount,
                 refund_reason=refund_reason,
@@ -266,6 +268,7 @@ async def run_refund_audit(session: AsyncSession, *, days: int = 180) -> dict:
             if existing.status not in ("submitted", "approved", "denied"):
                 existing.sku = sku or existing.sku
                 existing.asin = asin or existing.asin
+                existing.fnsku = fnsku or existing.fnsku
                 existing.refund_date = refund_date or existing.refund_date
                 existing.refund_amount = refund_amount if refund_amount > 0 else existing.refund_amount
                 existing.refund_reason = refund_reason or existing.refund_reason
@@ -324,12 +327,15 @@ async def run_refund_audit(session: AsyncSession, *, days: int = 180) -> dict:
             continue
 
         sku = return_records[0].sku or refund["sku"] if return_records else refund["sku"]
-        asin = (return_records[0].raw_payload or {}).get("asin", "") if return_records else ""
+        rp = (return_records[0].raw_payload or {}) if return_records else {}
+        asin = rp.get("asin", "")
+        fnsku = rp.get("fnsku", "")
 
         await _upsert_claim(
             order_id,
             sku=sku or "",
             asin=asin or "",
+            fnsku=fnsku or "",
             refund_date=refund_date,
             refund_amount=amount,
             refund_reason=return_reason or "unknown",
@@ -379,12 +385,15 @@ async def run_refund_audit(session: AsyncSession, *, days: int = 180) -> dict:
         if not claim_type:
             continue
 
-        asin_val = (r.raw_payload or {}).get("asin", "") if r.raw_payload else ""
+        rp_r = (r.raw_payload or {}) if r.raw_payload else {}
+        asin_val = rp_r.get("asin", "")
+        fnsku_val = rp_r.get("fnsku", "")
 
         await _upsert_claim(
             order_id,
             sku=r.sku or "",
             asin=asin_val or "",
+            fnsku=fnsku_val or "",
             refund_date=r.event_date,
             refund_amount=Decimal(str(amount)) if amount else Decimal(0),
             refund_reason=r.reason or "unknown",
