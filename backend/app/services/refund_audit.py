@@ -137,7 +137,6 @@ def generate_claim_template(claim: RefundClaim) -> str:
     }
 
     scenario_desc = scenario_descriptions.get(claim.claim_scenario, "")
-    claim_type_label = "SAFE-T Claim" if claim.claim_type == "safe-t" else "Reimbursement Request"
     refund_date_str = (
         claim.refund_date.strftime("%Y-%m-%d") if claim.refund_date else "unknown date"
     )
@@ -145,7 +144,7 @@ def generate_claim_template(claim: RefundClaim) -> str:
     lines = [
         f"Dear Amazon Seller Support,",
         "",
-        f"I am writing to request a {claim_type_label} for Order ID: {claim.order_id}.",
+        f"I am writing to request a Reimbursement for Order ID: {claim.order_id}.",
         "",
         f"Details:",
         f"- Order ID: {claim.order_id}",
@@ -162,20 +161,12 @@ def generate_claim_template(claim: RefundClaim) -> str:
         "",
     ]
 
-    if claim.claim_type == "safe-t":
-        lines += [
-            "This qualifies for a SAFE-T claim because the return reason indicates the issue "
-            "was not caused by the buyer (e.g., carrier damage, undeliverable address, lost in transit).",
-            "",
-            "I kindly request that Amazon review this case and issue the appropriate reimbursement.",
-        ]
-    else:
-        lines += [
-            "Per Amazon's FBA reimbursement policy, I am entitled to reimbursement when Amazon "
-            "loses or damages inventory, or when a refund is issued without a matching return.",
-            "",
-            "I kindly request that Amazon review this case and issue the appropriate reimbursement.",
-        ]
+    lines += [
+        "Per Amazon's FBA reimbursement policy, I am entitled to reimbursement when Amazon "
+        "loses or damages inventory, or when a refund is issued without a matching return.",
+        "",
+        "I kindly request that Amazon review this case and issue the appropriate reimbursement.",
+    ]
 
     if claim.refund_reason and claim.refund_reason != "unknown":
         lines.insert(-1, f"")
@@ -406,9 +397,9 @@ async def run_refund_audit(session: AsyncSession, *, days: int = 180) -> dict:
         claim_scenario: str | None = None
         status = "actionable"
 
-        # Scenario A: Non-buyer fault refund, no reimbursement
+        # Scenario A: Non-buyer fault refund, no reimbursement (all FBA — no SAFE-T)
         if not has_reimb and _matches_non_buyer(return_reason):
-            claim_type = "safe-t" if _matches_safe_t(return_reason) else "reimbursement"
+            claim_type = "reimbursement"
             claim_scenario = "A"
 
         # Scenario F: Courtesy refund — CSI reason OR amount < 20% of unit price
@@ -516,7 +507,7 @@ async def run_refund_audit(session: AsyncSession, *, days: int = 180) -> dict:
             not has_reimb
             and status_lower not in ("reimbursed", "unit returned to inventory")
         ):
-            claim_type = "safe-t" if _matches_safe_t(r.reason) else "reimbursement"
+            claim_type = "reimbursement"  # All FBA — SAFE-T does not apply
             claim_scenario = "D"
 
         # Scenario E: Amazon disposed unit without reimbursement

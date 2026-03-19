@@ -158,18 +158,14 @@ function ClaimInstructions({ scenario, claimType, fnsku }: { scenario: string; c
   const [open, setOpen] = useState(false)
 
   const s = (scenario || '').toUpperCase().trim()
-  const type = (claimType || '').toLowerCase()
-
-  // Scenario A or safe-t claimType → SAFE-T via FBA Returns Reimbursement menu
-  const isSafeT = s === 'A' || (!s && type.includes('safe'))
 
   type Instructions = { title: string; menuItem: string; steps: React.ReactNode; materials: string }
 
   let inst: Instructions
 
-  if (isSafeT || s === 'A') {
+  if (s === 'A') {
     inst = {
-      title: '🛡️ 申请指引 — Scenario A (SAFE-T)',
+      title: '🔁 申请指引 — Scenario A (FBA Returns Reimbursement)',
       menuItem: 'FBA Returns Reimbursement',
       steps: (
         <ol className="list-decimal list-inside space-y-1.5">
@@ -315,7 +311,7 @@ function FilingMaterials({ claim }: { claim: Claim }) {
   // Generate a compact, pasteable description per scenario
   let descTemplate = ''
   if (s === 'A') {
-    descTemplate = `Order ${claim.orderId} was refunded ${amt} on ${date} with reason "${displayReason(claim.reason, claim.claimScenario)}". The item was not returned to our inventory. FNSKU: ${claim.fnsku || 'N/A'}, ASIN: ${claim.asin || 'N/A'}, SKU: ${claim.sku || 'N/A'}. We request SAFE-T reimbursement of ${amt}.`
+    descTemplate = `Order ${claim.orderId} was refunded ${amt} on ${date} with reason "${displayReason(claim.reason, claim.claimScenario)}". The item was not returned to our FBA inventory. FNSKU: ${claim.fnsku || 'N/A'}, ASIN: ${claim.asin || 'N/A'}, SKU: ${claim.sku || 'N/A'}. We request reimbursement of ${amt} via FBA Returns Reimbursement.`
   } else if (s === 'B') {
     const shipPart = shipId ? `, Shipment ID: ${shipId}` : ''
     const qtyPart = qty ? ` (quantity: ${qty})` : ''
@@ -686,7 +682,7 @@ interface FnSkuGroup {
 }
 
 const SCENARIO_META: Record<string, { label: string; path: string; color: string }> = {
-  A: { label: 'SAFE-T Claim',        path: 'Orders → Manage SAFE-T Claims',                       color: 'bg-rose-100 text-rose-700' },
+  A: { label: 'FBA Returns Reimb.',   path: 'Help → FBA Returns Reimbursement',                    color: 'bg-rose-100 text-rose-700' },
   B: { label: 'Inventory Lost',      path: 'Help → Inventory lost in FBA warehouse',               color: 'bg-blue-100 text-blue-700' },
   C: { label: 'Inventory Damaged',   path: 'Help → Inventory damaged in FBA warehouse',            color: 'bg-amber-100 text-amber-700' },
   D: { label: 'Dispute',             path: 'Help → Submit a reimbursement claim dispute',          color: 'bg-purple-100 text-purple-700' },
@@ -696,7 +692,7 @@ const SCENARIO_META: Record<string, { label: string; path: string; color: string
 
 function scenarioOpeningLine(scenario: string, n: number): string {
   const s = scenario.toUpperCase()
-  if (s === 'A') return `The following ${n} order${n !== 1 ? 's qualify' : ' qualifies'} for SAFE-T reimbursement. These items were refunded due to non-buyer fault reasons (carrier damage, undeliverable address, etc.) and were not returned to our inventory.`
+  if (s === 'A') return `The following ${n} order${n !== 1 ? 's were' : ' was'} refunded due to non-buyer fault reasons (carrier damage, undeliverable address, etc.) but the item${n !== 1 ? 's were' : ' was'} not returned to our FBA inventory. We are requesting reimbursement via FBA Returns Reimbursement.`
   if (s === 'B') return `The following ${n} order${n !== 1 ? 's were' : ' was'} refunded but the item${n !== 1 ? 's were' : ' was'} never returned to our FBA inventory. More than 45 days have passed since each refund. We are requesting reimbursement for these lost units.`
   if (s === 'C') return `The following ${n} item${n !== 1 ? 's were' : ' was'} returned to our FBA warehouse as unsellable/damaged without a corresponding reimbursement. We are requesting reimbursement for these damaged units.`
   if (s === 'D') return `We are disputing the following ${n} case${n !== 1 ? 's' : ''}. The customer refund amount${n !== 1 ? 's were' : ' was'} not matched by the expected reimbursement${n !== 1 ? 's' : ''}.`
