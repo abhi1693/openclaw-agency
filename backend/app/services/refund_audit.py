@@ -212,6 +212,10 @@ async def run_refund_audit(session: AsyncSession, *, days: int = 180) -> dict:
     fnsku_by_sku: dict[str, str] = {}
     reimb_by_sku: dict[str, list[ReimbursementEvent]] = {}
     csi_order_ids: set[str] = set()  # orders with CustomerServiceIssue reimbursement reason
+    # NOTE: SP-API reimbursement events frequently have empty order_id, so we also build
+    # per-FNSKU and per-SKU cash totals for approximate auto-resolved detection (IDR matching).
+    reimb_cash_by_fnsku: dict[str, Decimal] = {}
+    reimb_cash_by_sku: dict[str, Decimal] = {}
     for r in reimb_rows:
         if r.order_id:
             reimb_by_order.setdefault(r.order_id, []).append(r)
@@ -221,6 +225,10 @@ async def run_refund_audit(session: AsyncSession, *, days: int = 180) -> dict:
             fnsku_by_sku[r.sku] = r.fnsku
         if r.sku:
             reimb_by_sku.setdefault(r.sku, []).append(r)
+        if r.fnsku and r.amount_cash > 0:
+            reimb_cash_by_fnsku[r.fnsku] = reimb_cash_by_fnsku.get(r.fnsku, Decimal(0)) + r.amount_cash
+        if r.sku and r.amount_cash > 0:
+            reimb_cash_by_sku[r.sku] = reimb_cash_by_sku.get(r.sku, Decimal(0)) + r.amount_cash
 
     # Also collect CSI from return events
     for r in return_rows:
@@ -346,8 +354,9 @@ async def run_refund_audit(session: AsyncSession, *, days: int = 180) -> dict:
             existing_by_order[order_id] = claim
             created += 1
         else:
-            # Only update fields if not already submitted/approved/denied
-            if existing.status not in ("submitted", "approved", "denied"):
+            # Only update fields if not already user-actioned (submitted/filed/approved/denied).
+            # "resolved" is NOT protected — audit re-confirms it on every run.
+            if existing.status not in ("submitted", "filed", "approved", "denied"):
                 existing.sku = sku or existing.sku
                 existing.asin = asin or existing.asin
                 existing.fnsku = fnsku or existing.fnsku
@@ -465,6 +474,20 @@ async def run_refund_audit(session: AsyncSession, *, days: int = 180) -> dict:
         if not quantity:
             quantity = 1
 
+        # ── Auto-resolved detection via IDR (SP-API reimb events often lack order_id) ──
+        # Use FNSKU-level cash total (most specific); fall back to SKU-level.
+        # If Amazon's total reimbursement for this FNSKU/SKU ≥ 90% of claim amount,
+        # mark as resolved. This is approximate — the IDR page is authoritative.
+        sku_reimb_cash = (
+            reimb_cash_by_fnsku.get(fnsku or "")
+            or reimb_cash_by_sku.get(sku or "")
+            or Decimal(0)
+        )
+        if sku_reimb_cash > 0:
+            has_reimb = True  # some reimbursement exists for this SKU/FNSKU
+        if sku_reimb_cash >= amount * Decimal("0.9"):
+            status = "resolved"
+
         await _upsert_claim(
             order_id,
             sku=sku or "",
@@ -529,15 +552,25 @@ async def run_refund_audit(session: AsyncSession, *, days: int = 180) -> dict:
         # Priority 1: return_events.quantity; Priority 2: order items
         r_quantity = r.quantity or qty_by_order_sku.get((order_id, r.sku or ""), 0)
         r_qty_estimated = False
+        r_amount = Decimal(str(amount)) if amount else Decimal(0)
         if not r_quantity:
             # Priority 3: estimate from refund amount ÷ unit price
-            r_amount = Decimal(str(amount)) if amount else Decimal(0)
             unit_px = sku_to_unit_price.get(r.sku or "")
             if unit_px and unit_px > 0 and r_amount > 0:
                 r_quantity = max(1, round(float(r_amount) / float(unit_px)))
                 r_qty_estimated = True
             else:
                 r_quantity = 1  # Priority 4: fallback
+
+        # Auto-resolved detection (same logic as forward scan)
+        r_reimb_cash = (
+            reimb_cash_by_fnsku.get(fnsku_val or "")
+            or reimb_cash_by_sku.get(r.sku or "")
+            or Decimal(0)
+        )
+        if r_reimb_cash > 0:
+            has_reimb = True
+        r_status = "resolved" if r_reimb_cash >= r_amount * Decimal("0.9") else "actionable"
 
         await _upsert_claim(
             order_id,
@@ -548,12 +581,13 @@ async def run_refund_audit(session: AsyncSession, *, days: int = 180) -> dict:
             quantity=r_quantity,
             quantity_estimated=r_qty_estimated,
             refund_date=r.event_date,
-            refund_amount=Decimal(str(amount)) if amount else Decimal(0),
+            refund_amount=r_amount,
             refund_reason=_resolve_reason(r.reason, claim_scenario),
             has_return=True,
             has_reimbursement=has_reimb,
             claim_type=claim_type,
             claim_scenario=claim_scenario,
+            status=r_status,
         )
         claimed_order_ids.add(order_id)
 

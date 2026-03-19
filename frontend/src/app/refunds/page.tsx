@@ -991,10 +991,17 @@ function FnSkuGroupView({
                         <div className="flex items-center gap-2 flex-wrap">
                           <OrderIdCell orderId={claim.orderId} />
                           <StatusPill status={claim.status} />
-                          <span className={cn(
-                            'inline-flex items-center rounded-full px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wider',
-                            priorityColor[claim.priority] ?? 'bg-slate-100 text-slate-500'
-                          )}>{claim.priority}</span>
+                          {claim.status === 'resolved' && (
+                            <span className="inline-flex items-center rounded-full px-2 py-0.5 text-[10px] font-semibold bg-emerald-100 text-emerald-700">
+                              Auto-Reimbursed by Amazon
+                            </span>
+                          )}
+                          {claim.status !== 'resolved' && (
+                            <span className={cn(
+                              'inline-flex items-center rounded-full px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wider',
+                              priorityColor[claim.priority] ?? 'bg-slate-100 text-slate-500'
+                            )}>{claim.priority}</span>
+                          )}
                         </div>
                         <p className="text-[11px] text-slate-400 mt-0.5">
                           {fmtDate(claim.refundDate)} · qty: {fmtQty(claim.quantity || 1, claim.quantityEstimated)} · {displayReason(claim.reason, claim.claimScenario)} · Scenario {claim.claimScenario}
