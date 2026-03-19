@@ -421,6 +421,8 @@ async def run_refund_audit(session: AsyncSession, *, days: int = 180) -> dict:
 
         return_records = returns_by_order.get(order_id, [])
         return_reason = return_records[0].reason if return_records else ""
+        return_status = (return_records[0].status or "") if return_records else ""
+        returned_to_inventory = "unit returned to inventory" in return_status.lower()
         is_unsellable = any(
             "unsellable" in (r.reason or "").lower() or "unsellable" in (r.status or "").lower()
             for r in return_records
@@ -431,9 +433,13 @@ async def run_refund_audit(session: AsyncSession, *, days: int = 180) -> dict:
         status = "actionable"
 
         # Scenario A: Non-buyer fault refund, no reimbursement (all FBA — no SAFE-T)
+        # Only actionable if the item was NOT returned to inventory.
+        # If status = "Unit returned to inventory", the goods are back — mark resolved.
         if not has_reimb and _matches_non_buyer(return_reason):
             claim_type = "reimbursement"
             claim_scenario = "A"
+            if returned_to_inventory:
+                status = "resolved"
 
         # Scenario F: Courtesy refund — CSI reason OR amount < 20% of unit price
         if not claim_type and not has_reimb and not has_return:
@@ -516,6 +522,15 @@ async def run_refund_audit(session: AsyncSession, *, days: int = 180) -> dict:
                 if sku and sku in reimb_budget_sku:
                     reimb_budget_sku[sku] = max(Decimal(0), reimb_budget_sku[sku] - amount)
 
+        # Use a sentinel reason for "returned to inventory" resolved claims so the
+        # frontend can render a distinct "Returned to Inventory" badge instead of
+        # "Auto-Reimbursed by Amazon" (which is the IDR auto-resolve badge).
+        effective_reason = (
+            "unit_returned_to_inventory"
+            if returned_to_inventory and claim_scenario == "A"
+            else return_reason
+        )
+
         await _upsert_claim(
             order_id,
             sku=sku or "",
@@ -526,7 +541,7 @@ async def run_refund_audit(session: AsyncSession, *, days: int = 180) -> dict:
             quantity_estimated=qty_estimated,
             refund_date=refund_date,
             refund_amount=amount,
-            refund_reason=_resolve_reason(return_reason, claim_scenario),
+            refund_reason=_resolve_reason(effective_reason, claim_scenario),
             has_return=has_return,
             has_reimbursement=has_reimb,
             claim_type=claim_type,

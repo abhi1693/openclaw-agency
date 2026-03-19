@@ -667,6 +667,7 @@ const REASON_LABELS: Record<string, string> = {
   Lost_Warehouse:                 'Item lost in FBA warehouse',
   Damaged_Warehouse:              'Item damaged in FBA warehouse',
   Reimbursement_Reversal:         'Previous reimbursement reversed',
+  unit_returned_to_inventory:     'Item returned to FBA inventory — no claim needed',
 }
 
 const SCENARIO_FALLBACK_REASON: Record<string, string> = {
@@ -994,7 +995,12 @@ function FnSkuGroupView({
                         <div className="flex items-center gap-2 flex-wrap">
                           <OrderIdCell orderId={claim.orderId} />
                           <StatusPill status={claim.status} />
-                          {claim.status === 'resolved' && (
+                          {claim.status === 'resolved' && claim.reason === 'unit_returned_to_inventory' && (
+                            <span className="inline-flex items-center rounded-full px-2 py-0.5 text-[10px] font-semibold bg-sky-100 text-sky-700">
+                              Returned to Inventory
+                            </span>
+                          )}
+                          {claim.status === 'resolved' && claim.reason !== 'unit_returned_to_inventory' && (
                             <span className="inline-flex items-center rounded-full px-2 py-0.5 text-[10px] font-semibold bg-emerald-100 text-emerald-700">
                               Auto-Reimbursed by Amazon
                             </span>
