@@ -439,6 +439,7 @@ class RefundClaim(QueryModel, table=True):
     fnsku: str = ""
     shipment_id: str = ""
     quantity: int = 0
+    quantity_estimated: bool = Field(default=False)  # True when qty was inferred from refund_amount / unit_price
     claim_type: str = ""   # "reimbursement" | "safe-t"
     claim_scenario: str = ""  # "A" | "B" | "C" | "D" | "E"
     priority: str = "low"  # "high" | "medium" | "low"

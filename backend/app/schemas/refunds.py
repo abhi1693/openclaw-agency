@@ -21,6 +21,7 @@ class RefundClaimRead(BaseModel):
     fnsku: str = ""
     shipment_id: str = ""
     quantity: int = 0
+    quantity_estimated: bool = False
     refund_date: str | None = None
     refund_amount: float
     refund_reason: str

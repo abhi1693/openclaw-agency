@@ -14,6 +14,7 @@ from app.models.amazon_orders import (
     AmazonOrder,
     AmazonOrderItem,
     FinancialEvent,
+    ProductCost,
     RefundClaim,
     ReimbursementEvent,
     ReturnEvent,
@@ -220,12 +221,30 @@ async def run_refund_audit(session: AsyncSession, *, days: int = 180) -> dict:
     order_uuid_to_amazon_id: dict[str, str] = {str(o.id): o.amazon_order_id for o in order_rows}
     item_rows = list(await session.exec(select(AmazonOrderItem)))
     qty_by_order_sku: dict[tuple[str, str], int] = {}
+    sku_prices: dict[str, list[Decimal]] = {}  # sku → list of observed unit prices
     for item in item_rows:
         amazon_oid = order_uuid_to_amazon_id.get(str(item.order_id))
         if amazon_oid and item.sku and item.quantity_ordered:
             # Keep the max in case of duplicate rows
             key = (amazon_oid, item.sku)
             qty_by_order_sku[key] = max(qty_by_order_sku.get(key, 0), item.quantity_ordered)
+        if item.sku and item.item_price and item.item_price > 0 and item.quantity_ordered > 0:
+            unit_px = item.item_price / item.quantity_ordered
+            sku_prices.setdefault(item.sku, []).append(unit_px)
+
+    # ── Build unit-price lookup for quantity estimation ───────────────────────
+    # Priority: median selling price from order items → product_costs.unit_cost
+    sku_to_unit_price: dict[str, Decimal] = {}
+    for sku, prices in sku_prices.items():
+        sorted_px = sorted(prices)
+        mid = len(sorted_px) // 2
+        sku_to_unit_price[sku] = sorted_px[mid]
+
+    # Fill gaps using ProductCost (COGS) with a conservative 2× markup estimate
+    cost_rows = list(await session.exec(select(ProductCost)))
+    for pc in cost_rows:
+        if pc.sku and pc.sku not in sku_to_unit_price and pc.unit_cost > 0:
+            sku_to_unit_price[pc.sku] = pc.unit_cost * Decimal("2")
 
     # ── Load financial refund events ──────────────────────────────────────────
     fin_rows = list(
@@ -272,6 +291,7 @@ async def run_refund_audit(session: AsyncSession, *, days: int = 180) -> dict:
         fnsku: str = "",
         shipment_id: str = "",
         quantity: int = 0,
+        quantity_estimated: bool = False,
         refund_date: datetime | None,
         refund_amount: Decimal,
         refund_reason: str,
@@ -294,6 +314,7 @@ async def run_refund_audit(session: AsyncSession, *, days: int = 180) -> dict:
                 fnsku=fnsku,
                 shipment_id=shipment_id,
                 quantity=quantity,
+                quantity_estimated=quantity_estimated,
                 refund_date=refund_date,
                 refund_amount=refund_amount,
                 refund_reason=refund_reason,
@@ -318,7 +339,10 @@ async def run_refund_audit(session: AsyncSession, *, days: int = 180) -> dict:
                 existing.asin = asin or existing.asin
                 existing.fnsku = fnsku or existing.fnsku
                 existing.shipment_id = shipment_id or existing.shipment_id
-                existing.quantity = quantity or existing.quantity
+                # Prefer real quantity over estimated; only overwrite estimated with real
+                if quantity and (not existing.quantity or existing.quantity_estimated):
+                    existing.quantity = quantity
+                    existing.quantity_estimated = quantity_estimated
                 existing.refund_date = refund_date or existing.refund_date
                 existing.refund_amount = refund_amount if refund_amount > 0 else existing.refund_amount
                 # Only overwrite reason if new value is non-empty and non-"unknown"
@@ -401,7 +425,15 @@ async def run_refund_audit(session: AsyncSession, *, days: int = 180) -> dict:
                     return_reason = b_reimb[0].reason or ""
                 if not quantity and b_reimb[0].amount_inventory:
                     quantity = b_reimb[0].amount_inventory
-        # Priority 3: fallback to 1
+
+        # Priority 3: estimate from refund_amount ÷ unit_price
+        qty_estimated = False
+        if not quantity:
+            unit_px = sku_to_unit_price.get(sku or "")
+            if unit_px and unit_px > 0:
+                quantity = max(1, round(float(amount) / float(unit_px)))
+                qty_estimated = True
+        # Priority 4: conservative fallback
         if not quantity:
             quantity = 1
 
@@ -412,6 +444,7 @@ async def run_refund_audit(session: AsyncSession, *, days: int = 180) -> dict:
             fnsku=fnsku or "",
             shipment_id=shipment_id,
             quantity=quantity,
+            quantity_estimated=qty_estimated,
             refund_date=refund_date,
             refund_amount=amount,
             refund_reason=_resolve_reason(return_reason, claim_scenario),
@@ -465,8 +498,18 @@ async def run_refund_audit(session: AsyncSession, *, days: int = 180) -> dict:
         asin_val = str(rp_r.get("asin") or "")
         fnsku_val = str(rp_r.get("fnSku") or rp_r.get("fnsku") or fnsku_by_sku.get(r.sku or "") or "")
         shipment_id_val = str(rp_r.get("shipmentId") or rp_r.get("shipment_id") or "")
-        # Priority 1: return_events.quantity; Priority 2: order items; Priority 3: 1
-        r_quantity = r.quantity or qty_by_order_sku.get((order_id, r.sku or ""), 0) or 1
+        # Priority 1: return_events.quantity; Priority 2: order items
+        r_quantity = r.quantity or qty_by_order_sku.get((order_id, r.sku or ""), 0)
+        r_qty_estimated = False
+        if not r_quantity:
+            # Priority 3: estimate from refund amount ÷ unit price
+            r_amount = Decimal(str(amount)) if amount else Decimal(0)
+            unit_px = sku_to_unit_price.get(r.sku or "")
+            if unit_px and unit_px > 0 and r_amount > 0:
+                r_quantity = max(1, round(float(r_amount) / float(unit_px)))
+                r_qty_estimated = True
+            else:
+                r_quantity = 1  # Priority 4: fallback
 
         await _upsert_claim(
             order_id,
@@ -475,6 +518,7 @@ async def run_refund_audit(session: AsyncSession, *, days: int = 180) -> dict:
             fnsku=fnsku_val or "",
             shipment_id=shipment_id_val,
             quantity=r_quantity,
+            quantity_estimated=r_qty_estimated,
             refund_date=r.event_date,
             refund_amount=Decimal(str(amount)) if amount else Decimal(0),
             refund_reason=_resolve_reason(r.reason, claim_scenario),

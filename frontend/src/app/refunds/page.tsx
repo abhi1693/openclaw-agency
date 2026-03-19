@@ -21,6 +21,7 @@ interface Claim {
   fnsku: string
   shipmentId: string
   quantity: number
+  quantityEstimated: boolean
   daysSinceRefund: number
   hasReturn: boolean
   hasReimbursement: boolean
@@ -60,6 +61,11 @@ interface CaseDetail {
 
 function fmtUSD(n: number) {
   return new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD', maximumFractionDigits: 0 }).format(n)
+}
+
+function fmtQty(qty: number, estimated: boolean) {
+  if (!qty) return ''
+  return estimated ? `~${qty} (est.)` : String(qty)
 }
 
 function fmtDate(iso: string) {
@@ -303,7 +309,7 @@ function FilingMaterials({ claim }: { claim: Claim }) {
   const date = claim.refundDate ? new Date(claim.refundDate).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }) : ''
   const amt = `$${Number(claim.amount).toFixed(2)}`
 
-  const qty = claim.quantity > 0 ? String(claim.quantity) : ''
+  const qty = claim.quantity > 0 ? fmtQty(claim.quantity, claim.quantityEstimated) : ''
   const shipId = claim.shipmentId || ''
 
   // Generate a compact, pasteable description per scenario
@@ -771,7 +777,7 @@ function FnSkuGroupView({
     if (uniqueReasons.length === 1) {
       for (const c of selected) {
         const date = c.refundDate ? new Date(c.refundDate).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }) : '—'
-        const qty = c.quantity || 1
+        const qty = fmtQty(c.quantity || 1, c.quantityEstimated)
         lines.push(`- Order ${c.orderId}, refunded $${c.amount.toFixed(2)} on ${date}, qty: ${qty}, reason: ${displayReason(c.reason, c.claimScenario)}`)
       }
     } else {
@@ -779,7 +785,7 @@ function FnSkuGroupView({
         lines.push(`Orders — ${reason}:`)
         for (const c of reasonClaims) {
           const date = c.refundDate ? new Date(c.refundDate).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }) : '—'
-          const qty = c.quantity || 1
+          const qty = fmtQty(c.quantity || 1, c.quantityEstimated)
           lines.push(`  - Order ${c.orderId}, refunded $${c.amount.toFixed(2)} on ${date}, qty: ${qty}`)
         }
         lines.push('')
@@ -950,7 +956,7 @@ function FnSkuGroupView({
                           )}>{claim.priority}</span>
                         </div>
                         <p className="text-[11px] text-slate-400 mt-0.5">
-                          {fmtDate(claim.refundDate)} · qty: {claim.quantity || 1} · {displayReason(claim.reason, claim.claimScenario)} · Scenario {claim.claimScenario}
+                          {fmtDate(claim.refundDate)} · qty: {fmtQty(claim.quantity || 1, claim.quantityEstimated)} · {displayReason(claim.reason, claim.claimScenario)} · Scenario {claim.claimScenario}
                         </p>
                       </div>
                       <span className="font-semibold text-slate-900 text-sm shrink-0">{fmtUSD(claim.amount)}</span>

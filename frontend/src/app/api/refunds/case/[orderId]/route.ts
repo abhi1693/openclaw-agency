@@ -10,6 +10,7 @@ function mapClaim(c: any) {
     fnsku: c.fnsku || '',
     shipmentId: c.shipment_id || '',
     quantity: c.quantity || 0,
+    quantityEstimated: c.quantity_estimated || false,
     refundDate: c.refund_date,
     amount: c.refund_amount,
     reason: c.refund_reason,
