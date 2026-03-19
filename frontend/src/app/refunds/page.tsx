@@ -645,10 +645,29 @@ function translateReason(raw: string): string {
 // ─── FNSKU Group View ──────────────────────────────────────────────────────────
 
 interface FnSkuGroup {
+  key: string       // fnsku|scenario
   fnsku: string
   asin: string
   sku: string
+  scenario: string
   claims: Claim[]
+}
+
+const SCENARIO_META: Record<string, { label: string; path: string; color: string }> = {
+  A: { label: 'SAFE-T Claim',        path: 'Performance → SAFE-T Claims',                         color: 'bg-rose-100 text-rose-700' },
+  B: { label: 'Inventory Lost',      path: 'Help → Inventory lost in FBA warehouse',               color: 'bg-blue-100 text-blue-700' },
+  C: { label: 'Inventory Damaged',   path: 'Help → Inventory damaged in FBA warehouse',            color: 'bg-amber-100 text-amber-700' },
+  D: { label: 'Dispute',             path: 'Help → Submit a reimbursement claim dispute',          color: 'bg-purple-100 text-purple-700' },
+  E: { label: 'Other',               path: 'Help → My issue is not listed',                        color: 'bg-slate-100 text-slate-600' },
+}
+
+function scenarioOpeningLine(scenario: string, n: number): string {
+  const s = scenario.toUpperCase()
+  if (s === 'A') return `The following ${n} order${n !== 1 ? 's qualify' : ' qualifies'} for SAFE-T reimbursement. These items were refunded due to non-buyer fault reasons (carrier damage, undeliverable address, etc.) and were not returned to our inventory.`
+  if (s === 'B') return `The following ${n} order${n !== 1 ? 's were' : ' was'} refunded but the item${n !== 1 ? 's were' : ' was'} never returned to our FBA inventory. More than 45 days have passed since each refund. We are requesting reimbursement for these lost units.`
+  if (s === 'C') return `The following ${n} item${n !== 1 ? 's were' : ' was'} returned to our FBA warehouse as unsellable/damaged without a corresponding reimbursement. We are requesting reimbursement for these damaged units.`
+  if (s === 'D') return `We are disputing the following ${n} case${n !== 1 ? 's' : ''}. The customer refund amount${n !== 1 ? 's were' : ' was'} not matched by the expected reimbursement${n !== 1 ? 's' : ''}.`
+  return `The following ${n} order${n !== 1 ? 's have an' : ' has an'} unresolved FBA inventory discrepancy. We have verified through our FBA reports that the items were not returned to sellable inventory and no reimbursement has been issued.`
 }
 
 interface FilingEntry { caseId: string; submitting: boolean; done: boolean }
@@ -672,11 +691,13 @@ function FnSkuGroupView({
   const groups: FnSkuGroup[] = useMemo(() => {
     const map: Record<string, FnSkuGroup> = {}
     for (const c of claims) {
-      const key = c.fnsku || '(no FNSKU)'
-      if (!map[key]) map[key] = { fnsku: c.fnsku, asin: c.asin, sku: c.sku, claims: [] }
+      const key = `${c.fnsku || '(no FNSKU)'}|${c.claimScenario || 'E'}`
+      if (!map[key]) map[key] = { key, fnsku: c.fnsku, asin: c.asin, sku: c.sku, scenario: c.claimScenario || 'E', claims: [] }
       map[key].claims.push(c)
     }
     return Object.values(map).sort((a, b) => {
+      // Sort by scenario first (A→E), then by total amount desc
+      if (a.scenario !== b.scenario) return a.scenario.localeCompare(b.scenario)
       const totA = a.claims.reduce((s, c) => s + c.amount, 0)
       const totB = b.claims.reduce((s, c) => s + c.amount, 0)
       return totB - totA
@@ -700,7 +721,7 @@ function FnSkuGroupView({
     setSelections(prev => ({ ...prev, [key]: new Set(groupClaims.slice(0, 10).map(c => c.orderId)) }))
 
   const generateTemplate = (group: FnSkuGroup) => {
-    const key = group.fnsku || '(no FNSKU)'
+    const key = group.key
     const sel = selections[key] || new Set()
     const selected = sel.size > 0 ? group.claims.filter(c => sel.has(c.orderId)) : group.claims.slice(0, 10)
 
@@ -715,21 +736,19 @@ function FnSkuGroupView({
       byReason[r].push(c)
     }
     const uniqueReasons = Object.keys(byReason)
-
-    const lines: string[] = []
     const n = selected.length
+    const lines: string[] = []
+
+    lines.push(scenarioOpeningLine(group.scenario, n))
+    lines.push('')
 
     if (uniqueReasons.length === 1) {
-      lines.push(`The following ${n} order${n !== 1 ? 's were' : ' was'} refunded but the item${n !== 1 ? 's were' : ' was'} not returned to our FBA inventory. We are requesting reimbursement for these unreturned items.`)
-      lines.push('')
       for (const c of selected) {
         const date = c.refundDate ? new Date(c.refundDate).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }) : '—'
         const qty = c.quantity || 1
         lines.push(`- Order ${c.orderId}, refunded $${c.amount.toFixed(2)} on ${date}, qty: ${qty}, reason: ${translateReason(c.reason)}`)
       }
     } else {
-      lines.push(`The following ${n} orders were refunded but the items were not returned to our FBA inventory. We are requesting reimbursement for these unreturned items.`)
-      lines.push('')
       for (const [reason, reasonClaims] of Object.entries(byReason)) {
         lines.push(`Orders — ${reason}:`)
         for (const c of reasonClaims) {
@@ -747,8 +766,6 @@ function FnSkuGroupView({
     lines.push(`FNSKU: ${group.fnsku || 'N/A'}`)
     lines.push(`ASIN: ${group.asin || 'N/A'}`)
     lines.push(`SKU: ${group.sku || 'N/A'}`)
-    lines.push('')
-    lines.push('We have verified through our FBA reports that these items were not returned to sellable inventory and no reimbursement has been issued.')
 
     setTemplates(prev => ({ ...prev, [key]: lines.join('\n') }))
     setMultiReasonKeys(prev => {
@@ -768,7 +785,7 @@ function FnSkuGroupView({
   }
 
   const markFiled = async (group: FnSkuGroup) => {
-    const key = group.fnsku || '(no FNSKU)'
+    const key = group.key
     const sel = selections[key] || new Set()
     const selected = sel.size > 0 ? group.claims.filter(c => sel.has(c.orderId)) : group.claims.slice(0, 10)
     const orderIds = selected.map(c => c.orderId)
@@ -795,7 +812,7 @@ function FnSkuGroupView({
   return (
     <div className="space-y-3">
       {groups.map(group => {
-        const key = group.fnsku || '(no FNSKU)'
+        const key = group.key
         const isExpanded = expandedFnskus.has(key)
         const sel = selections[key] || new Set()
         const total = group.claims.reduce((s, c) => s + c.amount, 0)
@@ -803,6 +820,7 @@ function FnSkuGroupView({
         const tmpl = templates[key]
         const filing = filingState[key]
         const hasMultiReason = multiReasonKeys.has(key)
+        const meta = SCENARIO_META[group.scenario.toUpperCase()] || SCENARIO_META['E']
 
         return (
           <div key={key} className="rounded-xl border border-slate-200 bg-white shadow-sm overflow-hidden">
@@ -810,23 +828,39 @@ function FnSkuGroupView({
               onClick={() => toggleGroup(key)}
               className="w-full flex items-center justify-between px-5 py-3.5 hover:bg-slate-50 transition-colors text-left"
             >
-              <div className="flex items-center gap-4">
-                <div>
+              <div className="flex items-center gap-3 flex-1 min-w-0">
+                {/* Scenario badge */}
+                <span className={cn('shrink-0 text-[11px] font-bold px-2 py-0.5 rounded', meta.color)}>
+                  {group.scenario}
+                </span>
+                {/* FNSKU + identifiers */}
+                <div className="min-w-0">
                   <p className="font-mono text-sm font-semibold text-slate-900">{group.fnsku || '—'}</p>
-                  <p className="text-[11px] text-slate-400 mt-0.5">ASIN: {group.asin || '—'} · SKU: {group.sku || '—'}</p>
+                  <p className="text-[11px] text-slate-400 mt-0.5 truncate">
+                    {meta.label} · ASIN: {group.asin || '—'} · SKU: {group.sku || '—'}
+                  </p>
                 </div>
-                <div className="flex items-center gap-2">
-                  <span className="bg-blue-100 text-blue-700 text-[11px] font-semibold px-2.5 py-0.5 rounded-full">{group.claims.length} claims</span>
+                {/* Counts */}
+                <div className="flex items-center gap-2 shrink-0">
+                  <span className="bg-slate-100 text-slate-600 text-[11px] font-semibold px-2.5 py-0.5 rounded-full">{group.claims.length} claims</span>
                   {actionable > 0 && actionable < group.claims.length && (
                     <span className="bg-amber-100 text-amber-700 text-[11px] font-semibold px-2.5 py-0.5 rounded-full">{actionable} actionable</span>
                   )}
                 </div>
               </div>
-              <div className="flex items-center gap-3">
+              <div className="flex items-center gap-3 shrink-0">
                 <span className="font-bold text-slate-900">{fmtUSD(total)}</span>
                 <span className="text-slate-400 text-xs">{isExpanded ? '▲' : '▼'}</span>
               </div>
             </button>
+
+            {/* SC entry path banner */}
+            {isExpanded && (
+              <div className="px-5 py-2 bg-blue-50 border-b border-blue-100 flex items-center gap-2">
+                <span className="text-[11px] text-blue-500 font-semibold shrink-0">Go to:</span>
+                <span className="text-[11px] font-semibold text-blue-800">{meta.path}</span>
+              </div>
+            )}
 
             {isExpanded && (
               <div className="border-t border-slate-100">
