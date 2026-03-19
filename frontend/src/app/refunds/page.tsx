@@ -153,6 +153,7 @@ function OrderIdCell({ orderId }: { orderId: string }) {
 // ─── Claim Instructions Accordion ─────────────────────────────────────────────
 
 const SC_HELP = 'https://sellercentral.amazon.com/help/hub/support'
+const SC_IDR = 'https://sellercentral.amazon.com/inventory-defect-and-reimbursement'
 
 function ClaimInstructions({ scenario, claimType, fnsku }: { scenario: string; claimType: string; fnsku?: string }) {
   const [open, setOpen] = useState(false)
@@ -184,6 +185,14 @@ function ClaimInstructions({ scenario, claimType, fnsku }: { scenario: string; c
       menuItem: 'Inventory lost in FBA warehouse',
       steps: (
         <ol className="list-decimal list-inside space-y-1.5">
+          <li><strong>先查</strong> <a href={SC_IDR} target="_blank" rel="noopener noreferrer" className="text-blue-600 underline hover:text-blue-800">Inventory Defect and Reimbursement</a> 页面：
+            <ul className="list-disc list-inside ml-4 mt-1 space-y-0.5 text-slate-500">
+              <li>如显示 <strong className="text-slate-700">In Progress</strong> → 等待，勿重复提交</li>
+              <li>如显示 <strong className="text-slate-700">Eligible for Claim</strong> → 直接在该页面提交</li>
+              <li>如显示 <strong className="text-slate-700">Resolved</strong> 但金额不对 → 走 Scenario D 争议</li>
+              <li>如该 item 不在列表里 → 继续下方步骤手动提交</li>
+            </ul>
+          </li>
           <li>进入 <a href={SC_HELP} target="_blank" rel="noopener noreferrer" className="text-blue-600 underline hover:text-blue-800">Seller Central → Help → Get Support</a></li>
           <li>快捷菜单选择 <strong className="text-slate-900">Inventory lost in FBA warehouse</strong></li>
           <li>
@@ -202,6 +211,14 @@ function ClaimInstructions({ scenario, claimType, fnsku }: { scenario: string; c
       menuItem: 'Inventory damaged in FBA warehouse',
       steps: (
         <ol className="list-decimal list-inside space-y-1.5">
+          <li><strong>先查</strong> <a href={SC_IDR} target="_blank" rel="noopener noreferrer" className="text-blue-600 underline hover:text-blue-800">Inventory Defect and Reimbursement</a> 页面：
+            <ul className="list-disc list-inside ml-4 mt-1 space-y-0.5 text-slate-500">
+              <li>如显示 <strong className="text-slate-700">In Progress</strong> → 等待，勿重复提交</li>
+              <li>如显示 <strong className="text-slate-700">Eligible for Claim</strong> → 直接在该页面提交</li>
+              <li>如显示 <strong className="text-slate-700">Resolved</strong> 但金额不对 → 走 Scenario D 争议</li>
+              <li>如该 item 不在列表里 → 继续下方步骤手动提交</li>
+            </ul>
+          </li>
           <li>进入 <a href={SC_HELP} target="_blank" rel="noopener noreferrer" className="text-blue-600 underline hover:text-blue-800">Seller Central → Help → Get Support</a></li>
           <li>快捷菜单选择 <strong className="text-slate-900">Inventory damaged in FBA warehouse</strong></li>
           <li>提供相关 FNSKU 和受损/销毁数量</li>
@@ -753,11 +770,16 @@ function FnSkuGroupView({
   const generateTemplate = (group: FnSkuGroup) => {
     const key = group.key
     let sel = selections[key] || new Set()
-    // Auto-select top 10 actionable if user hasn't made a manual selection
+    // Auto-select top 10 actionable if user hasn't made a manual selection.
+    // For Scenario B/C, prefer claims that don't already have a reimbursement on file
+    // (has_reimbursement=false) since Amazon may have auto-processed the rest.
     if (sel.size === 0) {
       const actionable = group.claims.filter(c => c.status === 'actionable')
-      const top10 = (actionable.length > 0 ? actionable : group.claims).slice(0, 10)
-      sel = new Set(top10.map(c => c.orderId))
+      const pool = actionable.length > 0 ? actionable : group.claims
+      const prioritized = ['B', 'C'].includes(group.scenario)
+        ? [...pool.filter(c => !c.hasReimbursement), ...pool.filter(c => c.hasReimbursement)]
+        : pool
+      sel = new Set(prioritized.slice(0, 10).map(c => c.orderId))
       setSelections(prev => ({ ...prev, [key]: sel }))
     }
     const selected = group.claims.filter(c => sel.has(c.orderId))
@@ -901,6 +923,20 @@ function FnSkuGroupView({
               <div className="px-5 py-2 bg-blue-50 border-b border-blue-100 flex items-center gap-2">
                 <span className="text-[11px] text-blue-500 font-semibold shrink-0">Go to:</span>
                 <span className="text-[11px] font-semibold text-blue-800">{meta.path}</span>
+              </div>
+            )}
+
+            {/* IDR dedup warning for Scenario B/C */}
+            {isExpanded && (group.scenario === 'B' || group.scenario === 'C') && (
+              <div className="px-5 py-2.5 bg-amber-50 border-b border-amber-200 flex items-start gap-2">
+                <span className="text-amber-500 text-sm shrink-0 mt-0.5">⚠️</span>
+                <p className="text-[11px] text-amber-800">
+                  <strong>Check before filing:</strong> Amazon now auto-processes most warehouse lost/damaged cases via the{' '}
+                  <a href={SC_IDR} target="_blank" rel="noopener noreferrer" className="underline font-semibold hover:text-amber-900">
+                    Inventory Defect and Reimbursement
+                  </a>{' '}
+                  page. If a claim is already In Progress or Resolved there, do not file a duplicate — check the amount and use Scenario D to dispute if needed.
+                </p>
               </div>
             )}
 
