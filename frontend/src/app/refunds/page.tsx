@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect, useCallback } from 'react'
+import { useState, useEffect, useCallback, useMemo } from 'react'
 import { createPortal } from 'react-dom'
 import {
   AlertTriangle, CheckCircle2, Clock, DollarSign, Download,
@@ -618,6 +618,215 @@ function CasePanel({
   return createPortal(panel, document.body)
 }
 
+// ─── FNSKU Group View ──────────────────────────────────────────────────────────
+
+interface FnSkuGroup {
+  fnsku: string
+  asin: string
+  sku: string
+  claims: Claim[]
+}
+
+function FnSkuGroupView({ claims, onViewCase }: { claims: Claim[]; onViewCase: (c: Claim) => void }) {
+  const [expandedFnskus, setExpandedFnskus] = useState<Set<string>>(new Set())
+  const [selections, setSelections] = useState<Record<string, Set<string>>>({})
+  const [templates, setTemplates] = useState<Record<string, string>>({})
+  const [copiedKey, setCopiedKey] = useState<string | null>(null)
+
+  const groups: FnSkuGroup[] = useMemo(() => {
+    const map: Record<string, FnSkuGroup> = {}
+    for (const c of claims) {
+      const key = c.fnsku || '(no FNSKU)'
+      if (!map[key]) map[key] = { fnsku: c.fnsku, asin: c.asin, sku: c.sku, claims: [] }
+      map[key].claims.push(c)
+    }
+    return Object.values(map).sort((a, b) => {
+      const totA = a.claims.reduce((s, c) => s + c.amount, 0)
+      const totB = b.claims.reduce((s, c) => s + c.amount, 0)
+      return totB - totA
+    })
+  }, [claims])
+
+  const toggleGroup = (key: string) => setExpandedFnskus(prev => {
+    const next = new Set(prev)
+    next.has(key) ? next.delete(key) : next.add(key)
+    return next
+  })
+
+  const toggleClaim = (key: string, orderId: string) => setSelections(prev => {
+    const cur = new Set(prev[key] || [])
+    if (cur.has(orderId)) cur.delete(orderId)
+    else if (cur.size < 10) cur.add(orderId)
+    return { ...prev, [key]: cur }
+  })
+
+  const selectTop10 = (key: string, groupClaims: Claim[]) =>
+    setSelections(prev => ({ ...prev, [key]: new Set(groupClaims.slice(0, 10).map(c => c.orderId)) }))
+
+  const generateTemplate = (group: FnSkuGroup) => {
+    const key = group.fnsku || '(no FNSKU)'
+    const sel = selections[key] || new Set()
+    const selected = sel.size > 0 ? group.claims.filter(c => sel.has(c.orderId)) : group.claims.slice(0, 10)
+    const reasons = [...new Set(selected.map(c => c.reason).filter(Boolean))]
+    const reasonStr = reasons.join(' / ') || 'FBA inventory issue'
+    const total = selected.reduce((s, c) => s + c.amount, 0)
+    const lines = [
+      `以下 ${selected.length} 笔订单存在 ${reasonStr} 问题，请求 reimbursement：`,
+      ...selected.map(c =>
+        `- Order ${c.orderId}, refunded $${c.amount.toFixed(2)} on ${c.refundDate ? new Date(c.refundDate).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }) : '—'}`
+      ),
+      '',
+      `Total: $${total.toFixed(2)}, FNSKU: ${group.fnsku || 'N/A'}, ASIN: ${group.asin || 'N/A'}`,
+    ]
+    setTemplates(prev => ({ ...prev, [key]: lines.join('\n') }))
+  }
+
+  const copyTemplate = (key: string) => {
+    const t = templates[key]
+    if (!t) return
+    navigator.clipboard.writeText(t).then(() => {
+      setCopiedKey(key)
+      setTimeout(() => setCopiedKey(null), 2000)
+    })
+  }
+
+  if (groups.length === 0) return (
+    <div className="py-16 text-center text-slate-400">暂无数据 — 请先运行 Audit</div>
+  )
+
+  return (
+    <div className="space-y-3">
+      {groups.map(group => {
+        const key = group.fnsku || '(no FNSKU)'
+        const isExpanded = expandedFnskus.has(key)
+        const sel = selections[key] || new Set()
+        const total = group.claims.reduce((s, c) => s + c.amount, 0)
+        const actionable = group.claims.filter(c => c.status === 'actionable').length
+        const tmpl = templates[key]
+
+        return (
+          <div key={key} className="rounded-xl border border-slate-200 bg-white shadow-sm overflow-hidden">
+            <button
+              onClick={() => toggleGroup(key)}
+              className="w-full flex items-center justify-between px-5 py-3.5 hover:bg-slate-50 transition-colors text-left"
+            >
+              <div className="flex items-center gap-4">
+                <div>
+                  <p className="font-mono text-sm font-semibold text-slate-900">{group.fnsku || '—'}</p>
+                  <p className="text-[11px] text-slate-400 mt-0.5">ASIN: {group.asin || '—'} · SKU: {group.sku || '—'}</p>
+                </div>
+                <div className="flex items-center gap-2">
+                  <span className="bg-blue-100 text-blue-700 text-[11px] font-semibold px-2.5 py-0.5 rounded-full">{group.claims.length} claims</span>
+                  {actionable > 0 && actionable < group.claims.length && (
+                    <span className="bg-amber-100 text-amber-700 text-[11px] font-semibold px-2.5 py-0.5 rounded-full">{actionable} actionable</span>
+                  )}
+                </div>
+              </div>
+              <div className="flex items-center gap-3">
+                <span className="font-bold text-slate-900">{fmtUSD(total)}</span>
+                <span className="text-slate-400 text-xs">{isExpanded ? '▲' : '▼'}</span>
+              </div>
+            </button>
+
+            {isExpanded && (
+              <div className="border-t border-slate-100">
+                {/* Actions */}
+                <div className="flex flex-wrap items-center gap-2 px-5 py-2.5 bg-slate-50 border-b border-slate-100">
+                  <button
+                    onClick={() => selectTop10(key, group.claims)}
+                    className="text-xs px-2.5 py-1 rounded bg-slate-200 hover:bg-slate-300 text-slate-700 transition-colors"
+                  >
+                    Select Top 10
+                  </button>
+                  {sel.size > 0 && (
+                    <button
+                      onClick={() => setSelections(prev => ({ ...prev, [key]: new Set() }))}
+                      className="text-xs px-2.5 py-1 rounded bg-slate-200 hover:bg-slate-300 text-slate-600 transition-colors"
+                    >
+                      Clear ({sel.size})
+                    </button>
+                  )}
+                  <button
+                    onClick={() => generateTemplate(group)}
+                    className="flex items-center gap-1 text-xs px-2.5 py-1 rounded bg-blue-600 text-white hover:bg-blue-700 transition-colors"
+                  >
+                    <FileText className="w-3 h-3" />
+                    Generate Template ({sel.size > 0 ? sel.size : Math.min(group.claims.length, 10)})
+                  </button>
+                  {sel.size >= 10 && (
+                    <span className="text-[11px] text-amber-600">最多选 10 单</span>
+                  )}
+                </div>
+
+                {/* Claims rows */}
+                <div className="divide-y divide-slate-100">
+                  {group.claims.map(claim => (
+                    <div
+                      key={claim.orderId}
+                      className={cn(
+                        'flex items-center gap-3 px-5 py-2.5 hover:bg-slate-50 transition-colors',
+                        sel.has(claim.orderId) && 'bg-blue-50/50'
+                      )}
+                    >
+                      <input
+                        type="checkbox"
+                        checked={sel.has(claim.orderId)}
+                        onChange={() => toggleClaim(key, claim.orderId)}
+                        className="rounded"
+                        disabled={!sel.has(claim.orderId) && sel.size >= 10}
+                      />
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center gap-2 flex-wrap">
+                          <OrderIdCell orderId={claim.orderId} />
+                          <StatusPill status={claim.status} />
+                          <span className={cn(
+                            'inline-flex items-center rounded-full px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wider',
+                            priorityColor[claim.priority] ?? 'bg-slate-100 text-slate-500'
+                          )}>{claim.priority}</span>
+                        </div>
+                        <p className="text-[11px] text-slate-400 mt-0.5">
+                          {fmtDate(claim.refundDate)} · {claim.reason || '—'} · Scenario {claim.claimScenario}
+                        </p>
+                      </div>
+                      <span className="font-semibold text-slate-900 text-sm shrink-0">{fmtUSD(claim.amount)}</span>
+                      <button
+                        onClick={() => onViewCase(claim)}
+                        className="shrink-0 flex items-center gap-1 px-2 py-1 rounded bg-slate-100 hover:bg-blue-100 hover:text-blue-700 text-xs text-slate-600 transition-colors"
+                      >
+                        <FileText className="w-3 h-3" />
+                        View
+                      </button>
+                    </div>
+                  ))}
+                </div>
+
+                {/* Generated template */}
+                {tmpl && (
+                  <div className="px-5 py-3 border-t border-slate-100 bg-slate-50">
+                    <div className="flex items-center justify-between mb-2">
+                      <span className="text-[11px] font-semibold text-slate-500 uppercase tracking-wider">批量申请模板</span>
+                      <button
+                        onClick={() => copyTemplate(key)}
+                        className="flex items-center gap-1 px-2.5 py-1 rounded bg-slate-200 hover:bg-slate-300 text-[11px] text-slate-700 transition-colors"
+                      >
+                        {copiedKey === key ? <Check className="w-3 h-3 text-emerald-600" /> : <Copy className="w-3 h-3" />}
+                        {copiedKey === key ? '已复制' : '复制'}
+                      </button>
+                    </div>
+                    <pre className="text-[11px] text-slate-700 bg-white rounded border border-slate-200 p-2.5 whitespace-pre-wrap font-mono leading-relaxed">
+                      {tmpl}
+                    </pre>
+                  </div>
+                )}
+              </div>
+            )}
+          </div>
+        )
+      })}
+    </div>
+  )
+}
+
 // ─── Main Page ─────────────────────────────────────────────────────────────────
 
 export default function RefundsPage() {
@@ -629,6 +838,7 @@ export default function RefundsPage() {
   const [generating, setGenerating] = useState(false)
   const [selectedClaim, setSelectedClaim] = useState<Claim | null>(null)
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set())
+  const [viewMode, setViewMode] = useState<'list' | 'grouped'>('list')
   const [search, setSearch] = useState('')
   const [filters, setFilters] = useState({ status: '', reason: '', priority: '', claimType: '' })
   const [sort, setSort] = useState('amount_desc')
@@ -849,13 +1059,36 @@ export default function RefundsPage() {
           </div>
         </div>
 
-        {/* Table */}
+        {/* Table / Group View */}
         <div className="rounded-xl border border-slate-200 bg-white shadow-sm overflow-hidden">
           <div className="flex items-center justify-between px-5 py-3 border-b border-slate-200">
-            <h2 className="font-semibold text-slate-900 text-sm">
-              Claims
-              <span className="ml-2 text-slate-400 font-normal text-xs">{total} records</span>
-            </h2>
+            <div className="flex items-center gap-3">
+              <h2 className="font-semibold text-slate-900 text-sm">
+                Claims
+                <span className="ml-2 text-slate-400 font-normal text-xs">{total} records</span>
+              </h2>
+              {/* View mode tabs */}
+              <div className="flex rounded-lg border border-slate-200 overflow-hidden text-xs">
+                <button
+                  onClick={() => setViewMode('list')}
+                  className={cn(
+                    'px-3 py-1 font-medium transition-colors',
+                    viewMode === 'list' ? 'bg-blue-600 text-white' : 'bg-white text-slate-600 hover:bg-slate-50'
+                  )}
+                >
+                  列表
+                </button>
+                <button
+                  onClick={() => setViewMode('grouped')}
+                  className={cn(
+                    'px-3 py-1 font-medium transition-colors border-l border-slate-200',
+                    viewMode === 'grouped' ? 'bg-blue-600 text-white' : 'bg-white text-slate-600 hover:bg-slate-50'
+                  )}
+                >
+                  按 FNSKU 分组
+                </button>
+              </div>
+            </div>
             <select
               value={sort}
               onChange={e => setSort(e.target.value)}
@@ -871,6 +1104,10 @@ export default function RefundsPage() {
           {loading ? (
             <div className="flex items-center justify-center h-48 text-slate-400">
               <RefreshCw className="w-5 h-5 animate-spin mr-2" /> 加载中…
+            </div>
+          ) : viewMode === 'grouped' ? (
+            <div className="p-4">
+              <FnSkuGroupView claims={claims} onViewCase={setSelectedClaim} />
             </div>
           ) : claims.length === 0 ? (
             <div className="py-16 text-center text-slate-400">

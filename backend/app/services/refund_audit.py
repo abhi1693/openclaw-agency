@@ -179,11 +179,14 @@ async def run_refund_audit(session: AsyncSession, *, days: int = 180) -> dict:
     reimb_rows = list(await session.exec(select(ReimbursementEvent)))
     reimb_by_order: dict[str, list[ReimbursementEvent]] = {}
     fnsku_by_sku: dict[str, str] = {}
+    reimb_by_sku: dict[str, list[ReimbursementEvent]] = {}
     for r in reimb_rows:
         if r.order_id:
             reimb_by_order.setdefault(r.order_id, []).append(r)
         if r.fnsku and r.sku and r.sku not in fnsku_by_sku:
             fnsku_by_sku[r.sku] = r.fnsku
+        if r.sku:
+            reimb_by_sku.setdefault(r.sku, []).append(r)
 
     # ── Load financial refund events ──────────────────────────────────────────
     fin_rows = list(
@@ -340,6 +343,19 @@ async def run_refund_audit(session: AsyncSession, *, days: int = 180) -> dict:
         fnsku = str(rp.get("fnSku") or rp.get("fnsku") or fnsku_by_sku.get(sku or "") or "")
         shipment_id = str(rp.get("shipmentId") or rp.get("shipment_id") or "")
         quantity = return_records[0].quantity if return_records else 0
+
+        # Scenario B: no return records — enrich reason/quantity from reimbursement events by SKU
+        if claim_scenario == "B":
+            b_reimb = reimb_by_sku.get(sku or "") or []
+            if not b_reimb and fnsku:
+                b_reimb = [r for r in reimb_rows if r.fnsku == fnsku]
+            if b_reimb:
+                if not return_reason:
+                    return_reason = b_reimb[0].reason or ""
+                if not quantity and b_reimb[0].amount_inventory:
+                    quantity = b_reimb[0].amount_inventory
+            if not quantity:
+                quantity = 1  # at minimum 1 unit refunded
 
         await _upsert_claim(
             order_id,
