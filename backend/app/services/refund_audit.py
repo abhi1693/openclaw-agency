@@ -29,6 +29,18 @@ SCENARIO_DEFAULT_REASON: dict[str, str] = {
     "C": "Inventory damaged/disposed in FBA warehouse",
     "D": "Reimbursement amount disputed",
     "E": "FBA fulfillment issue - requires investigation",
+    "F": "Amazon courtesy refund charged to seller - item delivered, no return initiated",
+}
+
+# Reimbursement event reason → best-fit claim scenario
+REIMB_REASON_TO_SCENARIO: dict[str, str] = {
+    "customerserviceissue": "F",
+    "customer_service_issue": "F",
+    "lost_warehouse": "B",
+    "damaged_warehouse": "C",
+    "free_replacement_refund_items": "A",
+    "reimbursement_reversal": "D",
+    "reversal_reimbursement": "D",
 }
 
 
@@ -121,6 +133,7 @@ def generate_claim_template(claim: RefundClaim) -> str:
         "C": "The item was returned as unsellable and no reimbursement has been received.",
         "D": "A return was logged with a non-buyer fault reason but no reimbursement has been issued.",
         "E": "Amazon disposed of the unit without providing a reimbursement.",
+        "F": "Amazon issued a courtesy refund to the customer and charged the full amount to our seller account. The order was delivered and no return was initiated by the customer.",
     }
 
     scenario_desc = scenario_descriptions.get(claim.claim_scenario, "")
@@ -181,6 +194,7 @@ async def run_refund_audit(session: AsyncSession, *, days: int = 180) -> dict:
     Scenario C: Returned unsellable + no reimbursement
     Scenario D: Return with non-buyer reason, no reimbursement, unresolved status
     Scenario E: Amazon disposed without reimbursement
+    Scenario F: Courtesy refund charged to seller (CSI reason OR amount < 20% of unit price)
 
     Results are written to RefundClaim table.
     """
@@ -206,13 +220,21 @@ async def run_refund_audit(session: AsyncSession, *, days: int = 180) -> dict:
     reimb_by_order: dict[str, list[ReimbursementEvent]] = {}
     fnsku_by_sku: dict[str, str] = {}
     reimb_by_sku: dict[str, list[ReimbursementEvent]] = {}
+    csi_order_ids: set[str] = set()  # orders with CustomerServiceIssue reimbursement reason
     for r in reimb_rows:
         if r.order_id:
             reimb_by_order.setdefault(r.order_id, []).append(r)
+            if (r.reason or "").lower().replace("_", "") == "customerserviceissue":
+                csi_order_ids.add(r.order_id)
         if r.fnsku and r.sku and r.sku not in fnsku_by_sku:
             fnsku_by_sku[r.sku] = r.fnsku
         if r.sku:
             reimb_by_sku.setdefault(r.sku, []).append(r)
+
+    # Also collect CSI from return events
+    for r in return_rows:
+        if r.order_id and (r.reason or "").lower().replace("_", "") == "customerserviceissue":
+            csi_order_ids.add(r.order_id)
 
     # ── Build quantity lookup from order items ────────────────────────────────
     # AmazonOrderItem.order_id is a UUID FK to AmazonOrder.id; we need
@@ -389,6 +411,15 @@ async def run_refund_audit(session: AsyncSession, *, days: int = 180) -> dict:
             claim_type = "safe-t" if _matches_safe_t(return_reason) else "reimbursement"
             claim_scenario = "A"
 
+        # Scenario F: Courtesy refund — CSI reason OR amount < 20% of unit price
+        if not claim_type and not has_reimb and not has_return:
+            fwd_sku = refund["sku"]
+            unit_px = sku_to_unit_price.get(fwd_sku or "")
+            is_small_amount = bool(unit_px and unit_px > 0 and amount < unit_px * Decimal("0.20"))
+            if order_id in csi_order_ids or is_small_amount:
+                claim_type = "reimbursement"
+                claim_scenario = "F"
+
         # Scenario B: >45 days, no return, no reimbursement
         if not claim_type and not has_reimb and not has_return and days_since > 45:
             claim_type = "reimbursement"
@@ -415,8 +446,9 @@ async def run_refund_audit(session: AsyncSession, *, days: int = 180) -> dict:
         if not quantity:
             quantity = qty_by_order_sku.get((order_id, sku or ""), 0)
 
-        # Scenario B: no return records — enrich reason/quantity from reimbursement events by SKU
-        if claim_scenario == "B":
+        # Scenario B/F: no return records — enrich reason/quantity from reimbursement events by SKU
+        # Also reclassify scenario if the reimb reason maps to a more specific scenario
+        if claim_scenario in ("B", "F"):
             b_reimb = reimb_by_sku.get(sku or "") or []
             if not b_reimb and fnsku:
                 b_reimb = [r for r in reimb_rows if r.fnsku == fnsku]
@@ -425,6 +457,11 @@ async def run_refund_audit(session: AsyncSession, *, days: int = 180) -> dict:
                     return_reason = b_reimb[0].reason or ""
                 if not quantity and b_reimb[0].amount_inventory:
                     quantity = b_reimb[0].amount_inventory
+                # Reclassify scenario based on reimb reason if we have a better match
+                reimb_reason_key = (b_reimb[0].reason or "").lower().replace("_", "")
+                mapped = REIMB_REASON_TO_SCENARIO.get(reimb_reason_key)
+                if mapped and claim_scenario == "B":
+                    claim_scenario = mapped
 
         # Priority 3: estimate from refund_amount ÷ unit_price
         qty_estimated = False

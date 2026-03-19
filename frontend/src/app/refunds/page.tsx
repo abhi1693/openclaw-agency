@@ -648,6 +648,12 @@ const REASON_LABELS: Record<string, string> = {
   damaged:                        'Item damaged in FBA warehouse',
   LOST:                           'Item lost in FBA warehouse',
   lost:                           'Item lost in FBA warehouse',
+  CustomerServiceIssue:           'Amazon courtesy refund - item delivered, no return',
+  customerserviceissue:           'Amazon courtesy refund - item delivered, no return',
+  CUSTOMER_SERVICE_ISSUE:         'Amazon courtesy refund - item delivered, no return',
+  Lost_Warehouse:                 'Item lost in FBA warehouse',
+  Damaged_Warehouse:              'Item damaged in FBA warehouse',
+  Reimbursement_Reversal:         'Previous reimbursement reversed',
 }
 
 const SCENARIO_FALLBACK_REASON: Record<string, string> = {
@@ -656,6 +662,7 @@ const SCENARIO_FALLBACK_REASON: Record<string, string> = {
   C: 'Inventory damaged/disposed in FBA warehouse',
   D: 'Reimbursement amount disputed',
   E: 'FBA fulfillment issue - requires investigation',
+  F: 'Amazon courtesy refund charged to seller - item delivered, no return initiated',
 }
 
 function displayReason(raw: string, scenario?: string): string {
@@ -684,6 +691,7 @@ const SCENARIO_META: Record<string, { label: string; path: string; color: string
   C: { label: 'Inventory Damaged',   path: 'Help → Inventory damaged in FBA warehouse',            color: 'bg-amber-100 text-amber-700' },
   D: { label: 'Dispute',             path: 'Help → Submit a reimbursement claim dispute',          color: 'bg-purple-100 text-purple-700' },
   E: { label: 'Other',               path: 'Help → My issue is not listed',                        color: 'bg-slate-100 text-slate-600' },
+  F: { label: 'Courtesy Refund',     path: 'Help → My issue is not listed',                        color: 'bg-emerald-100 text-emerald-700' },
 }
 
 function scenarioOpeningLine(scenario: string, n: number): string {
@@ -692,6 +700,7 @@ function scenarioOpeningLine(scenario: string, n: number): string {
   if (s === 'B') return `The following ${n} order${n !== 1 ? 's were' : ' was'} refunded but the item${n !== 1 ? 's were' : ' was'} never returned to our FBA inventory. More than 45 days have passed since each refund. We are requesting reimbursement for these lost units.`
   if (s === 'C') return `The following ${n} item${n !== 1 ? 's were' : ' was'} returned to our FBA warehouse as unsellable/damaged without a corresponding reimbursement. We are requesting reimbursement for these damaged units.`
   if (s === 'D') return `We are disputing the following ${n} case${n !== 1 ? 's' : ''}. The customer refund amount${n !== 1 ? 's were' : ' was'} not matched by the expected reimbursement${n !== 1 ? 's' : ''}.`
+  if (s === 'F') return `Amazon issued courtesy refund${n !== 1 ? 's' : ''} for the following ${n} order${n !== 1 ? 's' : ''} and charged the full amount${n !== 1 ? 's' : ''} to our seller account. The item${n !== 1 ? 's were' : ' was'} successfully delivered and no return${n !== 1 ? 's were' : ' was'} initiated. We are requesting reimbursement for these incorrectly charged amounts.`
   return `The following ${n} order${n !== 1 ? 's have an' : ' has an'} unresolved FBA inventory discrepancy. We have verified through our FBA reports that the items were not returned to sellable inventory and no reimbursement has been issued.`
 }
 

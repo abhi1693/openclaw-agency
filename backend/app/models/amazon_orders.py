@@ -441,7 +441,7 @@ class RefundClaim(QueryModel, table=True):
     quantity: int = 0
     quantity_estimated: bool = Field(default=False)  # True when qty was inferred from refund_amount / unit_price
     claim_type: str = ""   # "reimbursement" | "safe-t"
-    claim_scenario: str = ""  # "A" | "B" | "C" | "D" | "E"
+    claim_scenario: str = ""  # "A" | "B" | "C" | "D" | "E" | "F"
     priority: str = "low"  # "high" | "medium" | "low"
     status: str = "actionable"  # "actionable" | "waiting" | "pending" | "submitted" | "approved" | "denied"
     amazon_case_id: str = ""
