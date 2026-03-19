@@ -68,3 +68,14 @@ class GenerateTemplatesRequest(BaseModel):
 
 class GenerateTemplatesResponse(BaseModel):
     results: list[dict]
+
+
+class BatchStatusUpdate(BaseModel):
+    order_ids: list[str]
+    status: str
+    amazon_case_id: str | None = None
+
+
+class BatchStatusResponse(BaseModel):
+    updated: int
+    order_ids: list[str]

@@ -77,7 +77,9 @@ const statusColor: Record<string, string> = {
   actionable: 'bg-blue-100 text-blue-700',
   pending:    'bg-amber-100 text-amber-700',
   submitted:  'bg-purple-100 text-purple-700',
+  filed:      'bg-indigo-100 text-indigo-700',
   approved:   'bg-emerald-100 text-emerald-700',
+  resolved:   'bg-emerald-100 text-emerald-700',
   denied:     'bg-rose-100 text-rose-700',
 }
 
@@ -555,7 +557,7 @@ function CasePanel({
             <div className="space-y-3">
               <span className="text-xs font-semibold text-slate-500 uppercase tracking-wider">⚙️ Status</span>
               <div className="flex flex-wrap gap-2">
-                {(['actionable', 'pending', 'submitted', 'approved', 'denied'] as const).map(s => (
+                {(['actionable', 'pending', 'submitted', 'filed', 'approved', 'resolved', 'denied'] as const).map(s => (
                   <button
                     key={s}
                     onClick={() => setStatus(s)}
@@ -618,6 +620,28 @@ function CasePanel({
   return createPortal(panel, document.body)
 }
 
+// ─── Reason translation ────────────────────────────────────────────────────────
+
+const REASON_LABELS: Record<string, string> = {
+  UNDELIVERABLE_UNKNOWN:        'Shipping address undeliverable - item not returned',
+  undeliverable_unknown:        'Shipping address undeliverable - item not returned',
+  DAMAGED_BY_CARRIER:           'Carrier damaged - item not returned',
+  damaged_by_carrier:           'Carrier damaged - item not returned',
+  MISSED_ESTIMATED_DELIVERY:    'Missed estimated delivery - item not returned',
+  missed_estimated_delivery:    'Missed estimated delivery - item not returned',
+  NEVER_ARRIVED:                'Item never arrived - lost in transit',
+  never_arrived:                'Item never arrived - lost in transit',
+  CustomerReturn:               'Customer return - item not received back in inventory',
+  FREE_REPLACEMENT_REFUND_ITEMS:'Free replacement issued - original item not returned',
+  REVERSAL_REIMBURSEMENT:       'Reimbursement reversal',
+  unknown:                      'Refund issued - item not returned to inventory',
+}
+
+function translateReason(raw: string): string {
+  if (!raw || raw === 'unknown') return 'Refund issued - item not returned to inventory'
+  return REASON_LABELS[raw] || raw.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase())
+}
+
 // ─── FNSKU Group View ──────────────────────────────────────────────────────────
 
 interface FnSkuGroup {
@@ -627,11 +651,23 @@ interface FnSkuGroup {
   claims: Claim[]
 }
 
-function FnSkuGroupView({ claims, onViewCase }: { claims: Claim[]; onViewCase: (c: Claim) => void }) {
+interface FilingEntry { caseId: string; submitting: boolean; done: boolean }
+
+function FnSkuGroupView({
+  claims,
+  onViewCase,
+  onFilingComplete,
+}: {
+  claims: Claim[]
+  onViewCase: (c: Claim) => void
+  onFilingComplete: () => void
+}) {
   const [expandedFnskus, setExpandedFnskus] = useState<Set<string>>(new Set())
   const [selections, setSelections] = useState<Record<string, Set<string>>>({})
   const [templates, setTemplates] = useState<Record<string, string>>({})
+  const [multiReasonKeys, setMultiReasonKeys] = useState<Set<string>>(new Set())
   const [copiedKey, setCopiedKey] = useState<string | null>(null)
+  const [filingState, setFilingState] = useState<Record<string, FilingEntry>>({})
 
   const groups: FnSkuGroup[] = useMemo(() => {
     const map: Record<string, FnSkuGroup> = {}
@@ -667,18 +703,59 @@ function FnSkuGroupView({ claims, onViewCase }: { claims: Claim[]; onViewCase: (
     const key = group.fnsku || '(no FNSKU)'
     const sel = selections[key] || new Set()
     const selected = sel.size > 0 ? group.claims.filter(c => sel.has(c.orderId)) : group.claims.slice(0, 10)
-    const reasons = [...new Set(selected.map(c => c.reason).filter(Boolean))]
-    const reasonStr = reasons.join(' / ') || 'FBA inventory issue'
-    const total = selected.reduce((s, c) => s + c.amount, 0)
-    const lines = [
-      `以下 ${selected.length} 笔订单存在 ${reasonStr} 问题，请求 reimbursement：`,
-      ...selected.map(c =>
-        `- Order ${c.orderId}, refunded $${c.amount.toFixed(2)} on ${c.refundDate ? new Date(c.refundDate).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }) : '—'}`
-      ),
-      '',
-      `Total: $${total.toFixed(2)}, FNSKU: ${group.fnsku || 'N/A'}, ASIN: ${group.asin || 'N/A'}`,
-    ]
+
+    const totalAmt = selected.reduce((s, c) => s + c.amount, 0)
+    const totalQty = selected.reduce((s, c) => s + (c.quantity || 1), 0)
+
+    // Group by translated reason
+    const byReason: Record<string, Claim[]> = {}
+    for (const c of selected) {
+      const r = translateReason(c.reason)
+      if (!byReason[r]) byReason[r] = []
+      byReason[r].push(c)
+    }
+    const uniqueReasons = Object.keys(byReason)
+
+    const lines: string[] = []
+    const n = selected.length
+
+    if (uniqueReasons.length === 1) {
+      lines.push(`The following ${n} order${n !== 1 ? 's were' : ' was'} refunded but the item${n !== 1 ? 's were' : ' was'} not returned to our FBA inventory. We are requesting reimbursement for these unreturned items.`)
+      lines.push('')
+      for (const c of selected) {
+        const date = c.refundDate ? new Date(c.refundDate).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }) : '—'
+        const qty = c.quantity || 1
+        lines.push(`- Order ${c.orderId}, refunded $${c.amount.toFixed(2)} on ${date}, qty: ${qty}, reason: ${translateReason(c.reason)}`)
+      }
+    } else {
+      lines.push(`The following ${n} orders were refunded but the items were not returned to our FBA inventory. We are requesting reimbursement for these unreturned items.`)
+      lines.push('')
+      for (const [reason, reasonClaims] of Object.entries(byReason)) {
+        lines.push(`Orders — ${reason}:`)
+        for (const c of reasonClaims) {
+          const date = c.refundDate ? new Date(c.refundDate).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }) : '—'
+          const qty = c.quantity || 1
+          lines.push(`  - Order ${c.orderId}, refunded $${c.amount.toFixed(2)} on ${date}, qty: ${qty}`)
+        }
+        lines.push('')
+      }
+    }
+
+    lines.push('')
+    lines.push(`Total refund amount: $${totalAmt.toFixed(2)}`)
+    lines.push(`Total units affected: ${totalQty}`)
+    lines.push(`FNSKU: ${group.fnsku || 'N/A'}`)
+    lines.push(`ASIN: ${group.asin || 'N/A'}`)
+    lines.push(`SKU: ${group.sku || 'N/A'}`)
+    lines.push('')
+    lines.push('We have verified through our FBA reports that these items were not returned to sellable inventory and no reimbursement has been issued.')
+
     setTemplates(prev => ({ ...prev, [key]: lines.join('\n') }))
+    setMultiReasonKeys(prev => {
+      const next = new Set(prev)
+      uniqueReasons.length > 2 ? next.add(key) : next.delete(key)
+      return next
+    })
   }
 
   const copyTemplate = (key: string) => {
@@ -690,8 +767,29 @@ function FnSkuGroupView({ claims, onViewCase }: { claims: Claim[]; onViewCase: (
     })
   }
 
+  const markFiled = async (group: FnSkuGroup) => {
+    const key = group.fnsku || '(no FNSKU)'
+    const sel = selections[key] || new Set()
+    const selected = sel.size > 0 ? group.claims.filter(c => sel.has(c.orderId)) : group.claims.slice(0, 10)
+    const orderIds = selected.map(c => c.orderId)
+    const caseId = filingState[key]?.caseId || ''
+
+    setFilingState(prev => ({ ...prev, [key]: { caseId, submitting: true, done: false } }))
+    try {
+      await fetch('/api/refunds/batch-status', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ orderIds, status: 'filed', ...(caseId ? { amazonCaseId: caseId } : {}) }),
+      })
+      setFilingState(prev => ({ ...prev, [key]: { caseId, submitting: false, done: true } }))
+      onFilingComplete()
+    } catch {
+      setFilingState(prev => ({ ...prev, [key]: { caseId, submitting: false, done: false } }))
+    }
+  }
+
   if (groups.length === 0) return (
-    <div className="py-16 text-center text-slate-400">暂无数据 — 请先运行 Audit</div>
+    <div className="py-16 text-center text-slate-400">No data — run Audit first</div>
   )
 
   return (
@@ -703,6 +801,8 @@ function FnSkuGroupView({ claims, onViewCase }: { claims: Claim[]; onViewCase: (
         const total = group.claims.reduce((s, c) => s + c.amount, 0)
         const actionable = group.claims.filter(c => c.status === 'actionable').length
         const tmpl = templates[key]
+        const filing = filingState[key]
+        const hasMultiReason = multiReasonKeys.has(key)
 
         return (
           <div key={key} className="rounded-xl border border-slate-200 bg-white shadow-sm overflow-hidden">
@@ -730,7 +830,7 @@ function FnSkuGroupView({ claims, onViewCase }: { claims: Claim[]; onViewCase: (
 
             {isExpanded && (
               <div className="border-t border-slate-100">
-                {/* Actions */}
+                {/* Actions bar */}
                 <div className="flex flex-wrap items-center gap-2 px-5 py-2.5 bg-slate-50 border-b border-slate-100">
                   <button
                     onClick={() => selectTop10(key, group.claims)}
@@ -751,10 +851,10 @@ function FnSkuGroupView({ claims, onViewCase }: { claims: Claim[]; onViewCase: (
                     className="flex items-center gap-1 text-xs px-2.5 py-1 rounded bg-blue-600 text-white hover:bg-blue-700 transition-colors"
                   >
                     <FileText className="w-3 h-3" />
-                    Generate Template ({sel.size > 0 ? sel.size : Math.min(group.claims.length, 10)})
+                    Prepare Filing ({sel.size > 0 ? sel.size : Math.min(group.claims.length, 10)})
                   </button>
                   {sel.size >= 10 && (
-                    <span className="text-[11px] text-amber-600">最多选 10 单</span>
+                    <span className="text-[11px] text-amber-600">Max 10 orders per ticket</span>
                   )}
                 </div>
 
@@ -785,7 +885,7 @@ function FnSkuGroupView({ claims, onViewCase }: { claims: Claim[]; onViewCase: (
                           )}>{claim.priority}</span>
                         </div>
                         <p className="text-[11px] text-slate-400 mt-0.5">
-                          {fmtDate(claim.refundDate)} · {claim.reason || '—'} · Scenario {claim.claimScenario}
+                          {fmtDate(claim.refundDate)} · qty: {claim.quantity || 1} · {translateReason(claim.reason)} · Scenario {claim.claimScenario}
                         </p>
                       </div>
                       <span className="font-semibold text-slate-900 text-sm shrink-0">{fmtUSD(claim.amount)}</span>
@@ -800,22 +900,59 @@ function FnSkuGroupView({ claims, onViewCase }: { claims: Claim[]; onViewCase: (
                   ))}
                 </div>
 
-                {/* Generated template */}
+                {/* Generated template + filing */}
                 {tmpl && (
-                  <div className="px-5 py-3 border-t border-slate-100 bg-slate-50">
-                    <div className="flex items-center justify-between mb-2">
-                      <span className="text-[11px] font-semibold text-slate-500 uppercase tracking-wider">批量申请模板</span>
+                  <div className="px-5 py-4 border-t border-slate-100 bg-slate-50 space-y-3">
+                    {/* Multi-reason warning */}
+                    {hasMultiReason && (
+                      <div className="flex items-start gap-2 p-2.5 rounded-lg bg-amber-50 border border-amber-200 text-amber-700 text-[11px]">
+                        <AlertTriangle className="w-3.5 h-3.5 mt-0.5 shrink-0" />
+                        <span>This batch contains more than 2 different refund reasons. Consider filing separately by reason for better approval rates.</span>
+                      </div>
+                    )}
+
+                    {/* Template */}
+                    <div>
+                      <div className="flex items-center justify-between mb-2">
+                        <span className="text-[11px] font-semibold text-slate-500 uppercase tracking-wider">Filing Template</span>
+                        <button
+                          onClick={() => copyTemplate(key)}
+                          className="flex items-center gap-1 px-2.5 py-1 rounded bg-slate-200 hover:bg-slate-300 text-[11px] text-slate-700 transition-colors"
+                        >
+                          {copiedKey === key ? <Check className="w-3 h-3 text-emerald-600" /> : <Copy className="w-3 h-3" />}
+                          {copiedKey === key ? 'Copied' : 'Copy'}
+                        </button>
+                      </div>
+                      <pre className="text-[11px] text-slate-700 bg-white rounded border border-slate-200 p-2.5 whitespace-pre-wrap font-mono leading-relaxed max-h-60 overflow-y-auto">
+                        {tmpl}
+                      </pre>
+                    </div>
+
+                    {/* Mark as Filed */}
+                    <div className="flex items-center gap-2 pt-2 border-t border-slate-200">
+                      <span className="text-[11px] font-semibold text-slate-500 shrink-0">Mark as Filed:</span>
+                      <input
+                        type="text"
+                        placeholder="Amazon Case ID (optional)"
+                        value={filing?.caseId || ''}
+                        onChange={e => setFilingState(prev => ({
+                          ...prev,
+                          [key]: { caseId: e.target.value, submitting: false, done: prev[key]?.done || false },
+                        }))}
+                        className="flex-1 px-2 py-1 text-xs rounded border border-slate-200 bg-white focus:outline-none focus:ring-1 focus:ring-blue-400"
+                      />
                       <button
-                        onClick={() => copyTemplate(key)}
-                        className="flex items-center gap-1 px-2.5 py-1 rounded bg-slate-200 hover:bg-slate-300 text-[11px] text-slate-700 transition-colors"
+                        onClick={() => markFiled(group)}
+                        disabled={filing?.submitting || filing?.done}
+                        className="shrink-0 flex items-center gap-1 text-xs px-3 py-1.5 rounded bg-emerald-600 text-white hover:bg-emerald-700 disabled:opacity-50 transition-colors"
                       >
-                        {copiedKey === key ? <Check className="w-3 h-3 text-emerald-600" /> : <Copy className="w-3 h-3" />}
-                        {copiedKey === key ? '已复制' : '复制'}
+                        {filing?.done
+                          ? <><Check className="w-3 h-3" /> Filed</>
+                          : filing?.submitting
+                          ? <><RefreshCw className="w-3 h-3 animate-spin" /> Filing…</>
+                          : 'Mark as Filed'}
                       </button>
                     </div>
-                    <pre className="text-[11px] text-slate-700 bg-white rounded border border-slate-200 p-2.5 whitespace-pre-wrap font-mono leading-relaxed">
-                      {tmpl}
-                    </pre>
                   </div>
                 )}
               </div>
@@ -1007,7 +1144,7 @@ export default function RefundsPage() {
               className="px-2 py-2 rounded-lg border border-slate-200 bg-white text-sm text-slate-700 focus:outline-none focus:ring-2 focus:ring-blue-400"
             >
               <option value="">All Status</option>
-              {['actionable', 'pending', 'submitted', 'approved', 'denied'].map(s => (
+              {['actionable', 'pending', 'submitted', 'filed', 'approved', 'resolved', 'denied'].map(s => (
                 <option key={s} value={s}>{s}</option>
               ))}
             </select>
@@ -1107,7 +1244,7 @@ export default function RefundsPage() {
             </div>
           ) : viewMode === 'grouped' ? (
             <div className="p-4">
-              <FnSkuGroupView claims={claims} onViewCase={setSelectedClaim} />
+              <FnSkuGroupView claims={claims} onViewCase={setSelectedClaim} onFilingComplete={load} />
             </div>
           ) : claims.length === 0 ? (
             <div className="py-16 text-center text-slate-400">

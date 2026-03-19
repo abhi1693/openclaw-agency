@@ -15,6 +15,8 @@ from app.core.time import utcnow
 from app.db.session import get_session
 from app.models.amazon_orders import RefundClaim
 from app.schemas.refunds import (
+    BatchStatusResponse,
+    BatchStatusUpdate,
     GenerateTemplatesRequest,
     GenerateTemplatesResponse,
     RefundAuditResponse,
@@ -298,3 +300,35 @@ async def batch_generate_templates(
 
     await session.commit()
     return GenerateTemplatesResponse(results=results)
+
+
+@router.patch("/claims/batch-status", response_model=BatchStatusResponse)
+async def batch_update_claim_status(
+    body: BatchStatusUpdate,
+    session: AsyncSession = SESSION_DEP,
+) -> BatchStatusResponse:
+    """Batch update status (and optionally amazon_case_id) for a list of claims."""
+    valid_statuses = {"actionable", "pending", "submitted", "filed", "approved", "resolved", "denied"}
+    if body.status not in valid_statuses:
+        from fastapi import HTTPException
+        raise HTTPException(status_code=422, detail=f"Invalid status: {body.status}")
+
+    now = utcnow()
+    updated_ids: list[str] = []
+    for order_id in body.order_ids:
+        rows = await session.exec(
+            select(RefundClaim).where(col(RefundClaim.order_id) == order_id)
+        )
+        claim = rows.one_or_none()
+        if claim is None:
+            continue
+        claim.status = body.status
+        if body.amazon_case_id:
+            claim.amazon_case_id = body.amazon_case_id
+        if body.status == "filed" and not claim.submitted_at:
+            claim.submitted_at = now
+        claim.updated_at = now
+        updated_ids.append(order_id)
+
+    await session.commit()
+    return BatchStatusResponse(updated=len(updated_ids), order_ids=updated_ids)
