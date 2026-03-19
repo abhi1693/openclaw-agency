@@ -403,6 +403,11 @@ async def run_refund_audit(session: AsyncSession, *, days: int = 180) -> dict:
                     existing.template_text = generate_claim_template(existing)
             updated += 1
 
+    # Mutable budget copies for auto-resolved detection — each claim that matches
+    # deducts from the pool so the same reimbursement dollars are not counted twice.
+    reimb_budget_fnsku: dict[str, Decimal] = dict(reimb_cash_by_fnsku)
+    reimb_budget_sku: dict[str, Decimal] = dict(reimb_cash_by_sku)
+
     # ── Forward scan: refunded orders ────────────────────────────────────────
     for order_id, refund in refund_by_order.items():
         if refund["amount"] <= 0:
@@ -493,21 +498,23 @@ async def run_refund_audit(session: AsyncSession, *, days: int = 180) -> dict:
         if not quantity:
             quantity = 1
 
-        # ── Auto-resolved detection via IDR (SP-API reimb events often lack order_id) ──
-        # Use FNSKU-level cash total (most specific); fall back to SKU-level.
-        # If Amazon's total reimbursement for this FNSKU/SKU ≥ 90% of claim amount,
-        # mark as resolved. This is approximate — the IDR page is authoritative.
-        sku_reimb_cash = (
-            reimb_cash_by_fnsku.get(fnsku or "")
-            or reimb_cash_by_sku.get(sku or "")
-            or Decimal(0)
-        )
-        if sku_reimb_cash > 0:
-            has_reimb = True  # some reimbursement exists for this SKU/FNSKU
-        # Resolved if: reimb cash covers ≥90% of claim OR (ledger logged defect + any reimb exists)
-        ledger_defect_known = bool(fnsku and fnsku in ledger_defect_fnskus)
-        if sku_reimb_cash >= amount * Decimal("0.9") or (ledger_defect_known and sku_reimb_cash > 0):
-            status = "resolved"
+        # ── Auto-resolved detection via IDR — ONLY for Scenario B/C ──
+        # Amazon's IDR page auto-reimburses warehouse losses (B) and damages (C).
+        # Scenario A (return not received), D, E, F are never auto-resolved this way.
+        if claim_scenario in ("B", "C"):
+            reimb_budget = (
+                reimb_budget_fnsku.get(fnsku or "", Decimal(0))
+                if fnsku
+                else reimb_budget_sku.get(sku or "", Decimal(0))
+            )
+            if reimb_budget > 0:
+                has_reimb = True
+            if reimb_budget >= amount * Decimal("0.9"):
+                status = "resolved"
+                if fnsku and fnsku in reimb_budget_fnsku:
+                    reimb_budget_fnsku[fnsku] = max(Decimal(0), reimb_budget_fnsku[fnsku] - amount)
+                if sku and sku in reimb_budget_sku:
+                    reimb_budget_sku[sku] = max(Decimal(0), reimb_budget_sku[sku] - amount)
 
         await _upsert_claim(
             order_id,
@@ -583,15 +590,8 @@ async def run_refund_audit(session: AsyncSession, *, days: int = 180) -> dict:
             else:
                 r_quantity = 1  # Priority 4: fallback
 
-        # Auto-resolved detection (same logic as forward scan)
-        r_reimb_cash = (
-            reimb_cash_by_fnsku.get(fnsku_val or "")
-            or reimb_cash_by_sku.get(r.sku or "")
-            or Decimal(0)
-        )
-        if r_reimb_cash > 0:
-            has_reimb = True
-        r_status = "resolved" if r_reimb_cash >= r_amount * Decimal("0.9") else "actionable"
+        # Reverse scan yields only Scenario D/E — IDR auto-reimbursement does not apply.
+        r_status = "actionable"
 
         await _upsert_claim(
             order_id,
