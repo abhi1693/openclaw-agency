@@ -20,7 +20,7 @@ import { isOnboardingComplete } from "@/lib/onboarding";
 export function DashboardShell({ children }: { children: ReactNode }) {
   const router = useRouter();
   const pathname = usePathname();
-  const { isSignedIn } = useAuth();
+  const { isSignedIn, isLoaded } = useAuth();
   const isOnboardingPath = pathname === "/onboarding";
   const [sidebarState, setSidebarState] = useState({ open: false, path: pathname });
   // Close sidebar on navigation using React's "store info from previous
@@ -91,6 +91,8 @@ export function DashboardShell({ children }: { children: ReactNode }) {
     document.addEventListener("keydown", onKey);
     return () => document.removeEventListener("keydown", onKey);
   }, [sidebarOpen]);
+
+  if (!isLoaded) return <div className="min-h-screen bg-app" />;
 
   return (
     <div className="min-h-screen bg-app text-strong" data-sidebar={sidebarOpen ? "open" : "closed"}>
