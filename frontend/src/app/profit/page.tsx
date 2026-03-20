@@ -486,8 +486,8 @@ function CogsEditorTab() {
                       min="0"
                       max="100"
                       step="0.1"
-                      value={(item.dutyRate * 100).toFixed(1)}
-                      onChange={e => updateField(i, 'dutyRate', String(parseFloat(e.target.value) / 100))}
+                      value={((isNaN(item.dutyRate) || item.dutyRate == null ? 0 : item.dutyRate) * 100).toFixed(1)}
+                      onChange={e => { const v = parseFloat(e.target.value); updateField(i, 'dutyRate', String((isNaN(v) ? 0 : v) / 100)) }}
                       className={numInput}
                     />
                   </td>
