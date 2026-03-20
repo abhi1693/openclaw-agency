@@ -6,7 +6,7 @@ import {
   AlertTriangle, CheckCircle2, Clock, DollarSign, Download,
   FileText, Filter, Play, RefreshCw, Search, X, Copy, Check,
 } from 'lucide-react'
-import { cn } from '@/lib/utils'
+import { cn, copyToClipboard } from '@/lib/utils'
 import { DashboardPageLayout } from '@/components/templates/DashboardPageLayout'
 
 // ─── Types ─────────────────────────────────────────────────────────────────────
@@ -129,7 +129,7 @@ function KpiCard({ icon, label, value, sub, accent }: {
 function OrderIdCell({ orderId }: { orderId: string }) {
   const [copied, setCopied] = useState(false)
   const copy = () => {
-    navigator.clipboard.writeText(orderId).then(() => {
+    copyToClipboard(orderId).then(() => {
       setCopied(true)
       setTimeout(() => setCopied(false), 2000)
     })
@@ -293,7 +293,7 @@ function CopyRow({ label, value }: { label: string; value: string }) {
   const [copied, setCopied] = useState(false)
   if (!value) return null
   const copy = () => {
-    navigator.clipboard.writeText(value).then(() => {
+    copyToClipboard(value).then(() => {
       setCopied(true)
       setTimeout(() => setCopied(false), 2000)
     })
@@ -344,7 +344,7 @@ function FilingMaterials({ claim }: { claim: Claim }) {
   }
 
   const copyDesc = () => {
-    navigator.clipboard.writeText(descTemplate).then(() => {
+    copyToClipboard(descTemplate).then(() => {
       setDescCopied(true)
       setTimeout(() => setDescCopied(false), 2000)
     })
@@ -473,7 +473,7 @@ function CasePanel({
 
   const copyTemplate = () => {
     if (!templateText) return
-    navigator.clipboard.writeText(templateText).then(() => {
+    copyToClipboard(templateText).then(() => {
       setCopied(true)
       setTimeout(() => setCopied(false), 2000)
     })
@@ -876,14 +876,14 @@ function FnSkuGroupView({
   const copyTemplate = (key: string) => {
     const t = templates[key]
     if (!t) return
-    navigator.clipboard.writeText(t).then(() => {
+    copyToClipboard(t).then(() => {
       setCopiedKey(key)
       setTimeout(() => setCopiedKey(null), 2000)
     })
   }
 
   const copyField = (fieldKey: string, value: string) => {
-    navigator.clipboard.writeText(value).then(() => {
+    copyToClipboard(value).then(() => {
       setCopiedField(fieldKey)
       setTimeout(() => setCopiedField(null), 2000)
     })

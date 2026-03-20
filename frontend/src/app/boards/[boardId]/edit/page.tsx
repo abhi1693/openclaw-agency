@@ -44,6 +44,7 @@ import type {
   BoardUpdate,
 } from "@/api/generated/model";
 import { BoardOnboardingChat } from "@/components/BoardOnboardingChat";
+import { copyToClipboard } from "@/lib/utils";
 import { DashboardPageLayout } from "@/components/templates/DashboardPageLayout";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogClose, DialogContent } from "@/components/ui/dialog";
@@ -735,7 +736,7 @@ export default function EditBoardPage() {
   const handleCopyWebhookEndpoint = async (webhook: BoardWebhookRead) => {
     const endpoint = (webhook.endpoint_url ?? webhook.endpoint_path).trim();
     try {
-      await navigator.clipboard.writeText(endpoint);
+      await copyToClipboard(endpoint);
       setCopiedWebhookId(webhook.id);
       window.setTimeout(() => {
         setCopiedWebhookId((current) =>
