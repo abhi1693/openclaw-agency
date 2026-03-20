@@ -1269,10 +1269,23 @@ export default function RefundsPage() {
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set())
   const [viewMode, setViewMode] = useState<'list' | 'grouped'>('list')
   const [search, setSearch] = useState('')
-  const [filters, setFilters] = useState({ status: '', reason: '', priority: '', claimType: '' })
+  const [filters, setFilters] = useState(() => {
+    try {
+      const stored = typeof window !== 'undefined' ? sessionStorage.getItem('mc:refunds:filters') : null
+      if (stored) {
+        const parsed = JSON.parse(stored)
+        if (parsed && typeof parsed === 'object') return { status: parsed.status ?? '', reason: parsed.reason ?? '', priority: parsed.priority ?? '', claimType: parsed.claimType ?? '' }
+      }
+    } catch { /* ignore */ }
+    return { status: '', reason: '', priority: '', claimType: '' }
+  })
   const [sort, setSort] = useState('amount_desc')
   const [page] = useState(1)
   const limit = 100
+
+  useEffect(() => {
+    try { sessionStorage.setItem('mc:refunds:filters', JSON.stringify(filters)) } catch { /* ignore */ }
+  }, [filters])
 
   const loadSummary = useCallback(async () => {
     try {
