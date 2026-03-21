@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import type { ReactNode } from "react";
 import { usePathname, useRouter } from "next/navigation";
 import { Menu, X } from "lucide-react";
@@ -22,6 +22,19 @@ export function DashboardShell({ children }: { children: ReactNode }) {
   const pathname = usePathname();
   const { isSignedIn, isLoaded } = useAuth();
   const isOnboardingPath = pathname === "/onboarding";
+  const [authTimeout, setAuthTimeout] = useState(false);
+  const authTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  useEffect(() => {
+    if (isLoaded) {
+      if (authTimerRef.current) clearTimeout(authTimerRef.current);
+      return;
+    }
+    authTimerRef.current = setTimeout(() => setAuthTimeout(true), 8000);
+    return () => {
+      if (authTimerRef.current) clearTimeout(authTimerRef.current);
+    };
+  }, [isLoaded]);
   const [sidebarState, setSidebarState] = useState({ open: false, path: pathname });
   // Close sidebar on navigation using React's "store info from previous
   // renders" pattern — conditional setState during render resets immediately
@@ -92,7 +105,25 @@ export function DashboardShell({ children }: { children: ReactNode }) {
     return () => document.removeEventListener("keydown", onKey);
   }, [sidebarOpen]);
 
-  if (!isLoaded) return <div className="min-h-screen bg-app" />;
+  if (!isLoaded) {
+    if (authTimeout) {
+      return (
+        <div className="min-h-screen bg-app flex items-center justify-center">
+          <div className="text-center space-y-3">
+            <p className="text-sm text-slate-600">会话加载超时，请刷新页面</p>
+            <button
+              type="button"
+              onClick={() => window.location.reload()}
+              className="px-4 py-2 text-sm rounded-lg bg-slate-100 hover:bg-slate-200 text-slate-700 transition-colors"
+            >
+              刷新
+            </button>
+          </div>
+        </div>
+      );
+    }
+    return <div className="min-h-screen bg-app" />;
+  }
 
   return (
     <div className="min-h-screen bg-app text-strong" data-sidebar={sidebarOpen ? "open" : "closed"}>

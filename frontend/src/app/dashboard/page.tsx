@@ -548,8 +548,11 @@ export default function DashboardPage() {
 
   const metrics = metricsQuery.data?.status === 200 ? metricsQuery.data.data : null;
 
+  const [lastFetchedAt, setLastFetchedAt] = useState(0)
+  useEffect(() => { if (metrics) setLastFetchedAt(Date.now()) }, [metrics])
+  const effectiveUpdatedAt = metricsQuery.dataUpdatedAt || lastFetchedAt
   const [secondsSince, setSecondsSince] = useState(0)
-  useEffect(() => { setSecondsSince(0) }, [metricsQuery.dataUpdatedAt])
+  useEffect(() => { setSecondsSince(0) }, [effectiveUpdatedAt])
   useEffect(() => {
     const id = setInterval(() => setSecondsSince(s => s + 1), 1000)
     return () => clearInterval(id)
@@ -946,7 +949,9 @@ export default function DashboardPage() {
                 accent="emerald"
               />
             </div>
-            <p className="mt-1.5 text-right text-xs text-slate-400">数据更新于 {secondsSince} 秒前</p>
+            <p className="mt-1.5 text-right text-xs text-slate-400">
+              {effectiveUpdatedAt ? `数据更新于 ${secondsSince} 秒前` : '数据更新于 —'}
+            </p>
 
             <div className="mt-4 grid grid-cols-1 gap-4 xl:grid-cols-3">
               <InfoBlock
