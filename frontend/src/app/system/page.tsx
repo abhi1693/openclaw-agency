@@ -132,6 +132,86 @@ function cronToHuman(expr: string): string {
   return expr
 }
 
+// ─── CronTimeline — 24-hour dot timeline ─────────────────────────────────────
+
+function CronTimeline({ jobs }: { jobs: CronJob[] }) {
+  const now = Date.now()
+  const W = 960, H = 60, PAD_L = 28, PAD_R = 12
+  const plotW = W - PAD_L - PAD_R
+  const AXIS_Y = 36, DOT_BASE_Y = 26
+
+  type JobDot = { id: string; fraction: number; color: string; label: string }
+
+  const dots: JobDot[] = jobs.flatMap(j => {
+    const ms = j.state?.nextRunAtMs
+    if (!ms) return []
+    const d = new Date(ms)
+    const fraction = (d.getHours() + d.getMinutes() / 60) / 24
+    const diffMin = Math.round((ms - now) / 60000)
+    const color = diffMin < 0 ? '#ef4444' : diffMin < 30 ? '#f59e0b' : '#22c55e'
+    const label = diffMin < 0
+      ? `${j.name} — overdue`
+      : diffMin < 60
+        ? `${j.name} — in ${diffMin}m`
+        : `${j.name} — in ${Math.floor(diffMin / 60)}h${diffMin % 60 > 0 ? ` ${diffMin % 60}m` : ''}`
+    return [{ id: j.id, fraction, color, label }]
+  }).sort((a, b) => a.fraction - b.fraction)
+
+  // Cluster dots within 30 min of each other (1/48 of day)
+  const THRESH = 30 / (24 * 60)
+  const clusters: JobDot[][] = []
+  for (const dot of dots) {
+    const last = clusters[clusters.length - 1]
+    if (last && dot.fraction - last[0].fraction < THRESH) {
+      last.push(dot)
+    } else {
+      clusters.push([dot])
+    }
+  }
+
+  const nowD = new Date(now)
+  const nowFrac = (nowD.getHours() + nowD.getMinutes() / 60) / 24
+
+  return (
+    <div className="rounded-xl border border-[hsl(var(--border))] bg-[hsl(var(--card))] px-4 pt-3 pb-1 shadow-sm">
+      <p className="text-[10px] font-semibold uppercase tracking-wider text-[hsl(var(--muted-foreground))] mb-1">Next 24h 时间轴</p>
+      <svg viewBox={`0 0 ${W} ${H}`} width="100%" style={{ overflow: 'visible' }}>
+        {/* Axis */}
+        <line x1={PAD_L} y1={AXIS_Y} x2={PAD_L + plotW} y2={AXIS_Y} stroke="#475569" strokeWidth="1" />
+        {/* Hour ticks + labels every 3h */}
+        {Array.from({ length: 25 }, (_, h) => {
+          const x = PAD_L + (h / 24) * plotW
+          return (
+            <g key={h}>
+              <line x1={x} y1={AXIS_Y - 3} x2={x} y2={AXIS_Y + 3} stroke="#475569" strokeWidth="1" />
+              {h % 3 === 0 && h < 24 && (
+                <text x={x} y={AXIS_Y + 13} textAnchor="middle" fontSize="9" fill="#64748b" fontFamily="ui-monospace,monospace">
+                  {`${h}`}
+                </text>
+              )}
+            </g>
+          )
+        })}
+        {/* Now indicator */}
+        <line
+          x1={PAD_L + nowFrac * plotW} y1={AXIS_Y - 16}
+          x2={PAD_L + nowFrac * plotW} y2={AXIS_Y + 3}
+          stroke="#3b82f6" strokeWidth="1.5" strokeDasharray="3,2"
+        />
+        {/* Job dots */}
+        {clusters.map((cluster, ci) => {
+          const cx = PAD_L + cluster[0].fraction * plotW
+          return cluster.map((dot, di) => (
+            <circle key={`${dot.id}-${ci}-${di}`} cx={cx} cy={DOT_BASE_Y - di * 10} r={5} fill={dot.color} opacity={0.9}>
+              <title>{dot.label}</title>
+            </circle>
+          ))
+        })}
+      </svg>
+    </div>
+  )
+}
+
 // ─── Cron Schedule Helpers ───────────────────────────────────────────────────
 
 type CronFrequency = 'daily' | 'weekly' | 'monthly' | 'custom'
@@ -569,6 +649,7 @@ function SystemPageContent({ forceRefresh, onAutoRefresh }: { forceRefresh: numb
                   <UsageBar pct={hw.diskUsedPct} warn={75} danger={88} />
                 </StatCard>
 
+                {/* Issue #50: restart count visibility pending Wei review — mc-backend at 156 restarts 2026-03-21 */}
                 <StatCard
                   icon={Clock} label="运行时长"
                   value={hw.uptime}
@@ -703,6 +784,7 @@ function SystemPageContent({ forceRefresh, onAutoRefresh }: { forceRefresh: numb
       {activeTab === 'cron' && (
         <section className="space-y-6">
           {cronJobs && cronJobs.jobs.length > 0 && <CronCalendar jobs={cronJobs.jobs} onEditJob={openEdit} />}
+          {cronJobs && cronJobs.jobs.length > 0 && <CronTimeline jobs={cronJobs.jobs} />}
 
           <div className="space-y-4">
             <div className="flex items-center gap-2">
