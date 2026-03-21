@@ -11,7 +11,7 @@ import { DashboardPageLayout } from '@/components/templates/DashboardPageLayout'
 
 // ─── Constants ────────────────────────────────────────────────────────────────
 
-const PRODUCTS = [
+const STATIC_PRODUCTS = [
   { asin: 'B0GJR8435C', name: 'Antioxidant Shimmer Body Oil (Silver)' },
   { asin: 'B0GJQZLHNK', name: 'Deep Moisture Shimmer Body Oil (Golden)' },
   { asin: 'B0GJR3TB2S', name: 'Hydration Body Lotion (Dry & Dehydrated)' },
@@ -22,6 +22,8 @@ const PRODUCTS = [
   { asin: 'B0CR74VL95', name: 'Jasmine Hand Sanitizer Wipes 80ct (6-Pack)' },
   { asin: 'B0CR5D91N2', name: 'Tea Tree Hand Sanitizer Wipes 20ct (10-Pack)' },
 ]
+
+type Product = { asin: string; name: string }
 
 // ─── Types ─────────────────────────────────────────────────────────────────────
 
@@ -712,7 +714,24 @@ function AiInsightsTab({ rankings, searchTerms }: {
 
 export default function KeywordsPage() {
   const [activeTab, setActiveTab] = useState<MainTab>('rankings')
-  const [selectedAsin, setSelectedAsin] = useState(PRODUCTS[0].asin)
+  const [products, setProducts] = useState<Product[]>(STATIC_PRODUCTS)
+  const [productsLoading, setProductsLoading] = useState(true)
+  const [selectedAsin, setSelectedAsin] = useState(STATIC_PRODUCTS[0].asin)
+
+  useEffect(() => {
+    fetch('/api/content/products')
+      .then(r => r.json())
+      .then((data: { products?: { asin: string; name: string }[] }) => {
+        const list = data?.products
+        if (Array.isArray(list) && list.length > 0) {
+          const mapped = list.map(p => ({ asin: p.asin, name: p.name }))
+          setProducts(mapped)
+          setSelectedAsin(mapped[0].asin)
+        }
+      })
+      .catch(() => { /* keep static fallback */ })
+      .finally(() => setProductsLoading(false))
+  }, [])
 
   // Pre-load data for AI Insights tab
   const [rankings, setRankings] = useState<KeywordRanking[]>([])
@@ -732,7 +751,7 @@ export default function KeywordsPage() {
       .catch(() => setSearchTerms([]))
   }, [selectedAsin])
 
-  const selectedProduct = PRODUCTS.find(p => p.asin === selectedAsin)
+  const selectedProduct = products.find(p => p.asin === selectedAsin)
 
   const tabs: { id: MainTab; label: string }[] = [
     { id: 'rankings', label: '🔑 排名追踪' },
@@ -751,9 +770,10 @@ export default function KeywordsPage() {
           <select
             value={selectedAsin}
             onChange={e => setSelectedAsin(e.target.value)}
-            className="bg-[hsl(var(--secondary))] border border-[hsl(var(--border))] rounded-lg px-3 py-1.5 text-sm text-[hsl(var(--foreground))] focus:outline-none focus:ring-1 focus:ring-[hsl(var(--primary))] min-w-[280px]"
+            disabled={productsLoading}
+            className="bg-[hsl(var(--secondary))] border border-[hsl(var(--border))] rounded-lg px-3 py-1.5 text-sm text-[hsl(var(--foreground))] focus:outline-none focus:ring-1 focus:ring-[hsl(var(--primary))] min-w-[280px] disabled:opacity-50"
           >
-            {PRODUCTS.map(p => (
+            {products.map(p => (
               <option key={p.asin} value={p.asin}>
                 {p.asin} — {p.name}
               </option>
