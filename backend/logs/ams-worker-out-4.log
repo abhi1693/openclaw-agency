@@ -352,3 +352,13 @@
 2026-03-23 17:41:58: 2026-03-23 17:41:58,960 INFO alembic.runtime.plugins setup plugin alembic.autogenerate.comments app=mission-control version=0.1.0
 2026-03-23 17:41:59: 2026-03-23 17:41:59,196 INFO __main__ ams_worker.started dry_run=False app=mission-control version=0.1.0
 2026-03-23 17:41:59: 2026-03-23 17:41:59,423 INFO app.services.ams_consumer ams_consumer.poll_done dataset=sp-traffic processed=10 failed=0 app=mission-control version=0.1.0
+2026-03-23 17:43:05: 2026-03-23 17:43:05,070 INFO app.services.ams_consumer ams_consumer.poll_done dataset=sp-traffic processed=10 failed=0 app=mission-control version=0.1.0
+2026-03-23 17:44:10: 2026-03-23 17:44:10,781 INFO app.services.ams_consumer ams_consumer.poll_done dataset=sp-traffic processed=10 failed=0 app=mission-control version=0.1.0
+2026-03-23 17:45:16: 2026-03-23 17:45:16,500 INFO app.services.ams_consumer ams_consumer.poll_done dataset=sp-traffic processed=4 failed=0 app=mission-control version=0.1.0
+2026-03-23 17:46:22: 2026-03-23 17:46:22,167 INFO app.services.ams_consumer ams_consumer.poll_done dataset=sp-traffic processed=10 failed=0 app=mission-control version=0.1.0
+2026-03-23 17:47:27: 2026-03-23 17:47:27,881 INFO app.services.ams_consumer ams_consumer.poll_done dataset=sp-traffic processed=10 failed=0 app=mission-control version=0.1.0
+2026-03-23 17:48:33: 2026-03-23 17:48:33,595 INFO app.services.ams_consumer ams_consumer.poll_done dataset=sp-traffic processed=4 failed=0 app=mission-control version=0.1.0
+2026-03-23 17:49:39: 2026-03-23 17:49:39,324 INFO app.services.ams_consumer ams_consumer.poll_done dataset=sp-traffic processed=7 failed=0 app=mission-control version=0.1.0
+2026-03-23 17:49:59: 2026-03-23 17:49:59,717 INFO app.services.ams_consumer ams_consumer.poll_done dataset=budget-usage processed=1 failed=0 app=mission-control version=0.1.0
+2026-03-23 17:50:25: 2026-03-23 17:50:25,067 INFO app.services.ams_consumer ams_consumer.poll_done dataset=sp-traffic processed=10 failed=0 app=mission-control version=0.1.0
+2026-03-23 17:51:30: 2026-03-23 17:51:30,793 INFO app.services.ams_consumer ams_consumer.poll_done dataset=sp-traffic processed=2 failed=0 app=mission-control version=0.1.0
