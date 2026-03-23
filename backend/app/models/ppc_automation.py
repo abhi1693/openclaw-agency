@@ -1,0 +1,134 @@
+"""PPC automation engine persistence models — Phase 1A."""
+
+from __future__ import annotations
+
+from datetime import date as date_type
+from datetime import datetime
+from decimal import Decimal
+from uuid import UUID, uuid4
+
+from sqlalchemy import Column, Date, Numeric
+from sqlmodel import Field
+
+from app.core.time import utcnow
+from app.models.base import QueryModel
+
+
+class HourlyCampaignMetric(QueryModel, table=True):
+    """Hourly campaign performance data for AMS integration."""
+
+    __tablename__ = "hourly_campaign_metrics"  # pyright: ignore[reportAssignmentType]
+
+    id: UUID = Field(default_factory=uuid4, primary_key=True)
+    campaign_id: str = Field(index=True)
+    ad_group_id: str | None = Field(default=None, index=True)
+    keyword_id: str | None = Field(default=None, index=True)
+    match_type: str | None = None
+    report_date: date_type = Field(sa_column=Column("date", Date(), nullable=False, index=True))
+    hour: int = Field(index=True)
+    impressions: int = Field(default=0)
+    clicks: int = Field(default=0)
+    cost: Decimal = Field(default=Decimal("0"), sa_column=Column(Numeric(14, 4), nullable=False, server_default="0"))
+    sales: Decimal = Field(default=Decimal("0"), sa_column=Column(Numeric(14, 2), nullable=False, server_default="0"))
+    orders: int = Field(default=0)
+    created_at: datetime = Field(default_factory=utcnow)
+
+
+class BidRecommendation(QueryModel, table=True):
+    """Automated bid change recommendations pending approval."""
+
+    __tablename__ = "bid_recommendations"  # pyright: ignore[reportAssignmentType]
+
+    id: UUID = Field(default_factory=uuid4, primary_key=True)
+    campaign_id: str = Field(index=True)
+    ad_group_id: str | None = Field(default=None, index=True)
+    keyword_id: str | None = Field(default=None, index=True)
+    match_type: str | None = None
+    current_bid: Decimal = Field(sa_column=Column(Numeric(10, 4), nullable=False))
+    recommended_bid: Decimal = Field(sa_column=Column(Numeric(10, 4), nullable=False))
+    conversion_rate: Decimal | None = Field(default=None, sa_column=Column(Numeric(8, 6), nullable=True))
+    target_acos: Decimal | None = Field(default=None, sa_column=Column(Numeric(6, 4), nullable=True))
+    aov: Decimal | None = Field(default=None, sa_column=Column(Numeric(10, 2), nullable=True))
+    reason: str | None = None
+    status: str = Field(default="pending", index=True)  # pending/approved/rejected/applied
+    created_at: datetime = Field(default_factory=utcnow, index=True)
+    applied_at: datetime | None = None
+    applied_by: str | None = None
+
+
+class KeywordRecommendation(QueryModel, table=True):
+    """Search term mining results recommending keyword additions or negatives."""
+
+    __tablename__ = "keyword_recommendations"  # pyright: ignore[reportAssignmentType]
+
+    id: UUID = Field(default_factory=uuid4, primary_key=True)
+    source_campaign_id: str = Field(index=True)
+    search_term: str = Field(index=True)
+    match_type: str
+    impressions: int = Field(default=0)
+    clicks: int = Field(default=0)
+    orders: int = Field(default=0)
+    ctr: Decimal | None = Field(default=None, sa_column=Column(Numeric(8, 6), nullable=True))
+    conversion_rate: Decimal | None = Field(default=None, sa_column=Column(Numeric(8, 6), nullable=True))
+    acos: Decimal | None = Field(default=None, sa_column=Column(Numeric(8, 4), nullable=True))
+    action: str = Field(index=True)  # add_keyword / add_negative
+    target_campaign_id: str | None = Field(default=None, index=True)
+    status: str = Field(default="pending", index=True)  # pending/approved/rejected/applied
+    created_at: datetime = Field(default_factory=utcnow, index=True)
+    applied_at: datetime | None = None
+
+
+class BudgetAllocation(QueryModel, table=True):
+    """Daily budget split across ad types per parent ASIN."""
+
+    __tablename__ = "budget_allocations"  # pyright: ignore[reportAssignmentType]
+
+    id: UUID = Field(default_factory=uuid4, primary_key=True)
+    parent_asin: str = Field(index=True)
+    total_daily_budget: Decimal = Field(sa_column=Column(Numeric(10, 2), nullable=False))
+    sp_pct: Decimal = Field(default=Decimal("0"), sa_column=Column(Numeric(5, 4), nullable=False, server_default="0"))
+    sb_pct: Decimal = Field(default=Decimal("0"), sa_column=Column(Numeric(5, 4), nullable=False, server_default="0"))
+    sd_pct: Decimal = Field(default=Decimal("0"), sa_column=Column(Numeric(5, 4), nullable=False, server_default="0"))
+    sbv_pct: Decimal = Field(default=Decimal("0"), sa_column=Column(Numeric(5, 4), nullable=False, server_default="0"))
+    sp_actual_spend: Decimal = Field(default=Decimal("0"), sa_column=Column(Numeric(10, 2), nullable=False, server_default="0"))
+    sb_actual_spend: Decimal = Field(default=Decimal("0"), sa_column=Column(Numeric(10, 2), nullable=False, server_default="0"))
+    sd_actual_spend: Decimal = Field(default=Decimal("0"), sa_column=Column(Numeric(10, 2), nullable=False, server_default="0"))
+    sbv_actual_spend: Decimal = Field(default=Decimal("0"), sa_column=Column(Numeric(10, 2), nullable=False, server_default="0"))
+    alloc_date: date_type = Field(sa_column=Column("date", Date(), nullable=False, index=True))
+    created_at: datetime = Field(default_factory=utcnow)
+
+
+class PpcAutomationSettings(QueryModel, table=True):
+    """Per-product automation configuration."""
+
+    __tablename__ = "ppc_automation_settings"  # pyright: ignore[reportAssignmentType]
+
+    id: UUID = Field(default_factory=uuid4, primary_key=True)
+    parent_asin: str = Field(index=True, unique=True)
+    target_acos: Decimal = Field(sa_column=Column(Numeric(6, 4), nullable=False))
+    min_bid: Decimal = Field(sa_column=Column(Numeric(10, 4), nullable=False))
+    max_bid: Decimal = Field(sa_column=Column(Numeric(10, 4), nullable=False))
+    bid_change_limit_pct: Decimal = Field(
+        default=Decimal("0.2"), sa_column=Column(Numeric(5, 4), nullable=False, server_default="0.2")
+    )
+    dayparting_enabled: bool = Field(default=False)
+    auto_negative_enabled: bool = Field(default=False)
+    auto_keyword_enabled: bool = Field(default=False)
+    created_at: datetime = Field(default_factory=utcnow)
+    updated_at: datetime = Field(default_factory=utcnow)
+
+
+class PpcChangeLog(QueryModel, table=True):
+    """Immutable audit trail for all PPC automation actions."""
+
+    __tablename__ = "ppc_change_log"  # pyright: ignore[reportAssignmentType]
+
+    id: UUID = Field(default_factory=uuid4, primary_key=True)
+    change_type: str = Field(index=True)  # bid / keyword / negative / budget
+    entity_type: str = Field(index=True)
+    entity_id: str = Field(index=True)
+    old_value: str | None = None
+    new_value: str | None = None
+    reason: str | None = None
+    triggered_by: str = Field(default="system", index=True)  # system / manual
+    created_at: datetime = Field(default_factory=utcnow, index=True)

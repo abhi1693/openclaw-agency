@@ -44,6 +44,14 @@ from app.models.task_custom_fields import (
 from app.models.task_dependencies import TaskDependency
 from app.models.task_fingerprints import TaskFingerprint
 from app.models.tasks import Task
+from app.models.ppc_automation import (
+    BidRecommendation,
+    BudgetAllocation,
+    HourlyCampaignMetric,
+    KeywordRecommendation,
+    PpcAutomationSettings,
+    PpcChangeLog,
+)
 from app.models.shipments import Shipment, ShipmentEvent
 from app.models.users import User
 
@@ -79,6 +87,8 @@ __all__ = [
     "OrganizationInvite",
     "OrganizationInviteBoardAccess",
     "PpcAnalysisSnapshot",
+    "PpcAutomationSettings",
+    "PpcChangeLog",
     "PricingSnapshot",
     "ProductSales",
     "RefundClaim",
@@ -86,6 +96,10 @@ __all__ = [
     "ReturnEvent",
     "SearchTermReport",
     "TaskDependency",
+    "BidRecommendation",
+    "BudgetAllocation",
+    "HourlyCampaignMetric",
+    "KeywordRecommendation",
     "Task",
     "TaskFingerprint",
     "Tag",
