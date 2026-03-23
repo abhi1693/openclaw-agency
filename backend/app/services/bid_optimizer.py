@@ -40,6 +40,7 @@ from app.core.time import utcnow
 from app.models.amazon_orders import AdMetric, SearchTermReport
 from app.models.ppc_automation import BidRecommendation, PpcAutomationSettings
 from app.services.keyword_scorer import KeywordTier, score_keyword
+from app.services.tacos_calculator import calculate_tacos
 from app.services.trend_analyzer import analyze_trends
 
 logger = get_logger(__name__)
@@ -53,9 +54,16 @@ _DEFAULT_AOV = Decimal("25.00")
 # ---------------------------------------------------------------------------
 
 
-def _effective_target_acos(settings: PpcAutomationSettings) -> float:
-    base = float(settings.target_acos)
+def _effective_target_acos(
+    settings: PpcAutomationSettings,
+    tacos_effective_ceiling: float | None = None,
+) -> float:
+    """Return effective target ACoS, factoring in launch mode and TACoS mode."""
     today = date.today()
+    if settings.target_mode == "tacos" and tacos_effective_ceiling is not None:
+        base = tacos_effective_ceiling
+    else:
+        base = float(settings.target_acos)
     if settings.launch_mode:
         if settings.launch_mode_until is None or today <= settings.launch_mode_until:
             return base * 1.5
@@ -176,7 +184,24 @@ async def generate_bid_recommendations(
         logger.warning("bid_optimizer_v2: no automation settings found, skipping")
         return []
 
-    eff_target_acos = _effective_target_acos(settings)
+    # TACoS mode: derive effective ACoS ceiling from TACoS target + organic fraction
+    tacos_ceiling: float | None = None
+    if settings.target_mode == "tacos" and settings.target_tacos:
+        try:
+            tacos_metrics = await calculate_tacos(
+                session, days=30, target_tacos=settings.target_tacos
+            )
+            tacos_ceiling = tacos_metrics.effective_acos_ceiling
+            logger.info(
+                "bid_optimizer_v2: TACoS mode — target=%.2f%% organic=%.0f%% ceiling=%.2f%%",
+                settings.target_tacos * 100,
+                tacos_metrics.organic_pct * 100,
+                (tacos_ceiling or 0) * 100,
+            )
+        except Exception:  # noqa: BLE001
+            logger.exception("bid_optimizer_v2: failed to compute TACoS ceiling, falling back to ACoS mode")
+
+    eff_target_acos = _effective_target_acos(settings, tacos_ceiling)
     category_avg_cvr = await _get_category_avg_cvr(session)
     total_revenue = await _get_total_revenue(session)
     max_impr = await _get_max_impressions(session)

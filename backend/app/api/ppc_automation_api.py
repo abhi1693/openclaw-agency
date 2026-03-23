@@ -18,14 +18,19 @@ from app.core.time import utcnow
 from app.models.ppc_automation import (
     BidRecommendation,
     BudgetAllocation,
+    CampaignPlan,
     KeywordRecommendation,
+    PlacementRecommendation,
     PpcAutomationSettings,
     PpcChangeLog,
 )
 from app.services.ads_api import AmazonAdsAPI
 from app.services.budget_allocator import generate_budget_allocations
+from app.services.campaign_creator import generate_campaign_plan
 from app.services.negative_pattern_detector import detect_negative_patterns
+from app.services.placement_optimizer import generate_placement_recommendations
 from app.services.ppc_scheduler import run_optimizer
+from app.services.tacos_calculator import calculate_tacos, metrics_to_dict
 
 router = APIRouter(prefix="/ppc/automation", tags=["ppc-automation"])
 logger = get_logger(__name__)
@@ -52,6 +57,9 @@ class AutomationSettingsUpsert(BaseModel):
     launch_mode: bool = False
     launch_mode_until: date | None = None
     exploration_pct: float = 0.15
+    # Phase 6: TACoS target mode
+    target_mode: str = "acos"   # 'acos' | 'tacos'
+    target_tacos: float | None = None
 
 
 class ApplyBidRecsRequest(BaseModel):
@@ -70,6 +78,25 @@ class RunOptimizerRequest(BaseModel):
     run_keywords: bool = True
     run_patterns: bool = True
     run_budget: bool = False
+    run_placements: bool = False
+
+
+class RunPlacementAnalysisRequest(BaseModel):
+    pass
+
+
+class GenerateCampaignPlanRequest(BaseModel):
+    parent_asin: str
+    total_daily_budget: float | None = None
+
+
+class ApproveCampaignPlanRequest(BaseModel):
+    approved_by: str = "manual"
+
+
+class ApplyPlacementRecsRequest(BaseModel):
+    recommendation_ids: list[UUID]
+    triggered_by: str = "manual"
 
 
 class RunKeywordDiscoveryRequest(BaseModel):
@@ -372,26 +399,7 @@ async def get_change_log(
     return {"items": [e.model_dump() for e in entries], "total": len(entries), "offset": offset, "limit": limit}
 
 
-# ---------------------------------------------------------------------------
-# Optimizer runner (manual trigger)
-# ---------------------------------------------------------------------------
-
-
-@router.post("/run-optimizer")
-async def run_optimizer_endpoint(
-    body: RunOptimizerRequest,
-    session: AsyncSession = SESSION_DEP,
-) -> dict[str, Any]:
-    """Manually trigger bid optimization and/or keyword discovery."""
-    result = await run_optimizer(
-        session,
-        parent_asin=body.parent_asin,
-        run_bid=body.run_bid,
-        run_keywords=body.run_keywords,
-        run_patterns=body.run_patterns,
-        run_budget=body.run_budget,
-    )
-    return result
+# (run-optimizer endpoint defined below with Phase 6 placement support)
 
 
 # ---------------------------------------------------------------------------
@@ -495,3 +503,192 @@ async def run_budget_allocation_endpoint(
     except Exception as exc:  # noqa: BLE001
         logger.exception("run_budget_allocation: failed")
         raise HTTPException(status_code=500, detail=str(exc)) from exc
+
+
+# ---------------------------------------------------------------------------
+# TACoS metrics
+# ---------------------------------------------------------------------------
+
+
+@router.get("/tacos")
+async def get_tacos_metrics(
+    days: int = Query(default=30, ge=7, le=90),
+    target_tacos: float | None = Query(default=None, ge=0.01, le=1.0),
+    session: AsyncSession = SESSION_DEP,
+) -> dict[str, Any]:
+    """Calculate current TACoS, ACoS, and organic revenue metrics."""
+    metrics = await calculate_tacos(session, days=days, target_tacos=target_tacos)
+    return metrics_to_dict(metrics)
+
+
+# ---------------------------------------------------------------------------
+# Placement recommendations
+# ---------------------------------------------------------------------------
+
+
+@router.get("/placement-recommendations")
+async def list_placement_recommendations(
+    status_filter: str | None = Query(default=None, alias="status"),
+    limit: int = Query(default=100, le=500),
+    offset: int = Query(default=0, ge=0),
+    session: AsyncSession = SESSION_DEP,
+) -> dict[str, Any]:
+    query = (
+        select(PlacementRecommendation)
+        .order_by(col(PlacementRecommendation.created_at).desc())
+        .offset(offset)
+        .limit(limit)
+    )
+    if status_filter:
+        query = query.where(PlacementRecommendation.status == status_filter)
+    result = await session.exec(query)
+    recs = result.all()
+    return {"items": [r.model_dump() for r in recs], "total": len(recs)}
+
+
+@router.post("/placement-recommendations/apply")
+async def apply_placement_recommendations(
+    body: ApplyPlacementRecsRequest,
+    session: AsyncSession = SESSION_DEP,
+) -> dict[str, Any]:
+    """Mark placement recommendations as applied."""
+    applied: list[str] = []
+    errors: list[dict[str, str]] = []
+
+    for rec_id in body.recommendation_ids:
+        result = await session.exec(
+            select(PlacementRecommendation).where(PlacementRecommendation.id == rec_id)
+        )
+        rec = result.first()
+        if rec is None:
+            errors.append({"id": str(rec_id), "error": "not found"})
+            continue
+        if rec.status != "pending":
+            errors.append({"id": str(rec_id), "error": f"status is already {rec.status}"})
+            continue
+        rec.status = "applied"
+        rec.applied_at = utcnow()
+        applied.append(str(rec_id))
+
+    await session.commit()
+    return {"applied": applied, "errors": errors}
+
+
+@router.post("/run-placement-analysis")
+async def run_placement_analysis_endpoint(
+    body: RunPlacementAnalysisRequest,
+    session: AsyncSession = SESSION_DEP,
+) -> dict[str, Any]:
+    """Trigger placement bid modifier analysis."""
+    started_at = datetime.utcnow()
+    try:
+        results = await generate_placement_recommendations(session)
+        finished_at = datetime.utcnow()
+        return {
+            "started_at": started_at.isoformat(),
+            "finished_at": finished_at.isoformat(),
+            "duration_seconds": (finished_at - started_at).total_seconds(),
+            "recommendations_created": len(results),
+            "results": results,
+        }
+    except Exception as exc:  # noqa: BLE001
+        logger.exception("run_placement_analysis: failed")
+        raise HTTPException(status_code=500, detail=str(exc)) from exc
+
+
+# ---------------------------------------------------------------------------
+# Campaign plans
+# ---------------------------------------------------------------------------
+
+
+@router.get("/campaign-plans")
+async def list_campaign_plans(
+    status_filter: str | None = Query(default=None, alias="status"),
+    limit: int = Query(default=20, le=100),
+    session: AsyncSession = SESSION_DEP,
+) -> dict[str, Any]:
+    query = (
+        select(CampaignPlan)
+        .order_by(col(CampaignPlan.created_at).desc())
+        .limit(limit)
+    )
+    if status_filter:
+        query = query.where(CampaignPlan.status == status_filter)
+    result = await session.exec(query)
+    plans = result.all()
+    return {"items": [p.model_dump() for p in plans], "total": len(plans)}
+
+
+@router.get("/campaign-plans/{plan_id}")
+async def get_campaign_plan(
+    plan_id: UUID,
+    session: AsyncSession = SESSION_DEP,
+) -> dict[str, Any]:
+    result = await session.exec(select(CampaignPlan).where(CampaignPlan.id == plan_id))
+    plan = result.first()
+    if plan is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Plan not found")
+    data = plan.model_dump()
+    # Deserialize plan JSON for convenience
+    try:
+        data["plan_parsed"] = __import__("json").loads(plan.plan)
+    except Exception:  # noqa: BLE001
+        pass
+    return data
+
+
+@router.post("/campaign-plans/{plan_id}/approve")
+async def approve_campaign_plan(
+    plan_id: UUID,
+    body: ApproveCampaignPlanRequest,
+    session: AsyncSession = SESSION_DEP,
+) -> dict[str, Any]:
+    result = await session.exec(select(CampaignPlan).where(CampaignPlan.id == plan_id))
+    plan = result.first()
+    if plan is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Plan not found")
+    if plan.status not in ("draft",):
+        raise HTTPException(status_code=400, detail=f"Plan status is '{plan.status}', cannot approve")
+    plan.status = "approved"
+    plan.approved_at = utcnow()
+    plan.applied_by = body.approved_by
+    await session.commit()
+    await session.refresh(plan)
+    return plan.model_dump()
+
+
+@router.post("/campaign-plans/generate")
+async def generate_campaign_plan_endpoint(
+    body: GenerateCampaignPlanRequest,
+    session: AsyncSession = SESSION_DEP,
+) -> dict[str, Any]:
+    """Generate a new campaign plan for the given parent ASIN."""
+    try:
+        result = await generate_campaign_plan(
+            session,
+            parent_asin=body.parent_asin,
+            total_daily_budget=body.total_daily_budget,
+        )
+        return result
+    except Exception as exc:  # noqa: BLE001
+        logger.exception("generate_campaign_plan: failed")
+        raise HTTPException(status_code=500, detail=str(exc)) from exc
+
+
+# update run_optimizer to support run_placements
+@router.post("/run-optimizer")
+async def run_optimizer_endpoint_v2(
+    body: RunOptimizerRequest,
+    session: AsyncSession = SESSION_DEP,
+) -> dict[str, Any]:
+    """Manually trigger bid optimization, keyword discovery, and/or placement analysis."""
+    result = await run_optimizer(
+        session,
+        parent_asin=body.parent_asin,
+        run_bid=body.run_bid,
+        run_keywords=body.run_keywords,
+        run_patterns=body.run_patterns,
+        run_budget=body.run_budget,
+        run_placements=body.run_placements,
+    )
+    return result

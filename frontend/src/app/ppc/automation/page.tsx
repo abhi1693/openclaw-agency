@@ -150,6 +150,56 @@ interface AutomationSettings {
   launch_mode: boolean
   launch_mode_until: string | null
   exploration_pct: number
+  // Phase 6: TACoS target mode
+  target_mode: 'acos' | 'tacos'
+  target_tacos: number | null
+}
+
+interface PlacementRec {
+  id: string
+  campaign_id: string
+  campaign_name: string | null
+  placement: string
+  current_modifier_pct: number
+  recommended_modifier_pct: number | null
+  placement_impressions: number
+  placement_clicks: number
+  placement_orders: number
+  placement_ctr: number | null
+  placement_cvr: number | null
+  placement_acos: number | null
+  placement_roas: number | null
+  campaign_avg_roas: number | null
+  reason: string | null
+  status: string
+  created_at: string
+}
+
+interface CampaignPlanRec {
+  id: string
+  parent_asin: string
+  campaign_count: number
+  total_daily_budget: number
+  status: string
+  created_at: string
+  approved_at: string | null
+  applied_at: string | null
+  plan?: string
+}
+
+interface TACoSData {
+  period_days: number
+  total_revenue: number
+  ad_spend: number
+  ad_sales: number
+  organic_revenue: number
+  tacos: number | null
+  acos: number | null
+  organic_pct: number
+  effective_acos_ceiling: number | null
+  tacos_target: number | null
+  trend_7d: number | null
+  trend_note: string
 }
 
 interface ReasonData {
@@ -394,7 +444,7 @@ async function apiFetch(path: string, init?: RequestInit) {
 
 // ─── Tabs ────────────────────────────────────────────────────────────────────────
 
-const TABS = ['Bid Recommendations', 'Keyword Recommendations', 'Budget Allocation', 'Settings'] as const
+const TABS = ['Bid Recommendations', 'Keyword Recommendations', 'Budget Allocation', 'Placements', 'Campaign Builder', 'Settings'] as const
 type Tab = typeof TABS[number]
 
 // ─── Main Page ────────────────────────────────────────────────────────────────
@@ -436,6 +486,8 @@ export default function PpcAutomationPage() {
         {activeTab === 'Bid Recommendations' && <BidRecommendationsTab />}
         {activeTab === 'Keyword Recommendations' && <KeywordRecommendationsTab />}
         {activeTab === 'Budget Allocation' && <BudgetAllocationTab />}
+        {activeTab === 'Placements' && <PlacementsTab />}
+        {activeTab === 'Campaign Builder' && <CampaignBuilderTab />}
         {activeTab === 'Settings' && <SettingsTab />}
       </div>
 
@@ -1467,6 +1519,8 @@ function SettingsTab() {
     launch_mode: false,
     launch_mode_until: null,
     exploration_pct: 0.15,
+    target_mode: 'acos',
+    target_tacos: null,
   })
 
   function handleLoad() {
@@ -1485,6 +1539,8 @@ function SettingsTab() {
         launch_mode: data.launch_mode ?? false,
         launch_mode_until: data.launch_mode_until ?? null,
         exploration_pct: data.exploration_pct ?? 0.15,
+        target_mode: data.target_mode ?? 'acos',
+        target_tacos: data.target_tacos ?? null,
       })
     }
   }
@@ -1683,6 +1739,48 @@ function SettingsTab() {
             </label>
           ))}
         </div>
+
+        {/* ── Phase 6: TACoS Target Mode ── */}
+        <div className="border-t border-slate-100 pt-4">
+          <p className="mb-3 text-xs font-semibold uppercase tracking-wider text-slate-500">TACoS Target Mode</p>
+          <div className="rounded-lg border border-indigo-200 bg-indigo-50 p-3 space-y-3">
+            <div className="flex items-center gap-4">
+              {(['acos', 'tacos'] as const).map((mode) => (
+                <label key={mode} className="flex items-center gap-2 cursor-pointer">
+                  <input
+                    type="radio"
+                    name="target_mode"
+                    value={mode}
+                    checked={form.target_mode === mode}
+                    onChange={() => setForm((f) => ({ ...f, target_mode: mode }))}
+                    className="accent-indigo-600"
+                  />
+                  <span className="text-sm font-medium text-indigo-800">{mode === 'acos' ? 'ACoS Mode' : 'TACoS Mode'}</span>
+                </label>
+              ))}
+            </div>
+            {form.target_mode === 'tacos' ? (
+              <div>
+                <label className="mb-1 block text-sm font-medium text-indigo-700">
+                  TACoS Target: <span className="font-normal text-indigo-900">{((form.target_tacos ?? 0.10) * 100).toFixed(0)}%</span>
+                  <span className="ml-2 text-xs text-indigo-500">— Total Ad Spend / Total Revenue</span>
+                </label>
+                <input
+                  type="range" min={1} max={30} step={1}
+                  value={(form.target_tacos ?? 0.10) * 100}
+                  onChange={(e) => setForm((f) => ({ ...f, target_tacos: parseFloat(e.target.value) / 100 }))}
+                  className="w-full accent-indigo-600"
+                />
+                <div className="flex justify-between text-[10px] text-indigo-400"><span>1%</span><span>30%</span></div>
+                <p className="mt-1 text-[10px] text-indigo-500">
+                  Effective ACoS ceiling = TACoS target ÷ (1 − organic revenue %). Products with high organic share tolerate higher ACoS.
+                </p>
+              </div>
+            ) : (
+              <p className="text-xs text-indigo-500">Bid optimizer uses ACoS target directly. Switch to TACoS mode for organic-aware bidding.</p>
+            )}
+          </div>
+        </div>
       </div>
 
       <div className="mt-6 flex items-center gap-3">
@@ -1701,6 +1799,413 @@ function SettingsTab() {
     </div>
   )
 }
+
+// ─── Placements Tab ────────────────────────────────────────────────────────────
+
+const PLACEMENT_LABELS: Record<string, string> = {
+  top_of_search: 'Top of Search',
+  product_pages: 'Product Pages',
+  rest_of_search: 'Rest of Search',
+}
+
+const PLACEMENT_COLORS: Record<string, string> = {
+  top_of_search: 'bg-emerald-100 text-emerald-700',
+  product_pages: 'bg-blue-100 text-blue-700',
+  rest_of_search: 'bg-slate-100 text-slate-600',
+}
+
+function parseReason2(s: string | null): Record<string, unknown> | null {
+  if (!s) return null
+  try { return JSON.parse(s) as Record<string, unknown> } catch { return null }
+}
+
+function PlacementsTab() {
+  const [statusFilter, setStatusFilter] = useState<string>('pending')
+  const [selected, setSelected] = useState<Set<string>>(new Set())
+  const [runningAnalysis, setRunningAnalysis] = useState(false)
+  const [analysisDone, setAnalysisDone] = useState<number | null>(null)
+  const queryClient = useQueryClient()
+
+  const { data, isLoading, refetch } = useQuery({
+    queryKey: ['placement-recs', statusFilter],
+    queryFn: () => apiFetch(`/api/ppc/automation/placement-recommendations?status=${statusFilter}&limit=200`),
+  })
+
+  const { data: tacosData } = useQuery<TACoSData>({
+    queryKey: ['tacos-metrics'],
+    queryFn: () => apiFetch('/api/ppc/automation/tacos?days=30'),
+  })
+
+  const items: PlacementRec[] = data?.items ?? []
+
+  const applyMutation = useMutation({
+    mutationFn: (ids: string[]) =>
+      apiFetch('/api/ppc/automation/placement-recommendations/apply', {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ recommendation_ids: ids }),
+      }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['placement-recs'] })
+      setSelected(new Set())
+    },
+  })
+
+  async function handleRunAnalysis() {
+    setRunningAnalysis(true)
+    setAnalysisDone(null)
+    try {
+      const res = await apiFetch('/api/ppc/automation/run-placement-analysis', { method: 'POST' })
+      setAnalysisDone(res.recommendations_created)
+      refetch()
+    } catch { /* swallow */ }
+    finally { setRunningAnalysis(false) }
+  }
+
+  // Group by campaign for display
+  const byCampaign = items.reduce<Record<string, PlacementRec[]>>((acc, r) => {
+    const key = r.campaign_id
+    if (!acc[key]) acc[key] = []
+    acc[key].push(r)
+    return acc
+  }, {})
+
+  return (
+    <div className="space-y-4">
+      {/* TACoS summary banner */}
+      {tacosData && (
+        <div className="rounded-xl border border-indigo-200 bg-indigo-50 px-4 py-3 flex flex-wrap gap-6">
+          <div>
+            <p className="text-[10px] font-semibold uppercase tracking-wider text-indigo-400">TACoS (30d)</p>
+            <p className="text-lg font-bold text-indigo-700">{tacosData.tacos != null ? `${(tacosData.tacos * 100).toFixed(1)}%` : '—'}</p>
+          </div>
+          <div>
+            <p className="text-[10px] font-semibold uppercase tracking-wider text-indigo-400">ACoS</p>
+            <p className="text-lg font-bold text-indigo-700">{tacosData.acos != null ? `${(tacosData.acos * 100).toFixed(1)}%` : '—'}</p>
+          </div>
+          <div>
+            <p className="text-[10px] font-semibold uppercase tracking-wider text-indigo-400">Organic %</p>
+            <p className="text-lg font-bold text-indigo-700">{(tacosData.organic_pct * 100).toFixed(0)}%</p>
+          </div>
+          <div>
+            <p className="text-[10px] font-semibold uppercase tracking-wider text-indigo-400">Total Revenue</p>
+            <p className="text-lg font-bold text-indigo-700">${tacosData.total_revenue.toLocaleString()}</p>
+          </div>
+          <div>
+            <p className="text-[10px] font-semibold uppercase tracking-wider text-indigo-400">Ad Spend</p>
+            <p className="text-lg font-bold text-indigo-700">${tacosData.ad_spend.toLocaleString()}</p>
+          </div>
+          <div className="flex items-center">
+            <span className={cn('text-xs font-medium px-2 py-0.5 rounded-full', tacosData.trend_note.includes('improving') ? 'bg-emerald-100 text-emerald-700' : tacosData.trend_note.includes('worsening') ? 'bg-rose-100 text-rose-700' : 'bg-slate-100 text-slate-500')}>
+              {tacosData.trend_note}
+            </span>
+          </div>
+        </div>
+      )}
+
+      {/* Toolbar */}
+      <div className="flex items-center justify-between">
+        <div className="flex items-center gap-2">
+          <select
+            value={statusFilter}
+            onChange={(e) => setStatusFilter(e.target.value)}
+            className="rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-sm text-slate-700 focus:outline-none focus:ring-2 focus:ring-blue-500"
+          >
+            <option value="pending">Pending</option>
+            <option value="applied">Applied</option>
+          </select>
+          <span className="text-xs text-slate-400">{items.length} recommendations across {Object.keys(byCampaign).length} campaigns</span>
+        </div>
+        <div className="flex items-center gap-2">
+          {analysisDone != null && (
+            <span className="text-xs font-medium text-emerald-600">+{analysisDone} recs created</span>
+          )}
+          {selected.size > 0 && (
+            <button
+              onClick={() => applyMutation.mutate([...selected])}
+              disabled={applyMutation.isPending}
+              className="rounded-lg bg-blue-600 px-3 py-1.5 text-sm font-medium text-white hover:bg-blue-700 disabled:opacity-50"
+            >
+              Apply Selected ({selected.size})
+            </button>
+          )}
+          <button
+            onClick={handleRunAnalysis}
+            disabled={runningAnalysis}
+            className={cn('inline-flex items-center gap-2 rounded-lg px-3 py-1.5 text-sm font-medium transition',
+              runningAnalysis ? 'bg-slate-100 text-slate-400 cursor-not-allowed' : 'bg-indigo-600 text-white hover:bg-indigo-700')}
+          >
+            {runningAnalysis ? <RefreshCw className="h-4 w-4 animate-spin" /> : <Play className="h-4 w-4" />}
+            {runningAnalysis ? 'Running…' : 'Run Analysis'}
+          </button>
+        </div>
+      </div>
+
+      {/* Campaign placement cards */}
+      {isLoading ? (
+        <div className="py-16 text-center text-sm text-slate-400">Loading…</div>
+      ) : items.length === 0 ? (
+        <div className="rounded-xl border border-dashed border-slate-200 py-16 text-center text-sm text-slate-400">
+          No placement recommendations — click <strong>Run Analysis</strong> to generate.
+        </div>
+      ) : (
+        <div className="space-y-4">
+          {Object.entries(byCampaign).map(([campaignId, recs]) => {
+            const name = recs[0]?.campaign_name || campaignId
+            return (
+              <div key={campaignId} className="rounded-xl border border-slate-200 bg-white shadow-sm overflow-hidden">
+                <div className="flex items-center justify-between border-b border-slate-100 px-4 py-2.5 bg-slate-50">
+                  <p className="text-sm font-medium text-slate-700 truncate max-w-xs" title={name}>{name}</p>
+                  <span className="font-mono text-[10px] text-slate-400">{campaignId}</span>
+                </div>
+                <div className="grid grid-cols-1 divide-y divide-slate-100 sm:grid-cols-3 sm:divide-y-0 sm:divide-x">
+                  {recs.sort((a, b) => a.placement.localeCompare(b.placement)).map((rec) => {
+                    const reason = parseReason2(rec.reason)
+                    const isSelected = selected.has(rec.id)
+                    const roas = rec.placement_roas
+                    const ratio = (reason?.roas_ratio as number) ?? null
+                    return (
+                      <div key={rec.id} className={cn('p-3 space-y-2', isSelected && 'bg-blue-50')}>
+                        <div className="flex items-center justify-between">
+                          <span className={cn('inline-flex items-center rounded-full px-2 py-0.5 text-[10px] font-semibold', PLACEMENT_COLORS[rec.placement] ?? 'bg-slate-100 text-slate-500')}>
+                            {PLACEMENT_LABELS[rec.placement] ?? rec.placement}
+                          </span>
+                          {statusFilter === 'pending' && (
+                            <input
+                              type="checkbox"
+                              checked={isSelected}
+                              onChange={() => setSelected((s) => { const n = new Set(s); n.has(rec.id) ? n.delete(rec.id) : n.add(rec.id); return n })}
+                              className="rounded accent-blue-600"
+                            />
+                          )}
+                        </div>
+                        <div className="grid grid-cols-2 gap-x-2 text-xs text-slate-600">
+                          <span>Est. ROAS: <strong className="text-slate-800">{roas != null ? roas.toFixed(2) : '—'}×</strong></span>
+                          <span>Ratio: <strong className={cn(ratio != null && ratio >= 1.2 ? 'text-emerald-600' : ratio != null && ratio <= 0.5 ? 'text-rose-600' : 'text-slate-700')}>{ratio != null ? ratio.toFixed(2) : '—'}×</strong></span>
+                          <span>Clicks (est): <strong>{rec.placement_clicks}</strong></span>
+                          <span>Orders (est): <strong>{rec.placement_orders}</strong></span>
+                        </div>
+                        <div className="flex items-center justify-between text-xs">
+                          <span className="text-slate-500">Current modifier: <strong>{rec.current_modifier_pct.toFixed(0)}%</strong></span>
+                          {rec.recommended_modifier_pct != null && rec.recommended_modifier_pct !== rec.current_modifier_pct && (
+                            <span className={cn('font-semibold', rec.recommended_modifier_pct > rec.current_modifier_pct ? 'text-emerald-600' : 'text-rose-600')}>
+                              → {rec.recommended_modifier_pct.toFixed(0)}%
+                            </span>
+                          )}
+                        </div>
+                        <StatusPill status={rec.status} />
+                      </div>
+                    )
+                  })}
+                </div>
+              </div>
+            )
+          })}
+        </div>
+      )}
+    </div>
+  )
+}
+
+
+// ─── Campaign Builder Tab ──────────────────────────────────────────────────────
+
+function CampaignBuilderTab() {
+  const [asin, setAsin] = useState(KNOWN_ASINS[0])
+  const [budget, setBudget] = useState('')
+  const [generating, setGenerating] = useState(false)
+  const [generated, setGenerated] = useState<{ plan_id: string; campaign_count: number } | null>(null)
+  const queryClient = useQueryClient()
+
+  const { data, isLoading, refetch } = useQuery({
+    queryKey: ['campaign-plans'],
+    queryFn: () => apiFetch('/api/ppc/automation/campaign-plans?limit=20'),
+  })
+
+  const plans: CampaignPlanRec[] = data?.items ?? []
+
+  const approveMutation = useMutation({
+    mutationFn: (planId: string) =>
+      apiFetch(`/api/ppc/automation/campaign-plans/${planId}/approve`, {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ approved_by: 'manual' }),
+      }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['campaign-plans'] })
+    },
+  })
+
+  async function handleGenerate() {
+    setGenerating(true)
+    setGenerated(null)
+    try {
+      const res = await apiFetch('/api/ppc/automation/campaign-plans/generate', {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({
+          parent_asin: asin,
+          total_daily_budget: budget ? parseFloat(budget) : undefined,
+        }),
+      })
+      setGenerated({ plan_id: res.plan_id, campaign_count: res.campaign_count })
+      refetch()
+    } catch { /* swallow */ }
+    finally { setGenerating(false) }
+  }
+
+  const CAMPAIGN_TYPE_COLORS: Record<string, string> = {
+    SP: 'bg-blue-100 text-blue-700',
+    SB: 'bg-purple-100 text-purple-700',
+    SD: 'bg-amber-100 text-amber-700',
+  }
+
+  return (
+    <div className="space-y-4">
+      {/* Generator form */}
+      <div className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
+        <p className="mb-3 text-sm font-semibold text-slate-700">Generate New Campaign Plan</p>
+        <div className="flex flex-wrap items-end gap-3">
+          <div>
+            <label className="mb-1 block text-xs font-medium text-slate-600">Parent ASIN</label>
+            <select
+              value={asin}
+              onChange={(e) => setAsin(e.target.value)}
+              className="rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-sm text-slate-700 focus:outline-none focus:ring-2 focus:ring-blue-500"
+            >
+              {KNOWN_ASINS.map((a) => <option key={a}>{a}</option>)}
+            </select>
+          </div>
+          <div>
+            <label className="mb-1 block text-xs font-medium text-slate-600">Daily Budget ($, optional)</label>
+            <input
+              type="number"
+              min={1}
+              step={1}
+              placeholder="auto"
+              value={budget}
+              onChange={(e) => setBudget(e.target.value)}
+              className="w-28 rounded-lg border border-slate-200 px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+            />
+          </div>
+          <button
+            onClick={handleGenerate}
+            disabled={generating}
+            className={cn(
+              'inline-flex items-center gap-2 rounded-lg px-4 py-1.5 text-sm font-medium transition',
+              generating ? 'bg-slate-100 text-slate-400 cursor-not-allowed' : 'bg-blue-600 text-white hover:bg-blue-700',
+            )}
+          >
+            {generating ? <RefreshCw className="h-4 w-4 animate-spin" /> : <Play className="h-4 w-4" />}
+            {generating ? 'Generating…' : 'Generate Plan'}
+          </button>
+          {generated && (
+            <span className="text-xs font-medium text-emerald-600">
+              Created plan with {generated.campaign_count} campaigns (ID: {generated.plan_id.slice(0, 8)}…)
+            </span>
+          )}
+        </div>
+        <p className="mt-2 text-[11px] text-slate-400">
+          Seeds keywords from discovery engine (confidence ≥ 50%). Bids derived from avg CPC. Review before applying.
+        </p>
+      </div>
+
+      {/* Plans list */}
+      {isLoading ? (
+        <div className="py-12 text-center text-sm text-slate-400">Loading…</div>
+      ) : plans.length === 0 ? (
+        <div className="rounded-xl border border-dashed border-slate-200 py-12 text-center text-sm text-slate-400">
+          No campaign plans yet — generate one above.
+        </div>
+      ) : (
+        <div className="space-y-3">
+          {plans.map((plan) => (
+            <PlanCard key={plan.id} plan={plan} onApprove={() => approveMutation.mutate(plan.id)} isPending={approveMutation.isPending} />
+          ))}
+        </div>
+      )}
+    </div>
+  )
+}
+
+function PlanCard({ plan, onApprove, isPending }: { plan: CampaignPlanRec; onApprove: () => void; isPending: boolean }) {
+  const [expanded, setExpanded] = useState(false)
+  const [detail, setDetail] = useState<{ plan_parsed?: { campaigns?: Array<{ campaign_type: string; campaign_name: string; daily_budget: number; ad_groups?: Array<{ keywords?: unknown[] }> }> } } | null>(null)
+
+  async function loadDetail() {
+    if (detail) return
+    try {
+      const d = await apiFetch(`/api/ppc/automation/campaign-plans/${plan.id}`)
+      setDetail(d)
+    } catch { /* swallow */ }
+  }
+
+  function handleExpand() {
+    setExpanded((v) => !v)
+    if (!expanded) loadDetail()
+  }
+
+  const CAMPAIGN_TYPE_COLORS: Record<string, string> = {
+    SP: 'bg-blue-100 text-blue-700',
+    SB: 'bg-purple-100 text-purple-700',
+    SD: 'bg-amber-100 text-amber-700',
+  }
+
+  return (
+    <div className="rounded-xl border border-slate-200 bg-white shadow-sm overflow-hidden">
+      <div className="flex items-center justify-between px-4 py-3">
+        <div className="flex items-center gap-3">
+          <button onClick={handleExpand} className="text-slate-400 hover:text-slate-600">
+            {expanded ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
+          </button>
+          <div>
+            <p className="text-sm font-semibold text-slate-700">{plan.parent_asin}</p>
+            <p className="text-xs text-slate-400">{plan.campaign_count} campaigns · ${plan.total_daily_budget.toFixed(0)}/day · {fmtDate(plan.created_at)}</p>
+          </div>
+        </div>
+        <div className="flex items-center gap-2">
+          <StatusPill status={plan.status} />
+          {plan.status === 'draft' && (
+            <button
+              onClick={onApprove}
+              disabled={isPending}
+              className="rounded-lg bg-emerald-600 px-3 py-1 text-xs font-medium text-white hover:bg-emerald-700 disabled:opacity-50"
+            >
+              Approve
+            </button>
+          )}
+        </div>
+      </div>
+      {expanded && (
+        <div className="border-t border-slate-100 px-4 py-3 bg-slate-50">
+          {!detail ? (
+            <p className="text-xs text-slate-400">Loading plan details…</p>
+          ) : (
+            <div className="space-y-2">
+              {detail.plan_parsed?.campaigns?.map((c, i) => (
+                <div key={i} className="flex items-center justify-between rounded-lg border border-slate-200 bg-white px-3 py-2 text-xs">
+                  <div className="flex items-center gap-2">
+                    <span className={cn('rounded-full px-1.5 py-0.5 text-[10px] font-semibold', CAMPAIGN_TYPE_COLORS[c.campaign_type] ?? 'bg-slate-100 text-slate-500')}>
+                      {c.campaign_type}
+                    </span>
+                    <span className="font-medium text-slate-700">{c.campaign_name}</span>
+                  </div>
+                  <div className="flex items-center gap-4 text-slate-500">
+                    <span>${c.daily_budget.toFixed(2)}/day</span>
+                    {c.ad_groups && (
+                      <span>{c.ad_groups.reduce((s, ag) => s + (ag.keywords?.length ?? 0), 0)} keywords</span>
+                    )}
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      )}
+    </div>
+  )
+}
+
 
 // ─── Change Log Panel ──────────────────────────────────────────────────────────
 

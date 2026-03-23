@@ -154,6 +154,9 @@ class PpcAutomationSettings(QueryModel, table=True):
     exploration_pct: float = Field(
         default=0.15, sa_column=Column(Float, nullable=False, server_default="0.15")
     )
+    # ── Phase 6: TACoS target mode ─────────────────────────────────────────
+    target_mode: str = Field(default="acos")  # 'acos' or 'tacos'
+    target_tacos: float | None = Field(default=None, sa_column=Column(Float, nullable=True))
     created_at: datetime = Field(default_factory=utcnow)
     updated_at: datetime = Field(default_factory=utcnow)
 
@@ -172,3 +175,45 @@ class PpcChangeLog(QueryModel, table=True):
     reason: str | None = None
     triggered_by: str = Field(default="system", index=True)  # system / manual
     created_at: datetime = Field(default_factory=utcnow, index=True)
+
+
+class PlacementRecommendation(QueryModel, table=True):
+    """Bid modifier recommendations per campaign × placement."""
+
+    __tablename__ = "placement_recommendations"  # pyright: ignore[reportAssignmentType]
+
+    id: UUID = Field(default_factory=uuid4, primary_key=True)
+    campaign_id: str = Field(index=True)
+    campaign_name: str | None = None
+    placement: str = Field(index=True)  # top_of_search / product_pages / rest_of_search
+    current_modifier_pct: float = Field(default=0.0, sa_column=Column(Float, nullable=False, server_default="0"))
+    recommended_modifier_pct: float | None = Field(default=None, sa_column=Column(Float, nullable=True))
+    placement_impressions: int = Field(default=0)
+    placement_clicks: int = Field(default=0)
+    placement_orders: int = Field(default=0)
+    placement_ctr: float | None = Field(default=None, sa_column=Column(Float, nullable=True))
+    placement_cvr: float | None = Field(default=None, sa_column=Column(Float, nullable=True))
+    placement_acos: float | None = Field(default=None, sa_column=Column(Float, nullable=True))
+    placement_roas: float | None = Field(default=None, sa_column=Column(Float, nullable=True))
+    campaign_avg_roas: float | None = Field(default=None, sa_column=Column(Float, nullable=True))
+    reason: str | None = None  # JSON
+    status: str = Field(default="pending", index=True)  # pending/applied/rejected
+    created_at: datetime = Field(default_factory=utcnow, index=True)
+    applied_at: datetime | None = None
+
+
+class CampaignPlan(QueryModel, table=True):
+    """Generated campaign structure plans for approval and execution."""
+
+    __tablename__ = "campaign_plans"  # pyright: ignore[reportAssignmentType]
+
+    id: UUID = Field(default_factory=uuid4, primary_key=True)
+    parent_asin: str = Field(index=True)
+    plan: str  # JSON — full campaign structure
+    campaign_count: int = Field(default=0)
+    total_daily_budget: float = Field(default=0.0, sa_column=Column(Float, nullable=False, server_default="0"))
+    status: str = Field(default="draft", index=True)  # draft/approved/applied/failed
+    created_at: datetime = Field(default_factory=utcnow, index=True)
+    approved_at: datetime | None = None
+    applied_at: datetime | None = None
+    applied_by: str | None = None
