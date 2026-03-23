@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from datetime import datetime
+from datetime import date, datetime
 from decimal import Decimal
 from typing import Any
 from uuid import UUID
@@ -43,6 +43,13 @@ class AutomationSettingsUpsert(BaseModel):
     dayparting_enabled: bool = False
     auto_negative_enabled: bool = False
     auto_keyword_enabled: bool = False
+    # v2 bid engine fields
+    damping_factor: float = 0.3
+    max_step_down_pct: float = 0.15
+    max_step_up_pct: float = 0.10
+    launch_mode: bool = False
+    launch_mode_until: date | None = None
+    exploration_pct: float = 0.15
 
 
 class ApplyBidRecsRequest(BaseModel):

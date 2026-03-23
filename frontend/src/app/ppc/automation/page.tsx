@@ -70,6 +70,34 @@ interface AutomationSettings {
   dayparting_enabled: boolean
   auto_negative_enabled: boolean
   auto_keyword_enabled: boolean
+  // v2 bid engine fields
+  damping_factor: number
+  max_step_down_pct: number
+  max_step_up_pct: number
+  launch_mode: boolean
+  launch_mode_until: string | null
+  exploration_pct: number
+}
+
+interface ReasonData {
+  tier: string
+  score: number
+  signals: {
+    acos_efficiency: number
+    conversion_trend: number
+    revenue_contribution: number
+    cpc_trend: number
+    impression_share: number
+  }
+  gap_pct: number
+  damping_factor: number
+  raw_step_pct: number
+  applied_step_pct: number
+  current_acos: number | null
+  target_acos: number
+  trend_7d_vs_14d_cvr: number | null
+  next_cycle_approx: number
+  bound_note?: string
 }
 
 // ─── Helpers ────────────────────────────────────────────────────────────────────
@@ -104,6 +132,83 @@ function StatusPill({ status }: { status: string }) {
     <span className={cn('inline-flex items-center rounded-full px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wider', STATUS_COLORS[status] ?? 'bg-slate-100 text-slate-500')}>
       {status}
     </span>
+  )
+}
+
+const TIER_CONFIG: Record<string, { label: string; cls: string; dot: string }> = {
+  star:   { label: 'STAR',   cls: 'bg-emerald-100 text-emerald-700 border border-emerald-200', dot: 'bg-emerald-500' },
+  stable: { label: 'STABLE', cls: 'bg-blue-100 text-blue-700 border border-blue-200',           dot: 'bg-blue-400' },
+  watch:  { label: 'WATCH',  cls: 'bg-amber-100 text-amber-700 border border-amber-200',         dot: 'bg-amber-500' },
+  drain:  { label: 'DRAIN',  cls: 'bg-rose-100 text-rose-700 border border-rose-200',             dot: 'bg-rose-500' },
+  sparse: { label: 'SPARSE', cls: 'bg-slate-100 text-slate-500 border border-slate-200',          dot: 'bg-slate-400' },
+}
+
+function TierBadge({ tier }: { tier: string | undefined }) {
+  if (!tier) return null
+  const cfg = TIER_CONFIG[tier] ?? { label: tier.toUpperCase(), cls: 'bg-slate-100 text-slate-500', dot: 'bg-slate-400' }
+  return (
+    <span className={cn('inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[10px] font-semibold', cfg.cls)}>
+      <span className={cn('h-1.5 w-1.5 rounded-full', cfg.dot)} />
+      {cfg.label}
+    </span>
+  )
+}
+
+function ScoreBar({ score }: { score: number }) {
+  const pct = Math.round(score * 100)
+  const color = pct >= 70 ? 'bg-emerald-500' : pct >= 40 ? 'bg-amber-500' : 'bg-rose-500'
+  return (
+    <div className="flex items-center gap-1.5">
+      <div className="h-1.5 w-16 rounded-full bg-slate-100">
+        <div className={cn('h-1.5 rounded-full', color)} style={{ width: `${pct}%` }} />
+      </div>
+      <span className="text-[10px] font-medium text-slate-500">{pct}</span>
+    </div>
+  )
+}
+
+function parseReason(reasonStr: string | null): ReasonData | null {
+  if (!reasonStr) return null
+  try { return JSON.parse(reasonStr) as ReasonData } catch { return null }
+}
+
+function SignalsPanel({ rd }: { rd: ReasonData }) {
+  const signals = [
+    { key: 'acos_efficiency', label: 'ACoS Eff.', weight: '30%', val: rd.signals.acos_efficiency },
+    { key: 'conversion_trend', label: 'Conv Trend', weight: '25%', val: rd.signals.conversion_trend },
+    { key: 'revenue_contribution', label: 'Rev. Share', weight: '20%', val: rd.signals.revenue_contribution },
+    { key: 'cpc_trend', label: 'CPC Trend', weight: '15%', val: rd.signals.cpc_trend },
+    { key: 'impression_share', label: 'Impr. Share', weight: '10%', val: rd.signals.impression_share },
+  ]
+  return (
+    <div className="rounded-lg bg-slate-50 border border-slate-100 p-3 text-xs space-y-2">
+      <div className="grid grid-cols-2 gap-x-4 gap-y-1 text-slate-500">
+        <span>Current ACoS: <strong className="text-slate-700">{rd.current_acos != null ? `${(rd.current_acos * 100).toFixed(1)}%` : '—'}</strong></span>
+        <span>Target ACoS: <strong className="text-slate-700">{(rd.target_acos * 100).toFixed(1)}%</strong></span>
+        <span>Gap: <strong className={rd.gap_pct > 0 ? 'text-rose-600' : 'text-emerald-600'}>{(rd.gap_pct * 100).toFixed(1)}%</strong></span>
+        <span>Applied step: <strong className="text-slate-700">{(rd.applied_step_pct * 100).toFixed(1)}%</strong></span>
+        {rd.trend_7d_vs_14d_cvr != null && (
+          <span>CVR trend 7d/14d: <strong className={rd.trend_7d_vs_14d_cvr >= 1 ? 'text-emerald-600' : 'text-rose-600'}>{rd.trend_7d_vs_14d_cvr.toFixed(2)}×</strong></span>
+        )}
+        <span>Next cycle est.: <strong className="text-slate-700">${rd.next_cycle_approx.toFixed(4)}</strong></span>
+      </div>
+      <div className="border-t border-slate-200 pt-2">
+        <p className="mb-1 font-semibold text-slate-600">Signal Scores</p>
+        {signals.map(({ key, label, weight, val }) => (
+          <div key={key} className="flex items-center gap-2 py-0.5">
+            <span className="w-28 text-slate-500">{label} <span className="text-slate-400">({weight})</span></span>
+            <div className="h-1.5 w-20 rounded-full bg-slate-200">
+              <div
+                className={cn('h-1.5 rounded-full', val >= 0.7 ? 'bg-emerald-500' : val >= 0.4 ? 'bg-amber-500' : 'bg-rose-500')}
+                style={{ width: `${Math.round(val * 100)}%` }}
+              />
+            </div>
+            <span className="text-slate-500">{Math.round(val * 100)}</span>
+          </div>
+        ))}
+      </div>
+      {rd.bound_note && <p className="text-amber-600">⚠ {rd.bound_note}</p>}
+    </div>
   )
 }
 
@@ -250,6 +355,7 @@ function RunOptimizerButton() {
 function BidRecommendationsTab() {
   const [statusFilter, setStatusFilter] = useState('pending')
   const [selected, setSelected] = useState<Set<string>>(new Set())
+  const [expanded, setExpanded] = useState<Set<string>>(new Set())
   const [sort, setSort] = useState<{ field: string; dir: 'asc' | 'desc' }>({ field: 'created_at', dir: 'desc' })
   const queryClient = useQueryClient()
 
@@ -343,52 +449,77 @@ function BidRecommendationsTab() {
         <table className="w-full text-sm">
           <thead className="bg-slate-50">
             <tr>
+              <th className="w-8 px-3 py-2" />
               <th className="px-3 py-2">
                 <input type="checkbox" checked={selected.size === items.length && items.length > 0} onChange={toggleAll} className="rounded" />
               </th>
+              <SortableHeader label="Tier" field="tier" sort={sort} onSort={handleSort} />
+              <SortableHeader label="Score" field="score" sort={sort} onSort={handleSort} />
               <SortableHeader label="Campaign" field="campaign_id" sort={sort} onSort={handleSort} />
               <SortableHeader label="Match" field="match_type" sort={sort} onSort={handleSort} />
               <SortableHeader label="Current Bid" field="current_bid" sort={sort} onSort={handleSort} />
               <SortableHeader label="Recommended" field="recommended_bid" sort={sort} onSort={handleSort} />
               <SortableHeader label="Change %" field="recommended_bid" sort={sort} onSort={handleSort} />
               <SortableHeader label="Conv Rate" field="conversion_rate" sort={sort} onSort={handleSort} />
-              <th className="px-3 py-2 text-left text-xs font-semibold uppercase tracking-wider text-slate-500">Reason</th>
               <SortableHeader label="Status" field="status" sort={sort} onSort={handleSort} />
             </tr>
           </thead>
           <tbody className="divide-y divide-slate-100">
             {isLoading ? (
-              <tr><td colSpan={9} className="px-3 py-8 text-center text-sm text-slate-400">Loading…</td></tr>
+              <tr><td colSpan={11} className="px-3 py-8 text-center text-sm text-slate-400">Loading…</td></tr>
             ) : sorted.length === 0 ? (
-              <tr><td colSpan={9} className="px-3 py-8 text-center text-sm text-slate-400">No recommendations</td></tr>
+              <tr><td colSpan={11} className="px-3 py-8 text-center text-sm text-slate-400">No recommendations</td></tr>
             ) : (
               sorted.map((rec) => {
                 const delta = changePct(rec.current_bid, rec.recommended_bid)
                 const isIncrease = delta > 0
+                const rd = parseReason(rec.reason)
+                const isExpanded = expanded.has(rec.id)
                 return (
-                  <tr key={rec.id} className="hover:bg-slate-50">
-                    <td className="px-3 py-2">
-                      <input
-                        type="checkbox"
-                        checked={selected.has(rec.id)}
-                        onChange={() => setSelected((s) => { const n = new Set(s); n.has(rec.id) ? n.delete(rec.id) : n.add(rec.id); return n })}
-                        className="rounded"
-                      />
-                    </td>
-                    <td className="max-w-[160px] truncate px-3 py-2 font-mono text-xs text-slate-600" title={rec.campaign_id}>{rec.campaign_id}</td>
-                    <td className="px-3 py-2 text-xs text-slate-500">{rec.match_type ?? '—'}</td>
-                    <td className="px-3 py-2 font-medium text-slate-700">{fmtUSD(rec.current_bid)}</td>
-                    <td className="px-3 py-2 font-medium text-slate-900">{fmtUSD(rec.recommended_bid)}</td>
-                    <td className="px-3 py-2">
-                      <span className={cn('inline-flex items-center gap-1 text-xs font-medium', isIncrease ? 'text-rose-600' : 'text-emerald-600')}>
-                        {isIncrease ? <TrendingUp className="h-3 w-3" /> : <TrendingDown className="h-3 w-3" />}
-                        {delta > 0 ? '+' : ''}{delta.toFixed(1)}%
-                      </span>
-                    </td>
-                    <td className="px-3 py-2 text-xs text-slate-500">{fmtPct(rec.conversion_rate)}</td>
-                    <td className="max-w-[280px] px-3 py-2 text-xs text-slate-500 truncate" title={rec.reason ?? ''}>{rec.reason ?? '—'}</td>
-                    <td className="px-3 py-2"><StatusPill status={rec.status} /></td>
-                  </tr>
+                  <React.Fragment key={rec.id}>
+                    <tr className="hover:bg-slate-50">
+                      <td className="px-3 py-2">
+                        <button
+                          onClick={() => setExpanded((s) => { const n = new Set(s); n.has(rec.id) ? n.delete(rec.id) : n.add(rec.id); return n })}
+                          className="text-slate-400 hover:text-slate-600"
+                        >
+                          {isExpanded ? <ChevronUp className="h-3.5 w-3.5" /> : <ChevronDown className="h-3.5 w-3.5" />}
+                        </button>
+                      </td>
+                      <td className="px-3 py-2">
+                        <input
+                          type="checkbox"
+                          checked={selected.has(rec.id)}
+                          onChange={() => setSelected((s) => { const n = new Set(s); n.has(rec.id) ? n.delete(rec.id) : n.add(rec.id); return n })}
+                          className="rounded"
+                        />
+                      </td>
+                      <td className="px-3 py-2"><TierBadge tier={rd?.tier} /></td>
+                      <td className="px-3 py-2">{rd ? <ScoreBar score={rd.score} /> : '—'}</td>
+                      <td className="max-w-[140px] truncate px-3 py-2 font-mono text-xs text-slate-600" title={rec.campaign_id}>{rec.campaign_id}</td>
+                      <td className="px-3 py-2 text-xs text-slate-500">{rec.match_type ?? '—'}</td>
+                      <td className="px-3 py-2 font-medium text-slate-700">{fmtUSD(rec.current_bid)}</td>
+                      <td className="px-3 py-2 font-medium text-slate-900">
+                        {fmtUSD(rec.recommended_bid)}
+                        {rd && <span className="ml-1 text-[10px] text-slate-400" title="Next cycle estimate">→~${rd.next_cycle_approx.toFixed(2)}</span>}
+                      </td>
+                      <td className="px-3 py-2">
+                        <span className={cn('inline-flex items-center gap-1 text-xs font-medium', isIncrease ? 'text-rose-600' : 'text-emerald-600')}>
+                          {isIncrease ? <TrendingUp className="h-3 w-3" /> : <TrendingDown className="h-3 w-3" />}
+                          {delta > 0 ? '+' : ''}{delta.toFixed(1)}%
+                        </span>
+                      </td>
+                      <td className="px-3 py-2 text-xs text-slate-500">{fmtPct(rec.conversion_rate)}</td>
+                      <td className="px-3 py-2"><StatusPill status={rec.status} /></td>
+                    </tr>
+                    {isExpanded && rd && (
+                      <tr>
+                        <td colSpan={11} className="bg-slate-50 px-6 pb-3 pt-0">
+                          <SignalsPanel rd={rd} />
+                        </td>
+                      </tr>
+                    )}
+                  </React.Fragment>
                 )
               })
             )}
@@ -588,6 +719,12 @@ function SettingsTab() {
     dayparting_enabled: false,
     auto_negative_enabled: false,
     auto_keyword_enabled: false,
+    damping_factor: 0.3,
+    max_step_down_pct: 0.15,
+    max_step_up_pct: 0.10,
+    launch_mode: false,
+    launch_mode_until: null,
+    exploration_pct: 0.15,
   })
 
   function handleLoad() {
@@ -600,6 +737,12 @@ function SettingsTab() {
         dayparting_enabled: data.dayparting_enabled,
         auto_negative_enabled: data.auto_negative_enabled,
         auto_keyword_enabled: data.auto_keyword_enabled,
+        damping_factor: data.damping_factor ?? 0.3,
+        max_step_down_pct: data.max_step_down_pct ?? 0.15,
+        max_step_up_pct: data.max_step_up_pct ?? 0.10,
+        launch_mode: data.launch_mode ?? false,
+        launch_mode_until: data.launch_mode_until ?? null,
+        exploration_pct: data.exploration_pct ?? 0.15,
       })
     }
   }
@@ -688,6 +831,94 @@ function SettingsTab() {
             className="w-full accent-blue-600"
           />
           <div className="flex justify-between text-[10px] text-slate-400"><span>5%</span><span>100%</span></div>
+        </div>
+
+        {/* ── v2 Bid Engine ── */}
+        <div className="border-t border-slate-100 pt-4">
+          <p className="mb-3 text-xs font-semibold uppercase tracking-wider text-slate-500">Intelligent Bid Engine v2</p>
+
+          <div className="space-y-4">
+            <div>
+              <label className="mb-1 block text-sm font-medium text-slate-700">
+                Damping Factor: <span className="font-normal text-blue-600">{form.damping_factor.toFixed(2)}</span>
+                <span className="ml-2 text-xs text-slate-400">— fraction of gap corrected per cycle</span>
+              </label>
+              <input
+                type="range" min={0.1} max={0.5} step={0.05}
+                value={form.damping_factor}
+                onChange={(e) => setForm((f) => ({ ...f, damping_factor: parseFloat(e.target.value) }))}
+                className="w-full accent-blue-600"
+              />
+              <div className="flex justify-between text-[10px] text-slate-400"><span>0.10 (gentle)</span><span>0.50 (aggressive)</span></div>
+            </div>
+
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <label className="mb-1 block text-xs font-medium text-slate-600">
+                  Max Step Down: <span className="text-rose-600">{(form.max_step_down_pct * 100).toFixed(0)}%</span>
+                </label>
+                <input
+                  type="range" min={5} max={30} step={1}
+                  value={form.max_step_down_pct * 100}
+                  onChange={(e) => setForm((f) => ({ ...f, max_step_down_pct: parseFloat(e.target.value) / 100 }))}
+                  className="w-full accent-rose-500"
+                />
+              </div>
+              <div>
+                <label className="mb-1 block text-xs font-medium text-slate-600">
+                  Max Step Up: <span className="text-emerald-600">{(form.max_step_up_pct * 100).toFixed(0)}%</span>
+                </label>
+                <input
+                  type="range" min={3} max={20} step={1}
+                  value={form.max_step_up_pct * 100}
+                  onChange={(e) => setForm((f) => ({ ...f, max_step_up_pct: parseFloat(e.target.value) / 100 }))}
+                  className="w-full accent-emerald-500"
+                />
+              </div>
+            </div>
+
+            <div>
+              <label className="mb-1 block text-sm font-medium text-slate-700">
+                Exploration Budget: <span className="font-normal text-blue-600">{(form.exploration_pct * 100).toFixed(0)}%</span>
+                <span className="ml-2 text-xs text-slate-400">— SPARSE keyword lifetime</span>
+              </label>
+              <input
+                type="range" min={5} max={40} step={5}
+                value={form.exploration_pct * 100}
+                onChange={(e) => setForm((f) => ({ ...f, exploration_pct: parseFloat(e.target.value) / 100 }))}
+                className="w-full accent-blue-600"
+              />
+              <div className="flex justify-between text-[10px] text-slate-400"><span>5%</span><span>40%</span></div>
+            </div>
+
+            {/* Launch Mode */}
+            <div className="rounded-lg border border-amber-200 bg-amber-50 p-3">
+              <label className="flex items-start gap-3 cursor-pointer">
+                <input
+                  type="checkbox"
+                  checked={form.launch_mode}
+                  onChange={(e) => setForm((f) => ({ ...f, launch_mode: e.target.checked }))}
+                  className="mt-0.5 rounded accent-amber-500"
+                />
+                <div className="flex-1">
+                  <p className="text-sm font-medium text-amber-800">Launch Mode</p>
+                  <p className="text-xs text-amber-600">Target ACoS relaxed ×1.5, max step-down capped at 5%/cycle</p>
+                </div>
+              </label>
+              {form.launch_mode && (
+                <div className="mt-2">
+                  <label className="mb-1 block text-xs font-medium text-amber-700">Expires on</label>
+                  <input
+                    type="date"
+                    value={form.launch_mode_until ?? ''}
+                    onChange={(e) => setForm((f) => ({ ...f, launch_mode_until: e.target.value || null }))}
+                    className="rounded-lg border border-amber-300 bg-white px-2 py-1 text-sm focus:outline-none focus:ring-2 focus:ring-amber-400"
+                  />
+                  <p className="mt-1 text-[10px] text-amber-500">Leave blank = never auto-expire</p>
+                </div>
+              )}
+            </div>
+          </div>
         </div>
 
         <div className="space-y-2 pt-2">

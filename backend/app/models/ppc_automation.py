@@ -7,7 +7,7 @@ from datetime import datetime
 from decimal import Decimal
 from uuid import UUID, uuid4
 
-from sqlalchemy import Column, Date, Numeric
+from sqlalchemy import Boolean, Column, Date, Float, Numeric
 from sqlmodel import Field
 
 from app.core.time import utcnow
@@ -114,6 +114,25 @@ class PpcAutomationSettings(QueryModel, table=True):
     dayparting_enabled: bool = Field(default=False)
     auto_negative_enabled: bool = Field(default=False)
     auto_keyword_enabled: bool = Field(default=False)
+    # ── v2 Intelligent Bid Engine fields ──────────────────────────────────
+    damping_factor: float = Field(
+        default=0.3, sa_column=Column(Float, nullable=False, server_default="0.3")
+    )
+    max_step_down_pct: float = Field(
+        default=0.15, sa_column=Column(Float, nullable=False, server_default="0.15")
+    )
+    max_step_up_pct: float = Field(
+        default=0.10, sa_column=Column(Float, nullable=False, server_default="0.10")
+    )
+    launch_mode: bool = Field(
+        default=False, sa_column=Column(Boolean, nullable=False, server_default="false")
+    )
+    launch_mode_until: date_type | None = Field(
+        default=None, sa_column=Column("launch_mode_until", Date(), nullable=True)
+    )
+    exploration_pct: float = Field(
+        default=0.15, sa_column=Column(Float, nullable=False, server_default="0.15")
+    )
     created_at: datetime = Field(default_factory=utcnow)
     updated_at: datetime = Field(default_factory=utcnow)
 

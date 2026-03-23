@@ -1,98 +1,111 @@
-"""Bid Optimization Engine — Phase 2.
+"""Bid Optimization Engine v2 — Phase 2.
 
-Core formula: Recommended Bid = ConversionRate × TargetACoS × AOV
+Multi-layer system:
+  Layer 1: Keyword Tier Classification (keyword_scorer.py)
+  Layer 2: Graduated Adjustment — only corrects a fraction of the ACoS gap per cycle
+  Layer 3: Trend-informed signals fed into scorer (trend_analyzer.py)
 
-Pulls keyword performance from search_term_reports + ad_metrics, applies
-Bayesian smoothing for sparse data, respects per-ASIN safety bounds from
-ppc_automation_settings, and inserts BidRecommendation rows.
+Graduated adjustment formula
+-----------------------------
+    gap = (current_acos - target_acos) / target_acos
+
+    if gap > 0:   # ACoS too high → decrease bid
+        step = min(gap × damping_factor, max_step_down_pct)
+        new_bid = current_bid × (1 − step)
+
+    if gap < 0:   # ACoS below target → increase bid (more conservative)
+        step = min(abs(gap) × damping_factor, max_step_up_pct)
+        new_bid = current_bid × (1 + step)
+
+Special handling
+-----------------
+- SPARSE keywords: never adjusted
+- DRAIN keywords: use max_step_down_pct directly (skip gap formula)
+- Launch mode: target ACoS relaxed ×1.5; max step-down capped at 5%
 """
 
 from __future__ import annotations
 
-import math
+import json
+from datetime import date
 from decimal import Decimal
 from typing import Any
 
 from sqlalchemy import func, text
-from sqlmodel import col, select
+from sqlmodel import select
 from sqlmodel.ext.asyncio.session import AsyncSession
 
 from app.core.logging import get_logger
 from app.core.time import utcnow
 from app.models.amazon_orders import AdMetric, SearchTermReport
 from app.models.ppc_automation import BidRecommendation, PpcAutomationSettings
+from app.services.keyword_scorer import KeywordTier, score_keyword
+from app.services.trend_analyzer import analyze_trends
 
 logger = get_logger(__name__)
 
-# ---------------------------------------------------------------------------
-# Constants
-# ---------------------------------------------------------------------------
-
-# Bayesian smoothing: below this click threshold we blend with the category avg
-_SPARSE_CLICK_THRESHOLD = 20
-# Category-wide prior conversion rate when no data exists
-_PRIOR_CONV_RATE = Decimal("0.08")  # 8% prior
-# Minimum allowed bid regardless of settings
 _ABSOLUTE_MIN_BID = Decimal("0.02")
-# Default AOV when no sales data is available
 _DEFAULT_AOV = Decimal("25.00")
 
 
 # ---------------------------------------------------------------------------
-# Helpers
+# Internal helpers
 # ---------------------------------------------------------------------------
 
 
-def _bayesian_conv_rate(clicks: int, orders: int, category_avg: Decimal) -> Decimal:
-    """Blend observed conversion rate with a category prior for sparse data.
-
-    Uses a Beta distribution prior equivalent: weight the category avg by
-    ``_SPARSE_CLICK_THRESHOLD`` pseudo-clicks before adding real observations.
-    """
-    prior_weight = _SPARSE_CLICK_THRESHOLD
-    prior_orders = float(category_avg) * prior_weight
-    blended = (prior_orders + orders) / (prior_weight + clicks) if (prior_weight + clicks) > 0 else float(category_avg)
-    return Decimal(str(round(blended, 6)))
+def _effective_target_acos(settings: PpcAutomationSettings) -> float:
+    base = float(settings.target_acos)
+    today = date.today()
+    if settings.launch_mode:
+        if settings.launch_mode_until is None or today <= settings.launch_mode_until:
+            return base * 1.5
+    return base
 
 
-def _clamp_bid(
-    recommended: Decimal,
-    current: Decimal,
+def _compute_step(
+    gap: float,
+    direction: str,
     settings: PpcAutomationSettings,
-) -> tuple[Decimal, str | None]:
-    """Apply safety bounds and return (final_bid, clamp_reason)."""
-    clamp_note: str | None = None
+    tier: KeywordTier,
+) -> float:
+    """Return signed fractional adjustment (+increase, −decrease). Returns 0 for no change."""
+    today = date.today()
+    in_launch = settings.launch_mode and (
+        settings.launch_mode_until is None or today <= settings.launch_mode_until
+    )
 
-    # 1. Maximum % change per cycle
-    max_change = current * settings.bid_change_limit_pct
-    if recommended > current + max_change:
-        recommended = current + max_change
-        clamp_note = f"capped at +{float(settings.bid_change_limit_pct) * 100:.0f}% change limit"
-    elif recommended < current - max_change:
-        recommended = current - max_change
-        clamp_note = f"floored at -{float(settings.bid_change_limit_pct) * 100:.0f}% change limit"
+    if direction == "decrease" or gap > 0:
+        if tier == KeywordTier.DRAIN:
+            step = settings.max_step_down_pct
+        else:
+            step = min(abs(gap) * settings.damping_factor, settings.max_step_down_pct)
+        if in_launch:
+            step = min(step, 0.05)
+        return -step
+    elif direction == "increase" or gap < 0:
+        step = min(abs(gap) * settings.damping_factor, settings.max_step_up_pct)
+        return step
+    return 0.0
 
-    # 2. Absolute min/max from settings
-    if recommended < settings.min_bid:
-        recommended = settings.min_bid
-        clamp_note = (clamp_note or "") + f" min_bid floor ${float(settings.min_bid):.2f}"
-    if recommended > settings.max_bid:
-        recommended = settings.max_bid
-        clamp_note = (clamp_note or "") + f" max_bid cap ${float(settings.max_bid):.2f}"
 
-    # 3. Absolute platform minimum
-    recommended = max(recommended, _ABSOLUTE_MIN_BID)
-
-    return recommended.quantize(Decimal("0.0001")), clamp_note
+def _apply_bounds(bid: Decimal, settings: PpcAutomationSettings) -> tuple[Decimal, str | None]:
+    note: str | None = None
+    if bid < settings.min_bid:
+        bid = settings.min_bid
+        note = f"min_bid floor ${float(settings.min_bid):.2f}"
+    if bid > settings.max_bid:
+        bid = settings.max_bid
+        note = f"max_bid cap ${float(settings.max_bid):.2f}"
+    bid = max(bid, _ABSOLUTE_MIN_BID)
+    return bid.quantize(Decimal("0.0001")), note
 
 
 # ---------------------------------------------------------------------------
-# Main service
+# DB helpers
 # ---------------------------------------------------------------------------
 
 
-async def _get_category_avg_conv_rate(session: AsyncSession) -> Decimal:
-    """Compute category-wide conversion rate from all search term data."""
+async def _get_category_avg_cvr(session: AsyncSession) -> float:
     result = await session.exec(
         select(
             func.sum(SearchTermReport.orders).label("total_orders"),
@@ -101,77 +114,81 @@ async def _get_category_avg_conv_rate(session: AsyncSession) -> Decimal:
     )
     row = result.first()
     if row and row.total_clicks and row.total_clicks > 0:
-        return Decimal(str(round(row.total_orders / row.total_clicks, 6)))
-    return _PRIOR_CONV_RATE
+        return round(row.total_orders / row.total_clicks, 6)
+    return 0.08
 
 
-async def _get_aov(session: AsyncSession, parent_asin: str | None) -> Decimal:
-    """Estimate AOV from AdMetric sales/orders for the given product.
+async def _get_total_revenue(session: AsyncSession) -> float:
+    result = await session.exec(select(func.sum(AdMetric.sales).label("total_sales")))
+    row = result.first()
+    return float(row.total_sales or 0) if row else 0.0
 
-    Falls back to global average, then to _DEFAULT_AOV.
-    """
-    query = select(
-        func.sum(AdMetric.sales).label("total_sales"),
-        func.sum(AdMetric.orders).label("total_orders"),
+
+async def _get_aov(session: AsyncSession) -> Decimal:
+    result = await session.exec(
+        select(
+            func.sum(AdMetric.sales).label("total_sales"),
+            func.sum(AdMetric.orders).label("total_orders"),
+        )
     )
-    if parent_asin:
-        # We don't have parent_asin on ad_metrics directly — use campaign lookup
-        # For now, use global AOV as campaigns don't map 1:1 to parent_asin here
-        pass
-
-    result = await session.exec(query)
     row = result.first()
     if row and row.total_orders and row.total_orders > 0 and row.total_sales:
-        aov = Decimal(str(row.total_sales)) / Decimal(str(row.total_orders))
-        return aov.quantize(Decimal("0.01"))
+        return (Decimal(str(row.total_sales)) / Decimal(str(row.total_orders))).quantize(Decimal("0.01"))
     return _DEFAULT_AOV
 
 
-async def _get_settings(
-    session: AsyncSession, parent_asin: str | None
-) -> PpcAutomationSettings | None:
-    """Return automation settings for a specific ASIN, or the first available."""
+async def _get_settings(session: AsyncSession, parent_asin: str | None) -> PpcAutomationSettings | None:
     if parent_asin:
         result = await session.exec(
             select(PpcAutomationSettings).where(PpcAutomationSettings.parent_asin == parent_asin)
         )
         return result.first()
-    # Fall back to first available settings
     result = await session.exec(select(PpcAutomationSettings).limit(1))
     return result.first()
+
+
+async def _get_max_impressions(session: AsyncSession) -> int:
+    stmt = text("""
+        SELECT MAX(sub.ti) AS max_impr
+        FROM (
+            SELECT SUM(impressions) AS ti
+            FROM search_term_reports
+            WHERE keyword IS NOT NULL
+            GROUP BY keyword
+        ) sub
+    """)
+    result = (await session.exec(stmt)).first()  # type: ignore[arg-type]
+    return int(result.max_impr or 1) if result and result.max_impr else 1
+
+
+# ---------------------------------------------------------------------------
+# Main public API
+# ---------------------------------------------------------------------------
 
 
 async def generate_bid_recommendations(
     session: AsyncSession,
     parent_asin: str | None = None,
 ) -> list[dict[str, Any]]:
-    """Generate BidRecommendation rows for all active keywords.
-
-    Steps:
-    1. Pull aggregated keyword performance from search_term_reports
-    2. Apply Bayesian smoothing for keywords with < 20 clicks
-    3. Compute: recommended_bid = conv_rate × target_acos × aov
-    4. Clamp to safety bounds from settings
-    5. Only create recommendations where |change| >= 1% or new bid differs from current
-    6. Persist to bid_recommendations (skip duplicates for today)
-
-    Returns list of summary dicts for the caller.
-    """
+    """Generate v2 BidRecommendation rows using tier scoring + graduated adjustment."""
     settings = await _get_settings(session, parent_asin)
     if settings is None:
-        logger.warning("bid_optimizer: no automation settings found, skipping")
+        logger.warning("bid_optimizer_v2: no automation settings found, skipping")
         return []
 
-    category_avg = await _get_category_avg_conv_rate(session)
-    aov = await _get_aov(session, parent_asin)
+    eff_target_acos = _effective_target_acos(settings)
+    category_avg_cvr = await _get_category_avg_cvr(session)
+    total_revenue = await _get_total_revenue(session)
+    max_impr = await _get_max_impressions(session)
+    aov = await _get_aov(session)
 
     logger.info(
-        "bid_optimizer: category_avg_conv=%.4f aov=$%.2f target_acos=%.4f",
-        float(category_avg), float(aov), float(settings.target_acos),
+        "bid_optimizer_v2: target_acos=%.4f (eff=%.4f) damping=%.2f max_down=%.2f max_up=%.2f launch=%s",
+        float(settings.target_acos), eff_target_acos,
+        settings.damping_factor, settings.max_step_down_pct, settings.max_step_up_pct,
+        settings.launch_mode,
     )
 
-    # Aggregate clicks/orders/spend per keyword across all periods
-    # Group by campaign_id + keyword/targeting so we have one row per keyword
     stmt = text("""
         SELECT
             campaign_id,
@@ -180,8 +197,9 @@ async def generate_bid_recommendations(
             match_type,
             SUM(clicks)      AS total_clicks,
             SUM(orders)      AS total_orders,
+            SUM(impressions) AS total_impr,
             SUM(spend)       AS total_spend,
-            COUNT(*)         AS row_count
+            SUM(sales)       AS total_sales
         FROM search_term_reports
         WHERE keyword IS NOT NULL
           AND campaign_id IS NOT NULL
@@ -193,7 +211,6 @@ async def generate_bid_recommendations(
     rows = (await session.exec(stmt)).all()  # type: ignore[arg-type]
 
     created: list[dict[str, Any]] = []
-    today_str = utcnow().date().isoformat()
 
     for row in rows:
         campaign_id = row.campaign_id
@@ -202,31 +219,68 @@ async def generate_bid_recommendations(
         match_type = row.match_type or "broad"
         clicks = int(row.total_clicks or 0)
         orders = int(row.total_orders or 0)
-        total_spend = Decimal(str(row.total_spend or 0))
+        spend = float(row.total_spend or 0)
+        sales = float(row.total_sales or 0)
+        impressions = int(row.total_impr or 0)
 
         if clicks == 0:
             continue
 
-        # Bayesian conversion rate
-        conv_rate = _bayesian_conv_rate(clicks, orders, category_avg)
+        # Trend signals
+        cvr_recent = cvr_prior = cpc_recent = cpc_prior = None
+        cvr_trend_ratio = None
+        try:
+            trend = await analyze_trends(session, keyword_text, campaign_id=campaign_id)
+            cvr_recent = trend.w7.cvr
+            cvr_prior = trend.w14.cvr
+            cpc_recent = trend.w7.cpc
+            cpc_prior = trend.w14.cpc
+            cvr_trend_ratio = trend.cvr_trend_7v14
+        except Exception:  # noqa: BLE001
+            pass
 
-        # Core formula
-        raw_recommended = conv_rate * settings.target_acos * aov
+        # Score + tier
+        scored = score_keyword(
+            clicks=clicks,
+            orders=orders,
+            spend=spend,
+            sales=sales,
+            target_acos=eff_target_acos,
+            category_avg_cvr=category_avg_cvr,
+            total_revenue=total_revenue,
+            cvr_recent=cvr_recent,
+            cvr_prior=cvr_prior,
+            cpc_recent=cpc_recent,
+            cpc_prior=cpc_prior,
+            impressions_recent=impressions,
+            max_impressions_in_set=max_impr,
+        )
 
-        # Derive current bid as CPC proxy (spend / clicks)
-        current_bid = (total_spend / clicks).quantize(Decimal("0.0001")) if clicks > 0 else Decimal("0.50")
+        # SPARSE → skip (never adjust)
+        if scored.tier == KeywordTier.SPARSE:
+            continue
+
+        # Current bid proxy
+        current_bid = Decimal(str(round(spend / clicks, 4))) if clicks > 0 else Decimal("0.50")
         current_bid = max(current_bid, _ABSOLUTE_MIN_BID)
 
-        # Clamp
-        recommended_bid, clamp_note = _clamp_bid(raw_recommended, current_bid, settings)
+        # Gap (using effective target)
+        current_acos: float | None = spend / sales if sales > 0 else None
+        gap = (current_acos - eff_target_acos) / eff_target_acos if current_acos else (1.0 if orders == 0 else 0.0)
 
-        # Skip if change is trivial (< 1%)
-        if current_bid > 0:
-            change_pct = abs(float(recommended_bid - current_bid) / float(current_bid))
-            if change_pct < 0.01:
-                continue
+        step_frac = _compute_step(gap, scored.direction, settings, scored.tier)
+        if step_frac == 0.0:
+            continue
 
-        # Skip if we already have a pending recommendation for this keyword today
+        raw_recommended = float(current_bid) * (1.0 + step_frac)
+        recommended_bid = Decimal(str(round(raw_recommended, 4)))
+        recommended_bid, bound_note = _apply_bounds(recommended_bid, settings)
+
+        # Skip trivial changes < 1%
+        if float(current_bid) > 0 and abs(float(recommended_bid - current_bid) / float(current_bid)) < 0.01:
+            continue
+
+        # Skip if pending rec exists for this keyword
         existing = await session.exec(
             select(BidRecommendation)
             .where(BidRecommendation.campaign_id == campaign_id)
@@ -236,23 +290,41 @@ async def generate_bid_recommendations(
         if existing.first() is not None:
             continue
 
-        reason_parts = [
-            f"Conv {float(conv_rate) * 100:.1f}% × ACoS {float(settings.target_acos) * 100:.0f}% × AOV ${float(aov):.2f} = ${float(raw_recommended):.4f}",
-        ]
-        if clamp_note:
-            reason_parts.append(f"({clamp_note})")
+        # Rich reason JSON
+        next_cycle_approx = float(recommended_bid) * (1.0 + step_frac)
+        reason_data: dict[str, Any] = {
+            "tier": scored.tier.value,
+            "score": scored.score,
+            "signals": {
+                "acos_efficiency": round(scored.signals.acos_efficiency, 4),
+                "conversion_trend": round(scored.signals.conversion_trend, 4),
+                "revenue_contribution": round(scored.signals.revenue_contribution, 4),
+                "cpc_trend": round(scored.signals.cpc_trend, 4),
+                "impression_share": round(scored.signals.impression_share, 4),
+            },
+            "gap_pct": round(gap, 4),
+            "damping_factor": settings.damping_factor,
+            "raw_step_pct": round(abs(step_frac), 4),
+            "applied_step_pct": round(abs(step_frac), 4),
+            "current_acos": round(current_acos, 4) if current_acos is not None else None,
+            "target_acos": round(eff_target_acos, 4),
+            "trend_7d_vs_14d_cvr": round(cvr_trend_ratio, 4) if cvr_trend_ratio is not None else None,
+            "next_cycle_approx": round(next_cycle_approx, 4),
+        }
+        if bound_note:
+            reason_data["bound_note"] = bound_note
 
         rec = BidRecommendation(
             campaign_id=campaign_id,
             ad_group_id=ad_group_id,
-            keyword_id=None,  # keyword_id not stored in search_term_reports
+            keyword_id=None,
             match_type=match_type,
             current_bid=current_bid,
             recommended_bid=recommended_bid,
-            conversion_rate=conv_rate,
+            conversion_rate=Decimal(str(round(orders / clicks, 6))) if clicks > 0 else None,
             target_acos=settings.target_acos,
             aov=aov,
-            reason=" ".join(reason_parts),
+            reason=json.dumps(reason_data),
             status="pending",
             created_at=utcnow(),
         )
@@ -261,10 +333,20 @@ async def generate_bid_recommendations(
             "campaign_id": campaign_id,
             "keyword": keyword_text,
             "match_type": match_type,
+            "tier": scored.tier.value,
+            "score": scored.score,
             "current_bid": float(current_bid),
             "recommended_bid": float(recommended_bid),
+            "step_pct": round(step_frac * 100, 2),
         })
 
     await session.commit()
-    logger.info("bid_optimizer: created %d bid recommendations", len(created))
+    logger.info(
+        "bid_optimizer_v2: created %d recs (star=%d stable=%d watch=%d drain=%d)",
+        len(created),
+        sum(1 for r in created if r.get("tier") == "star"),
+        sum(1 for r in created if r.get("tier") == "stable"),
+        sum(1 for r in created if r.get("tier") == "watch"),
+        sum(1 for r in created if r.get("tier") == "drain"),
+    )
     return created
