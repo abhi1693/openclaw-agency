@@ -97,22 +97,39 @@ def _is_sns_subscription_confirmation(raw_body: str) -> tuple[bool, str]:
 
 
 def _parse_metric_record(payload: dict[str, Any], dataset_id: str) -> HourlyCampaignMetric | None:
-    """Map a raw AMS payload dict to a HourlyCampaignMetric.  Returns None if unparseable."""
+    """Map a raw AMS payload dict to a HourlyCampaignMetric.  Returns None if unparseable.
+
+    AMS sp-traffic/sp-conversion payloads use snake_case keys:
+      time_window_start, campaign_id, ad_group_id, keyword_id,
+      placement, impressions, clicks, cost, match_type
+    """
     try:
-        raw_date = payload.get("date") or payload.get("eventDate")
-        if not raw_date:
-            return None
-        report_date = date_type.fromisoformat(str(raw_date))
-        hour = int(payload.get("hour", 0))
-        campaign_id = str(payload.get("campaignId", ""))
+        # Parse date + hour from time_window_start (ISO: "2026-03-23T17:00:00Z")
+        # Fallback to legacy "date"/"eventDate" keys
+        time_start = payload.get("time_window_start")
+        if time_start:
+            dt = datetime.fromisoformat(str(time_start).replace("Z", "+00:00"))
+            report_date = dt.date()
+            hour = dt.hour
+        else:
+            raw_date = payload.get("date") or payload.get("eventDate")
+            if not raw_date:
+                return None
+            report_date = date_type.fromisoformat(str(raw_date))
+            hour = int(payload.get("hour", 0))
+
+        # AMS uses snake_case; legacy uses camelCase
+        campaign_id = str(
+            payload.get("campaign_id") or payload.get("campaignId") or ""
+        )
         if not campaign_id:
             return None
 
         metric = HourlyCampaignMetric(
             campaign_id=campaign_id,
-            ad_group_id=payload.get("adGroupId"),
-            keyword_id=payload.get("keywordId"),
-            match_type=payload.get("matchType"),
+            ad_group_id=str(payload.get("ad_group_id") or payload.get("adGroupId") or ""),
+            keyword_id=str(payload.get("keyword_id") or payload.get("keywordId") or ""),
+            match_type=payload.get("match_type") or payload.get("matchType"),
             report_date=report_date,
             hour=hour,
             impressions=int(payload.get("impressions", 0)),
