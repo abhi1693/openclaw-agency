@@ -225,13 +225,25 @@ interface ReasonData {
 
 // ─── Helpers ────────────────────────────────────────────────────────────────────
 
-function fmtUSD(n: number) {
-  return `$${n.toFixed(2)}`
+function fmtUSD(n: number | string | null | undefined) {
+  if (n == null) return '—'
+  const v = typeof n === 'string' ? parseFloat(n) : n
+  if (isNaN(v)) return '—'
+  return `$${v.toFixed(2)}`
 }
 
-function fmtPct(n: number | null | undefined) {
+function fmtPct(n: number | string | null | undefined) {
   if (n == null) return '—'
-  return `${(n * 100).toFixed(1)}%`
+  const v = typeof n === 'string' ? parseFloat(n) : n
+  if (isNaN(v)) return '—'
+  return `${(v * 100).toFixed(1)}%`
+}
+
+/** Safe Number coercion — all backend decimals may arrive as strings */
+function N(v: unknown): number {
+  if (v == null) return 0
+  const n = typeof v === 'string' ? parseFloat(v) : Number(v)
+  return isNaN(n) ? 0 : n
 }
 
 function fmtDate(iso: string) {
@@ -327,7 +339,7 @@ function EvidencePanel({ ev, isPattern }: { ev: EvidenceData; isPattern?: boolea
         <div className="grid grid-cols-2 gap-x-4 gap-y-1 text-rose-700">
           <span>Pattern root: <strong>{ev.pattern_root}</strong></span>
           <span>Terms in cluster: <strong>{ev.term_count}</strong></span>
-          <span>Total wasted spend: <strong>${ev.total_spend?.toFixed(2)}</strong></span>
+          <span>Total wasted spend: <strong>${N(ev.total_spend).toFixed(2)}</strong></span>
           <span>Total clicks: <strong>{ev.total_clicks}</strong></span>
         </div>
         {ev.matched_terms && ev.matched_terms.length > 0 && (
@@ -350,12 +362,12 @@ function EvidencePanel({ ev, isPattern }: { ev: EvidenceData; isPattern?: boolea
         {ev.campaign_name && <span>Campaign: <strong className="text-slate-700">{ev.campaign_name}</strong></span>}
         {ev.clicks != null && <span>Clicks: <strong className="text-slate-700">{ev.clicks}</strong></span>}
         {ev.orders != null && <span>Orders: <strong className={ev.orders > 0 ? 'text-emerald-600' : 'text-rose-600'}>{ev.orders}</strong></span>}
-        {ev.spend != null && <span>Spend: <strong className="text-slate-700">${ev.spend.toFixed(2)}</strong></span>}
-        {ev.sales != null && <span>Sales: <strong className="text-slate-700">${ev.sales.toFixed(2)}</strong></span>}
-        {ev.cvr != null && <span>CVR: <strong className="text-slate-700">{(ev.cvr * 100).toFixed(2)}%</strong></span>}
-        {ev.ctr != null && <span>CTR: <strong className="text-slate-700">{(ev.ctr * 100).toFixed(3)}%</strong></span>}
-        {ev.category_avg_ctr != null && <span>Cat avg CTR: <strong className="text-slate-500">{(ev.category_avg_ctr * 100).toFixed(3)}%</strong></span>}
-        {ev.category_avg_cvr != null && <span>Cat avg CVR: <strong className="text-slate-500">{(ev.category_avg_cvr * 100).toFixed(2)}%</strong></span>}
+        {ev.spend != null && <span>Spend: <strong className="text-slate-700">${N(ev.spend).toFixed(2)}</strong></span>}
+        {ev.sales != null && <span>Sales: <strong className="text-slate-700">${N(ev.sales).toFixed(2)}</strong></span>}
+        {ev.cvr != null && <span>CVR: <strong className="text-slate-700">{(N(ev.cvr) * 100).toFixed(2)}%</strong></span>}
+        {ev.ctr != null && <span>CTR: <strong className="text-slate-700">{(N(ev.ctr) * 100).toFixed(3)}%</strong></span>}
+        {ev.category_avg_ctr != null && <span>Cat avg CTR: <strong className="text-slate-500">{(N(ev.category_avg_ctr) * 100).toFixed(3)}%</strong></span>}
+        {ev.category_avg_cvr != null && <span>Cat avg CVR: <strong className="text-slate-500">{(N(ev.category_avg_cvr) * 100).toFixed(2)}%</strong></span>}
       </div>
     </div>
   )
@@ -390,14 +402,14 @@ function SignalsPanel({ rd }: { rd: ReasonData }) {
   return (
     <div className="rounded-lg bg-slate-50 border border-slate-100 p-3 text-xs space-y-2">
       <div className="grid grid-cols-2 gap-x-4 gap-y-1 text-slate-500">
-        <span>Current ACoS: <strong className="text-slate-700">{rd.current_acos != null ? `${(rd.current_acos * 100).toFixed(1)}%` : '—'}</strong></span>
-        <span>Target ACoS: <strong className="text-slate-700">{(rd.target_acos * 100).toFixed(1)}%</strong></span>
-        <span>Gap: <strong className={rd.gap_pct > 0 ? 'text-rose-600' : 'text-emerald-600'}>{(rd.gap_pct * 100).toFixed(1)}%</strong></span>
-        <span>Applied step: <strong className="text-slate-700">{(rd.applied_step_pct * 100).toFixed(1)}%</strong></span>
+        <span>Current ACoS: <strong className="text-slate-700">{rd.current_acos != null ? `${(N(rd.current_acos) * 100).toFixed(1)}%` : '—'}</strong></span>
+        <span>Target ACoS: <strong className="text-slate-700">{(N(rd.target_acos) * 100).toFixed(1)}%</strong></span>
+        <span>Gap: <strong className={rd.gap_pct > 0 ? 'text-rose-600' : 'text-emerald-600'}>{(N(rd.gap_pct) * 100).toFixed(1)}%</strong></span>
+        <span>Applied step: <strong className="text-slate-700">{(N(rd.applied_step_pct) * 100).toFixed(1)}%</strong></span>
         {rd.trend_7d_vs_14d_cvr != null && (
-          <span>CVR trend 7d/14d: <strong className={rd.trend_7d_vs_14d_cvr >= 1 ? 'text-emerald-600' : 'text-rose-600'}>{rd.trend_7d_vs_14d_cvr.toFixed(2)}×</strong></span>
+          <span>CVR trend 7d/14d: <strong className={rd.trend_7d_vs_14d_cvr >= 1 ? 'text-emerald-600' : 'text-rose-600'}>{N(rd.trend_7d_vs_14d_cvr).toFixed(2)}×</strong></span>
         )}
-        <span>Next cycle est.: <strong className="text-slate-700">${rd.next_cycle_approx.toFixed(4)}</strong></span>
+        <span>Next cycle est.: <strong className="text-slate-700">${N(rd.next_cycle_approx).toFixed(4)}</strong></span>
       </div>
       <div className="border-t border-slate-200 pt-2">
         <p className="mb-1 font-semibold text-slate-600">Signal Scores</p>
@@ -716,12 +728,12 @@ function BidRecommendationsTab() {
                       <td className="px-3 py-2 font-medium text-slate-700">{fmtUSD(rec.current_bid)}</td>
                       <td className="px-3 py-2 font-medium text-slate-900">
                         {fmtUSD(rec.recommended_bid)}
-                        {rd && <span className="ml-1 text-[10px] text-slate-400" title="Next cycle estimate">→~${rd.next_cycle_approx.toFixed(2)}</span>}
+                        {rd && <span className="ml-1 text-[10px] text-slate-400" title="Next cycle estimate">→~${N(rd.next_cycle_approx).toFixed(2)}</span>}
                       </td>
                       <td className="px-3 py-2">
                         <span className={cn('inline-flex items-center gap-1 text-xs font-medium', isIncrease ? 'text-rose-600' : 'text-emerald-600')}>
                           {isIncrease ? <TrendingUp className="h-3 w-3" /> : <TrendingDown className="h-3 w-3" />}
-                          {delta > 0 ? '+' : ''}{delta.toFixed(1)}%
+                          {delta > 0 ? '+' : ''}{N(delta).toFixed(1)}%
                         </span>
                       </td>
                       <td className="px-3 py-2 text-xs text-slate-500">{fmtPct(rec.conversion_rate)}</td>
@@ -1004,7 +1016,7 @@ function KeywordRecommendationsTab() {
                           <ConfidenceBadge confidence={rec.confidence} />
                         </div>
                         <div className="flex items-center gap-3 text-xs text-rose-600">
-                          {ev && <span>{ev.term_count} terms · ${ev.total_spend?.toFixed(2)} wasted</span>}
+                          {ev && <span>{ev.term_count} terms · ${N(ev.total_spend).toFixed(2)} wasted</span>}
                           <StatusPill status={rec.status} />
                           {rec.status === 'pending' && (
                             <button
@@ -1053,7 +1065,7 @@ const AD_TYPE_LABELS: Record<string, string> = {
 function RoasBadge({ roas }: { roas: number | null }) {
   if (roas == null) return <span className="text-slate-400 text-xs">—</span>
   const cls = roas >= 3 ? 'bg-emerald-100 text-emerald-700' : roas >= 2 ? 'bg-amber-100 text-amber-700' : 'bg-rose-100 text-rose-700'
-  return <span className={cn('inline-flex items-center rounded-full px-1.5 py-0.5 text-[10px] font-semibold', cls)}>{roas.toFixed(1)}×</span>
+  return <span className={cn('inline-flex items-center rounded-full px-1.5 py-0.5 text-[10px] font-semibold', cls)}>{N(roas).toFixed(1)}×</span>
 }
 
 function TrendIcon({ trend }: { trend: string }) {
@@ -1071,7 +1083,7 @@ function UtilBar({ util }: { util: number | null }) {
       <div className="h-1.5 w-14 rounded-full bg-slate-100">
         <div className={cn('h-1.5 rounded-full', color)} style={{ width: `${pct}%` }} />
       </div>
-      <span className="text-[10px] text-slate-500">{(util * 100).toFixed(0)}%</span>
+      <span className="text-[10px] text-slate-500">{(N(util) * 100).toFixed(0)}%</span>
     </div>
   )
 }
@@ -1147,7 +1159,7 @@ function BudgetAllocationCard({ alloc, onApply, onReject, onEdit, isPending }: {
       <div className="flex items-center justify-between border-b border-slate-100 px-5 py-3">
         <div>
           <p className="text-sm font-semibold text-slate-800 font-mono">{alloc.parent_asin}</p>
-          <p className="text-xs text-slate-400">{alloc.alloc_date} · Daily budget: <strong className="text-slate-600">${Number(alloc.total_daily_budget).toFixed(2)}</strong></p>
+          <p className="text-xs text-slate-400">{alloc.alloc_date} · Daily budget: <strong className="text-slate-600">${N(alloc.total_daily_budget).toFixed(2)}</strong></p>
         </div>
         <StatusPill status={alloc.status} />
       </div>
@@ -1291,7 +1303,7 @@ function ManualEditModal({ alloc, onClose, onSave }: {
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40">
       <div className="w-96 rounded-xl border border-slate-200 bg-white p-6 shadow-xl">
         <h3 className="mb-1 text-sm font-semibold text-slate-800">Manual Budget Override</h3>
-        <p className="mb-4 text-xs text-slate-400 font-mono">{alloc.parent_asin} · ${Number(alloc.total_daily_budget).toFixed(2)}/day</p>
+        <p className="mb-4 text-xs text-slate-400 font-mono">{alloc.parent_asin} · ${N(alloc.total_daily_budget).toFixed(2)}/day</p>
 
         <div className="space-y-4">
           {(['sp', 'sb', 'sd', 'sbv'] as const).map((t) => (
@@ -1409,7 +1421,7 @@ function BudgetAllocationTab() {
           <span className="text-xs text-slate-400">{items.length} allocations</span>
           {totalBudget > 0 && (
             <span className="text-xs font-medium text-slate-600">
-              Total budget: <strong>${totalBudget.toFixed(2)}/day</strong>
+              Total budget: <strong>${N(totalBudget).toFixed(2)}/day</strong>
             </span>
           )}
           {roasAll != null && (
@@ -1596,7 +1608,7 @@ function SettingsTab() {
       <div className="space-y-4">
         <div>
           <label className="mb-1 block text-sm font-medium text-slate-700">
-            Target ACoS: <span className="font-normal text-blue-600">{(form.target_acos * 100).toFixed(0)}%</span>
+            Target ACoS: <span className="font-normal text-blue-600">{(N(form.target_acos) * 100).toFixed(0)}%</span>
           </label>
           <input
             type="range" min={1} max={100} step={1}
@@ -1620,7 +1632,7 @@ function SettingsTab() {
 
         <div>
           <label className="mb-1 block text-sm font-medium text-slate-700">
-            Max Bid Change per Cycle: <span className="font-normal text-blue-600">{(form.bid_change_limit_pct * 100).toFixed(0)}%</span>
+            Max Bid Change per Cycle: <span className="font-normal text-blue-600">{(N(form.bid_change_limit_pct) * 100).toFixed(0)}%</span>
           </label>
           <input
             type="range" min={5} max={100} step={5}
@@ -1638,7 +1650,7 @@ function SettingsTab() {
           <div className="space-y-4">
             <div>
               <label className="mb-1 block text-sm font-medium text-slate-700">
-                Damping Factor: <span className="font-normal text-blue-600">{form.damping_factor.toFixed(2)}</span>
+                Damping Factor: <span className="font-normal text-blue-600">{N(form.damping_factor).toFixed(2)}</span>
                 <span className="ml-2 text-xs text-slate-400">— fraction of gap corrected per cycle</span>
               </label>
               <input
@@ -1653,7 +1665,7 @@ function SettingsTab() {
             <div className="grid grid-cols-2 gap-4">
               <div>
                 <label className="mb-1 block text-xs font-medium text-slate-600">
-                  Max Step Down: <span className="text-rose-600">{(form.max_step_down_pct * 100).toFixed(0)}%</span>
+                  Max Step Down: <span className="text-rose-600">{(N(form.max_step_down_pct) * 100).toFixed(0)}%</span>
                 </label>
                 <input
                   type="range" min={5} max={30} step={1}
@@ -1664,7 +1676,7 @@ function SettingsTab() {
               </div>
               <div>
                 <label className="mb-1 block text-xs font-medium text-slate-600">
-                  Max Step Up: <span className="text-emerald-600">{(form.max_step_up_pct * 100).toFixed(0)}%</span>
+                  Max Step Up: <span className="text-emerald-600">{(N(form.max_step_up_pct) * 100).toFixed(0)}%</span>
                 </label>
                 <input
                   type="range" min={3} max={20} step={1}
@@ -1677,7 +1689,7 @@ function SettingsTab() {
 
             <div>
               <label className="mb-1 block text-sm font-medium text-slate-700">
-                Exploration Budget: <span className="font-normal text-blue-600">{(form.exploration_pct * 100).toFixed(0)}%</span>
+                Exploration Budget: <span className="font-normal text-blue-600">{(N(form.exploration_pct) * 100).toFixed(0)}%</span>
                 <span className="ml-2 text-xs text-slate-400">— SPARSE keyword lifetime</span>
               </label>
               <input
@@ -1877,15 +1889,15 @@ function PlacementsTab() {
         <div className="rounded-xl border border-indigo-200 bg-indigo-50 px-4 py-3 flex flex-wrap gap-6">
           <div>
             <p className="text-[10px] font-semibold uppercase tracking-wider text-indigo-400">TACoS (30d)</p>
-            <p className="text-lg font-bold text-indigo-700">{tacosData.tacos != null ? `${(tacosData.tacos * 100).toFixed(1)}%` : '—'}</p>
+            <p className="text-lg font-bold text-indigo-700">{tacosData.tacos != null ? `${(N(tacosData.tacos) * 100).toFixed(1)}%` : '—'}</p>
           </div>
           <div>
             <p className="text-[10px] font-semibold uppercase tracking-wider text-indigo-400">ACoS</p>
-            <p className="text-lg font-bold text-indigo-700">{tacosData.acos != null ? `${(tacosData.acos * 100).toFixed(1)}%` : '—'}</p>
+            <p className="text-lg font-bold text-indigo-700">{tacosData.acos != null ? `${(N(tacosData.acos) * 100).toFixed(1)}%` : '—'}</p>
           </div>
           <div>
             <p className="text-[10px] font-semibold uppercase tracking-wider text-indigo-400">Organic %</p>
-            <p className="text-lg font-bold text-indigo-700">{(tacosData.organic_pct * 100).toFixed(0)}%</p>
+            <p className="text-lg font-bold text-indigo-700">{(N(tacosData.organic_pct) * 100).toFixed(0)}%</p>
           </div>
           <div>
             <p className="text-[10px] font-semibold uppercase tracking-wider text-indigo-400">Total Revenue</p>
@@ -1980,16 +1992,16 @@ function PlacementsTab() {
                           )}
                         </div>
                         <div className="grid grid-cols-2 gap-x-2 text-xs text-slate-600">
-                          <span>Est. ROAS: <strong className="text-slate-800">{roas != null ? roas.toFixed(2) : '—'}×</strong></span>
-                          <span>Ratio: <strong className={cn(ratio != null && ratio >= 1.2 ? 'text-emerald-600' : ratio != null && ratio <= 0.5 ? 'text-rose-600' : 'text-slate-700')}>{ratio != null ? ratio.toFixed(2) : '—'}×</strong></span>
+                          <span>Est. ROAS: <strong className="text-slate-800">{roas != null ? N(roas).toFixed(2) : '—'}×</strong></span>
+                          <span>Ratio: <strong className={cn(ratio != null && ratio >= 1.2 ? 'text-emerald-600' : ratio != null && ratio <= 0.5 ? 'text-rose-600' : 'text-slate-700')}>{ratio != null ? N(ratio).toFixed(2) : '—'}×</strong></span>
                           <span>Clicks (est): <strong>{rec.placement_clicks}</strong></span>
                           <span>Orders (est): <strong>{rec.placement_orders}</strong></span>
                         </div>
                         <div className="flex items-center justify-between text-xs">
-                          <span className="text-slate-500">Current modifier: <strong>{rec.current_modifier_pct.toFixed(0)}%</strong></span>
+                          <span className="text-slate-500">Current modifier: <strong>{N(rec.current_modifier_pct).toFixed(0)}%</strong></span>
                           {rec.recommended_modifier_pct != null && rec.recommended_modifier_pct !== rec.current_modifier_pct && (
                             <span className={cn('font-semibold', rec.recommended_modifier_pct > rec.current_modifier_pct ? 'text-emerald-600' : 'text-rose-600')}>
-                              → {rec.recommended_modifier_pct.toFixed(0)}%
+                              → {N(rec.recommended_modifier_pct).toFixed(0)}%
                             </span>
                           )}
                         </div>
@@ -2160,7 +2172,7 @@ function PlanCard({ plan, onApprove, isPending }: { plan: CampaignPlanRec; onApp
           </button>
           <div>
             <p className="text-sm font-semibold text-slate-700">{plan.parent_asin}</p>
-            <p className="text-xs text-slate-400">{plan.campaign_count} campaigns · ${plan.total_daily_budget.toFixed(0)}/day · {fmtDate(plan.created_at)}</p>
+            <p className="text-xs text-slate-400">{plan.campaign_count} campaigns · ${N(plan.total_daily_budget).toFixed(0)}/day · {fmtDate(plan.created_at)}</p>
           </div>
         </div>
         <div className="flex items-center gap-2">
@@ -2191,7 +2203,7 @@ function PlanCard({ plan, onApprove, isPending }: { plan: CampaignPlanRec; onApp
                     <span className="font-medium text-slate-700">{c.campaign_name}</span>
                   </div>
                   <div className="flex items-center gap-4 text-slate-500">
-                    <span>${c.daily_budget.toFixed(2)}/day</span>
+                    <span>${N(c.daily_budget).toFixed(2)}/day</span>
                     {c.ad_groups && (
                       <span>{c.ad_groups.reduce((s, ag) => s + (ag.keywords?.length ?? 0), 0)} keywords</span>
                     )}
