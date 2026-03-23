@@ -77,7 +77,12 @@ async def sync_ad_metrics_from_api(
             stdout=asyncio.subprocess.PIPE,
             stderr=asyncio.subprocess.PIPE,
         )
-        stdout, stderr = await proc.communicate()
+        try:
+            stdout, stderr = await asyncio.wait_for(proc.communicate(), timeout=30.0)
+        except asyncio.TimeoutError:
+            proc.kill()
+            await proc.wait()
+            raise RuntimeError("guard.js timed out after 30s")
         if proc.returncode != 0:
             raise RuntimeError(f"guard.js failed ({proc.returncode}): {stderr.decode().strip()}")
 

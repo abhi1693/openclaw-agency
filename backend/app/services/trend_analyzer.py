@@ -158,13 +158,74 @@ async def analyze_trends_bulk(
     keywords: list[tuple[str, str | None]],  # list of (keyword_text, campaign_id)
     lookback_days: int = 30,
 ) -> dict[tuple[str, str | None], TrendData]:
-    """Batch version: analyze trends for multiple keywords efficiently."""
-    result: dict[tuple[str, str | None], TrendData] = {}
+    """Batch version: 4 SQL queries for all keywords instead of N×4 individual queries."""
+    if not keywords:
+        return {}
+
+    today = date.today()
+    cutoff_30 = today - timedelta(days=lookback_days)
+    cutoff_14 = today - timedelta(days=14)
+    cutoff_7 = today - timedelta(days=7)
+
+    async def _batch_query(start: date, end: date) -> dict[tuple[str, str], WindowMetrics]:
+        """One SQL for all keywords in a time window, keyed by (keyword, campaign_name)."""
+        result = await session.exec(  # type: ignore[arg-type]
+            text("""
+                SELECT keyword, campaign_name,
+                       SUM(clicks)      AS total_clicks,
+                       SUM(orders)      AS total_orders,
+                       SUM(impressions) AS total_impr,
+                       SUM(spend)       AS total_spend,
+                       SUM(sales)       AS total_sales
+                FROM search_term_reports
+                WHERE keyword IS NOT NULL
+                  AND report_date >= :start_date
+                  AND report_date < :end_date
+                GROUP BY keyword, campaign_name
+            """),
+            params={"start_date": start, "end_date": end},
+        )
+        metrics: dict[tuple[str, str], WindowMetrics] = {}
+        for row in result.all():
+            kw, camp = row[0], row[1] or ""
+            clicks = int(row[2] or 0)
+            orders = int(row[3] or 0)
+            impr = int(row[4] or 0)
+            spend = float(row[5] or 0)
+            sales = float(row[6] or 0)
+            metrics[(kw, camp)] = WindowMetrics(
+                clicks=clicks,
+                orders=orders,
+                impressions=impr,
+                spend=spend,
+                sales=sales,
+                cvr=orders / clicks if clicks > 0 else None,
+                cpc=spend / clicks if clicks > 0 else None,
+                acos=spend / sales if sales > 0 else None,
+            )
+        return metrics
+
+    # 4 batch queries instead of N×4 individual queries
+    m30 = await _batch_query(cutoff_30, today)
+    m14 = await _batch_query(cutoff_14, today)
+    m7 = await _batch_query(cutoff_7, today)
+    m_prior7 = await _batch_query(cutoff_14, cutoff_7)
+
+    out: dict[tuple[str, str | None], TrendData] = {}
     for kw_text, camp_id in keywords:
-        try:
-            td = await analyze_trends(session, kw_text, campaign_id=camp_id, lookback_days=lookback_days)
-            result[(kw_text, camp_id)] = td
-        except Exception:  # noqa: BLE001
-            logger.debug("trend_analyzer: failed for %s/%s", kw_text, camp_id)
-            result[(kw_text, camp_id)] = TrendData(keyword=kw_text, campaign_id=camp_id)
-    return result
+        key = (kw_text, camp_id or "")
+        w30 = m30.get(key, WindowMetrics())
+        w14 = m14.get(key, WindowMetrics())
+        w7 = m7.get(key, WindowMetrics())
+        w_prior7 = m_prior7.get(key, WindowMetrics())
+
+        td = TrendData(keyword=kw_text, campaign_id=camp_id, w7=w7, w14=w14, w30=w30)
+        if w7.cvr is not None and w_prior7.cvr is not None and w_prior7.cvr > 0:
+            td.cvr_trend_7v14 = w7.cvr / w_prior7.cvr
+        if w7.cpc is not None and w_prior7.cpc is not None and w_prior7.cpc > 0:
+            td.cpc_trend_7v14 = w7.cpc / w_prior7.cpc
+        if w_prior7.sales > 0:
+            td.revenue_trend_7v14 = (w7.sales - w_prior7.sales) / w_prior7.sales
+        out[(kw_text, camp_id)] = td
+
+    return out

@@ -41,7 +41,7 @@ from app.models.amazon_orders import AdMetric, SearchTermReport
 from app.models.ppc_automation import BidRecommendation, PpcAutomationSettings
 from app.services.keyword_scorer import KeywordTier, score_keyword
 from app.services.tacos_calculator import calculate_tacos
-from app.services.trend_analyzer import analyze_trends
+from app.services.trend_analyzer import analyze_trends_bulk
 
 logger = get_logger(__name__)
 
@@ -240,6 +240,34 @@ async def generate_bid_recommendations(
 
     created: list[dict[str, Any]] = []
 
+    # Fix 3: skip trend analysis when data has < 2 distinct dates (all windows identical → all None)
+    distinct_dates_result = (
+        await session.exec(text("SELECT count(DISTINCT report_date) FROM search_term_reports"))  # type: ignore[arg-type]
+    ).first()
+    has_trend_data = int(distinct_dates_result[0] if distinct_dates_result else 0) >= 2
+
+    # Fix 2: bulk trend analysis — 4 SQL queries total instead of N×4
+    keyword_pairs = [(row.keyword_text, row.campaign_id) for row in rows]
+    all_trends = await analyze_trends_bulk(session, keyword_pairs) if has_trend_data else {}
+    if not has_trend_data:
+        logger.info("bid_optimizer_v2: skipping trend analysis (< 2 distinct report dates)")
+
+    # Fix 4: batch dedup — 1 SQL query to load all fresh pending keys instead of N queries
+    dedup_cutoff = utcnow() - timedelta(hours=24)
+    existing_recs_result = await session.exec(
+        select(
+            BidRecommendation.campaign_id,
+            BidRecommendation.ad_group_id,
+            BidRecommendation.keyword_id,
+            BidRecommendation.match_type,
+        )
+        .where(BidRecommendation.status == "pending")
+        .where(BidRecommendation.created_at > dedup_cutoff)
+    )
+    existing_keys: set[tuple[str | None, str | None, str | None, str | None]] = {
+        (r[0], r[1], r[2], r[3]) for r in existing_recs_result.all()
+    }
+
     for row in rows:
         campaign_id = row.campaign_id
         ad_group_id = row.ad_group_id
@@ -254,18 +282,16 @@ async def generate_bid_recommendations(
         if clicks == 0:
             continue
 
-        # Trend signals
+        # Trend signals from bulk result
         cvr_recent = cvr_prior = cpc_recent = cpc_prior = None
         cvr_trend_ratio = None
-        try:
-            trend = await analyze_trends(session, keyword_text, campaign_id=campaign_id)
+        trend = all_trends.get((keyword_text, campaign_id))
+        if trend is not None:
             cvr_recent = trend.w7.cvr
             cvr_prior = trend.w14.cvr
             cpc_recent = trend.w7.cpc
             cpc_prior = trend.w14.cpc
             cvr_trend_ratio = trend.cvr_trend_7v14
-        except Exception:  # noqa: BLE001
-            pass
 
         # Score + tier
         scored = score_keyword(
@@ -308,18 +334,8 @@ async def generate_bid_recommendations(
         if float(current_bid) > 0 and abs(float(recommended_bid - current_bid) / float(current_bid)) < 0.01:
             continue
 
-        # Skip if a fresh (< 24h) pending rec exists at keyword level
-        cutoff = utcnow() - timedelta(hours=24)
-        existing = await session.exec(
-            select(BidRecommendation)
-            .where(BidRecommendation.campaign_id == campaign_id)
-            .where(BidRecommendation.ad_group_id == ad_group_id)
-            .where(BidRecommendation.keyword_id == keyword_text)
-            .where(BidRecommendation.match_type == match_type)
-            .where(BidRecommendation.status == "pending")
-            .where(BidRecommendation.created_at > cutoff)
-        )
-        if existing.first() is not None:
+        # Skip if a fresh (< 24h) pending rec exists (checked via pre-loaded batch set)
+        if (campaign_id, ad_group_id, keyword_text, match_type) in existing_keys:
             continue
 
         # Rich reason JSON
