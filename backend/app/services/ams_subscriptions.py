@@ -10,7 +10,7 @@ from __future__ import annotations
 
 from typing import Any
 
-from app.config.ams_config import AMS_DATASETS, AMS_PROFILE_ID, ams_sqs_arn
+from app.config.ams_config import AMS_DATASETS, get_ams_profile_id, ams_sqs_arn
 from app.core.logging import get_logger
 from app.services.ads_api import _run_ads_script
 
@@ -74,7 +74,7 @@ async def ensure_subscriptions(profile_id: str | None = None) -> dict[str, Any]:
     Returns a summary: { profile_id, existing, skipped, created, errors }.
     """
     mgr = AMSSubscriptionManager()
-    pid = (profile_id or AMS_PROFILE_ID or "").strip()
+    pid = (profile_id or get_ams_profile_id() or "").strip()
     if not pid:
         return {
             "error": "No profile_id provided and AMAZON_ADS_PROFILE_ID is not set",

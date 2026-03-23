@@ -3,6 +3,14 @@
 from __future__ import annotations
 
 import os
+from pathlib import Path
+
+from dotenv import load_dotenv
+
+# Ensure .env is loaded into os.environ (pydantic-settings doesn't always do this)
+_env_path = Path(__file__).resolve().parents[2] / ".env"
+if _env_path.exists():
+    load_dotenv(_env_path, override=False)
 
 # Datasets published by Amazon Marketing Stream.
 # queue_name is the short name; full URL is constructed from AMS_SQS_PREFIX in settings.
@@ -54,4 +62,6 @@ def ams_sqs_arn(queue_name: str, dataset_id: str = "") -> str:
 
 
 # Amazon Advertising profile ID (used for AMS subscription management)
-AMS_PROFILE_ID = os.environ.get("AMAZON_ADS_PROFILE_ID", "")
+# Use a function — .env may not be loaded yet at module import time
+def get_ams_profile_id() -> str:
+    return os.environ.get("AMAZON_ADS_PROFILE_ID", "")

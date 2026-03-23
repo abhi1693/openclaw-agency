@@ -11,7 +11,7 @@ from sqlmodel import col, select
 from sqlmodel.ext.asyncio.session import AsyncSession
 
 from app.api.deps import get_session
-from app.config.ams_config import AMS_DATASETS, AMS_PROFILE_ID, ams_sqs_arn
+from app.config.ams_config import AMS_DATASETS, get_ams_profile_id, ams_sqs_arn
 from app.core.logging import get_logger
 from app.models.ppc_automation import HourlyCampaignMetric
 from app.services.ams_consumer import CONSUMER_STATS
@@ -51,7 +51,7 @@ async def get_ams_config() -> dict[str, Any]:
         }
         for ds_id, ds in AMS_DATASETS.items()
     ]
-    return {"profile_id": AMS_PROFILE_ID, "datasets": datasets}
+    return {"profile_id": get_ams_profile_id(), "datasets": datasets}
 
 
 # ---------------------------------------------------------------------------

@@ -431,10 +431,11 @@ function SignalsPanel({ rd }: { rd: ReasonData }) {
   )
 }
 
-function SortableHeader({ label, field, sort, onSort }: { label: string; field: string; sort: { field: string; dir: 'asc' | 'desc' }; onSort: (f: string) => void }) {
+function SortableHeader({ label, field, sort, onSort, title }: { label: string; field: string; sort: { field: string; dir: 'asc' | 'desc' }; onSort: (f: string) => void; title?: string }) {
   const active = sort.field === field
   return (
     <th
+      title={title}
       className="cursor-pointer select-none whitespace-nowrap px-3 py-2 text-left text-xs font-semibold uppercase tracking-wider text-slate-500 hover:text-slate-700"
       onClick={() => onSort(field)}
     >
@@ -456,13 +457,13 @@ async function apiFetch(path: string, init?: RequestInit) {
 
 // ─── Tabs ────────────────────────────────────────────────────────────────────────
 
-const TABS = ['Bid Recommendations', 'Keyword Recommendations', 'Budget Allocation', 'Placements', 'Campaign Builder', 'Settings'] as const
+const TABS = ['💰 Bid 建议', '🔑 关键词建议', '📊 预算分配', '📍 Placement 优化', '🏗️ Campaign 构建器', '⚙️ 设置'] as const
 type Tab = typeof TABS[number]
 
 // ─── Main Page ────────────────────────────────────────────────────────────────
 
 export default function PpcAutomationPage() {
-  const [activeTab, setActiveTab] = useState<Tab>('Bid Recommendations')
+  const [activeTab, setActiveTab] = useState<Tab>('💰 Bid 建议')
   const [changeLogOpen, setChangeLogOpen] = useState(false)
   const queryClient = useQueryClient()
 
@@ -495,12 +496,12 @@ export default function PpcAutomationPage() {
 
       {/* Tab content */}
       <div className="mt-4">
-        {activeTab === 'Bid Recommendations' && <BidRecommendationsTab />}
-        {activeTab === 'Keyword Recommendations' && <KeywordRecommendationsTab />}
-        {activeTab === 'Budget Allocation' && <BudgetAllocationTab />}
-        {activeTab === 'Placements' && <PlacementsTab />}
-        {activeTab === 'Campaign Builder' && <CampaignBuilderTab />}
-        {activeTab === 'Settings' && <SettingsTab />}
+        {activeTab === '💰 Bid 建议' && <BidRecommendationsTab />}
+        {activeTab === '🔑 关键词建议' && <KeywordRecommendationsTab />}
+        {activeTab === '📊 预算分配' && <BudgetAllocationTab />}
+        {activeTab === '📍 Placement 优化' && <PlacementsTab />}
+        {activeTab === '🏗️ Campaign 构建器' && <CampaignBuilderTab />}
+        {activeTab === '⚙️ 设置' && <SettingsTab />}
       </div>
 
       {/* Change log panel */}
@@ -511,7 +512,7 @@ export default function PpcAutomationPage() {
         >
           <span className="flex items-center gap-2">
             <Bot className="h-4 w-4 text-slate-400" />
-            Recent Changes
+            变更日志
           </span>
           {changeLogOpen ? <ChevronUp className="h-4 w-4 text-slate-400" /> : <ChevronDown className="h-4 w-4 text-slate-400" />}
         </button>
@@ -563,6 +564,7 @@ function RunOptimizerButton() {
       <button
         onClick={handleRun}
         disabled={running}
+        title="运行竞价优化引擎，生成 Bid / 关键词建议"
         className={cn(
           'inline-flex items-center gap-2 rounded-lg px-3 py-1.5 text-sm font-medium transition',
           running
@@ -571,7 +573,7 @@ function RunOptimizerButton() {
         )}
       >
         {running ? <RefreshCw className="h-4 w-4 animate-spin" /> : <Play className="h-4 w-4" />}
-        {running ? 'Running…' : 'Run Optimizer'}
+        {running ? '运行中…' : '运行优化'}
       </button>
     </div>
   )
@@ -599,7 +601,11 @@ function BidRecommendationsTab() {
       const bv = (b as unknown as Record<string, unknown>)[sort.field]
       if (av == null) return 1
       if (bv == null) return -1
-      const cmp = av < bv ? -1 : av > bv ? 1 : 0
+      const na = typeof av === 'string' ? parseFloat(av) : (av as number)
+      const nb = typeof bv === 'string' ? parseFloat(bv) : (bv as number)
+      const aVal = !isNaN(na) ? na : av
+      const bVal = !isNaN(nb) ? nb : bv
+      const cmp = aVal < bVal ? -1 : aVal > bVal ? 1 : 0
       return sort.dir === 'asc' ? cmp : -cmp
     })
   }, [items, sort])
@@ -637,15 +643,16 @@ function BidRecommendationsTab() {
             onChange={(e) => setStatusFilter(e.target.value)}
             className="rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-sm text-slate-700 focus:outline-none focus:ring-2 focus:ring-blue-500"
           >
-            <option value="pending">Pending</option>
-            <option value="applied">Applied</option>
-            <option value="rejected">Rejected</option>
+            <option value="pending">待处理</option>
+            <option value="applied">已采纳</option>
+            <option value="rejected">已拒绝</option>
           </select>
-          <span className="text-xs text-slate-400">{items.length} items</span>
+          <span className="text-xs text-slate-400">{items.length} 条</span>
         </div>
         <div className="flex items-center gap-2">
           <button
             onClick={() => refetch()}
+            title="刷新"
             className="rounded-lg p-1.5 text-slate-400 hover:bg-slate-100 hover:text-slate-600"
           >
             <RefreshCw className="h-4 w-4" />
@@ -654,18 +661,20 @@ function BidRecommendationsTab() {
             <button
               onClick={() => applyMutation.mutate([...selected])}
               disabled={applyMutation.isPending}
+              title="将选中的竞价建议批量应用到广告系统"
               className="rounded-lg bg-blue-600 px-3 py-1.5 text-sm font-medium text-white hover:bg-blue-700 disabled:opacity-50"
             >
-              Apply Selected ({selected.size})
+              采纳选中 ({selected.size})
             </button>
           )}
           {items.length > 0 && statusFilter === 'pending' && (
             <button
               onClick={() => applyMutation.mutate(items.map((r) => r.id))}
               disabled={applyMutation.isPending}
+              title="将所有待处理竞价建议批量应用"
               className="rounded-lg border border-blue-200 bg-blue-50 px-3 py-1.5 text-sm font-medium text-blue-700 hover:bg-blue-100 disabled:opacity-50"
             >
-              Apply All
+              全部采纳
             </button>
           )}
         </div>
@@ -680,22 +689,22 @@ function BidRecommendationsTab() {
               <th className="px-3 py-2">
                 <input type="checkbox" checked={selected.size === items.length && items.length > 0} onChange={toggleAll} className="rounded" />
               </th>
-              <SortableHeader label="Tier" field="tier" sort={sort} onSort={handleSort} />
-              <SortableHeader label="Score" field="score" sort={sort} onSort={handleSort} />
-              <SortableHeader label="Campaign" field="campaign_id" sort={sort} onSort={handleSort} />
-              <SortableHeader label="Match" field="match_type" sort={sort} onSort={handleSort} />
-              <SortableHeader label="Current Bid" field="current_bid" sort={sort} onSort={handleSort} />
-              <SortableHeader label="Recommended" field="recommended_bid" sort={sort} onSort={handleSort} />
-              <SortableHeader label="Change %" field="recommended_bid" sort={sort} onSort={handleSort} />
-              <SortableHeader label="Conv Rate" field="conversion_rate" sort={sort} onSort={handleSort} />
-              <SortableHeader label="Status" field="status" sort={sort} onSort={handleSort} />
+              <SortableHeader label="Tier" field="tier" sort={sort} onSort={handleSort} title="优化层级：HIGH / MID / LOW" />
+              <SortableHeader label="Score" field="score" sort={sort} onSort={handleSort} title="综合评分 (0–100)" />
+              <SortableHeader label="Campaign" field="campaign_id" sort={sort} onSort={handleSort} title="广告活动 ID" />
+              <SortableHeader label="Match" field="match_type" sort={sort} onSort={handleSort} title="匹配类型：exact / phrase / broad" />
+              <SortableHeader label="当前竞价" field="current_bid" sort={sort} onSort={handleSort} title="当前竞价金额 (USD)" />
+              <SortableHeader label="建议竞价" field="recommended_bid" sort={sort} onSort={handleSort} title="系统推荐竞价金额 (USD)" />
+              <SortableHeader label="变化 %" field="recommended_bid" sort={sort} onSort={handleSort} title="相较当前竞价的涨跌幅" />
+              <SortableHeader label="转化率" field="conversion_rate" sort={sort} onSort={handleSort} title="点击转化率 (CVR)" />
+              <SortableHeader label="状态" field="status" sort={sort} onSort={handleSort} title="待处理 / 已采纳 / 已拒绝" />
             </tr>
           </thead>
           <tbody className="divide-y divide-slate-100">
             {isLoading ? (
               <tr><td colSpan={11} className="px-3 py-8 text-center text-sm text-slate-400">Loading…</td></tr>
             ) : sorted.length === 0 ? (
-              <tr><td colSpan={11} className="px-3 py-8 text-center text-sm text-slate-400">No recommendations</td></tr>
+              <tr><td colSpan={11} className="px-3 py-8 text-center text-sm text-slate-400">暂无建议</td></tr>
             ) : (
               sorted.map((rec) => {
                 const delta = changePct(rec.current_bid, rec.recommended_bid)
@@ -798,7 +807,11 @@ function KeywordRecommendationsTab() {
       const bv = (b as unknown as Record<string, unknown>)[sort.field]
       if (av == null) return 1
       if (bv == null) return -1
-      const cmp = av < bv ? -1 : av > bv ? 1 : 0
+      const na = typeof av === 'string' ? parseFloat(av) : (av as number)
+      const nb = typeof bv === 'string' ? parseFloat(bv) : (bv as number)
+      const aVal = !isNaN(na) ? na : av
+      const bVal = !isNaN(nb) ? nb : bv
+      const cmp = aVal < bVal ? -1 : aVal > bVal ? 1 : 0
       return sort.dir === 'asc' ? cmp : -cmp
     })
   }
@@ -843,17 +856,19 @@ function KeywordRecommendationsTab() {
                 <button
                   onClick={() => applyMutation.mutate([...selected].filter((id) => recs.some((r) => r.id === id)))}
                   disabled={applyMutation.isPending}
+                  title="将选中关键词建议批量应用"
                   className="rounded-lg bg-blue-600 px-3 py-1 text-xs font-medium text-white hover:bg-blue-700 disabled:opacity-50"
                 >
-                  Apply Selected
+                  采纳选中
                 </button>
               )}
               <button
                 onClick={() => applyMutation.mutate(recs.map((r) => r.id))}
                 disabled={applyMutation.isPending}
+                title="将此分类所有待处理建议批量应用"
                 className="rounded-lg border border-blue-200 bg-blue-50 px-3 py-1 text-xs font-medium text-blue-700 hover:bg-blue-100 disabled:opacity-50"
               >
-                Apply All
+                全部采纳
               </button>
             </div>
           )}
@@ -864,22 +879,22 @@ function KeywordRecommendationsTab() {
               <tr>
                 <th className="w-6 px-2 py-2" />
                 <th className="px-3 py-2"><input type="checkbox" onChange={() => {}} className="rounded" /></th>
-                <SortableHeader label="Search Term" field="search_term" sort={sort} onSort={handleSort} />
-                <SortableHeader label="Confidence" field="confidence" sort={sort} onSort={handleSort} />
-                <SortableHeader label="Source" field="source" sort={sort} onSort={handleSort} />
-                <SortableHeader label="Match Rec." field="match_type_recommendation" sort={sort} onSort={handleSort} />
-                <SortableHeader label="Clicks" field="clicks" sort={sort} onSort={handleSort} />
-                {showOrders && <SortableHeader label="Orders" field="orders" sort={sort} onSort={handleSort} />}
-                <SortableHeader label="CTR" field="ctr" sort={sort} onSort={handleSort} />
-                <SortableHeader label="Conv%" field="conversion_rate" sort={sort} onSort={handleSort} />
-                <SortableHeader label="ACoS" field="acos" sort={sort} onSort={handleSort} />
-                <SortableHeader label="Campaign" field="source_campaign_id" sort={sort} onSort={handleSort} />
-                <SortableHeader label="Status" field="status" sort={sort} onSort={handleSort} />
+                <SortableHeader label="Search Term" field="search_term" sort={sort} onSort={handleSort} title="搜索词" />
+                <SortableHeader label="置信度" field="confidence" sort={sort} onSort={handleSort} title="模型对该建议的置信度 (0–100)" />
+                <SortableHeader label="来源" field="source" sort={sort} onSort={handleSort} title="发现来源：search_term_report / pattern_detector" />
+                <SortableHeader label="建议匹配" field="match_type_recommendation" sort={sort} onSort={handleSort} title="建议的关键词匹配类型" />
+                <SortableHeader label="点击" field="clicks" sort={sort} onSort={handleSort} title="历史点击次数" />
+                {showOrders && <SortableHeader label="订单" field="orders" sort={sort} onSort={handleSort} title="历史成交订单数" />}
+                <SortableHeader label="CTR" field="ctr" sort={sort} onSort={handleSort} title="点击率 (Click-Through Rate)" />
+                <SortableHeader label="转化率" field="conversion_rate" sort={sort} onSort={handleSort} title="点击转化率 (CVR)" />
+                <SortableHeader label="ACoS" field="acos" sort={sort} onSort={handleSort} title="广告销售成本比 (Ad Cost of Sales)" />
+                <SortableHeader label="Campaign" field="source_campaign_id" sort={sort} onSort={handleSort} title="来源广告活动 ID" />
+                <SortableHeader label="状态" field="status" sort={sort} onSort={handleSort} title="待处理 / 已采纳 / 已拒绝" />
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-100">
               {recs.length === 0 ? (
-                <tr><td colSpan={colSpan} className="px-3 py-6 text-center text-xs text-slate-400">No items</td></tr>
+                <tr><td colSpan={colSpan} className="px-3 py-6 text-center text-xs text-slate-400">暂无数据</td></tr>
               ) : (
                 sortItems(recs).map((rec) => {
                   const ev = parseEvidence(rec.evidence)
@@ -940,20 +955,20 @@ function KeywordRecommendationsTab() {
             onChange={(e) => setStatusFilter(e.target.value)}
             className="rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-sm text-slate-700 focus:outline-none focus:ring-2 focus:ring-blue-500"
           >
-            <option value="pending">Pending</option>
-            <option value="applied">Applied</option>
-            <option value="rejected">Rejected</option>
+            <option value="pending">待处理</option>
+            <option value="applied">已采纳</option>
+            <option value="rejected">已拒绝</option>
           </select>
           <select
             value={confidenceMin}
             onChange={(e) => setConfidenceMin(e.target.value)}
             className="rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-sm text-slate-700 focus:outline-none focus:ring-2 focus:ring-blue-500"
           >
-            <option value="">All Confidence</option>
-            <option value="0.8">HIGH only (≥80)</option>
+            <option value="">全部置信度</option>
+            <option value="0.8">HIGH (≥80)</option>
             <option value="0.5">MED+ (≥50)</option>
           </select>
-          <span className="text-xs text-slate-400">{items.length} recs</span>
+          <span className="text-xs text-slate-400">{items.length} 条</span>
         </div>
         <div className="flex items-center gap-2">
           <button
@@ -969,8 +984,8 @@ function KeywordRecommendationsTab() {
         <div className="py-12 text-center text-sm text-slate-400">Loading…</div>
       ) : (
         <>
-          <KwTable recs={addItems} title="Add Keywords" badgeColor="bg-emerald-500" showOrders />
-          <KwTable recs={negItems} title="Individual Negatives" badgeColor="bg-rose-500" showOrders={false} />
+          <KwTable recs={addItems} title="新增关键词" badgeColor="bg-emerald-500" showOrders />
+          <KwTable recs={negItems} title="单独否定词" badgeColor="bg-rose-500" showOrders={false} />
         </>
       )}
 
@@ -982,13 +997,13 @@ function KeywordRecommendationsTab() {
         >
           <span className="flex items-center gap-2">
             <span className="inline-block h-2 w-2 rounded-full bg-rose-500" />
-            Pattern Negatives
+            模式否定词
             {patternItems.length > 0 && (
               <span className="rounded-full bg-rose-100 px-2 py-0.5 text-xs font-medium text-rose-700">
                 {patternItems.length} clusters
               </span>
             )}
-            <span className="ml-1 text-xs font-normal text-slate-400">— phrase-level patterns detected from zero-conversion clusters</span>
+            <span className="ml-1 text-xs font-normal text-slate-400">— 从零转化词簇中检测到的 phrase-level 模式</span>
           </span>
           {patternsOpen ? <ChevronUp className="h-4 w-4 text-slate-400" /> : <ChevronDown className="h-4 w-4 text-slate-400" />}
         </button>
@@ -998,7 +1013,7 @@ function KeywordRecommendationsTab() {
             {patternsLoading ? (
               <div className="py-6 text-center text-sm text-slate-400">Loading patterns…</div>
             ) : patternItems.length === 0 ? (
-              <div className="py-6 text-center text-xs text-slate-400">No pattern negatives detected yet — run the keyword discovery to populate.</div>
+              <div className="py-6 text-center text-xs text-slate-400">暂无模式否定词 — 运行关键词发现来填充数据。</div>
             ) : (
               <div className="space-y-3">
                 {patternItems.map((rec) => {
@@ -1022,9 +1037,10 @@ function KeywordRecommendationsTab() {
                             <button
                               onClick={() => applyMutation.mutate([rec.id])}
                               disabled={applyMutation.isPending}
+                              title="将此模式添加为否定关键词"
                               className="rounded-lg border border-rose-300 bg-white px-2.5 py-1 text-xs font-medium text-rose-700 hover:bg-rose-100 disabled:opacity-50"
                             >
-                              Apply
+                              采纳
                             </button>
                           )}
                         </div>
@@ -1257,22 +1273,25 @@ function BudgetAllocationCard({ alloc, onApply, onReject, onEdit, isPending }: {
           <button
             onClick={onApply}
             disabled={isPending}
+            title="将此预算分配方案应用到广告账户"
             className="rounded-lg bg-blue-600 px-3 py-1.5 text-xs font-medium text-white hover:bg-blue-700 disabled:opacity-50"
           >
-            Apply
+            采纳
           </button>
           <button
             onClick={onReject}
             disabled={isPending}
+            title="拒绝此预算分配建议"
             className="rounded-lg border border-slate-200 px-3 py-1.5 text-xs font-medium text-slate-600 hover:bg-slate-50 disabled:opacity-50"
           >
-            Reject
+            拒绝
           </button>
           <button
             onClick={onEdit}
+            title="手动调整各广告类型预算占比"
             className="rounded-lg border border-slate-200 px-3 py-1.5 text-xs font-medium text-slate-600 hover:bg-slate-50"
           >
-            Edit Manually
+            手动调整
           </button>
         </div>
       )}
@@ -1302,7 +1321,7 @@ function ManualEditModal({ alloc, onClose, onSave }: {
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40">
       <div className="w-96 rounded-xl border border-slate-200 bg-white p-6 shadow-xl">
-        <h3 className="mb-1 text-sm font-semibold text-slate-800">Manual Budget Override</h3>
+        <h3 className="mb-1 text-sm font-semibold text-slate-800">手动预算调整</h3>
         <p className="mb-4 text-xs text-slate-400 font-mono">{alloc.parent_asin} · ${N(alloc.total_daily_budget).toFixed(2)}/day</p>
 
         <div className="space-y-4">
@@ -1335,10 +1354,10 @@ function ManualEditModal({ alloc, onClose, onSave }: {
             disabled={!valid}
             className="flex-1 rounded-lg bg-blue-600 py-2 text-sm font-medium text-white hover:bg-blue-700 disabled:opacity-40"
           >
-            Save Override
+            保存覆盖
           </button>
           <button onClick={onClose} className="rounded-lg border border-slate-200 px-4 py-2 text-sm text-slate-600 hover:bg-slate-50">
-            Cancel
+            取消
           </button>
         </div>
       </div>
@@ -1413,12 +1432,12 @@ function BudgetAllocationTab() {
             onChange={(e) => setStatusFilter(e.target.value)}
             className="rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-sm text-slate-700 focus:outline-none focus:ring-2 focus:ring-blue-500"
           >
-            <option value="">All Status</option>
-            <option value="pending">Pending</option>
-            <option value="applied">Applied</option>
-            <option value="rejected">Rejected</option>
+            <option value="">全部状态</option>
+            <option value="pending">待处理</option>
+            <option value="applied">已采纳</option>
+            <option value="rejected">已拒绝</option>
           </select>
-          <span className="text-xs text-slate-400">{items.length} allocations</span>
+          <span className="text-xs text-slate-400">{items.length} 条分配方案</span>
           {totalBudget > 0 && (
             <span className="text-xs font-medium text-slate-600">
               Total budget: <strong>${N(totalBudget).toFixed(2)}/day</strong>
@@ -1443,13 +1462,14 @@ function BudgetAllocationTab() {
           <button
             onClick={handleRunAnalysis}
             disabled={running}
+            title="分析各广告类型预算分配，生成调整建议"
             className={cn(
               'inline-flex items-center gap-2 rounded-lg px-3 py-1.5 text-sm font-medium transition',
               running ? 'bg-slate-100 text-slate-400 cursor-not-allowed' : 'bg-blue-600 text-white hover:bg-blue-700',
             )}
           >
             {running ? <RefreshCw className="h-4 w-4 animate-spin" /> : <Play className="h-4 w-4" />}
-            {running ? 'Analyzing…' : 'Run Budget Analysis'}
+            {running ? '分析中…' : '运行预算分析'}
           </button>
         </div>
       </div>
@@ -1469,7 +1489,7 @@ function BudgetAllocationTab() {
         <div className="py-16 text-center text-sm text-slate-400">Loading…</div>
       ) : items.length === 0 ? (
         <div className="rounded-xl border border-dashed border-slate-200 py-16 text-center text-sm text-slate-400">
-          No budget allocations yet — click <strong>Run Budget Analysis</strong> to generate recommendations.
+          暂无预算分配方案 — 点击 <strong>运行预算分析</strong> 生成建议。
         </div>
       ) : (
         <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
@@ -1587,7 +1607,7 @@ function SettingsTab() {
     <div className="max-w-xl rounded-xl border border-slate-200 bg-white p-6 shadow-sm">
       {/* Product selector */}
       <div className="mb-6">
-        <label className="mb-1 block text-sm font-medium text-slate-700">Product (Parent ASIN)</label>
+        <label className="mb-1 block text-sm font-medium text-slate-700">产品 (Parent ASIN)</label>
         <div className="flex gap-2">
           <select
             value={selectedAsin}
@@ -1596,12 +1616,12 @@ function SettingsTab() {
           >
             {KNOWN_ASINS.map((a) => <option key={a}>{a}</option>)}
           </select>
-          <button onClick={handleLoad} className="rounded-lg border border-slate-200 px-3 py-1.5 text-sm text-slate-600 hover:bg-slate-50">
-            Load
+          <button onClick={handleLoad} title="加载当前 ASIN 的已保存设置" className="rounded-lg border border-slate-200 px-3 py-1.5 text-sm text-slate-600 hover:bg-slate-50">
+            加载
           </button>
         </div>
         {isLoading && <p className="mt-1 text-xs text-slate-400">Loading…</p>}
-        {!isLoading && !data && <p className="mt-1 text-xs text-amber-600">No settings saved yet — defaults shown below.</p>}
+        {!isLoading && !data && <p className="mt-1 text-xs text-amber-600">尚未保存设置 — 显示默认值。</p>}
       </div>
 
       {/* Fields */}
@@ -1733,9 +1753,9 @@ function SettingsTab() {
 
         <div className="space-y-2 pt-2">
           {([
-            { key: 'auto_keyword_enabled', label: 'Auto Keyword Discovery', desc: 'Automatically add high-performing search terms as keywords' },
-            { key: 'auto_negative_enabled', label: 'Auto Negative Keywords', desc: 'Automatically add zero-order terms as negatives' },
-            { key: 'dayparting_enabled', label: 'Dayparting', desc: 'Adjust bids by time of day (Phase 4)' },
+            { key: 'auto_keyword_enabled', label: '自动关键词发现', desc: '自动将高效搜索词添加为关键词' },
+            { key: 'auto_negative_enabled', label: '自动否定关键词', desc: '自动将零转化词添加为否定关键词' },
+            { key: 'dayparting_enabled', label: '分时竞价 (Dayparting)', desc: '按时段调整竞价（Phase 4）' },
           ] as const).map(({ key, label, desc }) => (
             <label key={key} className="flex items-start gap-3 cursor-pointer">
               <input
@@ -1804,9 +1824,9 @@ function SettingsTab() {
             saving ? 'bg-slate-100 text-slate-400' : 'bg-blue-600 text-white hover:bg-blue-700',
           )}
         >
-          {saving ? 'Saving…' : 'Save Settings'}
+          {saving ? '保存中…' : '保存设置'}
         </button>
-        {saved && <span className="text-xs text-emerald-600 font-medium">Saved!</span>}
+        {saved && <span className="text-xs text-emerald-600 font-medium">已保存！</span>}
       </div>
 
       <AmsSubscriptionPanel />
@@ -2064,10 +2084,10 @@ function PlacementsTab() {
             onChange={(e) => setStatusFilter(e.target.value)}
             className="rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-sm text-slate-700 focus:outline-none focus:ring-2 focus:ring-blue-500"
           >
-            <option value="pending">Pending</option>
-            <option value="applied">Applied</option>
+            <option value="pending">待处理</option>
+            <option value="applied">已采纳</option>
           </select>
-          <span className="text-xs text-slate-400">{items.length} recommendations across {Object.keys(byCampaign).length} campaigns</span>
+          <span className="text-xs text-slate-400">{items.length} 条建议 · {Object.keys(byCampaign).length} 个广告活动</span>
         </div>
         <div className="flex items-center gap-2">
           {analysisDone != null && (
@@ -2077,19 +2097,21 @@ function PlacementsTab() {
             <button
               onClick={() => applyMutation.mutate([...selected])}
               disabled={applyMutation.isPending}
+              title="将选中的广告位调整建议批量应用"
               className="rounded-lg bg-blue-600 px-3 py-1.5 text-sm font-medium text-white hover:bg-blue-700 disabled:opacity-50"
             >
-              Apply Selected ({selected.size})
+              采纳选中 ({selected.size})
             </button>
           )}
           <button
             onClick={handleRunAnalysis}
             disabled={runningAnalysis}
+            title="分析各广告位表现，生成展示位置调整建议"
             className={cn('inline-flex items-center gap-2 rounded-lg px-3 py-1.5 text-sm font-medium transition',
               runningAnalysis ? 'bg-slate-100 text-slate-400 cursor-not-allowed' : 'bg-indigo-600 text-white hover:bg-indigo-700')}
           >
             {runningAnalysis ? <RefreshCw className="h-4 w-4 animate-spin" /> : <Play className="h-4 w-4" />}
-            {runningAnalysis ? 'Running…' : 'Run Analysis'}
+            {runningAnalysis ? '运行中…' : '运行分析'}
           </button>
         </div>
       </div>
@@ -2099,7 +2121,7 @@ function PlacementsTab() {
         <div className="py-16 text-center text-sm text-slate-400">Loading…</div>
       ) : items.length === 0 ? (
         <div className="rounded-xl border border-dashed border-slate-200 py-16 text-center text-sm text-slate-400">
-          No placement recommendations — click <strong>Run Analysis</strong> to generate.
+          暂无广告位建议 — 点击 <strong>运行分析</strong> 生成。
         </div>
       ) : (
         <div className="space-y-4">
@@ -2217,7 +2239,7 @@ function CampaignBuilderTab() {
     <div className="space-y-4">
       {/* Generator form */}
       <div className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
-        <p className="mb-3 text-sm font-semibold text-slate-700">Generate New Campaign Plan</p>
+        <p className="mb-3 text-sm font-semibold text-slate-700">生成新广告计划</p>
         <div className="flex flex-wrap items-end gap-3">
           <div>
             <label className="mb-1 block text-xs font-medium text-slate-600">Parent ASIN</label>
@@ -2230,7 +2252,7 @@ function CampaignBuilderTab() {
             </select>
           </div>
           <div>
-            <label className="mb-1 block text-xs font-medium text-slate-600">Daily Budget ($, optional)</label>
+            <label className="mb-1 block text-xs font-medium text-slate-600">日预算 (USD，可选)</label>
             <input
               type="number"
               min={1}
@@ -2250,7 +2272,7 @@ function CampaignBuilderTab() {
             )}
           >
             {generating ? <RefreshCw className="h-4 w-4 animate-spin" /> : <Play className="h-4 w-4" />}
-            {generating ? 'Generating…' : 'Generate Plan'}
+            {generating ? '生成中…' : '生成方案'}
           </button>
           {generated && (
             <span className="text-xs font-medium text-emerald-600">
@@ -2259,7 +2281,7 @@ function CampaignBuilderTab() {
           )}
         </div>
         <p className="mt-2 text-[11px] text-slate-400">
-          Seeds keywords from discovery engine (confidence ≥ 50%). Bids derived from avg CPC. Review before applying.
+          从关键词发现引擎导入（置信度 ≥ 50%）。竞价基于平均 CPC 推算。提交前请仔细审核。
         </p>
       </div>
 
@@ -2268,7 +2290,7 @@ function CampaignBuilderTab() {
         <div className="py-12 text-center text-sm text-slate-400">Loading…</div>
       ) : plans.length === 0 ? (
         <div className="rounded-xl border border-dashed border-slate-200 py-12 text-center text-sm text-slate-400">
-          No campaign plans yet — generate one above.
+          暂无广告计划 — 在上方生成一个。
         </div>
       ) : (
         <div className="space-y-3">
@@ -2322,9 +2344,10 @@ function PlanCard({ plan, onApprove, isPending }: { plan: CampaignPlanRec; onApp
             <button
               onClick={onApprove}
               disabled={isPending}
+              title="批准此广告计划并提交创建"
               className="rounded-lg bg-emerald-600 px-3 py-1 text-xs font-medium text-white hover:bg-emerald-700 disabled:opacity-50"
             >
-              Approve
+              批准执行
             </button>
           )}
         </div>
