@@ -84,6 +84,15 @@ class Settings(BaseSettings):
     # OpenClaw gateway runtime compatibility
     gateway_min_version: str = "2026.02.9"
 
+    # Amazon Marketing Stream / SQS
+    aws_region: str = "us-east-1"
+    aws_access_key_id: str = ""
+    aws_secret_access_key: str = ""
+    # Prefix used to build full SQS queue URLs:
+    #   https://sqs.{region}.amazonaws.com/{account_id}
+    # Leave empty to use queue names as-is (useful for LocalStack / tests).
+    ams_sqs_prefix: str = ""
+
     # Logging
     log_level: str = "INFO"
     log_format: str = "text"

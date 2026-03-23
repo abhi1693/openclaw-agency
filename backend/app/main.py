@@ -41,6 +41,7 @@ from app.api.tags import router as tags_router
 from app.api.task_custom_fields import router as task_custom_fields_router
 from app.api.tasks import router as tasks_router
 from app.api.system import router as system_router, public_router as public_system_router
+from app.api.ams_api import router as ams_router
 from app.api.ppc_automation_api import router as ppc_automation_router
 from app.api.shipments import router as shipments_router
 from app.api.users import router as users_router
@@ -184,6 +185,13 @@ OPENAPI_TAGS = [
         "description": (
             "PPC Automation Engine — bid optimisation, keyword discovery, budget allocation, "
             "and audit trail endpoints for Amazon Advertising."
+        ),
+    },
+    {
+        "name": "ams",
+        "description": (
+            "Amazon Marketing Stream management — subscription lifecycle, SQS consumer health, "
+            "and hourly campaign metrics query interface."
         ),
     },
 ]
@@ -592,6 +600,7 @@ api_v1.include_router(system_router)
 api_v1.include_router(report_highlights_router)
 api_v1.include_router(shipments_router)
 api_v1.include_router(ppc_automation_router)
+api_v1.include_router(ams_router)
 app.include_router(api_v1)
 app.include_router(intel_router)
 app.include_router(reports_router)
