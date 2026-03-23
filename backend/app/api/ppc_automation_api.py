@@ -23,6 +23,7 @@ from app.models.ppc_automation import (
     PpcChangeLog,
 )
 from app.services.ads_api import AmazonAdsAPI
+from app.services.ppc_scheduler import run_optimizer
 
 router = APIRouter(prefix="/ppc/automation", tags=["ppc-automation"])
 logger = get_logger(__name__)
@@ -52,6 +53,12 @@ class ApplyBidRecsRequest(BaseModel):
 class ApplyKeywordRecsRequest(BaseModel):
     recommendation_ids: list[UUID]
     triggered_by: str = "manual"
+
+
+class RunOptimizerRequest(BaseModel):
+    parent_asin: str | None = None
+    run_bid: bool = True
+    run_keywords: bool = True
 
 
 # ---------------------------------------------------------------------------
@@ -274,6 +281,26 @@ async def get_change_log(
     result = await session.exec(query)
     entries = result.all()
     return {"items": [e.model_dump() for e in entries], "total": len(entries), "offset": offset, "limit": limit}
+
+
+# ---------------------------------------------------------------------------
+# Optimizer runner (manual trigger)
+# ---------------------------------------------------------------------------
+
+
+@router.post("/run-optimizer")
+async def run_optimizer_endpoint(
+    body: RunOptimizerRequest,
+    session: AsyncSession = SESSION_DEP,
+) -> dict[str, Any]:
+    """Manually trigger bid optimization and/or keyword discovery."""
+    result = await run_optimizer(
+        session,
+        parent_asin=body.parent_asin,
+        run_bid=body.run_bid,
+        run_keywords=body.run_keywords,
+    )
+    return result
 
 
 # ---------------------------------------------------------------------------

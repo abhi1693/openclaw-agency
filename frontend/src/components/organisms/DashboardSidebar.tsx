@@ -173,6 +173,7 @@ export function DashboardSidebar() {
                     { href: "/business", icon: LayoutDashboard, label: "Insights", sub: "业务洞察" },
                     { href: "/inventory", icon: Map, label: "Inventory", sub: "库存" },
                     { href: "/ppc", icon: Target, label: "PPC", sub: "广告投放" },
+                    { href: "/ppc/automation", icon: Bot, label: "PPC Automation", sub: "竞价自动化" },
                     { href: "/keywords", icon: Key, label: "Keywords", sub: "关键词排名" },
                     { href: "/reports", icon: FileText, label: "Reports", sub: "报告中心" },
                     { href: "/reviews", icon: MessageSquare, label: "Reviews", sub: "评价监控" },
