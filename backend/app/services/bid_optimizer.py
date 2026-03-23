@@ -127,21 +127,25 @@ async def _get_category_avg_cvr(session: AsyncSession) -> float:
 
 
 async def _get_total_revenue(session: AsyncSession) -> float:
-    result = await session.exec(select(func.sum(AdMetric.sales).label("total_sales")))
-    row = result.first()
-    return float(row.total_sales or 0) if row else 0.0
+    # Single-column exec returns the scalar directly (Decimal), not a Row
+    result = await session.exec(select(func.sum(AdMetric.sales)))
+    val = result.first()
+    return float(val or 0)
 
 
 async def _get_aov(session: AsyncSession) -> Decimal:
     result = await session.exec(
         select(
-            func.sum(AdMetric.sales).label("total_sales"),
-            func.sum(AdMetric.orders).label("total_orders"),
+            func.sum(AdMetric.sales),
+            func.sum(AdMetric.orders),
         )
     )
     row = result.first()
-    if row and row.total_orders and row.total_orders > 0 and row.total_sales:
-        return (Decimal(str(row.total_sales)) / Decimal(str(row.total_orders))).quantize(Decimal("0.01"))
+    if row is not None:
+        total_sales = row[0]
+        total_orders = row[1]
+        if total_orders and int(total_orders) > 0 and total_sales:
+            return (Decimal(str(total_sales)) / Decimal(str(total_orders))).quantize(Decimal("0.01"))
     return _DEFAULT_AOV
 
 
@@ -216,8 +220,8 @@ async def generate_bid_recommendations(
 
     stmt = text("""
         SELECT
-            campaign_id,
-            ad_group_id,
+            campaign_name    AS campaign_id,
+            ad_group_name    AS ad_group_id,
             keyword          AS keyword_text,
             match_type,
             SUM(clicks)      AS total_clicks,
@@ -227,8 +231,7 @@ async def generate_bid_recommendations(
             SUM(sales)       AS total_sales
         FROM search_term_reports
         WHERE keyword IS NOT NULL
-          AND campaign_id IS NOT NULL
-        GROUP BY campaign_id, ad_group_id, keyword, match_type
+        GROUP BY campaign_name, ad_group_name, keyword, match_type
         HAVING SUM(clicks) > 0
         ORDER BY SUM(spend) DESC
         LIMIT 500
