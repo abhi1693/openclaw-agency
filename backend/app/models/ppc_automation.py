@@ -157,6 +157,11 @@ class PpcAutomationSettings(QueryModel, table=True):
     # ── Phase 6: TACoS target mode ─────────────────────────────────────────
     target_mode: str = Field(default="acos")  # 'acos' or 'tacos'
     target_tacos: float | None = Field(default=None, sa_column=Column(Float, nullable=True))
+    # ── Safety: words that must never be negated ───────────────────────────
+    protected_keywords: str | None = Field(
+        default=None,
+        description="JSON array of keyword roots that pattern detector will never negate"
+    )
     created_at: datetime = Field(default_factory=utcnow)
     updated_at: datetime = Field(default_factory=utcnow)
 

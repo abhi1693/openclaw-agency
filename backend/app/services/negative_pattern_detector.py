@@ -1,26 +1,23 @@
-"""Negative Pattern Detector — Phase 3.
+"""Negative Pattern Detector — Phase 3 (safety-hardened).
 
 Groups zero-conversion search terms by shared root word and identifies
 high-spend patterns that warrant phrase-level negative keywords.
 
+Safety guards added:
+  1. MIN_DATA_DAYS gate: abort if < 7 distinct report dates (prevents
+     single-day false positives like the "sanitizer" incident).
+  2. Protected roots: never negate roots that appear as actively-targeted
+     keywords OR are listed in PpcAutomationSettings.protected_keywords.
+  3. Per-term spend threshold: each individual term must have >= $5 wasted.
+
 Algorithm
 ---------
-1. Query all search terms with clicks >= MIN_CLICKS_PER_TERM and orders == 0.
-2. Extract the "dominant token" for each term:
-   - Split on whitespace, drop stop words (the/a/an/for/with/in/of/to/and/or)
-   - Take the longest remaining token if len >= 4
-   - Fallback: first 4 chars of the full term (lowercased)
-3. Group by dominant token (pattern root).
-4. Clusters with >= MIN_TERMS_IN_CLUSTER unique terms AND total wasted spend
-   >= MIN_WASTED_SPEND → create one KeywordRecommendation with:
-     - action = "add_negative"
-     - match_type = "phrase"
-     - source = "pattern_detector"
-     - search_term = the pattern root
-     - pattern_group = the pattern root
-     - confidence = f(term_count, spend)
-     - evidence = JSON with matched_terms, total_spend, total_clicks, term_count
-5. Skip if a pending pattern_detector rec already exists for this pattern root.
+1. Safety gate: count distinct report_dates; abort if < MIN_DATA_DAYS.
+2. Build protected roots set from targeted keywords + settings.
+3. Query zero-conversion terms (clicks >= 5, orders == 0, spend >= $5).
+4. Group by dominant token (longest word >= 4 chars, stop-words excluded).
+5. Clusters >= 3 unique terms AND >= $20 total waste → KeywordRecommendation.
+6. Skip protected roots and existing pending recs.
 """
 
 from __future__ import annotations
@@ -37,7 +34,7 @@ from sqlmodel.ext.asyncio.session import AsyncSession
 
 from app.core.logging import get_logger
 from app.core.time import utcnow
-from app.models.ppc_automation import KeywordRecommendation
+from app.models.ppc_automation import KeywordRecommendation, PpcAutomationSettings
 
 logger = get_logger(__name__)
 
@@ -46,9 +43,11 @@ logger = get_logger(__name__)
 # ---------------------------------------------------------------------------
 
 _MIN_CLICKS_PER_TERM = 5       # min clicks for a term to count toward a cluster
+_MIN_SPEND_PER_TERM = 5.0      # USD — each term must have this much wasted spend
 _MIN_TERMS_IN_CLUSTER = 3      # cluster must have at least this many unique terms
 _MIN_WASTED_SPEND = 20.0       # USD — total wasted spend across the cluster
 _MAX_TERMS_TO_SCAN = 2000
+_MIN_DATA_DAYS = 7             # abort if fewer distinct report dates exist
 
 _STOP_WORDS = frozenset(
     "the a an for with in of to and or is are was be by on at".split()
@@ -106,6 +105,44 @@ async def _pattern_root_already_pending(session: AsyncSession, pattern_root: str
     return result.first() is not None
 
 
+async def _count_distinct_report_dates(session: AsyncSession) -> int:
+    result = (await session.exec(  # type: ignore[arg-type]
+        text("SELECT COUNT(DISTINCT report_date) AS n FROM search_term_reports WHERE report_date IS NOT NULL")
+    )).first()
+    return int(result.n or 0) if result else 0
+
+
+async def _get_protected_roots(session: AsyncSession) -> frozenset[str]:
+    """Build protected root set from active keywords + settings.protected_keywords."""
+    protected: set[str] = set()
+
+    # 1. Keywords we're actively bidding on (keyword column = targeting phrase)
+    kw_rows = (await session.exec(  # type: ignore[arg-type]
+        text("SELECT DISTINCT keyword FROM search_term_reports WHERE keyword IS NOT NULL AND keyword != '' LIMIT 5000")
+    )).all()
+    for row in kw_rows:
+        kw = row.keyword.lower().strip()
+        protected.add(kw)
+        protected.add(_dominant_token(kw))
+
+    # 2. User-defined protected keywords from settings
+    settings_rows = (await session.exec(select(PpcAutomationSettings))).all()
+    for s in settings_rows:
+        raw = getattr(s, "protected_keywords", None)
+        if raw:
+            try:
+                words = json.loads(raw)
+                if isinstance(words, list):
+                    for w in words:
+                        if isinstance(w, str) and w.strip():
+                            protected.add(w.lower().strip())
+                            protected.add(_dominant_token(w))
+            except (json.JSONDecodeError, TypeError):
+                pass
+
+    return frozenset(protected)
+
+
 # ---------------------------------------------------------------------------
 # Main service
 # ---------------------------------------------------------------------------
@@ -116,8 +153,31 @@ async def detect_negative_patterns(
 ) -> list[dict[str, Any]]:
     """Detect and store phrase-negative pattern recommendations.
 
+    Safety guards:
+    - Aborts if < 7 distinct report dates (single-day data unreliable).
+    - Skips roots matching actively-targeted keywords or protected_keywords.
+    - Each term must have >= $5 wasted spend before counting toward a cluster.
+
     Returns summary list of created recommendations.
     """
+    # ── Safety gate: minimum data coverage ──────────────────────────────────
+    distinct_dates = await _count_distinct_report_dates(session)
+    if distinct_dates < _MIN_DATA_DAYS:
+        logger.warning(
+            "negative_pattern_detector: only %d distinct report_dates "
+            "(need >= %d) — aborting to prevent false positives",
+            distinct_dates, _MIN_DATA_DAYS,
+        )
+        return []
+
+    # ── Protected roots ──────────────────────────────────────────────────────
+    protected_roots = await _get_protected_roots(session)
+    logger.info(
+        "negative_pattern_detector: %d report_dates, %d protected roots",
+        distinct_dates, len(protected_roots),
+    )
+
+    # ── Query zero-conversion terms (per-term spend threshold) ───────────────
     stmt = text("""
         SELECT
             search_term,
@@ -130,14 +190,22 @@ async def detect_negative_patterns(
         GROUP BY search_term, campaign_id
         HAVING SUM(orders) = 0
            AND SUM(clicks) >= :min_clicks
+           AND SUM(spend)  >= :min_spend
         ORDER BY SUM(spend) DESC
         LIMIT :max_rows
     """)
     rows = (
-        await session.exec(stmt, params={"min_clicks": _MIN_CLICKS_PER_TERM, "max_rows": _MAX_TERMS_TO_SCAN})
+        await session.exec(
+            stmt,
+            params={
+                "min_clicks": _MIN_CLICKS_PER_TERM,
+                "min_spend": _MIN_SPEND_PER_TERM,
+                "max_rows": _MAX_TERMS_TO_SCAN,
+            },
+        )
     ).all()  # type: ignore[arg-type]
 
-    # Build cluster map: root → list of (search_term, campaign_id, clicks, spend)
+    # ── Build cluster map ────────────────────────────────────────────────────
     clusters: dict[str, list[dict[str, Any]]] = {}
     for row in rows:
         root = _dominant_token(row.search_term)
@@ -149,8 +217,14 @@ async def detect_negative_patterns(
         })
 
     created: list[dict[str, Any]] = []
+    skipped_protected = 0
 
     for root, members in clusters.items():
+        # ── Protected root check ─────────────────────────────────────────────
+        if root in protected_roots:
+            skipped_protected += 1
+            continue
+
         unique_terms = list({m["term"] for m in members})
         if len(unique_terms) < _MIN_TERMS_IN_CLUSTER:
             continue
@@ -175,7 +249,10 @@ async def detect_negative_patterns(
             "term_count": term_count,
             "total_spend": round(total_spend, 2),
             "total_clicks": total_clicks,
-            "rule": f">={_MIN_TERMS_IN_CLUSTER} terms, ${total_spend:.2f} wasted",
+            "rule": (
+                f">={_MIN_TERMS_IN_CLUSTER} terms, ${total_spend:.2f} wasted, "
+                f"{distinct_dates} report_dates in dataset"
+            ),
         }
 
         rec = KeywordRecommendation(
@@ -209,7 +286,7 @@ async def detect_negative_patterns(
 
     await session.commit()
     logger.info(
-        "negative_pattern_detector: created %d pattern-negative recs from %d clusters scanned",
-        len(created), len(clusters),
+        "negative_pattern_detector: created %d recs (%d clusters, %d protected skipped)",
+        len(created), len(clusters), skipped_protected,
     )
     return created

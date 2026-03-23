@@ -12,6 +12,7 @@ from typing import Any
 from sqlmodel.ext.asyncio.session import AsyncSession
 
 from app.core.logging import get_logger
+from app.services.ad_metrics_sync import sync_ad_metrics_from_search_terms
 from app.services.bid_optimizer import generate_bid_recommendations
 from app.services.budget_allocator import generate_budget_allocations
 from app.services.keyword_discoverer import generate_keyword_recommendations
@@ -48,6 +49,7 @@ async def run_optimizer(
     result: dict[str, Any] = {
         "started_at": started_at.isoformat(),
         "parent_asin": parent_asin,
+        "ad_metrics_synced": 0,
         "bid_recommendations_created": 0,
         "keyword_recommendations_created": 0,
         "pattern_negatives_created": 0,
@@ -55,6 +57,15 @@ async def run_optimizer(
         "placement_recommendations_created": 0,
         "errors": [],
     }
+
+    # Always sync ad_metrics first so downstream optimizers see fresh data
+    try:
+        metrics_result = await sync_ad_metrics_from_search_terms(session)
+        result["ad_metrics_synced"] = metrics_result.get("total_processed", 0)
+        logger.info("ppc_scheduler: ad_metrics sync done, %d rows", result["ad_metrics_synced"])
+    except Exception as exc:  # noqa: BLE001
+        logger.exception("ppc_scheduler: ad_metrics sync failed")
+        result["errors"].append({"step": "ad_metrics_sync", "error": str(exc)})
 
     if run_bid:
         try:

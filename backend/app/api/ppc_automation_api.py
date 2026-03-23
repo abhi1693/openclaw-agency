@@ -26,6 +26,7 @@ from app.models.ppc_automation import (
 )
 from app.services.ads_api import AmazonAdsAPI
 from app.services.budget_allocator import generate_budget_allocations
+from app.services.ad_metrics_sync import sync_ad_metrics_from_search_terms
 from app.services.campaign_creator import generate_campaign_plan
 from app.services.negative_pattern_detector import detect_negative_patterns
 from app.services.placement_optimizer import generate_placement_recommendations
@@ -60,6 +61,8 @@ class AutomationSettingsUpsert(BaseModel):
     # Phase 6: TACoS target mode
     target_mode: str = "acos"   # 'acos' | 'tacos'
     target_tacos: float | None = None
+    # Safety: protected keywords (JSON array as string, e.g. '["sanitizer","wipes"]')
+    protected_keywords: str | None = None
 
 
 class ApplyBidRecsRequest(BaseModel):
@@ -672,6 +675,69 @@ async def generate_campaign_plan_endpoint(
         return result
     except Exception as exc:  # noqa: BLE001
         logger.exception("generate_campaign_plan: failed")
+        raise HTTPException(status_code=500, detail=str(exc)) from exc
+
+
+# ---------------------------------------------------------------------------
+# Ad metrics sync
+# ---------------------------------------------------------------------------
+
+
+@router.post("/sync-ad-metrics")
+async def sync_ad_metrics_endpoint(
+    session: AsyncSession = SESSION_DEP,
+) -> dict[str, Any]:
+    """Aggregate search_term_reports → ad_metrics. Run after any search term sync."""
+    started_at = datetime.utcnow()
+    try:
+        result = await sync_ad_metrics_from_search_terms(session)
+        finished_at = datetime.utcnow()
+        return {
+            "started_at": started_at.isoformat(),
+            "finished_at": finished_at.isoformat(),
+            "duration_seconds": (finished_at - started_at).total_seconds(),
+            **result,
+        }
+    except Exception as exc:  # noqa: BLE001
+        logger.exception("sync_ad_metrics: failed")
+        raise HTTPException(status_code=500, detail=str(exc)) from exc
+
+
+# ---------------------------------------------------------------------------
+# Backfill search terms (re-run SP search term sync for fresh data)
+# ---------------------------------------------------------------------------
+
+
+@router.post("/backfill-search-terms")
+async def backfill_search_terms_endpoint(
+    days: int = Query(default=30, ge=1, le=90),
+    session: AsyncSession = SESSION_DEP,
+) -> dict[str, Any]:
+    """Re-trigger search term report sync from Amazon Advertising API.
+
+    This is a manual escape hatch for when the daily cron hasn't run
+    or only has partial data. Calls the existing sync_search_terms()
+    service which requests the last `days` days from the SP-API skill.
+    After syncing, automatically runs ad_metrics aggregation.
+    """
+    from app.services.amazon_sync import sync_search_terms
+
+    started_at = datetime.utcnow()
+    try:
+        count, synced_at = await sync_search_terms(session)
+        # Immediately aggregate into ad_metrics
+        metrics_result = await sync_ad_metrics_from_search_terms(session)
+        finished_at = datetime.utcnow()
+        return {
+            "started_at": started_at.isoformat(),
+            "finished_at": finished_at.isoformat(),
+            "duration_seconds": (finished_at - started_at).total_seconds(),
+            "search_terms_synced": count,
+            "synced_at": synced_at.isoformat() if synced_at else None,
+            "ad_metrics_sync": metrics_result,
+        }
+    except Exception as exc:  # noqa: BLE001
+        logger.exception("backfill_search_terms: failed")
         raise HTTPException(status_code=500, detail=str(exc)) from exc
 
 

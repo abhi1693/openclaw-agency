@@ -700,6 +700,8 @@ async def sync_search_terms(session: AsyncSession) -> tuple[int, datetime]:
             continue
 
         campaign_name = row.get("campaignName") or None
+        campaign_id_val = row.get("campaignId") or None
+        ad_group_id_val = row.get("adGroupId") or None
         match_type = row.get("matchType") or None
         spend_val = _to_decimal(row.get("cost"))
         sales_val = _to_decimal(row.get("sales7d"))
@@ -744,7 +746,9 @@ async def sync_search_terms(session: AsyncSession) -> tuple[int, datetime]:
         if record is None:
             record = SearchTermReport(
                 search_term=search_term,
+                campaign_id=campaign_id_val,
                 campaign_name=campaign_name,
+                ad_group_id=ad_group_id_val,
                 ad_group_name=row.get("adGroupName") or None,
                 keyword=row.get("targeting") or None,
                 match_type=match_type,
@@ -765,6 +769,10 @@ async def sync_search_terms(session: AsyncSession) -> tuple[int, datetime]:
             )
             session.add(record)
         else:
+            if campaign_id_val and not record.campaign_id:
+                record.campaign_id = campaign_id_val
+            if ad_group_id_val and not record.ad_group_id:
+                record.ad_group_id = ad_group_id_val
             record.impressions = impressions_val
             record.clicks = clicks_val
             record.spend = spend_val

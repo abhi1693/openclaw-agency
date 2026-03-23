@@ -18,6 +18,7 @@ Total daily budget defaults to last known BudgetAllocation.total_daily_budget or
 from __future__ import annotations
 
 import json
+import re
 from datetime import date, timedelta
 from typing import Any
 
@@ -38,12 +39,54 @@ logger = get_logger(__name__)
 
 _DEFAULT_MIN_BID = 0.10
 _DEFAULT_MAX_BID = 3.00
+
+# Keyword max length — longer strings are likely product titles, not search queries
+_KW_MAX_LEN = 80
+_KW_MIN_LEN = 3
+# ASIN-like pattern: B0 followed by 8+ alphanumeric chars
+_ASIN_RE = re.compile(r"^[Bb]0[A-Za-z0-9]{8,}$")
 _DEFAULT_BID = 0.50
 _DEFAULT_BUDGET = 50.0
 _DEFAULT_ALLOC = {"sp": 0.70, "sb": 0.15, "sd": 0.10}
 _KW_CONFIDENCE_THRESHOLD = 0.50
 _LOOKBACK_DAYS = 30
 _BID_CPC_MULTIPLIER = 1.10  # start 10% above avg CPC for delivery
+
+
+# ---------------------------------------------------------------------------
+# Keyword quality filters
+# ---------------------------------------------------------------------------
+
+
+def _is_valid_keyword(kw: str) -> bool:
+    """Return True if kw is a usable US-marketplace keyword (not garbage)."""
+    kw = kw.strip()
+    # Must be ASCII — non-ASCII (Chinese, Japanese, etc.) not useful for US marketplace
+    if not kw.isascii():
+        return False
+    # Unicode replacement character (\ufffc and variants often appear in corrupted data)
+    if "\ufffc" in kw or "\ufffd" in kw:
+        return False
+    # ASIN-like strings belong in product targeting, not keyword targeting
+    if _ASIN_RE.match(kw):
+        return False
+    # Too long — likely a full product title that no one searches verbatim
+    if len(kw) > _KW_MAX_LEN:
+        return False
+    # Too short — not a useful keyword
+    if len(kw) < _KW_MIN_LEN:
+        return False
+    return True
+
+
+def _extract_product_targets(keywords: list[dict[str, Any]]) -> list[str]:
+    """Extract ASIN-like strings from keyword list for product targeting."""
+    targets = []
+    for k in keywords:
+        kw = k["keyword"].strip()
+        if _ASIN_RE.match(kw):
+            targets.append(kw.upper())
+    return list(dict.fromkeys(targets))  # dedupe preserving order
 
 
 # ---------------------------------------------------------------------------
@@ -104,16 +147,32 @@ async def _get_seed_keywords(session: AsyncSession) -> list[dict[str, Any]]:
         .where(KeywordRecommendation.confidence >= _KW_CONFIDENCE_THRESHOLD)
         .where(KeywordRecommendation.status == "pending")
         .order_by(col(KeywordRecommendation.confidence).desc())
-        .limit(200)
+        .limit(500)  # fetch more, then filter down
     )
-    return [
-        {
-            "keyword": r.search_term,
+    raw = result.all()
+
+    seen: set[str] = set()
+    cleaned: list[dict[str, Any]] = []
+    for r in raw:
+        kw = r.search_term.strip().lower()
+        if not _is_valid_keyword(kw):
+            continue
+        if kw in seen:
+            continue
+        seen.add(kw)
+        cleaned.append({
+            "keyword": kw,
             "confidence": r.confidence,
             "match_type_recommendation": r.match_type_recommendation or "exact",
-        }
-        for r in result.all()
-    ]
+        })
+        if len(cleaned) >= 200:
+            break
+
+    skipped = len(raw) - len(cleaned)
+    if skipped > 0:
+        logger.info("campaign_creator: filtered out %d low-quality keywords (non-ASCII, ASIN, too long/short)", skipped)
+
+    return cleaned
 
 
 # ---------------------------------------------------------------------------
@@ -131,6 +190,7 @@ def _build_plan(
     initial_bid: float,
     total_budget: float,
     alloc: dict[str, float],
+    product_targets: list[str] | None = None,
 ) -> dict[str, Any]:
     sp_budget = round(total_budget * alloc.get("sp", 0.70), 2)
     sb_budget = round(total_budget * alloc.get("sb", 0.15), 2)
@@ -247,6 +307,24 @@ def _build_plan(
         },
     ]
 
+    # SP Product Targeting if we have ASIN targets from discovery
+    if product_targets:
+        # Use remaining budget from SP (fits within the broad bucket)
+        sp_pt_budget = round(sp_broad_budget * 0.50, 2)
+        campaigns.append({
+            "campaign_type": "SP",
+            "targeting_type": "product",
+            "campaign_name": f"{parent_asin} | SP Product Target",
+            "daily_budget": sp_pt_budget,
+            "ad_groups": [
+                {
+                    "name": "Product Targets",
+                    "default_bid": initial_bid,
+                    "targets": [{"asin": a} for a in product_targets[:50]],
+                }
+            ],
+        })
+
     return {
         "parent_asin": parent_asin,
         "generated_date": date.today().isoformat(),
@@ -284,6 +362,18 @@ async def generate_campaign_plan(
     avg_cpc = await _get_avg_cpc(session)
     min_bid, max_bid = await _get_bid_bounds(session, parent_asin)
     budget, alloc = await _get_budget_split(session, parent_asin)
+
+    # Fetch raw recommendations including ASIN-like terms (before sanitization)
+    raw_result = await session.exec(
+        select(KeywordRecommendation)
+        .where(KeywordRecommendation.action == "add_keyword")
+        .where(KeywordRecommendation.confidence >= _KW_CONFIDENCE_THRESHOLD)
+        .where(KeywordRecommendation.status == "pending")
+        .limit(500)
+    )
+    raw_recs = [{"keyword": r.search_term.strip(), "confidence": r.confidence, "match_type_recommendation": r.match_type_recommendation or "exact"} for r in raw_result.all()]
+    product_targets = _extract_product_targets(raw_recs)
+
     keywords = await _get_seed_keywords(session)
 
     if total_daily_budget is not None:
@@ -292,7 +382,7 @@ async def generate_campaign_plan(
     raw_bid = avg_cpc * _BID_CPC_MULTIPLIER
     initial_bid = round(max(min_bid, min(raw_bid, max_bid)), 4)
 
-    plan_json = _build_plan(parent_asin, keywords, initial_bid, budget, alloc)
+    plan_json = _build_plan(parent_asin, keywords, initial_bid, budget, alloc, product_targets)
     campaign_count = len(plan_json["campaigns"])
 
     row = CampaignPlan(
