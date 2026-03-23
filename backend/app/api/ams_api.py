@@ -11,7 +11,7 @@ from sqlmodel import col, select
 from sqlmodel.ext.asyncio.session import AsyncSession
 
 from app.api.deps import get_session
-from app.config.ams_config import AMS_DATASETS
+from app.config.ams_config import AMS_DATASETS, AMS_PROFILE_ID, ams_sqs_arn
 from app.core.logging import get_logger
 from app.models.ppc_automation import HourlyCampaignMetric
 from app.services.ams_consumer import CONSUMER_STATS
@@ -32,6 +32,26 @@ class CreateSubscriptionRequest(BaseModel):
     profile_id: str
     dataset_id: str
     sqs_arn: str
+
+
+# ---------------------------------------------------------------------------
+# Config (datasets + ARNs for frontend auto-fill)
+# ---------------------------------------------------------------------------
+
+
+@router.get("/config")
+async def get_ams_config() -> dict[str, Any]:
+    """Return AMS profile_id and dataset list with auto-computed SQS ARNs."""
+    datasets = [
+        {
+            "id": ds_id,
+            "description": ds["description"],
+            "queue_name": ds["queue_name"],
+            "sqs_arn": ams_sqs_arn(ds["queue_name"]),
+        }
+        for ds_id, ds in AMS_DATASETS.items()
+    ]
+    return {"profile_id": AMS_PROFILE_ID, "datasets": datasets}
 
 
 # ---------------------------------------------------------------------------

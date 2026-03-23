@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import os
+
 # Datasets published by Amazon Marketing Stream.
 # queue_name is the short name; full URL is constructed from AMS_SQS_PREFIX in settings.
 AMS_DATASETS: dict[str, dict[str, str]] = {
@@ -30,3 +32,15 @@ METRIC_DATASETS = {"sp-traffic", "sp-conversion"}
 SQS_WAIT_TIME_SECONDS = 20  # long-poll
 SQS_MAX_MESSAGES = 10       # per poll
 SQS_MAX_FAILURES = 3        # before treating message as dead-letter
+
+# SQS ARN construction
+_AMS_SQS_REGION  = os.environ.get("AMS_SQS_REGION", "us-east-1")
+_AMS_SQS_ACCOUNT = os.environ.get("AWS_ACCOUNT_ID", "")
+AMS_SQS_ARN_PREFIX = f"arn:aws:sqs:{_AMS_SQS_REGION}:{_AMS_SQS_ACCOUNT}"
+
+def ams_sqs_arn(queue_name: str) -> str:
+    """Build the full SQS ARN for the given queue name."""
+    return f"{AMS_SQS_ARN_PREFIX}:{queue_name}"
+
+# Amazon Advertising profile ID (used for AMS subscription management)
+AMS_PROFILE_ID = os.environ.get("AMAZON_ADS_PROFILE_ID", "")
