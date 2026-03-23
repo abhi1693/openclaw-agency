@@ -26,7 +26,7 @@ from app.models.ppc_automation import (
 )
 from app.services.ads_api import AmazonAdsAPI
 from app.services.budget_allocator import generate_budget_allocations
-from app.services.ad_metrics_sync import sync_ad_metrics_from_search_terms
+from app.services.ad_metrics_sync import sync_ad_metrics_from_api, sync_ad_metrics_from_search_terms
 from app.services.campaign_creator import generate_campaign_plan
 from app.services.negative_pattern_detector import detect_negative_patterns
 from app.services.placement_optimizer import generate_placement_recommendations
@@ -685,12 +685,13 @@ async def generate_campaign_plan_endpoint(
 
 @router.post("/sync-ad-metrics")
 async def sync_ad_metrics_endpoint(
+    days: int = Query(default=30, ge=1, le=90),
     session: AsyncSession = SESSION_DEP,
 ) -> dict[str, Any]:
-    """Aggregate search_term_reports → ad_metrics. Run after any search term sync."""
+    """Sync ad_metrics from Ads API (DAILY). Falls back to search_term aggregation."""
     started_at = datetime.utcnow()
     try:
-        result = await sync_ad_metrics_from_search_terms(session)
+        result = await sync_ad_metrics_from_api(session, days=days)
         finished_at = datetime.utcnow()
         return {
             "started_at": started_at.isoformat(),
@@ -710,23 +711,22 @@ async def sync_ad_metrics_endpoint(
 
 @router.post("/backfill-search-terms")
 async def backfill_search_terms_endpoint(
-    days: int = Query(default=30, ge=1, le=90),
+    period: str = Query(default="last_30d", description="last_week | last_month | last_30d"),
     session: AsyncSession = SESSION_DEP,
 ) -> dict[str, Any]:
     """Re-trigger search term report sync from Amazon Advertising API.
 
     This is a manual escape hatch for when the daily cron hasn't run
-    or only has partial data. Calls the existing sync_search_terms()
-    service which requests the last `days` days from the SP-API skill.
-    After syncing, automatically runs ad_metrics aggregation.
+    or only has partial data. Calls sync_search_terms() for the specified
+    calendar period. After syncing, automatically runs ad_metrics sync.
     """
     from app.services.amazon_sync import sync_search_terms
 
     started_at = datetime.utcnow()
     try:
-        count, synced_at = await sync_search_terms(session)
-        # Immediately aggregate into ad_metrics
-        metrics_result = await sync_ad_metrics_from_search_terms(session)
+        count, synced_at = await sync_search_terms(session, period=period)
+        # Immediately sync ad_metrics (Ads API primary, fallback to search_term aggregation)
+        metrics_result = await sync_ad_metrics_from_api(session)
         finished_at = datetime.utcnow()
         return {
             "started_at": started_at.isoformat(),

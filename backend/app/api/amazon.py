@@ -495,9 +495,10 @@ async def list_returns(
 
 @router.post("/search-terms/sync", response_model=SearchTermsSyncResponse)
 async def sync_search_terms_endpoint(
+    period: str = Query(default="last_30d", description="last_week | last_month | last_30d"),
     session: AsyncSession = SESSION_DEP,
 ) -> SearchTermsSyncResponse:
-    count, synced_at = await sync_search_terms(session)
+    count, synced_at = await sync_search_terms(session, period=period)
     return SearchTermsSyncResponse(search_terms_synced=count, synced_at=synced_at)
 
 

@@ -669,15 +669,59 @@ async def sync_returns(session: AsyncSession, *, days: int = 30) -> AmazonSyncRe
     return AmazonSyncResult(return_events_synced=count, synced_at=synced_at)
 
 
-async def sync_search_terms(session: AsyncSession) -> tuple[int, datetime]:
+def _period_to_dates(period: str) -> tuple[str, str]:
+    """Convert a period name to (start_date, end_date) ISO strings.
+
+    Periods:
+      last_week   — previous calendar Monday–Sunday
+      last_month  — first–last day of previous calendar month
+      last_30d    — rolling 30 days ending yesterday (default)
+    """
+    from datetime import timedelta
+    today = date.today()
+    yesterday = today - timedelta(days=1)
+
+    if period == "last_week":
+        # Most recent completed Mon–Sun week
+        days_since_monday = today.weekday()  # 0=Mon
+        last_sunday = today - timedelta(days=days_since_monday + 1)
+        last_monday = last_sunday - timedelta(days=6)
+        return last_monday.isoformat(), last_sunday.isoformat()
+
+    if period == "last_month":
+        first_of_this_month = today.replace(day=1)
+        last_day_prev = first_of_this_month - timedelta(days=1)
+        first_day_prev = last_day_prev.replace(day=1)
+        return first_day_prev.isoformat(), last_day_prev.isoformat()
+
+    # Default: last_30d
+    start = today - timedelta(days=30)
+    return start.isoformat(), yesterday.isoformat()
+
+
+async def sync_search_terms(
+    session: AsyncSession,
+    *,
+    period: str = "last_30d",
+) -> tuple[int, datetime]:
     """Sync search terms from Amazon Advertising API into DB.
+
+    Args:
+        period: 'last_week', 'last_month', or 'last_30d' (default).
 
     Returns (count_synced, synced_at).
     """
     GUARD = Path.home() / ".openclaw" / "skills" / "amazon-advertising" / "guard.js"
 
+    start_date_arg, end_date_arg = _period_to_dates(period)
+    logger.info(
+        "sync_search_terms: period=%s → %s to %s", period, start_date_arg, end_date_arg
+    )
+
     proc = await asyncio.create_subprocess_exec(
-        "node", str(GUARD), "search-terms", "--days", "30",
+        "node", str(GUARD), "search-terms",
+        "--start-date", start_date_arg,
+        "--end-date", end_date_arg,
         stdout=asyncio.subprocess.PIPE,
         stderr=asyncio.subprocess.PIPE,
     )
@@ -688,9 +732,9 @@ async def sync_search_terms(session: AsyncSession) -> tuple[int, datetime]:
     raw = _clean_json_stdout(stdout.decode())
     data = json.loads(raw)
     rows = data.get("rows", [])
-    start_date = data.get("startDate", "")
-    end_date = data.get("endDate", "")
-    period = f"{start_date}_{end_date}"
+    start_date = data.get("startDate", start_date_arg)
+    end_date = data.get("endDate", end_date_arg)
+    period_key = f"{start_date}_{end_date}"
     now = utcnow()
     synced = 0
 
@@ -735,7 +779,7 @@ async def sync_search_terms(session: AsyncSession) -> tuple[int, datetime]:
 
         existing = await session.exec(
             select(SearchTermReport).where(
-                SearchTermReport.period == period,
+                SearchTermReport.period == period_key,
                 SearchTermReport.search_term == search_term,
                 SearchTermReport.campaign_name == campaign_name,
                 SearchTermReport.match_type == match_type,
@@ -763,7 +807,7 @@ async def sync_search_terms(session: AsyncSession) -> tuple[int, datetime]:
                 ctr=ctr_val,
                 cpc=cpc_val,
                 report_date=report_date_val,
-                period=period,
+                period=period_key,
                 raw_payload=dict(row),
                 synced_at=now,
             )
