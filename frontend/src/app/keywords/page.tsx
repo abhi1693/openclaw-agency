@@ -717,6 +717,7 @@ export default function KeywordsPage() {
   const [products, setProducts] = useState<Product[]>(STATIC_PRODUCTS)
   const [productsLoading, setProductsLoading] = useState(true)
   const [selectedAsin, setSelectedAsin] = useState(STATIC_PRODUCTS[0].asin)
+  const [usingFallback, setUsingFallback] = useState(false)
 
   useEffect(() => {
     fetch('/api/content/products')
@@ -727,9 +728,11 @@ export default function KeywordsPage() {
           const mapped = list.map(p => ({ asin: p.asin, name: p.name }))
           setProducts(mapped)
           setSelectedAsin(mapped[0].asin)
+        } else {
+          setUsingFallback(true)
         }
       })
-      .catch(() => { /* keep static fallback */ })
+      .catch(() => { setUsingFallback(true) })
       .finally(() => setProductsLoading(false))
   }, [])
 
@@ -765,7 +768,20 @@ export default function KeywordsPage() {
       title="Keywords"
       description="关键词排名追踪 & 搜索词分析"
       headerActions={
-        <div className="flex items-center gap-3 flex-wrap">
+        <div className="flex flex-col gap-2 w-full">
+          {usingFallback && (
+            <div className="flex items-center gap-2 rounded-lg border border-yellow-400 bg-yellow-50 px-3 py-2 text-sm text-yellow-800">
+              <AlertTriangle className="w-4 h-4 text-yellow-600 shrink-0" />
+              <span>产品目录不可用 — 显示缓存列表</span>
+              <button
+                onClick={() => window.location.reload()}
+                className="ml-auto text-xs underline hover:no-underline"
+              >
+                刷新
+              </button>
+            </div>
+          )}
+          <div className="flex items-center gap-3 flex-wrap">
           {/* ASIN Selector */}
           <select
             value={selectedAsin}
@@ -796,6 +812,7 @@ export default function KeywordsPage() {
                 {tab.label}
               </button>
             ))}
+          </div>
           </div>
         </div>
       }
