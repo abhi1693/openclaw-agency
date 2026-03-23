@@ -79,11 +79,13 @@ _LOOKBACK_DAYS = 30
 async def _placement_already_pending(
     session: AsyncSession, campaign_id: str, placement: str
 ) -> bool:
+    cutoff = utcnow() - timedelta(hours=24)
     result = await session.exec(
         select(PlacementRecommendation)
         .where(PlacementRecommendation.campaign_id == campaign_id)
         .where(PlacementRecommendation.placement == placement)
         .where(PlacementRecommendation.status == "pending")
+        .where(PlacementRecommendation.created_at > cutoff)
     )
     return result.first() is not None
 

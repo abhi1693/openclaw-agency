@@ -29,6 +29,7 @@ from __future__ import annotations
 
 import json
 from dataclasses import dataclass
+from datetime import timedelta
 from decimal import Decimal
 from enum import Enum
 from typing import Any
@@ -132,11 +133,13 @@ async def _get_active_keyword_targets(session: AsyncSession) -> set[str]:
 
 
 async def _already_pending(session: AsyncSession, search_term: str, action: str) -> bool:
+    cutoff = utcnow() - timedelta(hours=24)
     result = await session.exec(
         select(KeywordRecommendation)
         .where(KeywordRecommendation.search_term == search_term)
         .where(KeywordRecommendation.action == action)
         .where(KeywordRecommendation.status == "pending")
+        .where(KeywordRecommendation.created_at > cutoff)
     )
     return result.first() is not None
 

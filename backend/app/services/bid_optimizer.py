@@ -27,7 +27,7 @@ Special handling
 from __future__ import annotations
 
 import json
-from datetime import date
+from datetime import date, timedelta, timezone
 from decimal import Decimal
 from typing import Any
 
@@ -308,12 +308,16 @@ async def generate_bid_recommendations(
         if float(current_bid) > 0 and abs(float(recommended_bid - current_bid) / float(current_bid)) < 0.01:
             continue
 
-        # Skip if pending rec exists for this keyword
+        # Skip if a fresh (< 24h) pending rec exists at keyword level
+        cutoff = utcnow() - timedelta(hours=24)
         existing = await session.exec(
             select(BidRecommendation)
             .where(BidRecommendation.campaign_id == campaign_id)
+            .where(BidRecommendation.ad_group_id == ad_group_id)
+            .where(BidRecommendation.keyword_id == keyword_text)
             .where(BidRecommendation.match_type == match_type)
             .where(BidRecommendation.status == "pending")
+            .where(BidRecommendation.created_at > cutoff)
         )
         if existing.first() is not None:
             continue
@@ -345,7 +349,7 @@ async def generate_bid_recommendations(
         rec = BidRecommendation(
             campaign_id=campaign_id,
             ad_group_id=ad_group_id,
-            keyword_id=None,
+            keyword_id=keyword_text,
             match_type=match_type,
             current_bid=current_bid,
             recommended_bid=recommended_bid,

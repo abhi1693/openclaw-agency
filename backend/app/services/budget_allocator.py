@@ -32,7 +32,7 @@ from sqlmodel.ext.asyncio.session import AsyncSession
 
 from app.core.logging import get_logger
 from app.core.time import utcnow
-from app.models.ppc_automation import BudgetAllocation
+from app.models.ppc_automation import BudgetAllocation, PpcAutomationSettings
 
 logger = get_logger(__name__)
 
@@ -363,8 +363,11 @@ async def generate_budget_allocations(
         rows = (await session.exec(stmt)).all()  # type: ignore[arg-type]
         asins = [r.parent_asin for r in rows]
         if not asins:
-            # If no history at all, we can't proceed without explicit ASINs
-            logger.warning("budget_allocator: no known parent_asins, pass parent_asins explicitly")
+            # Fall back to all ASINs in ppc_automation_settings
+            settings_rows = (await session.exec(select(PpcAutomationSettings))).all()
+            asins = [r.parent_asin for r in settings_rows]
+        if not asins:
+            logger.warning("budget_allocator: no known parent_asins; configure PPC settings first")
             return []
 
     # Fetch global performance data (shared across all ASINs for now)
