@@ -30,7 +30,7 @@
     "@types/topojson-client": "^3.1.5",
     "cmdk": "^1.1.1",
     "cron-parser": "^5.5.0",
-    "next": "16.1.6",
+    "next": "^16.2.1",
     "react": "19.2.4",
     "react-dom": "19.2.4",
     "react-is": "^19.2.4",
