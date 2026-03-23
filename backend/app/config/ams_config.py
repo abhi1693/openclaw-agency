@@ -33,14 +33,25 @@ SQS_WAIT_TIME_SECONDS = 20  # long-poll
 SQS_MAX_MESSAGES = 10       # per poll
 SQS_MAX_FAILURES = 3        # before treating message as dead-letter
 
-# SQS ARN construction
+# SQS ARN construction — prefer per-dataset env vars; fall back to prefix + queue_name
 _AMS_SQS_REGION  = os.environ.get("AMS_SQS_REGION", "us-east-1")
 _AMS_SQS_ACCOUNT = os.environ.get("AWS_ACCOUNT_ID", "")
 AMS_SQS_ARN_PREFIX = f"arn:aws:sqs:{_AMS_SQS_REGION}:{_AMS_SQS_ACCOUNT}"
 
-def ams_sqs_arn(queue_name: str) -> str:
-    """Build the full SQS ARN for the given queue name."""
+
+def ams_sqs_arn(queue_name: str, dataset_id: str = "") -> str:
+    """Return the SQS ARN for a dataset queue.
+
+    Checks AMS_SQS_<DATASET>_ARN env var first (e.g. AMS_SQS_SP_TRAFFIC_ARN),
+    then falls back to {AMS_SQS_ARN_PREFIX}:{queue_name}.
+    """
+    if dataset_id:
+        env_key = "AMS_SQS_" + dataset_id.upper().replace("-", "_") + "_ARN"
+        explicit = os.environ.get(env_key, "").strip()
+        if explicit:
+            return explicit
     return f"{AMS_SQS_ARN_PREFIX}:{queue_name}"
+
 
 # Amazon Advertising profile ID (used for AMS subscription management)
 AMS_PROFILE_ID = os.environ.get("AMAZON_ADS_PROFILE_ID", "")

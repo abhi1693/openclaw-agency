@@ -1808,6 +1808,147 @@ function SettingsTab() {
         </button>
         {saved && <span className="text-xs text-emerald-600 font-medium">Saved!</span>}
       </div>
+
+      <AmsSubscriptionPanel />
+    </div>
+  )
+}
+
+// ─── AMS Subscription Panel ────────────────────────────────────────────────────
+
+type AmsDataset = { id: string; description: string; queue_name: string; sqs_arn: string }
+type AmsSub = { subscriptionId: string; dataSetId?: string; status?: string }
+
+function AmsSubscriptionPanel() {
+  const [ensuring, setEnsuring] = useState(false)
+  const [resetting, setResetting] = useState<string | null>(null)
+  const [ensureMsg, setEnsureMsg] = useState<string | null>(null)
+
+  const { data: cfg, refetch: refetchCfg } = useQuery<{ profile_id: string; datasets: AmsDataset[] }>({
+    queryKey: ['ams-config'],
+    queryFn: () => fetch('/api/ams/config').then(r => r.json()),
+    staleTime: 60_000,
+  })
+
+  const { data: subsData, refetch: refetchSubs, isFetching } = useQuery<{ subscriptions: AmsSub[] }>({
+    queryKey: ['ams-subscriptions', cfg?.profile_id],
+    queryFn: () =>
+      cfg?.profile_id
+        ? fetch(`/api/ams/subscriptions?profile_id=${encodeURIComponent(cfg.profile_id)}`).then(r => r.json())
+        : Promise.resolve({ subscriptions: [] }),
+    enabled: !!cfg?.profile_id,
+    staleTime: 30_000,
+  })
+
+  const subs = subsData?.subscriptions ?? []
+  const subByDataset = new Map(subs.filter(s => s.dataSetId).map(s => [s.dataSetId!, s]))
+  const datasets = cfg?.datasets ?? []
+
+  async function handleEnsure() {
+    setEnsuring(true)
+    setEnsureMsg(null)
+    try {
+      const res = await fetch('/api/ams/ensure', { method: 'POST' })
+      const data = await res.json()
+      setEnsureMsg(data.message || (data.error ? String(data.error) : 'Done'))
+      refetchSubs()
+    } catch {
+      setEnsureMsg('Request failed')
+    } finally {
+      setEnsuring(false)
+    }
+  }
+
+  async function handleReset(sub: AmsSub, ds: AmsDataset) {
+    if (!cfg?.profile_id) return
+    setResetting(ds.id)
+    setEnsureMsg(null)
+    try {
+      // Delete existing
+      await fetch(`/api/ams/subscriptions/${sub.subscriptionId}?profile_id=${encodeURIComponent(cfg.profile_id)}`, { method: 'DELETE' })
+      // Recreate via ensure
+      const res = await fetch('/api/ams/ensure', { method: 'POST' })
+      const data = await res.json()
+      setEnsureMsg(data.message || 'Reset complete')
+      refetchSubs()
+    } catch {
+      setEnsureMsg('Reset failed')
+    } finally {
+      setResetting(null)
+    }
+  }
+
+  function subStatus(dsId: string): 'active' | 'missing' {
+    return subByDataset.has(dsId) ? 'active' : 'missing'
+  }
+
+  return (
+    <div className="mt-8 rounded-xl border border-slate-200 bg-white p-5 shadow-sm">
+      <div className="mb-4 flex items-center justify-between">
+        <div>
+          <h3 className="text-sm font-semibold text-slate-800">AMS 实时数据流订阅</h3>
+          {cfg?.profile_id && (
+            <p className="mt-0.5 font-mono text-[11px] text-slate-400">profile: {cfg.profile_id}</p>
+          )}
+        </div>
+        <div className="flex gap-2">
+          <button
+            onClick={() => { refetchCfg(); refetchSubs() }}
+            disabled={isFetching}
+            className="rounded-lg border border-slate-200 px-3 py-1.5 text-xs text-slate-600 hover:bg-slate-50 disabled:opacity-40"
+          >
+            {isFetching ? '…' : '刷新'}
+          </button>
+          <button
+            onClick={handleEnsure}
+            disabled={ensuring}
+            className="rounded-lg bg-blue-600 px-3 py-1.5 text-xs font-medium text-white hover:bg-blue-700 disabled:opacity-40"
+          >
+            {ensuring ? '创建中…' : 'Ensure All'}
+          </button>
+        </div>
+      </div>
+
+      {ensureMsg && (
+        <div className="mb-3 rounded-lg bg-slate-50 px-3 py-2 text-xs text-slate-600">
+          {ensureMsg}
+        </div>
+      )}
+
+      <div className="space-y-2">
+        {datasets.length === 0 ? (
+          <p className="text-xs text-slate-400">Loading datasets…</p>
+        ) : (
+          datasets.map((ds) => {
+            const sub = subByDataset.get(ds.id)
+            const st = subStatus(ds.id)
+            return (
+              <div key={ds.id} className="flex items-center justify-between rounded-lg border border-slate-100 bg-slate-50 px-4 py-2.5">
+                <div className="min-w-0">
+                  <div className="flex items-center gap-2">
+                    <span className="text-sm font-medium text-slate-700">{ds.id}</span>
+                    {st === 'active' ? (
+                      <span className="rounded-full bg-emerald-100 px-1.5 py-0.5 text-[10px] font-medium text-emerald-700">Active</span>
+                    ) : (
+                      <span className="rounded-full bg-slate-200 px-1.5 py-0.5 text-[10px] font-medium text-slate-500">未订阅</span>
+                    )}
+                  </div>
+                  <p className="text-[11px] text-slate-400">{ds.queue_name}</p>
+                </div>
+                {sub && (
+                  <button
+                    onClick={() => handleReset(sub, ds)}
+                    disabled={resetting === ds.id}
+                    className="ml-3 shrink-0 rounded border border-slate-200 px-2.5 py-1 text-[11px] text-slate-500 hover:bg-white disabled:opacity-40"
+                  >
+                    {resetting === ds.id ? '…' : 'Reset'}
+                  </button>
+                )}
+              </div>
+            )
+          })
+        )}
+      </div>
     </div>
   )
 }

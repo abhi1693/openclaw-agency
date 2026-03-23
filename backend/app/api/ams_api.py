@@ -15,7 +15,7 @@ from app.config.ams_config import AMS_DATASETS, AMS_PROFILE_ID, ams_sqs_arn
 from app.core.logging import get_logger
 from app.models.ppc_automation import HourlyCampaignMetric
 from app.services.ams_consumer import CONSUMER_STATS
-from app.services.ams_subscriptions import AMSSubscriptionManager
+from app.services.ams_subscriptions import AMSSubscriptionManager, ensure_subscriptions
 
 router = APIRouter(prefix="/ams", tags=["ams"])
 logger = get_logger(__name__)
@@ -47,7 +47,7 @@ async def get_ams_config() -> dict[str, Any]:
             "id": ds_id,
             "description": ds["description"],
             "queue_name": ds["queue_name"],
-            "sqs_arn": ams_sqs_arn(ds["queue_name"]),
+            "sqs_arn": ams_sqs_arn(ds["queue_name"], ds_id),
         }
         for ds_id, ds in AMS_DATASETS.items()
     ]
@@ -102,6 +102,25 @@ async def create_subscription(body: CreateSubscriptionRequest) -> dict[str, Any]
         raise HTTPException(
             status_code=status.HTTP_502_BAD_GATEWAY,
             detail=f"Ads API error: {exc}",
+        ) from exc
+    return result
+
+
+@router.post("/subscriptions/ensure")
+async def ensure_subscriptions_endpoint(
+    profile_id: str | None = Query(default=None),
+) -> dict[str, Any]:
+    """Ensure all 4 AMS stream subscriptions exist for the configured profile.
+
+    Reads AMAZON_ADS_PROFILE_ID and per-dataset SQS ARNs from env. Creates any
+    missing subscriptions. Safe to call repeatedly — skips existing ones.
+    """
+    try:
+        result = await ensure_subscriptions(profile_id)
+    except Exception as exc:  # noqa: BLE001
+        raise HTTPException(
+            status_code=status.HTTP_502_BAD_GATEWAY,
+            detail=f"ensure_subscriptions failed: {exc}",
         ) from exc
     return result
 
