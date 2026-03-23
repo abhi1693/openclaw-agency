@@ -13,6 +13,7 @@ from sqlmodel.ext.asyncio.session import AsyncSession
 
 from app.core.logging import get_logger
 from app.services.bid_optimizer import generate_bid_recommendations
+from app.services.budget_allocator import generate_budget_allocations
 from app.services.keyword_discoverer import generate_keyword_recommendations
 from app.services.negative_pattern_detector import detect_negative_patterns
 
@@ -25,8 +26,9 @@ async def run_optimizer(
     run_bid: bool = True,
     run_keywords: bool = True,
     run_patterns: bool = True,
+    run_budget: bool = False,
 ) -> dict[str, Any]:
-    """Run bid optimization, keyword discovery, and/or pattern detection.
+    """Run bid optimization, keyword discovery, pattern detection, and/or budget allocation.
 
     Args:
         session: async DB session
@@ -34,6 +36,7 @@ async def run_optimizer(
         run_bid: whether to run the bid optimizer
         run_keywords: whether to run keyword discovery
         run_patterns: whether to run negative pattern detection (weekly cadence intended)
+        run_budget: whether to run budget allocation (weekly cadence intended)
 
     Returns:
         Summary dict with counts and timing.
@@ -45,6 +48,7 @@ async def run_optimizer(
         "bid_recommendations_created": 0,
         "keyword_recommendations_created": 0,
         "pattern_negatives_created": 0,
+        "budget_allocations_created": 0,
         "errors": [],
     }
 
@@ -74,6 +78,16 @@ async def run_optimizer(
         except Exception as exc:  # noqa: BLE001
             logger.exception("ppc_scheduler: pattern detector failed")
             result["errors"].append({"step": "pattern_detector", "error": str(exc)})
+
+    if run_budget:
+        try:
+            asins = [parent_asin] if parent_asin else None
+            allocs = await generate_budget_allocations(session, parent_asins=asins)
+            result["budget_allocations_created"] = len(allocs)
+            logger.info("ppc_scheduler: budget allocator done, %d recs", len(allocs))
+        except Exception as exc:  # noqa: BLE001
+            logger.exception("ppc_scheduler: budget allocator failed")
+            result["errors"].append({"step": "budget_allocator", "error": str(exc)})
 
     finished_at = datetime.utcnow()
     result["finished_at"] = finished_at.isoformat()

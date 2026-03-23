@@ -23,6 +23,7 @@ from app.models.ppc_automation import (
     PpcChangeLog,
 )
 from app.services.ads_api import AmazonAdsAPI
+from app.services.budget_allocator import generate_budget_allocations
 from app.services.negative_pattern_detector import detect_negative_patterns
 from app.services.ppc_scheduler import run_optimizer
 
@@ -68,10 +69,21 @@ class RunOptimizerRequest(BaseModel):
     run_bid: bool = True
     run_keywords: bool = True
     run_patterns: bool = True
+    run_budget: bool = False
 
 
 class RunKeywordDiscoveryRequest(BaseModel):
     run_patterns: bool = True
+
+
+class RunBudgetAllocationRequest(BaseModel):
+    parent_asins: list[str] | None = None
+    total_daily_budget: float | None = None
+
+
+class ApplyBudgetAllocRequest(BaseModel):
+    allocation_ids: list[UUID]
+    triggered_by: str = "manual"
 
 
 # ---------------------------------------------------------------------------
@@ -377,6 +389,7 @@ async def run_optimizer_endpoint(
         run_bid=body.run_bid,
         run_keywords=body.run_keywords,
         run_patterns=body.run_patterns,
+        run_budget=body.run_budget,
     )
     return result
 
@@ -386,8 +399,25 @@ async def run_optimizer_endpoint(
 # ---------------------------------------------------------------------------
 
 
+@router.get("/budget-allocations")
+async def list_budget_allocations(
+    status_filter: str | None = Query(default=None, alias="status"),
+    limit: int = Query(default=50, le=200),
+    offset: int = Query(default=0, ge=0),
+    session: AsyncSession = SESSION_DEP,
+) -> dict[str, Any]:
+    """List all latest budget allocation recommendations across all ASINs."""
+    query = select(BudgetAllocation).order_by(col(BudgetAllocation.alloc_date).desc())
+    if status_filter:
+        query = query.where(BudgetAllocation.status == status_filter)
+    query = query.offset(offset).limit(limit)
+    result = await session.exec(query)
+    allocations = result.all()
+    return {"items": [a.model_dump() for a in allocations], "total": len(allocations)}
+
+
 @router.get("/budget-allocations/{parent_asin}")
-async def get_budget_allocations(
+async def get_budget_allocations_by_asin(
     parent_asin: str,
     limit: int = Query(default=30, le=90),
     session: AsyncSession = SESSION_DEP,
@@ -395,9 +425,73 @@ async def get_budget_allocations(
     query = (
         select(BudgetAllocation)
         .where(BudgetAllocation.parent_asin == parent_asin)
-        .order_by(col(BudgetAllocation.date).desc())
+        .order_by(col(BudgetAllocation.alloc_date).desc())
         .limit(limit)
     )
     result = await session.exec(query)
     allocations = result.all()
     return {"parent_asin": parent_asin, "items": [a.model_dump() for a in allocations]}
+
+
+@router.post("/budget-allocations/apply")
+async def apply_budget_allocations(
+    body: ApplyBudgetAllocRequest,
+    session: AsyncSession = SESSION_DEP,
+) -> dict[str, Any]:
+    """Mark selected budget allocation rows as applied."""
+    applied: list[str] = []
+    errors: list[dict[str, str]] = []
+
+    for alloc_id in body.allocation_ids:
+        result = await session.exec(
+            select(BudgetAllocation).where(BudgetAllocation.id == alloc_id)
+        )
+        alloc = result.first()
+        if alloc is None:
+            errors.append({"id": str(alloc_id), "error": "not found"})
+            continue
+        if alloc.status != "pending":
+            errors.append({"id": str(alloc_id), "error": f"status is already {alloc.status}"})
+            continue
+
+        # Promote recommended percentages to current allocations
+        if alloc.recommended_sp_pct is not None:
+            alloc.sp_pct = Decimal(str(round(alloc.recommended_sp_pct, 6)))
+        if alloc.recommended_sb_pct is not None:
+            alloc.sb_pct = Decimal(str(round(alloc.recommended_sb_pct, 6)))
+        if alloc.recommended_sd_pct is not None:
+            alloc.sd_pct = Decimal(str(round(alloc.recommended_sd_pct, 6)))
+        if alloc.recommended_sbv_pct is not None:
+            alloc.sbv_pct = Decimal(str(round(alloc.recommended_sbv_pct, 6)))
+
+        alloc.status = "applied"
+        applied.append(str(alloc_id))
+
+    await session.commit()
+    return {"applied": applied, "errors": errors}
+
+
+@router.post("/run-budget-allocation")
+async def run_budget_allocation_endpoint(
+    body: RunBudgetAllocationRequest,
+    session: AsyncSession = SESSION_DEP,
+) -> dict[str, Any]:
+    """Trigger intelligent budget allocation calculation."""
+    started_at = datetime.utcnow()
+    try:
+        results = await generate_budget_allocations(
+            session,
+            parent_asins=body.parent_asins,
+            total_daily_budget=body.total_daily_budget,
+        )
+        finished_at = datetime.utcnow()
+        return {
+            "started_at": started_at.isoformat(),
+            "finished_at": finished_at.isoformat(),
+            "duration_seconds": (finished_at - started_at).total_seconds(),
+            "allocations_created": len(results),
+            "results": results,
+        }
+    except Exception as exc:  # noqa: BLE001
+        logger.exception("run_budget_allocation: failed")
+        raise HTTPException(status_code=500, detail=str(exc)) from exc

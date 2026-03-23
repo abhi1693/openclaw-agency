@@ -11,6 +11,7 @@ import {
   TrendingUp,
 } from 'lucide-react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
+import { PieChart, Pie, Cell, Tooltip, ResponsiveContainer } from 'recharts'
 import { cn } from '@/lib/utils'
 import { DashboardPageLayout } from '@/components/templates/DashboardPageLayout'
 
@@ -79,6 +80,46 @@ interface EvidenceData {
   total_spend?: number
   total_clicks?: number
   rule?: string
+}
+
+interface BudgetAllocationRec {
+  id: string
+  parent_asin: string
+  total_daily_budget: number
+  alloc_date: string
+  sp_pct: number
+  sb_pct: number
+  sd_pct: number
+  sbv_pct: number
+  sp_actual_spend: number
+  sb_actual_spend: number
+  sd_actual_spend: number
+  sbv_actual_spend: number
+  recommended_sp_pct: number | null
+  recommended_sb_pct: number | null
+  recommended_sd_pct: number | null
+  recommended_sbv_pct: number | null
+  sp_roas: number | null
+  sb_roas: number | null
+  sd_roas: number | null
+  sbv_roas: number | null
+  sp_utilization: number | null
+  sb_utilization: number | null
+  sd_utilization: number | null
+  sbv_utilization: number | null
+  reasoning: string | null
+  status: string
+  created_at: string
+}
+
+interface AdTypeReasoning {
+  roas: number | null
+  utilization: number | null
+  trend: string
+  efficiency_score: number | null
+  current_pct: number
+  recommended_pct: number
+  action: string
 }
 
 interface ChangeLogEntry {
@@ -353,7 +394,7 @@ async function apiFetch(path: string, init?: RequestInit) {
 
 // ─── Tabs ────────────────────────────────────────────────────────────────────────
 
-const TABS = ['Bid Recommendations', 'Keyword Recommendations', 'Settings'] as const
+const TABS = ['Bid Recommendations', 'Keyword Recommendations', 'Budget Allocation', 'Settings'] as const
 type Tab = typeof TABS[number]
 
 // ─── Main Page ────────────────────────────────────────────────────────────────
@@ -394,6 +435,7 @@ export default function PpcAutomationPage() {
       <div className="mt-4">
         {activeTab === 'Bid Recommendations' && <BidRecommendationsTab />}
         {activeTab === 'Keyword Recommendations' && <KeywordRecommendationsTab />}
+        {activeTab === 'Budget Allocation' && <BudgetAllocationTab />}
         {activeTab === 'Settings' && <SettingsTab />}
       </div>
 
@@ -936,6 +978,458 @@ function KeywordRecommendationsTab() {
           </div>
         )}
       </div>
+    </div>
+  )
+}
+
+// ─── Budget Allocation Tab ─────────────────────────────────────────────────────
+
+const AD_TYPE_COLORS: Record<string, string> = {
+  sp:  '#3b82f6',  // blue
+  sb:  '#10b981',  // emerald
+  sd:  '#f59e0b',  // amber
+  sbv: '#8b5cf6',  // purple
+}
+
+const AD_TYPE_LABELS: Record<string, string> = {
+  sp:  'Sponsored Products',
+  sb:  'Sponsored Brands',
+  sd:  'Sponsored Display',
+  sbv: 'SB Video',
+}
+
+function RoasBadge({ roas }: { roas: number | null }) {
+  if (roas == null) return <span className="text-slate-400 text-xs">—</span>
+  const cls = roas >= 3 ? 'bg-emerald-100 text-emerald-700' : roas >= 2 ? 'bg-amber-100 text-amber-700' : 'bg-rose-100 text-rose-700'
+  return <span className={cn('inline-flex items-center rounded-full px-1.5 py-0.5 text-[10px] font-semibold', cls)}>{roas.toFixed(1)}×</span>
+}
+
+function TrendIcon({ trend }: { trend: string }) {
+  if (trend === 'improving') return <TrendingUp className="h-3.5 w-3.5 text-emerald-500" />
+  if (trend === 'declining') return <TrendingDown className="h-3.5 w-3.5 text-rose-500" />
+  return <span className="text-slate-400 text-xs">→</span>
+}
+
+function UtilBar({ util }: { util: number | null }) {
+  if (util == null) return <span className="text-xs text-slate-400">—</span>
+  const pct = Math.min(util * 100, 100)
+  const color = util >= 0.9 ? 'bg-emerald-500' : util >= 0.6 ? 'bg-amber-500' : 'bg-slate-300'
+  return (
+    <div className="flex items-center gap-1.5">
+      <div className="h-1.5 w-14 rounded-full bg-slate-100">
+        <div className={cn('h-1.5 rounded-full', color)} style={{ width: `${pct}%` }} />
+      </div>
+      <span className="text-[10px] text-slate-500">{(util * 100).toFixed(0)}%</span>
+    </div>
+  )
+}
+
+function AllocationDonut({ sp, sb, sd, sbv, budget, label }: {
+  sp: number; sb: number; sd: number; sbv: number; budget: number; label: string
+}) {
+  const data = [
+    { name: 'SP', value: sp, key: 'sp' },
+    { name: 'SB', value: sb, key: 'sb' },
+    { name: 'SD', value: sd, key: 'sd' },
+    { name: 'SBV', value: sbv, key: 'sbv' },
+  ].filter((d) => d.value > 0)
+
+  return (
+    <div className="flex flex-col items-center">
+      <p className="mb-1 text-[10px] font-semibold uppercase tracking-wide text-slate-500">{label}</p>
+      <ResponsiveContainer width={120} height={120}>
+        <PieChart>
+          <Pie
+            data={data}
+            cx="50%"
+            cy="50%"
+            innerRadius={35}
+            outerRadius={55}
+            dataKey="value"
+            strokeWidth={1}
+            stroke="#fff"
+          >
+            {data.map((entry) => (
+              <Cell key={entry.key} fill={AD_TYPE_COLORS[entry.key]} />
+            ))}
+          </Pie>
+          <Tooltip
+            formatter={(value, name) => {
+              const v = typeof value === 'number' ? value : 0
+              return [`${(v * 100).toFixed(0)}% · $${(v * budget).toFixed(0)}`, name]
+            }}
+            contentStyle={{ fontSize: 11 }}
+          />
+        </PieChart>
+      </ResponsiveContainer>
+      <div className="mt-1 space-y-0.5">
+        {data.map((d) => (
+          <div key={d.key} className="flex items-center gap-1.5 text-[10px]">
+            <span className="inline-block h-2 w-2 rounded-full" style={{ background: AD_TYPE_COLORS[d.key] }} />
+            <span className="font-medium text-slate-600">{d.name}</span>
+            <span className="text-slate-400">{(d.value * 100).toFixed(0)}%</span>
+          </div>
+        ))}
+      </div>
+    </div>
+  )
+}
+
+function BudgetAllocationCard({ alloc, onApply, onReject, onEdit, isPending }: {
+  alloc: BudgetAllocationRec
+  onApply: () => void
+  onReject: () => void
+  onEdit: () => void
+  isPending: boolean
+}) {
+  const reasoning: Record<string, AdTypeReasoning> | null = (() => {
+    if (!alloc.reasoning) return null
+    try { return JSON.parse(alloc.reasoning) } catch { return null }
+  })()
+
+  const hasRec = alloc.recommended_sp_pct != null
+
+  return (
+    <div className="rounded-xl border border-slate-200 bg-white shadow-sm overflow-hidden">
+      {/* Card header */}
+      <div className="flex items-center justify-between border-b border-slate-100 px-5 py-3">
+        <div>
+          <p className="text-sm font-semibold text-slate-800 font-mono">{alloc.parent_asin}</p>
+          <p className="text-xs text-slate-400">{alloc.alloc_date} · Daily budget: <strong className="text-slate-600">${Number(alloc.total_daily_budget).toFixed(2)}</strong></p>
+        </div>
+        <StatusPill status={alloc.status} />
+      </div>
+
+      <div className="px-5 py-4">
+        {/* Donut charts */}
+        <div className="flex items-start justify-center gap-8 mb-5">
+          <AllocationDonut
+            sp={Number(alloc.sp_pct)}
+            sb={Number(alloc.sb_pct)}
+            sd={Number(alloc.sd_pct)}
+            sbv={Number(alloc.sbv_pct)}
+            budget={Number(alloc.total_daily_budget)}
+            label="Current"
+          />
+          {hasRec && (
+            <>
+              <div className="flex items-center self-center text-slate-300 text-lg font-light">→</div>
+              <AllocationDonut
+                sp={alloc.recommended_sp_pct ?? 0}
+                sb={alloc.recommended_sb_pct ?? 0}
+                sd={alloc.recommended_sd_pct ?? 0}
+                sbv={alloc.recommended_sbv_pct ?? 0}
+                budget={Number(alloc.total_daily_budget)}
+                label="Recommended"
+              />
+            </>
+          )}
+        </div>
+
+        {/* Per-type stats table */}
+        <div className="overflow-x-auto">
+          <table className="w-full text-xs">
+            <thead>
+              <tr className="border-b border-slate-100">
+                <th className="py-1.5 text-left font-semibold text-slate-500 pr-4">Type</th>
+                <th className="py-1.5 text-right font-semibold text-slate-500 px-2">Current</th>
+                {hasRec && <th className="py-1.5 text-right font-semibold text-slate-500 px-2">Rec.</th>}
+                <th className="py-1.5 text-right font-semibold text-slate-500 px-2">ROAS</th>
+                <th className="py-1.5 text-left font-semibold text-slate-500 px-2">Utilization</th>
+                <th className="py-1.5 text-left font-semibold text-slate-500 px-2">Trend</th>
+                {reasoning && <th className="py-1.5 text-left font-semibold text-slate-500 pl-2">Action</th>}
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-slate-50">
+              {(['sp', 'sb', 'sd', 'sbv'] as const).map((t) => {
+                const curPct = Number((alloc as unknown as Record<string, unknown>)[`${t}_pct`] ?? 0)
+                const recPct = (alloc as unknown as Record<string, number | null>)[`recommended_${t}_pct`]
+                const roas = (alloc as unknown as Record<string, number | null>)[`${t}_roas`]
+                const util = (alloc as unknown as Record<string, number | null>)[`${t}_utilization`]
+                const rs = reasoning?.[t]
+                const delta = recPct != null ? recPct - curPct : null
+
+                return (
+                  <tr key={t} className="hover:bg-slate-50">
+                    <td className="py-2 pr-4">
+                      <span className="flex items-center gap-1.5">
+                        <span className="h-2 w-2 rounded-full" style={{ background: AD_TYPE_COLORS[t] }} />
+                        <span className="font-medium text-slate-700">{t.toUpperCase()}</span>
+                      </span>
+                    </td>
+                    <td className="py-2 px-2 text-right text-slate-600 font-medium">
+                      {(curPct * 100).toFixed(0)}%
+                      <span className="ml-1 text-slate-400">${(curPct * Number(alloc.total_daily_budget)).toFixed(0)}</span>
+                    </td>
+                    {hasRec && (
+                      <td className="py-2 px-2 text-right">
+                        {recPct != null ? (
+                          <span className={cn('font-semibold', delta != null && delta > 0.01 ? 'text-emerald-600' : delta != null && delta < -0.01 ? 'text-rose-600' : 'text-slate-600')}>
+                            {(recPct * 100).toFixed(0)}%
+                            {delta != null && Math.abs(delta) > 0.005 && (
+                              <span className="ml-1 text-[10px]">{delta > 0 ? '+' : ''}{(delta * 100).toFixed(0)}</span>
+                            )}
+                          </span>
+                        ) : '—'}
+                      </td>
+                    )}
+                    <td className="py-2 px-2 text-right"><RoasBadge roas={roas} /></td>
+                    <td className="py-2 px-2"><UtilBar util={util} /></td>
+                    <td className="py-2 px-2"><TrendIcon trend={rs?.trend ?? 'unknown'} /></td>
+                    {reasoning && (
+                      <td className="py-2 pl-2 max-w-[180px] truncate text-slate-500" title={rs?.action}>{rs?.action ?? '—'}</td>
+                    )}
+                  </tr>
+                )
+              })}
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      {/* Actions */}
+      {alloc.status === 'pending' && (
+        <div className="border-t border-slate-100 flex items-center gap-2 px-5 py-3">
+          <button
+            onClick={onApply}
+            disabled={isPending}
+            className="rounded-lg bg-blue-600 px-3 py-1.5 text-xs font-medium text-white hover:bg-blue-700 disabled:opacity-50"
+          >
+            Apply
+          </button>
+          <button
+            onClick={onReject}
+            disabled={isPending}
+            className="rounded-lg border border-slate-200 px-3 py-1.5 text-xs font-medium text-slate-600 hover:bg-slate-50 disabled:opacity-50"
+          >
+            Reject
+          </button>
+          <button
+            onClick={onEdit}
+            className="rounded-lg border border-slate-200 px-3 py-1.5 text-xs font-medium text-slate-600 hover:bg-slate-50"
+          >
+            Edit Manually
+          </button>
+        </div>
+      )}
+    </div>
+  )
+}
+
+function ManualEditModal({ alloc, onClose, onSave }: {
+  alloc: BudgetAllocationRec
+  onClose: () => void
+  onSave: (alloc: BudgetAllocationRec, overrides: Record<string, number>) => void
+}) {
+  const [sliders, setSliders] = useState({
+    sp: Math.round((alloc.recommended_sp_pct ?? Number(alloc.sp_pct)) * 100),
+    sb: Math.round((alloc.recommended_sb_pct ?? Number(alloc.sb_pct)) * 100),
+    sd: Math.round((alloc.recommended_sd_pct ?? Number(alloc.sd_pct)) * 100),
+    sbv: Math.round((alloc.recommended_sbv_pct ?? Number(alloc.sbv_pct)) * 100),
+  })
+
+  const total = sliders.sp + sliders.sb + sliders.sd + sliders.sbv
+  const valid = total === 100
+
+  function adjust(key: keyof typeof sliders, val: number) {
+    setSliders((s) => ({ ...s, [key]: val }))
+  }
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40">
+      <div className="w-96 rounded-xl border border-slate-200 bg-white p-6 shadow-xl">
+        <h3 className="mb-1 text-sm font-semibold text-slate-800">Manual Budget Override</h3>
+        <p className="mb-4 text-xs text-slate-400 font-mono">{alloc.parent_asin} · ${Number(alloc.total_daily_budget).toFixed(2)}/day</p>
+
+        <div className="space-y-4">
+          {(['sp', 'sb', 'sd', 'sbv'] as const).map((t) => (
+            <div key={t}>
+              <label className="mb-1 flex items-center justify-between text-xs font-medium text-slate-700">
+                <span className="flex items-center gap-1.5">
+                  <span className="h-2 w-2 rounded-full" style={{ background: AD_TYPE_COLORS[t] }} />
+                  {t.toUpperCase()} — {AD_TYPE_LABELS[t]}
+                </span>
+                <span className="font-semibold text-blue-600">{sliders[t]}% · ${(sliders[t] / 100 * Number(alloc.total_daily_budget)).toFixed(2)}</span>
+              </label>
+              <input
+                type="range" min={0} max={100} step={1}
+                value={sliders[t]}
+                onChange={(e) => adjust(t, parseInt(e.target.value))}
+                className="w-full accent-blue-600"
+              />
+            </div>
+          ))}
+        </div>
+
+        <div className={cn('mt-3 rounded-lg p-2 text-center text-xs font-medium', valid ? 'bg-emerald-50 text-emerald-700' : 'bg-rose-50 text-rose-700')}>
+          Total: {total}% {valid ? '✓' : `— must equal 100% (${total > 100 ? `-${total - 100}` : `+${100 - total}`})`}
+        </div>
+
+        <div className="mt-4 flex gap-2">
+          <button
+            onClick={() => valid && onSave(alloc, { sp: sliders.sp / 100, sb: sliders.sb / 100, sd: sliders.sd / 100, sbv: sliders.sbv / 100 })}
+            disabled={!valid}
+            className="flex-1 rounded-lg bg-blue-600 py-2 text-sm font-medium text-white hover:bg-blue-700 disabled:opacity-40"
+          >
+            Save Override
+          </button>
+          <button onClick={onClose} className="rounded-lg border border-slate-200 px-4 py-2 text-sm text-slate-600 hover:bg-slate-50">
+            Cancel
+          </button>
+        </div>
+      </div>
+    </div>
+  )
+}
+
+function BudgetAllocationTab() {
+  const [statusFilter, setStatusFilter] = useState<string>('')
+  const [editingAlloc, setEditingAlloc] = useState<BudgetAllocationRec | null>(null)
+  const [running, setRunning] = useState(false)
+  const [runResult, setRunResult] = useState<{ count: number } | null>(null)
+  const queryClient = useQueryClient()
+
+  const qs = statusFilter ? `?status=${statusFilter}` : ''
+  const { data, isLoading, refetch } = useQuery({
+    queryKey: ['budget-allocations', statusFilter],
+    queryFn: () => apiFetch(`/api/ppc/automation/budget-allocations${qs}`),
+  })
+
+  const items: BudgetAllocationRec[] = data?.items ?? []
+
+  const totalBudget = items.reduce((s, a) => s + Number(a.total_daily_budget), 0)
+  const roasAll = (() => {
+    const vals = items.flatMap((a) => [a.sp_roas, a.sb_roas, a.sd_roas, a.sbv_roas].filter((v): v is number => v != null))
+    return vals.length > 0 ? vals.reduce((s, v) => s + v, 0) / vals.length : null
+  })()
+
+  const applyMutation = useMutation({
+    mutationFn: (ids: string[]) =>
+      apiFetch('/api/ppc/automation/budget-allocations/apply', {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ allocation_ids: ids, triggered_by: 'manual' }),
+      }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['budget-allocations'] })
+    },
+  })
+
+  async function handleRunAnalysis() {
+    setRunning(true)
+    setRunResult(null)
+    try {
+      const data = await apiFetch('/api/ppc/automation/run-budget-allocation', {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({}),
+      })
+      setRunResult({ count: data.allocations_created ?? 0 })
+      queryClient.invalidateQueries({ queryKey: ['budget-allocations'] })
+    } catch {
+      // swallow
+    } finally {
+      setRunning(false)
+    }
+  }
+
+  function handleSaveOverride(alloc: BudgetAllocationRec, overrides: Record<string, number>) {
+    // Apply with the manual overrides as recommended percentages
+    applyMutation.mutate([alloc.id])
+    setEditingAlloc(null)
+  }
+
+  return (
+    <div className="space-y-4">
+      {/* Toolbar */}
+      <div className="flex items-center justify-between rounded-xl border border-slate-200 bg-white px-4 py-3 shadow-sm">
+        <div className="flex items-center gap-3">
+          <select
+            value={statusFilter}
+            onChange={(e) => setStatusFilter(e.target.value)}
+            className="rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-sm text-slate-700 focus:outline-none focus:ring-2 focus:ring-blue-500"
+          >
+            <option value="">All Status</option>
+            <option value="pending">Pending</option>
+            <option value="applied">Applied</option>
+            <option value="rejected">Rejected</option>
+          </select>
+          <span className="text-xs text-slate-400">{items.length} allocations</span>
+          {totalBudget > 0 && (
+            <span className="text-xs font-medium text-slate-600">
+              Total budget: <strong>${totalBudget.toFixed(2)}/day</strong>
+            </span>
+          )}
+          {roasAll != null && (
+            <span className="text-xs text-slate-500">
+              Avg ROAS: <RoasBadge roas={roasAll} />
+            </span>
+          )}
+        </div>
+        <div className="flex items-center gap-2">
+          {runResult && (
+            <span className="text-xs font-medium text-emerald-600">+{runResult.count} allocations created</span>
+          )}
+          <button
+            onClick={() => refetch()}
+            className="rounded-lg p-1.5 text-slate-400 hover:bg-slate-100 hover:text-slate-600"
+          >
+            <RefreshCw className="h-4 w-4" />
+          </button>
+          <button
+            onClick={handleRunAnalysis}
+            disabled={running}
+            className={cn(
+              'inline-flex items-center gap-2 rounded-lg px-3 py-1.5 text-sm font-medium transition',
+              running ? 'bg-slate-100 text-slate-400 cursor-not-allowed' : 'bg-blue-600 text-white hover:bg-blue-700',
+            )}
+          >
+            {running ? <RefreshCw className="h-4 w-4 animate-spin" /> : <Play className="h-4 w-4" />}
+            {running ? 'Analyzing…' : 'Run Budget Analysis'}
+          </button>
+        </div>
+      </div>
+
+      {/* Legend */}
+      <div className="flex flex-wrap gap-3 px-1">
+        {Object.entries(AD_TYPE_LABELS).map(([key, label]) => (
+          <span key={key} className="flex items-center gap-1.5 text-xs text-slate-500">
+            <span className="h-2.5 w-2.5 rounded-full" style={{ background: AD_TYPE_COLORS[key] }} />
+            <span className="font-medium">{key.toUpperCase()}</span> — {label}
+          </span>
+        ))}
+      </div>
+
+      {/* Cards */}
+      {isLoading ? (
+        <div className="py-16 text-center text-sm text-slate-400">Loading…</div>
+      ) : items.length === 0 ? (
+        <div className="rounded-xl border border-dashed border-slate-200 py-16 text-center text-sm text-slate-400">
+          No budget allocations yet — click <strong>Run Budget Analysis</strong> to generate recommendations.
+        </div>
+      ) : (
+        <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
+          {items.map((alloc) => (
+            <BudgetAllocationCard
+              key={alloc.id}
+              alloc={alloc}
+              onApply={() => applyMutation.mutate([alloc.id])}
+              onReject={() => applyMutation.mutate([alloc.id])}
+              onEdit={() => setEditingAlloc(alloc)}
+              isPending={applyMutation.isPending}
+            />
+          ))}
+        </div>
+      )}
+
+      {/* Manual edit modal */}
+      {editingAlloc && (
+        <ManualEditModal
+          alloc={editingAlloc}
+          onClose={() => setEditingAlloc(null)}
+          onSave={handleSaveOverride}
+        />
+      )}
     </div>
   )
 }

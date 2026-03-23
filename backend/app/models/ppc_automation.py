@@ -102,6 +102,21 @@ class BudgetAllocation(QueryModel, table=True):
     sbv_actual_spend: Decimal = Field(default=Decimal("0"), sa_column=Column(Numeric(10, 2), nullable=False, server_default="0"))
     alloc_date: date_type = Field(sa_column=Column("date", Date(), nullable=False, index=True))
     created_at: datetime = Field(default_factory=utcnow)
+    # ── Phase 5: Intelligent Allocation fields ─────────────────────────────
+    recommended_sp_pct: float | None = Field(default=None, sa_column=Column(Float, nullable=True))
+    recommended_sb_pct: float | None = Field(default=None, sa_column=Column(Float, nullable=True))
+    recommended_sd_pct: float | None = Field(default=None, sa_column=Column(Float, nullable=True))
+    recommended_sbv_pct: float | None = Field(default=None, sa_column=Column(Float, nullable=True))
+    sp_roas: float | None = Field(default=None, sa_column=Column(Float, nullable=True))
+    sb_roas: float | None = Field(default=None, sa_column=Column(Float, nullable=True))
+    sd_roas: float | None = Field(default=None, sa_column=Column(Float, nullable=True))
+    sbv_roas: float | None = Field(default=None, sa_column=Column(Float, nullable=True))
+    sp_utilization: float | None = Field(default=None, sa_column=Column(Float, nullable=True))
+    sb_utilization: float | None = Field(default=None, sa_column=Column(Float, nullable=True))
+    sd_utilization: float | None = Field(default=None, sa_column=Column(Float, nullable=True))
+    sbv_utilization: float | None = Field(default=None, sa_column=Column(Float, nullable=True))
+    reasoning: str | None = Field(default=None)   # JSON dict per ad type
+    status: str = Field(default="pending", index=True)  # pending / applied / rejected
 
 
 class PpcAutomationSettings(QueryModel, table=True):
