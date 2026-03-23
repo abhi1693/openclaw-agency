@@ -47,6 +47,38 @@ interface KeywordRec {
   target_campaign_id: string | null
   status: string
   created_at: string
+  // Phase 3 fields
+  confidence: number | null
+  source: string | null
+  evidence: string | null
+  match_type_recommendation: string | null
+  pattern_group: string | null
+}
+
+interface NegativePatternRec extends KeywordRec {
+  // pattern_group and evidence are always set for pattern recs
+}
+
+interface EvidenceData {
+  campaign_name?: string
+  impressions?: number
+  clicks?: number
+  orders?: number
+  spend?: number
+  sales?: number
+  ctr?: number
+  cvr?: number
+  category_avg_ctr?: number
+  category_avg_cvr?: number
+  already_targeted?: boolean
+  zero_orders?: boolean
+  // pattern evidence
+  pattern_root?: string
+  matched_terms?: string[]
+  term_count?: number
+  total_spend?: number
+  total_clicks?: number
+  rule?: string
 }
 
 interface ChangeLogEntry {
@@ -151,6 +183,90 @@ function TierBadge({ tier }: { tier: string | undefined }) {
       <span className={cn('h-1.5 w-1.5 rounded-full', cfg.dot)} />
       {cfg.label}
     </span>
+  )
+}
+
+const CONFIDENCE_CONFIG: Record<string, { label: string; cls: string }> = {
+  high:   { label: 'HIGH',   cls: 'bg-emerald-100 text-emerald-700 border border-emerald-200' },
+  medium: { label: 'MED',    cls: 'bg-amber-100 text-amber-700 border border-amber-200' },
+  low:    { label: 'LOW',    cls: 'bg-slate-100 text-slate-500 border border-slate-200' },
+}
+
+function ConfidenceBadge({ confidence }: { confidence: number | null }) {
+  if (confidence == null) return <span className="text-slate-300">—</span>
+  const level = confidence >= 0.8 ? 'high' : confidence >= 0.5 ? 'medium' : 'low'
+  const cfg = CONFIDENCE_CONFIG[level]
+  return (
+    <span className={cn('inline-flex items-center rounded-full px-2 py-0.5 text-[10px] font-semibold', cfg.cls)}>
+      {cfg.label} {Math.round(confidence * 100)}
+    </span>
+  )
+}
+
+function SourcePill({ source }: { source: string | null }) {
+  if (!source) return null
+  const labels: Record<string, string> = {
+    auto_campaign: 'Auto',
+    manual_campaign: 'Manual',
+    search_term_mining: 'Mining',
+    pattern_detector: 'Pattern',
+  }
+  const colors: Record<string, string> = {
+    auto_campaign: 'bg-blue-50 text-blue-600',
+    manual_campaign: 'bg-purple-50 text-purple-600',
+    search_term_mining: 'bg-slate-100 text-slate-500',
+    pattern_detector: 'bg-rose-50 text-rose-600',
+  }
+  return (
+    <span className={cn('inline-flex items-center rounded px-1.5 py-0.5 text-[10px] font-medium', colors[source] ?? 'bg-slate-100 text-slate-500')}>
+      {labels[source] ?? source}
+    </span>
+  )
+}
+
+function parseEvidence(evidenceStr: string | null): EvidenceData | null {
+  if (!evidenceStr) return null
+  try { return JSON.parse(evidenceStr) as EvidenceData } catch { return null }
+}
+
+function EvidencePanel({ ev, isPattern }: { ev: EvidenceData; isPattern?: boolean }) {
+  if (isPattern) {
+    return (
+      <div className="rounded-lg bg-rose-50 border border-rose-100 p-3 text-xs space-y-2">
+        <div className="grid grid-cols-2 gap-x-4 gap-y-1 text-rose-700">
+          <span>Pattern root: <strong>{ev.pattern_root}</strong></span>
+          <span>Terms in cluster: <strong>{ev.term_count}</strong></span>
+          <span>Total wasted spend: <strong>${ev.total_spend?.toFixed(2)}</strong></span>
+          <span>Total clicks: <strong>{ev.total_clicks}</strong></span>
+        </div>
+        {ev.matched_terms && ev.matched_terms.length > 0 && (
+          <div className="border-t border-rose-200 pt-2">
+            <p className="mb-1 font-semibold text-rose-600">Matched terms</p>
+            <div className="flex flex-wrap gap-1">
+              {ev.matched_terms.map((t) => (
+                <span key={t} className="rounded bg-rose-100 px-1.5 py-0.5 font-mono text-[10px] text-rose-700">{t}</span>
+              ))}
+            </div>
+          </div>
+        )}
+        {ev.rule && <p className="text-rose-500 text-[10px]">Rule: {ev.rule}</p>}
+      </div>
+    )
+  }
+  return (
+    <div className="rounded-lg bg-slate-50 border border-slate-100 p-3 text-xs space-y-1 text-slate-600">
+      <div className="grid grid-cols-3 gap-x-4 gap-y-1">
+        {ev.campaign_name && <span>Campaign: <strong className="text-slate-700">{ev.campaign_name}</strong></span>}
+        {ev.clicks != null && <span>Clicks: <strong className="text-slate-700">{ev.clicks}</strong></span>}
+        {ev.orders != null && <span>Orders: <strong className={ev.orders > 0 ? 'text-emerald-600' : 'text-rose-600'}>{ev.orders}</strong></span>}
+        {ev.spend != null && <span>Spend: <strong className="text-slate-700">${ev.spend.toFixed(2)}</strong></span>}
+        {ev.sales != null && <span>Sales: <strong className="text-slate-700">${ev.sales.toFixed(2)}</strong></span>}
+        {ev.cvr != null && <span>CVR: <strong className="text-slate-700">{(ev.cvr * 100).toFixed(2)}%</strong></span>}
+        {ev.ctr != null && <span>CTR: <strong className="text-slate-700">{(ev.ctr * 100).toFixed(3)}%</strong></span>}
+        {ev.category_avg_ctr != null && <span>Cat avg CTR: <strong className="text-slate-500">{(ev.category_avg_ctr * 100).toFixed(3)}%</strong></span>}
+        {ev.category_avg_cvr != null && <span>Cat avg CVR: <strong className="text-slate-500">{(ev.category_avg_cvr * 100).toFixed(2)}%</strong></span>}
+      </div>
+    </div>
   )
 }
 
@@ -304,7 +420,7 @@ export default function PpcAutomationPage() {
 function RunOptimizerButton() {
   const queryClient = useQueryClient()
   const [running, setRunning] = useState(false)
-  const [result, setResult] = useState<{ bid: number; kw: number } | null>(null)
+  const [result, setResult] = useState<{ bid: number; kw: number; patterns: number } | null>(null)
 
   async function handleRun() {
     setRunning(true)
@@ -313,11 +429,16 @@ function RunOptimizerButton() {
       const data = await apiFetch('/api/ppc/automation/run-optimizer', {
         method: 'POST',
         headers: { 'content-type': 'application/json' },
-        body: JSON.stringify({ run_bid: true, run_keywords: true }),
+        body: JSON.stringify({ run_bid: true, run_keywords: true, run_patterns: true }),
       })
-      setResult({ bid: data.bid_recommendations_created, kw: data.keyword_recommendations_created })
+      setResult({
+        bid: data.bid_recommendations_created,
+        kw: data.keyword_recommendations_created,
+        patterns: data.pattern_negatives_created ?? 0,
+      })
       queryClient.invalidateQueries({ queryKey: ['bid-recs'] })
       queryClient.invalidateQueries({ queryKey: ['kw-recs'] })
+      queryClient.invalidateQueries({ queryKey: ['negative-patterns'] })
       queryClient.invalidateQueries({ queryKey: ['change-log'] })
     } catch {
       // swallow for now
@@ -330,7 +451,7 @@ function RunOptimizerButton() {
     <div className="flex items-center gap-3">
       {result && (
         <span className="text-xs text-emerald-600 font-medium">
-          +{result.bid} bid recs, +{result.kw} kw recs
+          +{result.bid} bid · +{result.kw} kw · +{result.patterns} patterns
         </span>
       )}
       <button
@@ -534,18 +655,32 @@ function BidRecommendationsTab() {
 
 function KeywordRecommendationsTab() {
   const [statusFilter, setStatusFilter] = useState('pending')
+  const [confidenceMin, setConfidenceMin] = useState<string>('')
   const [selected, setSelected] = useState<Set<string>>(new Set())
+  const [expandedEvidence, setExpandedEvidence] = useState<Set<string>>(new Set())
   const [sort, setSort] = useState<{ field: string; dir: 'asc' | 'desc' }>({ field: 'clicks', dir: 'desc' })
+  const [patternsOpen, setPatternsOpen] = useState(true)
   const queryClient = useQueryClient()
 
+  const confParam = confidenceMin ? `&confidence_min=${confidenceMin}` : ''
+
   const { data, isLoading, refetch } = useQuery({
-    queryKey: ['kw-recs', statusFilter],
-    queryFn: () => apiFetch(`/api/ppc/automation/keyword-recommendations?status=${statusFilter}`),
+    queryKey: ['kw-recs', statusFilter, confidenceMin],
+    queryFn: () => apiFetch(`/api/ppc/automation/keyword-recommendations?status=${statusFilter}${confParam}`),
+  })
+
+  const { data: patternData, isLoading: patternsLoading, refetch: refetchPatterns } = useQuery({
+    queryKey: ['negative-patterns', statusFilter],
+    queryFn: () => apiFetch(`/api/ppc/automation/negative-patterns?status=${statusFilter}`),
+    enabled: patternsOpen,
   })
 
   const items: KeywordRec[] = data?.items ?? []
+  const patternItems: NegativePatternRec[] = patternData?.items ?? []
+
+  // Split into add_keyword (non-pattern) and individual negatives (source != pattern_detector)
   const addItems = items.filter((r) => r.action === 'add_keyword')
-  const negItems = items.filter((r) => r.action === 'add_negative')
+  const negItems = items.filter((r) => r.action === 'add_negative' && r.source !== 'pattern_detector')
 
   function handleSort(field: string) {
     setSort((s) => ({ field, dir: s.field === field && s.dir === 'asc' ? 'desc' : 'asc' }))
@@ -562,6 +697,10 @@ function KeywordRecommendationsTab() {
     })
   }
 
+  function toggleEvidence(id: string) {
+    setExpandedEvidence((s) => { const n = new Set(s); n.has(id) ? n.delete(id) : n.add(id); return n })
+  }
+
   const applyMutation = useMutation({
     mutationFn: (ids: string[]) =>
       apiFetch('/api/ppc/automation/keyword-recommendations/apply', {
@@ -571,14 +710,21 @@ function KeywordRecommendationsTab() {
       }),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['kw-recs'] })
+      queryClient.invalidateQueries({ queryKey: ['negative-patterns'] })
       queryClient.invalidateQueries({ queryKey: ['change-log'] })
       setSelected(new Set())
     },
   })
 
-  function KwTable({ recs, title, badgeColor }: { recs: KeywordRec[]; title: string; badgeColor: string }) {
+  function KwTable({ recs, title, badgeColor, showOrders = true }: {
+    recs: KeywordRec[]
+    title: string
+    badgeColor: string
+    showOrders?: boolean
+  }) {
+    const colSpan = 13
     return (
-      <div className="mb-6">
+      <div className="mb-4">
         <div className="flex items-center justify-between px-4 py-2 border-b border-slate-100">
           <h3 className="text-sm font-semibold text-slate-700 flex items-center gap-2">
             <span className={cn('inline-block h-2 w-2 rounded-full', badgeColor)} />
@@ -610,47 +756,66 @@ function KeywordRecommendationsTab() {
           <table className="w-full text-sm">
             <thead className="bg-slate-50">
               <tr>
-                <th className="px-3 py-2">
-                  <input type="checkbox" onChange={() => {}} className="rounded" />
-                </th>
+                <th className="w-6 px-2 py-2" />
+                <th className="px-3 py-2"><input type="checkbox" onChange={() => {}} className="rounded" /></th>
                 <SortableHeader label="Search Term" field="search_term" sort={sort} onSort={handleSort} />
-                <SortableHeader label="Match" field="match_type" sort={sort} onSort={handleSort} />
-                <SortableHeader label="Campaign" field="source_campaign_id" sort={sort} onSort={handleSort} />
-                <SortableHeader label="Impr." field="impressions" sort={sort} onSort={handleSort} />
+                <SortableHeader label="Confidence" field="confidence" sort={sort} onSort={handleSort} />
+                <SortableHeader label="Source" field="source" sort={sort} onSort={handleSort} />
+                <SortableHeader label="Match Rec." field="match_type_recommendation" sort={sort} onSort={handleSort} />
                 <SortableHeader label="Clicks" field="clicks" sort={sort} onSort={handleSort} />
-                <SortableHeader label="Orders" field="orders" sort={sort} onSort={handleSort} />
+                {showOrders && <SortableHeader label="Orders" field="orders" sort={sort} onSort={handleSort} />}
                 <SortableHeader label="CTR" field="ctr" sort={sort} onSort={handleSort} />
                 <SortableHeader label="Conv%" field="conversion_rate" sort={sort} onSort={handleSort} />
                 <SortableHeader label="ACoS" field="acos" sort={sort} onSort={handleSort} />
+                <SortableHeader label="Campaign" field="source_campaign_id" sort={sort} onSort={handleSort} />
                 <SortableHeader label="Status" field="status" sort={sort} onSort={handleSort} />
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-100">
               {recs.length === 0 ? (
-                <tr><td colSpan={11} className="px-3 py-6 text-center text-xs text-slate-400">No items</td></tr>
+                <tr><td colSpan={colSpan} className="px-3 py-6 text-center text-xs text-slate-400">No items</td></tr>
               ) : (
-                sortItems(recs).map((rec) => (
-                  <tr key={rec.id} className="hover:bg-slate-50">
-                    <td className="px-3 py-2">
-                      <input
-                        type="checkbox"
-                        checked={selected.has(rec.id)}
-                        onChange={() => setSelected((s) => { const n = new Set(s); n.has(rec.id) ? n.delete(rec.id) : n.add(rec.id); return n })}
-                        className="rounded"
-                      />
-                    </td>
-                    <td className="px-3 py-2 font-medium text-slate-800">{rec.search_term}</td>
-                    <td className="px-3 py-2 text-xs text-slate-500">{rec.match_type}</td>
-                    <td className="max-w-[140px] truncate px-3 py-2 font-mono text-xs text-slate-500" title={rec.source_campaign_id}>{rec.source_campaign_id}</td>
-                    <td className="px-3 py-2 text-xs text-slate-500">{rec.impressions.toLocaleString()}</td>
-                    <td className="px-3 py-2 text-xs text-slate-500">{rec.clicks.toLocaleString()}</td>
-                    <td className="px-3 py-2 text-xs font-medium text-slate-700">{rec.orders}</td>
-                    <td className="px-3 py-2 text-xs text-slate-500">{fmtPct(rec.ctr)}</td>
-                    <td className="px-3 py-2 text-xs text-slate-500">{fmtPct(rec.conversion_rate)}</td>
-                    <td className="px-3 py-2 text-xs text-slate-500">{rec.acos != null ? fmtPct(rec.acos) : '—'}</td>
-                    <td className="px-3 py-2"><StatusPill status={rec.status} /></td>
-                  </tr>
-                ))
+                sortItems(recs).map((rec) => {
+                  const ev = parseEvidence(rec.evidence)
+                  const isExpanded = expandedEvidence.has(rec.id)
+                  return (
+                    <React.Fragment key={rec.id}>
+                      <tr className="hover:bg-slate-50">
+                        <td className="px-2 py-2">
+                          <button onClick={() => toggleEvidence(rec.id)} className="text-slate-400 hover:text-slate-600">
+                            {isExpanded ? <ChevronUp className="h-3 w-3" /> : <ChevronDown className="h-3 w-3" />}
+                          </button>
+                        </td>
+                        <td className="px-3 py-2">
+                          <input
+                            type="checkbox"
+                            checked={selected.has(rec.id)}
+                            onChange={() => setSelected((s) => { const n = new Set(s); n.has(rec.id) ? n.delete(rec.id) : n.add(rec.id); return n })}
+                            className="rounded"
+                          />
+                        </td>
+                        <td className="px-3 py-2 font-medium text-slate-800">{rec.search_term}</td>
+                        <td className="px-3 py-2"><ConfidenceBadge confidence={rec.confidence} /></td>
+                        <td className="px-3 py-2"><SourcePill source={rec.source} /></td>
+                        <td className="px-3 py-2 text-xs text-slate-500">{rec.match_type_recommendation ?? rec.match_type}</td>
+                        <td className="px-3 py-2 text-xs text-slate-500">{rec.clicks.toLocaleString()}</td>
+                        {showOrders && <td className="px-3 py-2 text-xs font-medium text-slate-700">{rec.orders}</td>}
+                        <td className="px-3 py-2 text-xs text-slate-500">{fmtPct(rec.ctr)}</td>
+                        <td className="px-3 py-2 text-xs text-slate-500">{fmtPct(rec.conversion_rate)}</td>
+                        <td className="px-3 py-2 text-xs text-slate-500">{rec.acos != null ? fmtPct(rec.acos) : '—'}</td>
+                        <td className="max-w-[120px] truncate px-3 py-2 font-mono text-xs text-slate-500" title={rec.source_campaign_id}>{rec.source_campaign_id}</td>
+                        <td className="px-3 py-2"><StatusPill status={rec.status} /></td>
+                      </tr>
+                      {isExpanded && ev && (
+                        <tr>
+                          <td colSpan={colSpan} className="bg-slate-50 px-6 pb-3 pt-0">
+                            <EvidencePanel ev={ev} />
+                          </td>
+                        </tr>
+                      )}
+                    </React.Fragment>
+                  )
+                })
               )}
             </tbody>
           </table>
@@ -673,21 +838,104 @@ function KeywordRecommendationsTab() {
             <option value="applied">Applied</option>
             <option value="rejected">Rejected</option>
           </select>
-          <span className="text-xs text-slate-400">{items.length} total</span>
+          <select
+            value={confidenceMin}
+            onChange={(e) => setConfidenceMin(e.target.value)}
+            className="rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-sm text-slate-700 focus:outline-none focus:ring-2 focus:ring-blue-500"
+          >
+            <option value="">All Confidence</option>
+            <option value="0.8">HIGH only (≥80)</option>
+            <option value="0.5">MED+ (≥50)</option>
+          </select>
+          <span className="text-xs text-slate-400">{items.length} recs</span>
         </div>
-        <button onClick={() => refetch()} className="rounded-lg p-1.5 text-slate-400 hover:bg-slate-100 hover:text-slate-600">
-          <RefreshCw className="h-4 w-4" />
-        </button>
+        <div className="flex items-center gap-2">
+          <button
+            onClick={() => { refetch(); refetchPatterns() }}
+            className="rounded-lg p-1.5 text-slate-400 hover:bg-slate-100 hover:text-slate-600"
+          >
+            <RefreshCw className="h-4 w-4" />
+          </button>
+        </div>
       </div>
 
       {isLoading ? (
         <div className="py-12 text-center text-sm text-slate-400">Loading…</div>
       ) : (
         <>
-          <KwTable recs={addItems} title="Add Keywords" badgeColor="bg-emerald-500" />
-          <KwTable recs={negItems} title="Add Negatives" badgeColor="bg-rose-500" />
+          <KwTable recs={addItems} title="Add Keywords" badgeColor="bg-emerald-500" showOrders />
+          <KwTable recs={negItems} title="Individual Negatives" badgeColor="bg-rose-500" showOrders={false} />
         </>
       )}
+
+      {/* Pattern Negatives Section */}
+      <div className="border-t border-slate-200">
+        <button
+          onClick={() => setPatternsOpen((v) => !v)}
+          className="flex w-full items-center justify-between px-4 py-3 text-sm font-semibold text-rose-700 hover:bg-rose-50"
+        >
+          <span className="flex items-center gap-2">
+            <span className="inline-block h-2 w-2 rounded-full bg-rose-500" />
+            Pattern Negatives
+            {patternItems.length > 0 && (
+              <span className="rounded-full bg-rose-100 px-2 py-0.5 text-xs font-medium text-rose-700">
+                {patternItems.length} clusters
+              </span>
+            )}
+            <span className="ml-1 text-xs font-normal text-slate-400">— phrase-level patterns detected from zero-conversion clusters</span>
+          </span>
+          {patternsOpen ? <ChevronUp className="h-4 w-4 text-slate-400" /> : <ChevronDown className="h-4 w-4 text-slate-400" />}
+        </button>
+
+        {patternsOpen && (
+          <div className="px-4 pb-4">
+            {patternsLoading ? (
+              <div className="py-6 text-center text-sm text-slate-400">Loading patterns…</div>
+            ) : patternItems.length === 0 ? (
+              <div className="py-6 text-center text-xs text-slate-400">No pattern negatives detected yet — run the keyword discovery to populate.</div>
+            ) : (
+              <div className="space-y-3">
+                {patternItems.map((rec) => {
+                  const ev = parseEvidence(rec.evidence)
+                  const isExpanded = expandedEvidence.has(rec.id)
+                  return (
+                    <div key={rec.id} className="rounded-lg border border-rose-100 bg-rose-50">
+                      <div className="flex items-center justify-between px-4 py-2.5">
+                        <div className="flex items-center gap-3">
+                          <button onClick={() => toggleEvidence(rec.id)} className="text-rose-400 hover:text-rose-600">
+                            {isExpanded ? <ChevronUp className="h-3.5 w-3.5" /> : <ChevronDown className="h-3.5 w-3.5" />}
+                          </button>
+                          <span className="font-mono text-sm font-semibold text-rose-800">&quot;{rec.search_term}&quot;</span>
+                          <span className="text-xs text-rose-600">phrase negative</span>
+                          <ConfidenceBadge confidence={rec.confidence} />
+                        </div>
+                        <div className="flex items-center gap-3 text-xs text-rose-600">
+                          {ev && <span>{ev.term_count} terms · ${ev.total_spend?.toFixed(2)} wasted</span>}
+                          <StatusPill status={rec.status} />
+                          {rec.status === 'pending' && (
+                            <button
+                              onClick={() => applyMutation.mutate([rec.id])}
+                              disabled={applyMutation.isPending}
+                              className="rounded-lg border border-rose-300 bg-white px-2.5 py-1 text-xs font-medium text-rose-700 hover:bg-rose-100 disabled:opacity-50"
+                            >
+                              Apply
+                            </button>
+                          )}
+                        </div>
+                      </div>
+                      {isExpanded && ev && (
+                        <div className="border-t border-rose-100 px-4 pb-3 pt-2">
+                          <EvidencePanel ev={ev} isPattern />
+                        </div>
+                      )}
+                    </div>
+                  )
+                })}
+              </div>
+            )}
+          </div>
+        )}
+      </div>
     </div>
   )
 }

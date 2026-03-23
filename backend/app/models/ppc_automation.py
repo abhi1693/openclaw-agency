@@ -76,6 +76,12 @@ class KeywordRecommendation(QueryModel, table=True):
     status: str = Field(default="pending", index=True)  # pending/approved/rejected/applied
     created_at: datetime = Field(default_factory=utcnow, index=True)
     applied_at: datetime | None = None
+    # ── Phase 3: Enhanced Discovery fields ────────────────────────────────
+    confidence: float | None = Field(default=None, sa_column=Column(Float, nullable=True))
+    source: str | None = Field(default=None)          # auto_campaign / manual_campaign / pattern_detector
+    evidence: str | None = Field(default=None)        # JSON with supporting data
+    match_type_recommendation: str | None = Field(default=None)  # exact / phrase / broad
+    pattern_group: str | None = Field(default=None, index=True)  # root word for pattern negatives
 
 
 class BudgetAllocation(QueryModel, table=True):

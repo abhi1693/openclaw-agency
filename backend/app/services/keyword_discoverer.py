@@ -1,16 +1,36 @@
-"""Keyword Discovery Service — Phase 2.
+"""Keyword Discovery Service — Phase 3.
 
 Analyzes search term reports to surface:
-  - Add as keyword: search terms from auto campaigns with orders > 0 OR CTR
-    above category average
-  - Add as negative: search terms with clicks > 10 and zero orders (waste)
+  - add_keyword: search terms from auto/manual campaigns with positive signals
+  - add_negative: search terms with enough clicks and zero orders (waste)
 
-Inserts KeywordRecommendation rows and returns a summary list.
+Confidence scoring
+------------------
+  base = 0.30
+  + 0.30  if orders > 0
+  + 0.20  if observed CVR > category average CVR
+  + 0.15  if CTR > 1.5× category average CTR
+  + 0.10  if clicks > 50 (sufficient data volume)
+  = max 1.05, clamped to 1.0
+
+Confidence tiers → match type recommendation
+  HIGH   ≥ 0.80  → exact
+  MEDIUM ≥ 0.50  → phrase
+  LOW    ≥ 0.30  → broad
+
+Deduplication
+-------------
+  Skips any search_term that already appears as a targeted keyword in
+  search_term_reports.keyword column (i.e. it is already being bid on).
+  Also skips terms with an existing pending rec of the same action.
 """
 
 from __future__ import annotations
 
+import json
+from dataclasses import dataclass
 from decimal import Decimal
+from enum import Enum
 from typing import Any
 
 from sqlalchemy import func, text
@@ -28,10 +48,45 @@ logger = get_logger(__name__)
 # Constants
 # ---------------------------------------------------------------------------
 
-# Minimum clicks before flagging a zero-order term as negative candidate
 _NEGATIVE_MIN_CLICKS = 10
-# How many rows to analyze per run
 _MAX_ROWS = 1000
+
+_CONF_HIGH = 0.80
+_CONF_MEDIUM = 0.50
+_CONF_LOW = 0.30
+
+
+# ---------------------------------------------------------------------------
+# Data classes
+# ---------------------------------------------------------------------------
+
+
+class ConfidenceLevel(str, Enum):
+    HIGH = "high"
+    MEDIUM = "medium"
+    LOW = "low"
+
+
+@dataclass
+class KeywordCandidate:
+    search_term: str
+    campaign_id: str
+    campaign_name: str
+    ad_group_id: str | None
+    match_type: str
+    impressions: int
+    clicks: int
+    orders: int
+    spend: Decimal
+    sales: Decimal
+    ctr: Decimal
+    cvr: Decimal
+    acos: Decimal | None
+    confidence: float
+    confidence_level: ConfidenceLevel
+    match_type_recommendation: str
+    source: str
+    evidence: dict[str, Any]
 
 
 # ---------------------------------------------------------------------------
@@ -49,7 +104,31 @@ async def _get_category_avg_ctr(session: AsyncSession) -> Decimal:
     row = result.first()
     if row and row.total_impressions and row.total_impressions > 0:
         return Decimal(str(round(row.total_clicks / row.total_impressions, 6)))
-    return Decimal("0.003")  # 0.3% default
+    return Decimal("0.003")
+
+
+async def _get_category_avg_cvr(session: AsyncSession) -> float:
+    result = await session.exec(
+        select(
+            func.sum(SearchTermReport.orders).label("total_orders"),
+            func.sum(SearchTermReport.clicks).label("total_clicks"),
+        )
+    )
+    row = result.first()
+    if row and row.total_clicks and row.total_clicks > 0:
+        return round(row.total_orders / row.total_clicks, 6)
+    return 0.08
+
+
+async def _get_active_keyword_targets(session: AsyncSession) -> set[str]:
+    """Return the set of search terms already targeted as bid keywords."""
+    stmt = text("""
+        SELECT DISTINCT keyword
+        FROM search_term_reports
+        WHERE keyword IS NOT NULL AND keyword != ''
+    """)
+    result = (await session.exec(stmt)).all()  # type: ignore[arg-type]
+    return {row.keyword.lower() for row in result}
 
 
 async def _already_pending(session: AsyncSession, search_term: str, action: str) -> bool:
@@ -60,6 +139,43 @@ async def _already_pending(session: AsyncSession, search_term: str, action: str)
         .where(KeywordRecommendation.status == "pending")
     )
     return result.first() is not None
+
+
+def _compute_confidence(
+    *,
+    orders: int,
+    clicks: int,
+    cvr: float,
+    category_avg_cvr: float,
+    ctr: float,
+    category_avg_ctr: float,
+) -> float:
+    score = 0.30
+    if orders > 0:
+        score += 0.30
+    if cvr > category_avg_cvr:
+        score += 0.20
+    if category_avg_ctr > 0 and ctr > category_avg_ctr * 1.5:
+        score += 0.15
+    if clicks > 50:
+        score += 0.10
+    return round(min(score, 1.0), 4)
+
+
+def _match_type_from_confidence(confidence: float) -> str:
+    if confidence >= _CONF_HIGH:
+        return "exact"
+    if confidence >= _CONF_MEDIUM:
+        return "phrase"
+    return "broad"
+
+
+def _confidence_level(confidence: float) -> ConfidenceLevel:
+    if confidence >= _CONF_HIGH:
+        return ConfidenceLevel.HIGH
+    if confidence >= _CONF_MEDIUM:
+        return ConfidenceLevel.MEDIUM
+    return ConfidenceLevel.LOW
 
 
 # ---------------------------------------------------------------------------
@@ -75,9 +191,14 @@ async def generate_keyword_recommendations(
     Returns summary list of created recommendations.
     """
     category_avg_ctr = await _get_category_avg_ctr(session)
-    logger.info("keyword_discoverer: category_avg_ctr=%.6f", float(category_avg_ctr))
+    category_avg_cvr = await _get_category_avg_cvr(session)
+    active_targets = await _get_active_keyword_targets(session)
 
-    # Aggregate search terms across all periods
+    logger.info(
+        "keyword_discoverer: category_avg_ctr=%.6f category_avg_cvr=%.6f active_targets=%d",
+        float(category_avg_ctr), category_avg_cvr, len(active_targets),
+    )
+
     stmt = text("""
         SELECT
             search_term,
@@ -113,30 +234,64 @@ async def generate_keyword_recommendations(
         spend = Decimal(str(row.total_spend or 0))
         sales = Decimal(str(row.total_sales or 0))
 
-        ctr = Decimal(str(round(clicks / impressions, 6))) if impressions > 0 else Decimal("0")
-        conv_rate = Decimal(str(round(orders / clicks, 6))) if clicks > 0 else Decimal("0")
+        ctr_float = clicks / impressions if impressions > 0 else 0.0
+        cvr_float = orders / clicks if clicks > 0 else 0.0
+        ctr = Decimal(str(round(ctr_float, 6)))
+        cvr = Decimal(str(round(cvr_float, 6)))
         acos = (spend / sales).quantize(Decimal("0.0001")) if sales > 0 else None
 
         # ── Candidate: add_keyword ──────────────────────────────────────────
-        # From auto campaigns: has orders OR CTR above category average
         is_auto = "auto" in campaign_name.lower()
         qualifies_add = is_auto and (orders > 0 or (impressions > 0 and ctr > category_avg_ctr))
 
-        if qualifies_add and not await _already_pending(session, search_term, "add_keyword"):
+        # Skip if already an active target
+        is_active_target = search_term.lower() in active_targets
+
+        if qualifies_add and not is_active_target and not await _already_pending(session, search_term, "add_keyword"):
+            confidence = _compute_confidence(
+                orders=orders,
+                clicks=clicks,
+                cvr=cvr_float,
+                category_avg_cvr=category_avg_cvr,
+                ctr=ctr_float,
+                category_avg_ctr=float(category_avg_ctr),
+            )
+            conf_level = _confidence_level(confidence)
+            match_rec = _match_type_from_confidence(confidence)
+            source = "auto_campaign"
+            evidence = {
+                "campaign_name": campaign_name,
+                "impressions": impressions,
+                "clicks": clicks,
+                "orders": orders,
+                "spend": float(spend),
+                "sales": float(sales),
+                "ctr": round(ctr_float, 6),
+                "cvr": round(cvr_float, 6),
+                "category_avg_ctr": round(float(category_avg_ctr), 6),
+                "category_avg_cvr": round(category_avg_cvr, 6),
+                "already_targeted": False,
+            }
+
             rec = KeywordRecommendation(
                 source_campaign_id=campaign_id,
                 search_term=search_term,
-                match_type="exact" if orders > 0 else "phrase",
+                match_type=match_rec,
                 impressions=impressions,
                 clicks=clicks,
                 orders=orders,
                 ctr=ctr if ctr > 0 else None,
-                conversion_rate=conv_rate if conv_rate > 0 else None,
+                conversion_rate=cvr if cvr > 0 else None,
                 acos=acos,
                 action="add_keyword",
-                target_campaign_id=None,  # operator fills in via UI
+                target_campaign_id=None,
                 status="pending",
                 created_at=utcnow(),
+                confidence=confidence,
+                source=source,
+                evidence=json.dumps(evidence),
+                match_type_recommendation=match_rec,
+                pattern_group=None,
             )
             session.add(rec)
             created.append({
@@ -145,13 +300,27 @@ async def generate_keyword_recommendations(
                 "campaign": campaign_name,
                 "clicks": clicks,
                 "orders": orders,
+                "confidence": confidence,
+                "confidence_level": conf_level.value,
+                "match_type_recommendation": match_rec,
             })
 
         # ── Candidate: add_negative ──────────────────────────────────────────
-        # High spend, zero conversions, enough clicks to be statistically meaningful
         qualifies_negative = clicks >= _NEGATIVE_MIN_CLICKS and orders == 0
 
         if qualifies_negative and not await _already_pending(session, search_term, "add_negative"):
+            # Confidence for negatives: higher spend/clicks = more confident
+            neg_confidence = min(0.30 + (clicks / 100) * 0.30 + (float(spend) / 50) * 0.20, 1.0)
+            neg_confidence = round(neg_confidence, 4)
+            evidence = {
+                "campaign_name": campaign_name,
+                "impressions": impressions,
+                "clicks": clicks,
+                "spend": float(spend),
+                "ctr": round(ctr_float, 6),
+                "zero_orders": True,
+            }
+
             rec = KeywordRecommendation(
                 source_campaign_id=campaign_id,
                 search_term=search_term,
@@ -166,6 +335,11 @@ async def generate_keyword_recommendations(
                 target_campaign_id=campaign_id,
                 status="pending",
                 created_at=utcnow(),
+                confidence=neg_confidence,
+                source="search_term_mining",
+                evidence=json.dumps(evidence),
+                match_type_recommendation="exact",
+                pattern_group=None,
             )
             session.add(rec)
             created.append({
@@ -174,6 +348,7 @@ async def generate_keyword_recommendations(
                 "campaign": campaign_name,
                 "clicks": clicks,
                 "spend": float(spend),
+                "confidence": neg_confidence,
             })
 
     await session.commit()

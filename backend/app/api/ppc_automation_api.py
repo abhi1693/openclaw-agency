@@ -23,6 +23,7 @@ from app.models.ppc_automation import (
     PpcChangeLog,
 )
 from app.services.ads_api import AmazonAdsAPI
+from app.services.negative_pattern_detector import detect_negative_patterns
 from app.services.ppc_scheduler import run_optimizer
 
 router = APIRouter(prefix="/ppc/automation", tags=["ppc-automation"])
@@ -66,6 +67,11 @@ class RunOptimizerRequest(BaseModel):
     parent_asin: str | None = None
     run_bid: bool = True
     run_keywords: bool = True
+    run_patterns: bool = True
+
+
+class RunKeywordDiscoveryRequest(BaseModel):
+    run_patterns: bool = True
 
 
 # ---------------------------------------------------------------------------
@@ -188,6 +194,9 @@ async def apply_bid_recommendations(
 @router.get("/keyword-recommendations")
 async def list_keyword_recommendations(
     status_filter: str = Query(default="pending", alias="status"),
+    action: str | None = Query(default=None),
+    confidence_min: float | None = Query(default=None, ge=0.0, le=1.0),
+    pattern_group: str | None = Query(default=None),
     limit: int = Query(default=50, le=200),
     offset: int = Query(default=0, ge=0),
     session: AsyncSession = SESSION_DEP,
@@ -196,12 +205,73 @@ async def list_keyword_recommendations(
         select(KeywordRecommendation)
         .where(KeywordRecommendation.status == status_filter)
         .order_by(col(KeywordRecommendation.created_at).desc())
-        .offset(offset)
+    )
+    if action:
+        query = query.where(KeywordRecommendation.action == action)
+    if confidence_min is not None:
+        query = query.where(KeywordRecommendation.confidence >= confidence_min)
+    if pattern_group is not None:
+        query = query.where(KeywordRecommendation.pattern_group == pattern_group)
+    query = query.offset(offset).limit(limit)
+    result = await session.exec(query)
+    recs = result.all()
+    return {"items": [r.model_dump() for r in recs], "total": len(recs), "offset": offset, "limit": limit}
+
+
+@router.get("/negative-patterns")
+async def list_negative_patterns(
+    status_filter: str = Query(default="pending", alias="status"),
+    limit: int = Query(default=50, le=200),
+    session: AsyncSession = SESSION_DEP,
+) -> dict[str, Any]:
+    """List pattern-detector generated negative recommendations, grouped by pattern root."""
+    query = (
+        select(KeywordRecommendation)
+        .where(KeywordRecommendation.source == "pattern_detector")
+        .where(KeywordRecommendation.status == status_filter)
+        .order_by(col(KeywordRecommendation.confidence).desc())
         .limit(limit)
     )
     result = await session.exec(query)
     recs = result.all()
-    return {"items": [r.model_dump() for r in recs], "total": len(recs), "offset": offset, "limit": limit}
+    return {"items": [r.model_dump() for r in recs], "total": len(recs)}
+
+
+@router.post("/run-keyword-discovery")
+async def run_keyword_discovery_endpoint(
+    body: RunKeywordDiscoveryRequest,
+    session: AsyncSession = SESSION_DEP,
+) -> dict[str, Any]:
+    """Manually trigger keyword discovery and optionally pattern detection."""
+    from app.services.keyword_discoverer import generate_keyword_recommendations
+
+    started_at = datetime.utcnow()
+    result: dict[str, Any] = {
+        "started_at": started_at.isoformat(),
+        "keyword_recommendations_created": 0,
+        "pattern_negatives_created": 0,
+        "errors": [],
+    }
+
+    try:
+        kw_recs = await generate_keyword_recommendations(session)
+        result["keyword_recommendations_created"] = len(kw_recs)
+    except Exception as exc:  # noqa: BLE001
+        logger.exception("run_keyword_discovery: keyword discoverer failed")
+        result["errors"].append({"step": "keyword_discoverer", "error": str(exc)})
+
+    if body.run_patterns:
+        try:
+            patterns = await detect_negative_patterns(session)
+            result["pattern_negatives_created"] = len(patterns)
+        except Exception as exc:  # noqa: BLE001
+            logger.exception("run_keyword_discovery: pattern detector failed")
+            result["errors"].append({"step": "pattern_detector", "error": str(exc)})
+
+    finished_at = datetime.utcnow()
+    result["finished_at"] = finished_at.isoformat()
+    result["duration_seconds"] = (finished_at - started_at).total_seconds()
+    return result
 
 
 @router.post("/keyword-recommendations/apply")
@@ -306,6 +376,7 @@ async def run_optimizer_endpoint(
         parent_asin=body.parent_asin,
         run_bid=body.run_bid,
         run_keywords=body.run_keywords,
+        run_patterns=body.run_patterns,
     )
     return result
 
