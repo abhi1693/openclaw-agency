@@ -208,6 +208,24 @@ class PlacementRecommendation(QueryModel, table=True):
     applied_at: datetime | None = None
 
 
+class TrafficDaily(QueryModel, table=True):
+    """Daily traffic/session metrics from SP API sales-traffic report."""
+
+    __tablename__ = "traffic_daily"  # pyright: ignore[reportAssignmentType]
+
+    id: UUID = Field(default_factory=uuid4, primary_key=True)
+    report_date: date_type = Field(sa_column=Column("report_date", Date(), nullable=False, index=True))
+    asin: str | None = Field(default=None, index=True)  # NULL = store-level summary
+    sessions: int = Field(default=0)
+    page_views: int = Field(default=0)
+    buy_box_pct: Decimal | None = Field(default=None, sa_column=Column(Numeric(5, 2), nullable=True))
+    unit_session_pct: Decimal | None = Field(default=None, sa_column=Column(Numeric(5, 2), nullable=True))
+    units_ordered: int = Field(default=0)
+    ordered_product_sales: Decimal | None = Field(default=None, sa_column=Column(Numeric(12, 2), nullable=True))
+    synced_at: datetime | None = None
+    created_at: datetime = Field(default_factory=utcnow)
+
+
 class CampaignPlan(QueryModel, table=True):
     """Generated campaign structure plans for approval and execution."""
 

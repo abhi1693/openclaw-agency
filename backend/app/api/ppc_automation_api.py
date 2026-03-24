@@ -758,3 +758,209 @@ async def run_optimizer_endpoint_v2(
         run_placements=body.run_placements,
     )
     return result
+
+
+# ---------------------------------------------------------------------------
+# Traffic sync (SP API sales-traffic → traffic_daily)
+# ---------------------------------------------------------------------------
+
+
+@router.post("/sync-traffic")
+async def sync_traffic_endpoint(
+    days: int = Query(default=3, ge=1, le=30),
+    session: AsyncSession = SESSION_DEP,
+) -> dict[str, Any]:
+    """Sync traffic_daily from SP API sales-traffic report."""
+    from app.services.traffic_sync import sync_traffic_from_api
+
+    started_at = datetime.utcnow()
+    try:
+        result = await sync_traffic_from_api(session, days=days)
+        finished_at = datetime.utcnow()
+        return {
+            "started_at": started_at.isoformat(),
+            "finished_at": finished_at.isoformat(),
+            "duration_seconds": (finished_at - started_at).total_seconds(),
+            **result,
+        }
+    except Exception as exc:  # noqa: BLE001
+        logger.exception("sync_traffic: failed")
+        raise HTTPException(status_code=500, detail=str(exc)) from exc
+
+
+@router.get("/traffic")
+async def get_traffic(
+    days: int = Query(default=7, ge=1, le=90),
+    session: AsyncSession = SESSION_DEP,
+) -> dict[str, Any]:
+    """Return recent traffic/session data from traffic_daily."""
+    from sqlalchemy import text as sqla_text
+
+    summary_rows = await session.exec(  # type: ignore[call-overload]
+        sqla_text("""
+            SELECT report_date, sessions, page_views, buy_box_pct,
+                   unit_session_pct, units_ordered, ordered_product_sales
+            FROM traffic_daily
+            WHERE asin IS NULL
+              AND report_date >= CURRENT_DATE - :days
+            ORDER BY report_date DESC
+        """),
+        params={"days": days},
+    )
+    daily_summary = [
+        {
+            "date": str(r[0]),
+            "sessions": r[1],
+            "page_views": r[2],
+            "buy_box_pct": float(r[3]) if r[3] is not None else None,
+            "unit_session_pct": float(r[4]) if r[4] is not None else None,
+            "units_ordered": r[5],
+            "ordered_product_sales": float(r[6]) if r[6] is not None else None,
+        }
+        for r in summary_rows.all()
+    ]
+
+    asin_rows = await session.exec(  # type: ignore[call-overload]
+        sqla_text("""
+            SELECT report_date, asin, sessions, page_views, unit_session_pct,
+                   units_ordered, ordered_product_sales
+            FROM traffic_daily
+            WHERE asin IS NOT NULL
+              AND report_date >= CURRENT_DATE - :days
+            ORDER BY report_date DESC, sessions DESC
+        """),
+        params={"days": days},
+    )
+    by_asin = [
+        {
+            "date": str(r[0]),
+            "asin": r[1],
+            "sessions": r[2],
+            "page_views": r[3],
+            "unit_session_pct": float(r[4]) if r[4] is not None else None,
+            "units_ordered": r[5],
+            "ordered_product_sales": float(r[6]) if r[6] is not None else None,
+        }
+        for r in asin_rows.all()
+    ]
+
+    return {"daily_summary": daily_summary, "by_asin": by_asin, "days": days}
+
+
+# ---------------------------------------------------------------------------
+# Ad summary — daily aggregates from ad_metrics table
+# ---------------------------------------------------------------------------
+
+
+@router.get("/ad-summary")
+async def get_ad_summary(
+    days: int = Query(default=7, ge=1, le=90),
+    session: AsyncSession = SESSION_DEP,
+) -> dict[str, Any]:
+    """Daily ad performance summary from ad_metrics DB table."""
+    from sqlalchemy import text as sqla_text
+
+    daily_rows = await session.exec(  # type: ignore[call-overload]
+        sqla_text("""
+            SELECT report_date,
+                   count(DISTINCT campaign_id) AS campaigns,
+                   sum(impressions::bigint) AS impressions,
+                   sum(clicks::bigint) AS clicks,
+                   sum(orders::bigint) AS orders,
+                   sum(spend::numeric) AS spend,
+                   sum(sales::numeric) AS sales
+            FROM ad_metrics
+            WHERE report_date >= CURRENT_DATE - :days
+            GROUP BY report_date
+            ORDER BY report_date DESC
+        """),
+        params={"days": days},
+    )
+    items = []
+    for r in daily_rows.all():
+        spend = float(r[5] or 0)
+        sales = float(r[6] or 0)
+        items.append({
+            "date": str(r[0]),
+            "campaigns": int(r[1] or 0),
+            "impressions": int(r[2] or 0),
+            "clicks": int(r[3] or 0),
+            "orders": int(r[4] or 0),
+            "spend": round(spend, 2),
+            "sales": round(sales, 2),
+            "acos": round(spend / sales, 4) if sales > 0 else None,
+            "roas": round(sales / spend, 2) if spend > 0 else None,
+        })
+
+    # Top campaigns by spend (most recent report date)
+    top_rows = await session.exec(  # type: ignore[call-overload]
+        sqla_text("""
+            SELECT campaign_id,
+                   sum(spend::numeric) AS spend,
+                   sum(sales::numeric) AS sales,
+                   sum(clicks::bigint) AS clicks,
+                   sum(impressions::bigint) AS impressions,
+                   sum(orders::bigint) AS orders
+            FROM ad_metrics
+            WHERE report_date = (SELECT MAX(report_date) FROM ad_metrics)
+            GROUP BY campaign_id
+            ORDER BY sum(spend::numeric) DESC
+            LIMIT 10
+        """),
+    )
+    top_campaigns = []
+    for r in top_rows.all():
+        spend = float(r[1] or 0)
+        sales = float(r[2] or 0)
+        top_campaigns.append({
+            "campaign_id": r[0],
+            "spend": round(spend, 2),
+            "sales": round(sales, 2),
+            "clicks": int(r[3] or 0),
+            "impressions": int(r[4] or 0),
+            "orders": int(r[5] or 0),
+            "acos": round(spend / sales, 4) if sales > 0 else None,
+        })
+
+    return {"items": items, "top_campaigns": top_campaigns, "days": days}
+
+
+# ---------------------------------------------------------------------------
+# Pending summary — counts of all pending recommendations
+# ---------------------------------------------------------------------------
+
+
+@router.get("/pending-summary")
+async def get_pending_summary(
+    session: AsyncSession = SESSION_DEP,
+) -> dict[str, Any]:
+    """Return counts of all pending PPC recommendations by type."""
+    from sqlalchemy import text as sqla_text
+
+    bid_count = (await session.exec(sqla_text("SELECT count(*) FROM bid_recommendations WHERE status='pending'"))).scalar()  # type: ignore[call-overload]
+    kw_count = (await session.exec(sqla_text("SELECT count(*) FROM keyword_recommendations WHERE status='pending'"))).scalar()  # type: ignore[call-overload]
+    place_count = (await session.exec(sqla_text("SELECT count(*) FROM placement_recommendations WHERE status='pending'"))).scalar()  # type: ignore[call-overload]
+    budget_count = (await session.exec(sqla_text("SELECT count(*) FROM budget_allocations WHERE status='pending'"))).scalar()  # type: ignore[call-overload]
+
+    tier_rows = await session.exec(  # type: ignore[call-overload]
+        sqla_text("""
+            SELECT
+                substring(reason from '"tier":\\s*"([^"]+)"') AS tier,
+                count(*) AS cnt
+            FROM bid_recommendations
+            WHERE status = 'pending'
+              AND reason IS NOT NULL
+            GROUP BY tier
+            ORDER BY cnt DESC
+        """),
+    )
+    bid_tiers = {r[0]: int(r[1]) for r in tier_rows.all() if r[0]}
+
+    return {
+        "bid_recommendations": int(bid_count or 0),
+        "keyword_recommendations": int(kw_count or 0),
+        "placement_recommendations": int(place_count or 0),
+        "budget_allocations": int(budget_count or 0),
+        "bid_tiers": bid_tiers,
+        "total_pending": int((bid_count or 0) + (kw_count or 0) + (place_count or 0) + (budget_count or 0)),
+    }

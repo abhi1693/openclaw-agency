@@ -1465,3 +1465,23 @@ async def get_ppc_keyword_analysis(session: AsyncSession = SESSION_DEP) -> dict:
         "addKeywords": [], "negativeKeywords": [], "matchUpgrades": [],
         "longTail": [], "duplicateTargeting": [],
     }
+
+
+@router.get("/product-costs")
+async def get_product_costs(session: AsyncSession = SESSION_DEP) -> dict:
+    """Flat list of product costs keyed by ASIN/SKU (alias of /profit/cogs)."""
+    rows = list(await session.exec(select(ProductCost).order_by(col(ProductCost.sku).asc())))
+    return {
+        "items": [
+            {
+                "sku": r.sku,
+                "asin": r.asin,
+                "product_name": r.product_name,
+                "unit_cost": float(r.unit_cost) if r.unit_cost is not None else None,
+                "total_landed_cost": float(r.total_landed_cost) if r.total_landed_cost is not None else None,
+                "currency": r.currency,
+            }
+            for r in rows
+        ],
+        "total": len(rows),
+    }
