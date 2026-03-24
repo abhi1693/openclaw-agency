@@ -9,7 +9,7 @@ from uuid import UUID
 
 from fastapi import APIRouter, Depends, HTTPException, Query, status
 from pydantic import BaseModel
-from sqlmodel import col, select
+from sqlmodel import col, select, text
 from sqlmodel.ext.asyncio.session import AsyncSession
 
 from app.api.deps import get_session
@@ -964,3 +964,128 @@ async def get_pending_summary(
         "bid_tiers": bid_tiers,
         "total_pending": int((bid_count or 0) + (kw_count or 0) + (place_count or 0) + (budget_count or 0)),
     }
+
+
+# ---------------------------------------------------------------------------
+# AMS Real-time endpoints — hourly_campaign_metrics
+# ---------------------------------------------------------------------------
+
+
+@router.get("/realtime/today")
+async def realtime_today(session: AsyncSession = SESSION_DEP) -> dict:
+    """AMS real-time: today's running totals from hourly_campaign_metrics."""
+    r = (await session.exec(text("""
+        SELECT SUM(impressions), SUM(clicks), SUM(orders), SUM(cost), SUM(sales),
+               COUNT(DISTINCT campaign_id), MAX(hour)
+        FROM hourly_campaign_metrics WHERE date = CURRENT_DATE
+    """))).first()
+    if not r or r[0] is None:
+        return {
+            "date": str(date.today()), "empty": True,
+            "message": "今日暂无 AMS 实时数据",
+            "impressions": 0, "clicks": 0, "orders": 0,
+            "cost": 0.0, "sales": 0.0,
+            "acos": None, "roas": None, "cpc": None, "ctr": None,
+            "campaigns": 0, "latest_hour": None, "source": "ams_realtime",
+        }
+    impr = int(r[0] or 0)
+    clicks = int(r[1] or 0)
+    orders = int(r[2] or 0)
+    cost = float(r[3] or 0)
+    sales = float(r[4] or 0)
+    return {
+        "date": str(date.today()),
+        "empty": False,
+        "impressions": impr,
+        "clicks": clicks,
+        "orders": orders,
+        "cost": round(cost, 2),
+        "sales": round(sales, 2),
+        "acos": round(cost / sales * 100, 1) if sales > 0 else None,
+        "roas": round(sales / cost, 2) if cost > 0 else None,
+        "cpc": round(cost / clicks, 2) if clicks > 0 else None,
+        "ctr": round(clicks / impr * 100, 2) if impr > 0 else None,
+        "campaigns": int(r[5] or 0),
+        "latest_hour": int(r[6]) if r[6] is not None else None,
+        "source": "ams_realtime",
+    }
+
+
+@router.get("/realtime/hourly")
+async def realtime_hourly(session: AsyncSession = SESSION_DEP) -> dict:
+    """AMS real-time: hourly breakdown for today."""
+    rows = (await session.exec(text("""
+        SELECT hour, SUM(impressions), SUM(clicks), SUM(orders), SUM(cost), SUM(sales)
+        FROM hourly_campaign_metrics WHERE date = CURRENT_DATE
+        GROUP BY hour ORDER BY hour
+    """))).all()
+    hours = []
+    for r in rows:
+        cost, sales = float(r[4] or 0), float(r[5] or 0)
+        hours.append({
+            "hour": int(r[0]),
+            "impressions": int(r[1] or 0),
+            "clicks": int(r[2] or 0),
+            "orders": int(r[3] or 0),
+            "cost": round(cost, 2),
+            "sales": round(sales, 2),
+            "acos": round(cost / sales * 100, 1) if sales > 0 else None,
+        })
+    return {"date": str(date.today()), "hours": hours}
+
+
+@router.get("/realtime/campaigns")
+async def realtime_campaigns(session: AsyncSession = SESSION_DEP) -> dict:
+    """AMS real-time: campaign breakdown for today."""
+    rows = (await session.exec(text("""
+        SELECT hcm.campaign_id, c.name,
+               SUM(hcm.impressions), SUM(hcm.clicks), SUM(hcm.orders),
+               SUM(hcm.cost), SUM(hcm.sales)
+        FROM hourly_campaign_metrics hcm
+        LEFT JOIN campaigns c ON c.campaign_id = hcm.campaign_id
+        WHERE hcm.date = CURRENT_DATE
+        GROUP BY hcm.campaign_id, c.name
+        ORDER BY SUM(hcm.cost) DESC
+    """))).all()
+    campaigns = []
+    for r in rows:
+        cost = float(r[5] or 0)
+        sales = float(r[6] or 0)
+        clicks = int(r[3] or 0)
+        campaigns.append({
+            "campaignId": r[0],
+            "name": r[1] or r[0],
+            "impressions": int(r[2] or 0),
+            "clicks": clicks,
+            "orders": int(r[4] or 0),
+            "cost": round(cost, 2),
+            "sales": round(sales, 2),
+            "acos": round(cost / sales * 100, 1) if sales > 0 else None,
+            "cpc": round(cost / clicks, 2) if clicks > 0 else None,
+        })
+    return {"date": str(date.today()), "campaigns": campaigns}
+
+
+@router.get("/realtime/placements")
+async def realtime_placements(session: AsyncSession = SESSION_DEP) -> dict:
+    """AMS real-time: placement breakdown for today."""
+    rows = (await session.exec(text("""
+        SELECT COALESCE(placement, 'Unknown'),
+               SUM(impressions), SUM(clicks), SUM(cost), SUM(sales)
+        FROM hourly_campaign_metrics WHERE date = CURRENT_DATE
+        GROUP BY placement ORDER BY SUM(cost) DESC
+    """))).all()
+    total_cost = sum(float(r[3] or 0) for r in rows)
+    placements = []
+    for r in rows:
+        cost, sales = float(r[3] or 0), float(r[4] or 0)
+        placements.append({
+            "placement": r[0],
+            "impressions": int(r[1] or 0),
+            "clicks": int(r[2] or 0),
+            "cost": round(cost, 2),
+            "sales": round(sales, 2),
+            "acos": round(cost / sales * 100, 1) if sales > 0 else None,
+            "sharePct": round(cost / total_cost * 100, 1) if total_cost > 0 else 0,
+        })
+    return {"date": str(date.today()), "placements": placements}

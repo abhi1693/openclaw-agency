@@ -589,7 +589,7 @@ async function apiFetch(path: string, init?: RequestInit) {
 
 // ─── Tabs ────────────────────────────────────────────────────────────────────────
 
-const TABS = ['💰 Bid 建议', '🔑 关键词建议', '📊 预算分配', '📍 Placement 优化', '🏗️ Campaign 构建器', '⚙️ 设置'] as const
+const TABS = ['📡 实时监控', '💰 Bid 建议', '🔑 关键词建议', '📊 预算分配', '📍 Placement 优化', '🏗️ Campaign 构建器', '⚙️ 设置'] as const
 type Tab = typeof TABS[number]
 
 // ─── Main Page ────────────────────────────────────────────────────────────────
@@ -628,6 +628,7 @@ export default function PpcAutomationPage() {
 
       {/* Tab content */}
       <div className="mt-4">
+        {activeTab === '📡 实时监控' && <RealtimeTab />}
         {activeTab === '💰 Bid 建议' && <BidRecommendationsTab />}
         {activeTab === '🔑 关键词建议' && <KeywordRecommendationsTab />}
         {activeTab === '📊 预算分配' && <BudgetAllocationTab />}
@@ -707,6 +708,219 @@ function RunOptimizerButton() {
         {running ? <RefreshCw className="h-4 w-4 animate-spin" /> : <Play className="h-4 w-4" />}
         {running ? '运行中…' : '运行优化'}
       </button>
+    </div>
+  )
+}
+
+// ─── Realtime Tab ─────────────────────────────────────────────────────────────
+
+interface RealtimeToday {
+  date: string; empty?: boolean; message?: string
+  impressions: number; clicks: number; orders: number
+  cost: number; sales: number
+  acos: number | null; roas: number | null; cpc: number | null; ctr: number | null
+  campaigns: number; latest_hour: number | null; source: string
+}
+interface RealtimeHour { hour: number; impressions: number; clicks: number; orders: number; cost: number; sales: number; acos: number | null }
+interface RealtimeCampaign { campaignId: string; name: string; impressions: number; clicks: number; orders: number; cost: number; sales: number; acos: number | null; cpc: number | null }
+interface RealtimePlacement { placement: string; impressions: number; clicks: number; cost: number; sales: number; acos: number | null; sharePct: number }
+
+function fmt$(n: number) { return `$${n.toFixed(2)}` }
+function fmtK(n: number) { if (n >= 1000) return `${(n / 1000).toFixed(1)}K`; return String(n) }
+
+function RealtimeKPICard({ label, value, sub }: { label: string; value: string; sub?: string }) {
+  return (
+    <div className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
+      <p className="text-[10px] uppercase tracking-widest text-slate-500 font-semibold">{label}</p>
+      <p className="text-xl font-bold mt-1 text-slate-900">{value}</p>
+      {sub && <p className="text-[10px] text-slate-500 mt-0.5">{sub}</p>}
+    </div>
+  )
+}
+
+function HourlyBars({ hours }: { hours: RealtimeHour[] }) {
+  if (!hours.length) return <p className="text-sm text-slate-500 py-4 text-center">暂无今日数据</p>
+  const maxCost = Math.max(...hours.map(h => h.cost), 0.01)
+  return (
+    <div className="space-y-1">
+      <p className="text-xs text-slate-500 mb-3">花费趋势（今日每小时，USD）</p>
+      <div className="flex items-end gap-1 h-20">
+        {hours.map(h => {
+          const pct = h.cost / maxCost * 100
+          return (
+            <div key={h.hour} className="flex flex-col items-center flex-1 min-w-0 group relative">
+              <div
+                className="w-full bg-blue-500 hover:bg-blue-600 rounded-t transition-all cursor-default"
+                style={{ height: `${Math.max(pct, 2)}%` }}
+              />
+              <div className="absolute -top-8 left-1/2 -translate-x-1/2 hidden group-hover:flex bg-slate-800 text-white text-[9px] px-1.5 py-0.5 rounded whitespace-nowrap z-10">
+                {h.hour}:00 — ${h.cost.toFixed(2)}
+              </div>
+            </div>
+          )
+        })}
+      </div>
+      <div className="flex items-center gap-1">
+        {hours.map(h => (
+          <p key={h.hour} className="flex-1 text-center text-[8px] text-slate-400 min-w-0 truncate">{h.hour}</p>
+        ))}
+      </div>
+    </div>
+  )
+}
+
+function PlacementBars({ placements }: { placements: RealtimePlacement[] }) {
+  const PLACEMENT_LABELS: Record<string, string> = {
+    'TOP_OF_SEARCH': '搜索顶部',
+    'DETAIL_PAGE': '商品页',
+    'OTHER': '其他',
+    'OFF_AMAZON': '站外',
+    'Unknown': '未知',
+  }
+  return (
+    <div className="space-y-2">
+      {placements.map(p => (
+        <div key={p.placement} className="space-y-0.5">
+          <div className="flex items-center justify-between text-xs">
+            <span className="text-slate-700 font-medium">{PLACEMENT_LABELS[p.placement] ?? p.placement}</span>
+            <span className="text-slate-500">{fmt$(p.cost)} ({p.sharePct}%)</span>
+          </div>
+          <div className="h-2 rounded-full bg-slate-100 overflow-hidden">
+            <div
+              className="h-full rounded-full bg-blue-500"
+              style={{ width: `${Math.max(p.sharePct, 1)}%` }}
+            />
+          </div>
+        </div>
+      ))}
+    </div>
+  )
+}
+
+function RealtimeTab() {
+  const { data: today, dataUpdatedAt } = useQuery<RealtimeToday>({
+    queryKey: ['realtime-today'],
+    queryFn: () => fetch('/api/ppc/automation/realtime/today').then(r => r.json()),
+    refetchInterval: 60_000,
+  })
+  const { data: hourlyData } = useQuery<{ hours: RealtimeHour[] }>({
+    queryKey: ['realtime-hourly'],
+    queryFn: () => fetch('/api/ppc/automation/realtime/hourly').then(r => r.json()),
+    refetchInterval: 60_000,
+  })
+  const { data: campaignsData } = useQuery<{ campaigns: RealtimeCampaign[] }>({
+    queryKey: ['realtime-campaigns'],
+    queryFn: () => fetch('/api/ppc/automation/realtime/campaigns').then(r => r.json()),
+    refetchInterval: 60_000,
+  })
+  const { data: placementsData } = useQuery<{ placements: RealtimePlacement[] }>({
+    queryKey: ['realtime-placements'],
+    queryFn: () => fetch('/api/ppc/automation/realtime/placements').then(r => r.json()),
+    refetchInterval: 60_000,
+  })
+
+  const lastUpdated = dataUpdatedAt ? new Date(dataUpdatedAt).toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit' }) : '--:--'
+  const latestHour = today?.latest_hour ?? null
+
+  if (today?.empty) {
+    return (
+      <div className="rounded-xl border border-slate-200 bg-white p-10 text-center">
+        <p className="text-4xl mb-3">📡</p>
+        <p className="text-slate-500">{today.message ?? '今日暂无 AMS 实时数据'}</p>
+        <p className="text-xs text-slate-400 mt-2">AMS 实时数据从 2026-03-23 开始采集，每小时更新</p>
+      </div>
+    )
+  }
+
+  return (
+    <div className="space-y-5">
+      {/* Header */}
+      <div className="flex items-center gap-3">
+        <div className="flex items-center gap-1.5">
+          <span className="inline-block h-2 w-2 rounded-full bg-red-500 animate-pulse" />
+          <span className="text-xs font-semibold text-red-600 uppercase tracking-wider">LIVE</span>
+        </div>
+        <p className="text-sm text-slate-600">
+          {today?.date ?? '--'}{latestHour !== null ? ` · 截至 ${latestHour}:00` : ''} · 最后更新 {lastUpdated}
+        </p>
+        <p className="text-xs text-slate-400 ml-auto">每 60 秒自动刷新</p>
+      </div>
+
+      {/* KPI cards */}
+      <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3">
+        <RealtimeKPICard label="今日花费" value={today ? fmt$(today.cost) : '—'} sub={today?.cpc ? `CPC $${today.cpc}` : undefined} />
+        <RealtimeKPICard label="今日销售" value={today?.sales ? fmt$(today.sales) : '—'} />
+        <RealtimeKPICard label="ACoS" value={today?.acos != null ? `${today.acos}%` : '—'} />
+        <RealtimeKPICard label="点击" value={today ? fmtK(today.clicks) : '—'} sub={today?.ctr != null ? `CTR ${today.ctr}%` : undefined} />
+        <RealtimeKPICard label="展示" value={today ? fmtK(today.impressions) : '—'} />
+        <RealtimeKPICard label="活跃 Campaign" value={today ? String(today.campaigns) : '—'} sub="今日有花费" />
+      </div>
+
+      {/* Note: orders/sales may be 0 in SP-traffic stream */}
+      {today && today.orders === 0 && (
+        <p className="text-[10px] text-slate-400 -mt-2">
+          ℹ️ SP-traffic stream 不含转化数据，orders/sales 可能延迟至次日更新
+        </p>
+      )}
+
+      {/* Hourly chart + Placements */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+        <div className="rounded-xl border border-slate-200 bg-white p-5">
+          <h3 className="text-sm font-semibold text-slate-900 mb-4">📈 小时趋势</h3>
+          <HourlyBars hours={hourlyData?.hours ?? []} />
+        </div>
+
+        <div className="rounded-xl border border-slate-200 bg-white p-5">
+          <h3 className="text-sm font-semibold text-slate-900 mb-4">📍 Placement 分布</h3>
+          {placementsData?.placements?.length ? (
+            <PlacementBars placements={placementsData.placements} />
+          ) : (
+            <p className="text-sm text-slate-500 text-center py-4">暂无 Placement 数据</p>
+          )}
+        </div>
+      </div>
+
+      {/* Campaign table */}
+      <div className="rounded-xl border border-slate-200 bg-white overflow-hidden">
+        <div className="px-5 py-3 border-b border-slate-100">
+          <h3 className="text-sm font-semibold text-slate-900">🏆 今日 Campaign 排名</h3>
+        </div>
+        <div className="overflow-x-auto">
+          <table className="w-full text-sm">
+            <thead>
+              <tr className="border-b border-slate-100 bg-slate-50">
+                <th className="px-4 py-2 text-left text-xs font-semibold text-slate-500 uppercase tracking-wide">Campaign</th>
+                <th className="px-3 py-2 text-right text-xs font-semibold text-slate-500 uppercase tracking-wide">花费</th>
+                <th className="px-3 py-2 text-right text-xs font-semibold text-slate-500 uppercase tracking-wide">点击</th>
+                <th className="px-3 py-2 text-right text-xs font-semibold text-slate-500 uppercase tracking-wide">展示</th>
+                <th className="px-3 py-2 text-right text-xs font-semibold text-slate-500 uppercase tracking-wide">CPC</th>
+                <th className="px-3 py-2 text-right text-xs font-semibold text-slate-500 uppercase tracking-wide">ACoS</th>
+              </tr>
+            </thead>
+            <tbody>
+              {(campaignsData?.campaigns ?? []).map((c, i) => (
+                <tr key={c.campaignId} className={cn('border-b border-slate-50', i % 2 === 0 ? 'bg-white' : 'bg-slate-50/50')}>
+                  <td className="px-4 py-2 text-slate-700 truncate max-w-[240px]" title={c.name}>{c.name}</td>
+                  <td className="px-3 py-2 text-right font-medium text-slate-900">{fmt$(c.cost)}</td>
+                  <td className="px-3 py-2 text-right text-slate-600">{c.clicks}</td>
+                  <td className="px-3 py-2 text-right text-slate-600">{fmtK(c.impressions)}</td>
+                  <td className="px-3 py-2 text-right text-slate-500">{c.cpc != null ? `$${c.cpc}` : '—'}</td>
+                  <td className="px-3 py-2 text-right">
+                    {c.acos != null ? (
+                      <span className={cn('text-xs font-medium', c.acos < 25 ? 'text-green-600' : c.acos < 40 ? 'text-amber-600' : 'text-red-600')}>
+                        {c.acos}%
+                      </span>
+                    ) : '—'}
+                  </td>
+                </tr>
+              ))}
+              {!campaignsData?.campaigns?.length && (
+                <tr><td colSpan={6} className="px-4 py-8 text-center text-slate-500 text-sm">今日暂无 Campaign 数据</td></tr>
+              )}
+            </tbody>
+          </table>
+        </div>
+      </div>
     </div>
   )
 }

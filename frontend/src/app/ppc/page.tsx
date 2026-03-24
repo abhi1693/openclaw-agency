@@ -246,7 +246,13 @@ function EmptyState({ message, hint }: { message: string; hint?: string }) {
 
 // ─── Tab 1: Overview ─────────────────────────────────────────────────────────
 
-function OverviewTab({ report }: { report: WeeklyReport | null }) {
+interface RealtimeTodayData {
+  date: string; empty?: boolean; impressions: number; clicks: number; orders: number
+  cost: number; sales: number; acos: number | null; roas: number | null
+  cpc: number | null; ctr: number | null; campaigns: number; latest_hour: number | null
+}
+
+function OverviewTab({ report, realtimeToday }: { report: WeeklyReport | null; realtimeToday?: RealtimeTodayData | null }) {
   if (!report) {
     return (
       <div className="space-y-4">
@@ -289,6 +295,35 @@ function OverviewTab({ report }: { report: WeeklyReport | null }) {
         <p className="text-[10px] text-slate-500 -mt-2">
           数据范围: {report.dateRange.start} → {report.dateRange.end}
         </p>
+      )}
+
+      {/* AMS Realtime today strip */}
+      {realtimeToday && !realtimeToday.empty && (
+        <div className="rounded-xl border border-blue-200 bg-blue-50/50 p-4">
+          <div className="flex items-center gap-2 mb-3">
+            <span className="inline-block h-2 w-2 rounded-full bg-red-500 animate-pulse" />
+            <span className="text-xs font-semibold text-red-600 uppercase tracking-wider">LIVE</span>
+            <p className="text-xs text-slate-600 font-medium">
+              📡 今日实时 (AMS){realtimeToday.latest_hour != null ? ` · 截至 ${realtimeToday.latest_hour}:00` : ''}
+            </p>
+            <p className="text-[10px] text-slate-400 ml-auto">分钟级延迟</p>
+          </div>
+          <div className="grid grid-cols-3 sm:grid-cols-6 gap-2">
+            {[
+              { label: '今日花费', value: `$${realtimeToday.cost.toFixed(2)}` },
+              { label: '今日销售', value: realtimeToday.sales > 0 ? `$${realtimeToday.sales.toFixed(2)}` : '—' },
+              { label: 'ACoS', value: realtimeToday.acos != null ? `${realtimeToday.acos}%` : '—' },
+              { label: '点击', value: String(realtimeToday.clicks) },
+              { label: '展示', value: realtimeToday.impressions >= 1000 ? `${(realtimeToday.impressions / 1000).toFixed(1)}K` : String(realtimeToday.impressions) },
+              { label: 'CPC', value: realtimeToday.cpc != null ? `$${realtimeToday.cpc}` : '—' },
+            ].map(({ label, value }) => (
+              <div key={label} className="rounded-lg bg-white border border-blue-100 p-2.5 text-center">
+                <p className="text-[9px] uppercase tracking-widest text-slate-500 font-semibold">{label}</p>
+                <p className="text-sm font-bold text-slate-900 mt-0.5">{value}</p>
+              </div>
+            ))}
+          </div>
+        </div>
       )}
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
@@ -1738,6 +1773,9 @@ function PPCPageContent({ period, topTab }: { period: Period; topTab: TopTab }) 
   const [aiInsights, setAiInsights]       = useState<AiInsights | null>(null)
   const [aiInsightsLoading, setAiInsightsLoading] = useState(true)
 
+  // AMS realtime today
+  const [realtimeToday, setRealtimeToday] = useState<RealtimeTodayData | null>(null)
+
   // Load keyword performance
   useEffect(() => {
     setKwLoading(true)
@@ -1791,6 +1829,14 @@ function PPCPageContent({ period, topTab }: { period: Period; topTab: TopTab }) 
       .finally(() => setReportLoading(false))
   }, [])
 
+  // AMS realtime today (auto-refresh every 60s)
+  useEffect(() => {
+    const load = () => fetch('/api/ppc/automation/realtime/today').then(r => r.json()).then(d => setRealtimeToday(d)).catch(() => {})
+    load()
+    const id = setInterval(load, 60_000)
+    return () => clearInterval(id)
+  }, [])
+
   // Badge counts for tabs
   const tabBadges: Partial<Record<TopTab, number>> = {
     'overview': (report?.summary.criticalAlerts ?? 0) + (report?.summary.warningAlerts ?? 0),
@@ -1842,7 +1888,7 @@ function PPCPageContent({ period, topTab }: { period: Period; topTab: TopTab }) 
         {topTab === 'overview' && (
           reportLoading
             ? <div className="space-y-4">{[...Array(3)].map((_, i) => <Skeleton key={i} className="h-24 rounded-xl" />)}</div>
-            : <OverviewTab report={report} />
+            : <OverviewTab report={report} realtimeToday={realtimeToday} />
         )}
 
         {topTab === 'keywords-opt' && (
