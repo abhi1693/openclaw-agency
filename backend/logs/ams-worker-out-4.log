@@ -481,3 +481,70 @@
 2026-03-23 20:31:01: 2026-03-23 20:31:01,754 INFO alembic.runtime.plugins setup plugin alembic.autogenerate.comments app=mission-control version=0.1.0
 2026-03-23 20:31:01: 2026-03-23 20:31:01,997 INFO __main__ ams_worker.started dry_run=False app=mission-control version=0.1.0
 2026-03-23 20:31:22: 2026-03-23 20:31:22,449 INFO app.services.ams_consumer ams_consumer.poll_done dataset=sp-conversion processed=1 failed=0 app=mission-control version=0.1.0
+2026-03-24 11:53:47: 2026-03-24 11:53:47,155 INFO app.core.logging logging.configured level=INFO format=text use_utc=False app=mission-control version=0.1.0
+2026-03-24 11:53:47: 2026-03-24 11:53:47,231 INFO alembic.runtime.plugins setup plugin alembic.autogenerate.schemas app=mission-control version=0.1.0
+2026-03-24 11:53:47: 2026-03-24 11:53:47,231 INFO alembic.runtime.plugins setup plugin alembic.autogenerate.tables app=mission-control version=0.1.0
+2026-03-24 11:53:47: 2026-03-24 11:53:47,231 INFO alembic.runtime.plugins setup plugin alembic.autogenerate.types app=mission-control version=0.1.0
+2026-03-24 11:53:47: 2026-03-24 11:53:47,231 INFO alembic.runtime.plugins setup plugin alembic.autogenerate.constraints app=mission-control version=0.1.0
+2026-03-24 11:53:47: 2026-03-24 11:53:47,231 INFO alembic.runtime.plugins setup plugin alembic.autogenerate.defaults app=mission-control version=0.1.0
+2026-03-24 11:53:47: 2026-03-24 11:53:47,231 INFO alembic.runtime.plugins setup plugin alembic.autogenerate.comments app=mission-control version=0.1.0
+2026-03-24 11:53:47: 2026-03-24 11:53:47,522 INFO __main__ ams_worker.started dry_run=False app=mission-control version=0.1.0
+2026-03-24 11:54:28: 2026-03-24 11:54:28,025 INFO app.services.ams_consumer ams_consumer.poll_done dataset=budget-usage processed=1 failed=0 app=mission-control version=0.1.0
+2026-03-24 11:54:28: 2026-03-24 11:54:28,260 INFO app.services.ams_consumer ams_consumer.poll_done dataset=campaigns processed=1 failed=0 app=mission-control version=0.1.0
+2026-03-24 11:55:13: 2026-03-24 11:55:13,866 INFO app.services.ams_consumer ams_consumer.poll_done dataset=budget-usage processed=2 failed=0 app=mission-control version=0.1.0
+2026-03-24 11:55:14: 2026-03-24 11:55:14,098 INFO app.services.ams_consumer ams_consumer.poll_done dataset=campaigns processed=1 failed=0 app=mission-control version=0.1.0
+2026-03-24 11:57:25: 2026-03-24 11:57:25,383 INFO app.services.ams_consumer ams_consumer.poll_done dataset=budget-usage processed=1 failed=0 app=mission-control version=0.1.0
+2026-03-24 11:57:50: 2026-03-24 11:57:50,850 INFO app.services.ams_consumer ams_consumer.poll_done dataset=sp-traffic processed=1 failed=0 app=mission-control version=0.1.0
+2026-03-24 12:01:07: 2026-03-24 12:01:07,307 INFO app.services.ams_consumer ams_consumer.poll_done dataset=budget-usage processed=1 failed=0 app=mission-control version=0.1.0
+2026-03-24 12:01:11: 2026-03-24 12:01:11,098 INFO app.services.ams_consumer ams_consumer.poll_done dataset=campaigns processed=1 failed=0 app=mission-control version=0.1.0
+2026-03-24 12:01:56: 2026-03-24 12:01:56,701 INFO app.services.ams_consumer ams_consumer.poll_done dataset=budget-usage processed=1 failed=0 app=mission-control version=0.1.0
+2026-03-24 12:03:02: 2026-03-24 12:03:02,401 INFO app.services.ams_consumer ams_consumer.poll_done dataset=budget-usage processed=1 failed=0 app=mission-control version=0.1.0
+2026-03-24 12:04:16: 2026-03-24 12:04:16,311 INFO app.services.ams_consumer ams_consumer.poll_done dataset=budget-usage processed=1 failed=0 app=mission-control version=0.1.0
+2026-03-24 12:04:25: 2026-03-24 12:04:25,956 INFO app.services.ams_consumer ams_consumer.poll_done dataset=campaigns processed=1 failed=0 app=mission-control version=0.1.0
+2026-03-24 12:05:11: 2026-03-24 12:05:11,522 INFO app.services.ams_consumer ams_consumer.poll_done dataset=budget-usage processed=2 failed=0 app=mission-control version=0.1.0
+2026-03-24 12:05:11: 2026-03-24 12:05:11,716 INFO app.services.ams_consumer ams_consumer.poll_done dataset=campaigns processed=1 failed=0 app=mission-control version=0.1.0
+2026-03-24 12:05:57: 2026-03-24 12:05:57,262 INFO app.services.ams_consumer ams_consumer.poll_done dataset=budget-usage processed=2 failed=0 app=mission-control version=0.1.0
+2026-03-24 12:05:57: 2026-03-24 12:05:57,470 INFO app.services.ams_consumer ams_consumer.poll_done dataset=campaigns processed=4 failed=0 app=mission-control version=0.1.0
+2026-03-24 12:07:03: 2026-03-24 12:07:03,220 INFO app.services.ams_consumer ams_consumer.poll_done dataset=campaigns processed=1 failed=0 app=mission-control version=0.1.0
+2026-03-24 12:07:12: 2026-03-24 12:07:12,176 INFO app.services.ams_consumer ams_consumer.poll_done dataset=sp-traffic processed=1 failed=0 app=mission-control version=0.1.0
+2026-03-24 12:07:32: 2026-03-24 12:07:32,655 INFO app.services.ams_consumer ams_consumer.poll_done dataset=budget-usage processed=1 failed=0 app=mission-control version=0.1.0
+2026-03-24 12:07:32: 2026-03-24 12:07:32,839 INFO app.services.ams_consumer ams_consumer.poll_done dataset=campaigns processed=1 failed=0 app=mission-control version=0.1.0
+2026-03-24 12:07:38: 2026-03-24 12:07:38,105 INFO app.services.ams_consumer ams_consumer.poll_done dataset=sp-traffic processed=1 failed=0 app=mission-control version=0.1.0
+2026-03-24 12:07:58: 2026-03-24 12:07:58,497 INFO app.services.ams_consumer ams_consumer.poll_done dataset=budget-usage processed=1 failed=0 app=mission-control version=0.1.0
+2026-03-24 12:07:58: 2026-03-24 12:07:58,745 INFO app.services.ams_consumer ams_consumer.poll_done dataset=campaigns processed=1 failed=0 app=mission-control version=0.1.0
+2026-03-24 12:08:44: 2026-03-24 12:08:44,324 INFO app.services.ams_consumer ams_consumer.poll_done dataset=budget-usage processed=1 failed=0 app=mission-control version=0.1.0
+2026-03-24 12:08:44: 2026-03-24 12:08:44,555 INFO app.services.ams_consumer ams_consumer.poll_done dataset=campaigns processed=1 failed=0 app=mission-control version=0.1.0
+2026-03-24 12:09:30: 2026-03-24 12:09:30,133 INFO app.services.ams_consumer ams_consumer.poll_done dataset=budget-usage processed=1 failed=0 app=mission-control version=0.1.0
+2026-03-24 12:09:30: 2026-03-24 12:09:30,505 INFO app.services.ams_consumer ams_consumer.poll_done dataset=campaigns processed=1 failed=0 app=mission-control version=0.1.0
+2026-03-24 12:09:47: 2026-03-24 12:09:47,931 INFO app.services.ams_consumer ams_consumer.poll_done dataset=sp-traffic processed=1 failed=0 app=mission-control version=0.1.0
+2026-03-24 12:10:53: 2026-03-24 12:10:53,641 INFO app.services.ams_consumer ams_consumer.poll_done dataset=sp-traffic processed=1 failed=0 app=mission-control version=0.1.0
+2026-03-24 12:10:53: 2026-03-24 12:10:53,911 INFO app.services.ams_consumer ams_consumer.poll_done dataset=sp-conversion processed=1 failed=0 app=mission-control version=0.1.0
+2026-03-24 12:11:39: 2026-03-24 12:11:39,443 INFO app.services.ams_consumer ams_consumer.poll_done dataset=sp-traffic processed=1 failed=0 app=mission-control version=0.1.0
+2026-03-24 12:12:45: 2026-03-24 12:12:45,226 INFO app.services.ams_consumer ams_consumer.poll_done dataset=sp-traffic processed=3 failed=0 app=mission-control version=0.1.0
+2026-03-24 12:13:50: 2026-03-24 12:13:50,956 INFO app.services.ams_consumer ams_consumer.poll_done dataset=sp-traffic processed=7 failed=0 app=mission-control version=0.1.0
+2026-03-24 12:14:11: 2026-03-24 12:14:11,393 INFO app.services.ams_consumer ams_consumer.poll_done dataset=budget-usage processed=1 failed=0 app=mission-control version=0.1.0
+2026-03-24 12:14:28: 2026-03-24 12:14:28,792 INFO app.services.ams_consumer ams_consumer.poll_done dataset=campaigns processed=1 failed=0 app=mission-control version=0.1.0
+2026-03-24 12:14:34: 2026-03-24 12:14:34,043 INFO app.services.ams_consumer ams_consumer.poll_done dataset=sp-traffic processed=8 failed=0 app=mission-control version=0.1.0
+2026-03-24 12:14:54: 2026-03-24 12:14:54,430 INFO app.services.ams_consumer ams_consumer.poll_done dataset=budget-usage processed=1 failed=0 app=mission-control version=0.1.0
+2026-03-24 12:15:19: 2026-03-24 12:15:19,855 INFO app.services.ams_consumer ams_consumer.poll_done dataset=sp-traffic processed=10 failed=0 app=mission-control version=0.1.0
+2026-03-24 12:16:25: 2026-03-24 12:16:25,570 INFO app.services.ams_consumer ams_consumer.poll_done dataset=sp-traffic processed=2 failed=0 app=mission-control version=0.1.0
+2026-03-24 12:17:31: 2026-03-24 12:17:31,318 INFO app.services.ams_consumer ams_consumer.poll_done dataset=sp-traffic processed=2 failed=0 app=mission-control version=0.1.0
+2026-03-24 12:18:37: 2026-03-24 12:18:37,057 INFO app.services.ams_consumer ams_consumer.poll_done dataset=sp-traffic processed=10 failed=0 app=mission-control version=0.1.0
+2026-03-24 12:19:42: 2026-03-24 12:19:42,752 INFO app.services.ams_consumer ams_consumer.poll_done dataset=sp-traffic processed=10 failed=0 app=mission-control version=0.1.0
+2026-03-24 12:20:12: 2026-03-24 12:20:12,336 INFO app.services.ams_consumer ams_consumer.poll_done dataset=budget-usage processed=1 failed=0 app=mission-control version=0.1.0
+2026-03-24 12:20:37: 2026-03-24 12:20:37,732 INFO app.services.ams_consumer ams_consumer.poll_done dataset=sp-traffic processed=10 failed=0 app=mission-control version=0.1.0
+2026-03-24 12:21:44: 2026-03-24 12:21:44,521 INFO app.services.ams_consumer ams_consumer.poll_done dataset=sp-traffic processed=5 failed=0 app=mission-control version=0.1.0
+2026-03-24 12:22:50: 2026-03-24 12:22:50,243 INFO app.services.ams_consumer ams_consumer.poll_done dataset=sp-traffic processed=10 failed=0 app=mission-control version=0.1.0
+2026-03-24 12:23:10: 2026-03-24 12:23:10,648 INFO app.services.ams_consumer ams_consumer.poll_done dataset=budget-usage processed=1 failed=0 app=mission-control version=0.1.0
+2026-03-24 12:23:36: 2026-03-24 12:23:36,030 INFO app.services.ams_consumer ams_consumer.poll_done dataset=sp-traffic processed=10 failed=0 app=mission-control version=0.1.0
+2026-03-24 12:24:41: 2026-03-24 12:24:41,811 INFO app.services.ams_consumer ams_consumer.poll_done dataset=sp-traffic processed=10 failed=0 app=mission-control version=0.1.0
+2026-03-24 12:25:47: 2026-03-24 12:25:47,566 INFO app.services.ams_consumer ams_consumer.poll_done dataset=sp-traffic processed=10 failed=0 app=mission-control version=0.1.0
+2026-03-24 12:26:53: 2026-03-24 12:26:53,499 INFO app.services.ams_consumer ams_consumer.poll_done dataset=sp-traffic processed=7 failed=0 app=mission-control version=0.1.0
+2026-03-24 12:27:13: 2026-03-24 12:27:13,896 INFO app.services.ams_consumer ams_consumer.poll_done dataset=budget-usage processed=1 failed=0 app=mission-control version=0.1.0
+2026-03-24 12:27:39: 2026-03-24 12:27:39,316 INFO app.services.ams_consumer ams_consumer.poll_done dataset=sp-traffic processed=10 failed=0 app=mission-control version=0.1.0
+2026-03-24 12:28:45: 2026-03-24 12:28:45,067 INFO app.services.ams_consumer ams_consumer.poll_done dataset=sp-traffic processed=3 failed=0 app=mission-control version=0.1.0
+2026-03-24 12:29:50: 2026-03-24 12:29:50,844 INFO app.services.ams_consumer ams_consumer.poll_done dataset=sp-traffic processed=4 failed=0 app=mission-control version=0.1.0
+2026-03-24 12:30:56: 2026-03-24 12:30:56,853 INFO app.services.ams_consumer ams_consumer.poll_done dataset=sp-traffic processed=10 failed=0 app=mission-control version=0.1.0
+2026-03-24 12:32:02: 2026-03-24 12:32:02,571 INFO app.services.ams_consumer ams_consumer.poll_done dataset=sp-traffic processed=10 failed=0 app=mission-control version=0.1.0
+2026-03-24 12:33:08: 2026-03-24 12:33:08,311 INFO app.services.ams_consumer ams_consumer.poll_done dataset=sp-traffic processed=10 failed=0 app=mission-control version=0.1.0
+2026-03-24 12:34:14: 2026-03-24 12:34:14,053 INFO app.services.ams_consumer ams_consumer.poll_done dataset=sp-traffic processed=10 failed=0 app=mission-control version=0.1.0
