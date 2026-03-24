@@ -935,14 +935,17 @@ type OptCampaign = {
   status: 'healthy' | 'warning' | 'critical' | 'inactive'
   depletes_early: boolean
 }
+type ZeroConvTerm = { term: string; clicks: number; spend: number }
 type OptTransfer = {
   from_campaign: string; from_acos: number | null; to_campaign: string | null
   same_product: boolean; transfer_amount: number
-  steps: Array<{ timing: string; action: string; details?: string[] }>
+  steps: Array<{ timing: string; action: string; details?: string[]; terms?: ZeroConvTerm[]; total_wasted?: number }>
   expected_impact: { from_saved: string; to_gained: string; net_weekly_gain: string }
   preserve_note?: string
 }
-type OptQuickWin = { action: string; impact: string; terms?: string[]; campaigns?: string[] }
+type QWTerm = { keyword: string; orders: number; spend: number; sales: number; clicks: number; acos: number | null; roas: number | null; cvr: number }
+type QWCampaign = { name: string; current_budget: number; avg_daily_spend: number; suggested_budget: number; acos: number | null; roas: number | null; orders_30d: number; sales_30d: number }
+type OptQuickWin = { type?: string; action: string; impact: string; impact_detail?: string; terms?: QWTerm[]; campaigns?: QWCampaign[] }
 type OptMissing = { asin: string; product: string; missing: string; suggestion: string }
 type OptData = {
   campaign_health: { healthy: number; warning: number; critical: number; inactive: number }
@@ -968,6 +971,8 @@ function CampaignDiagnosticsTab() {
     staleTime: 5 * 60 * 1000,
   })
   const [section, setSection] = useState<'health' | 'transfers' | 'coverage' | 'wins'>('health')
+  const [expandedSteps, setExpandedSteps] = useState<Set<string>>(new Set())
+  function toggleStep(key: string) { setExpandedSteps(s => { const n = new Set(s); n.has(key) ? n.delete(key) : n.add(key); return n }) }
 
   if (isLoading) return <div className="py-16 text-center text-sm text-slate-400">加载中...</div>
   if (!data) return <div className="py-16 text-center text-sm text-slate-400">暂无数据</div>
@@ -1080,15 +1085,45 @@ function CampaignDiagnosticsTab() {
                 {t.from_acos != null && <span className="text-xs text-slate-500">来源 ACoS {t.from_acos}%</span>}
               </div>
               <div className="space-y-1.5">
-                {t.steps.map((s, si) => (
-                  <div key={si} className="flex items-start gap-2 text-sm">
-                    <span className="shrink-0 rounded-full bg-slate-100 px-2 py-0.5 text-xs font-semibold text-slate-600">{s.timing}</span>
-                    <span className="text-slate-700">{s.action}</span>
-                    {s.details && s.details.length > 0 && (
-                      <span className="text-xs text-slate-400">({s.details.slice(0, 2).join(' · ')})</span>
-                    )}
-                  </div>
-                ))}
+                {t.steps.map((s, si) => {
+                  const stepKey = `${i}-${si}`
+                  const isExpanded = expandedSteps.has(stepKey)
+                  return (
+                    <div key={si}>
+                      <div className="flex items-start gap-2 text-sm">
+                        <span className="shrink-0 rounded-full bg-slate-100 px-2 py-0.5 text-xs font-semibold text-slate-600">{s.timing}</span>
+                        <span className="text-slate-700 flex-1">{s.action}</span>
+                        {s.terms && s.terms.length > 0 && (
+                          <button onClick={() => toggleStep(stepKey)} className="text-xs text-blue-500 hover:text-blue-700 shrink-0">
+                            {isExpanded ? '▲ 收起' : '▼ 查看词'}
+                          </button>
+                        )}
+                      </div>
+                      {s.terms && s.terms.length > 0 && isExpanded && (
+                        <div className="ml-16 mt-1.5 rounded-lg border border-slate-100 bg-slate-50 overflow-hidden">
+                          <table className="w-full text-xs">
+                            <thead className="bg-slate-100">
+                              <tr>
+                                <th className="px-2 py-1 text-left text-slate-500 font-medium">搜索词</th>
+                                <th className="px-2 py-1 text-right text-slate-500 font-medium">点击</th>
+                                <th className="px-2 py-1 text-right text-slate-500 font-medium">浪费</th>
+                              </tr>
+                            </thead>
+                            <tbody className="divide-y divide-slate-100">
+                              {s.terms.map((term, ti) => (
+                                <tr key={ti}>
+                                  <td className="px-2 py-1 font-mono text-slate-700">{term.term}</td>
+                                  <td className="px-2 py-1 text-right text-slate-500">{term.clicks}</td>
+                                  <td className="px-2 py-1 text-right font-medium text-rose-600">${term.spend.toFixed(1)}</td>
+                                </tr>
+                              ))}
+                            </tbody>
+                          </table>
+                        </div>
+                      )}
+                    </div>
+                  )
+                })}
               </div>
               {t.expected_impact && (
                 <div className="mt-3 rounded-lg bg-emerald-50 border border-emerald-100 p-2.5 text-xs">
@@ -1123,25 +1158,104 @@ function CampaignDiagnosticsTab() {
 
       {/* ── Section: Quick wins ── */}
       {section === 'wins' && (
-        <div className="space-y-2">
+        <div className="space-y-4">
           {quick_wins.length === 0 && (
             <div className="py-12 text-center text-sm text-slate-400">暂无快速优化建议</div>
           )}
           {quick_wins.map((qw, i) => (
-            <div key={i} className="rounded-xl border border-blue-100 bg-blue-50/50 p-4">
-              <div className="flex items-start gap-3">
+            <div key={i} className="rounded-xl border border-slate-200 bg-white shadow-sm overflow-hidden">
+              {/* Header */}
+              <div className="flex items-start gap-3 p-4 bg-blue-50/50 border-b border-blue-100">
                 <span className="text-lg shrink-0">🎯</span>
                 <div className="min-w-0 flex-1">
-                  <p className="font-medium text-sm text-slate-800">{qw.action}</p>
-                  <p className="text-xs text-slate-500 mt-0.5">预计影响: {qw.impact}</p>
-                  {qw.terms && qw.terms.length > 0 && (
-                    <p className="text-xs text-slate-400 mt-1">关键词: {qw.terms.slice(0, 5).join(', ')}{qw.terms.length > 5 ? ` +${qw.terms.length - 5}` : ''}</p>
-                  )}
-                  {qw.campaigns && qw.campaigns.length > 0 && (
-                    <p className="text-xs text-slate-400 mt-1">Campaign: {qw.campaigns.slice(0, 3).join(', ')}</p>
-                  )}
+                  <p className="font-semibold text-sm text-slate-800">{qw.action}</p>
+                  <p className="text-xs text-slate-600 mt-0.5">{qw.impact}</p>
+                  {qw.impact_detail && <p className="text-xs text-slate-400 mt-0.5">{qw.impact_detail}</p>}
                 </div>
               </div>
+
+              {/* Exact match keyword table */}
+              {qw.type === 'exact_match_upgrade' && qw.terms && qw.terms.length > 0 && (() => {
+                const totalOrders = qw.terms.reduce((s, t) => s + t.orders, 0)
+                const totalSales = qw.terms.reduce((s, t) => s + t.sales, 0)
+                const totalSpend = qw.terms.reduce((s, t) => s + t.spend, 0)
+                const totalAcos = totalSales > 0 ? totalSpend / totalSales * 100 : null
+                return (
+                  <div className="overflow-x-auto">
+                    <table className="w-full text-xs">
+                      <thead className="bg-slate-50 text-[10px] uppercase tracking-wider text-slate-500">
+                        <tr>
+                          <th className="px-3 py-2 text-left">关键词</th>
+                          <th className="px-3 py-2 text-right">订单</th>
+                          <th className="px-3 py-2 text-right">销售</th>
+                          <th className="px-3 py-2 text-right">花费</th>
+                          <th className="px-3 py-2 text-right">ACoS</th>
+                          <th className="px-3 py-2 text-right">ROAS</th>
+                          <th className="px-3 py-2 text-right">CVR</th>
+                          <th className="px-3 py-2 text-right text-blue-600">加 Exact 后预估 ACoS</th>
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y divide-slate-100">
+                        {qw.terms.map((t, ti) => (
+                          <tr key={ti} className="hover:bg-slate-50">
+                            <td className="px-3 py-2 font-mono font-medium text-slate-700">{t.keyword}</td>
+                            <td className="px-3 py-2 text-right font-medium text-slate-700">{t.orders}</td>
+                            <td className="px-3 py-2 text-right text-slate-600">${t.sales.toFixed(0)}</td>
+                            <td className="px-3 py-2 text-right text-slate-500">${t.spend.toFixed(0)}</td>
+                            <td className={cn('px-3 py-2 text-right font-medium', t.acos == null ? 'text-slate-400' : t.acos > data.target_acos * 1.3 ? 'text-amber-600' : 'text-emerald-700')}>
+                              {t.acos != null ? `${t.acos}%` : '—'}
+                            </td>
+                            <td className="px-3 py-2 text-right text-slate-600">{t.roas != null ? `${t.roas}x` : '—'}</td>
+                            <td className="px-3 py-2 text-right text-slate-500">{t.cvr}%</td>
+                            <td className="px-3 py-2 text-right text-blue-600 font-medium">
+                              {t.acos != null ? `~${(t.acos * 0.8).toFixed(0)}%` : '—'}
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                      <tfoot className="bg-slate-50 font-semibold">
+                        <tr>
+                          <td className="px-3 py-2 text-slate-700">合计 ({qw.terms.length} 词)</td>
+                          <td className="px-3 py-2 text-right text-slate-700">{totalOrders}</td>
+                          <td className="px-3 py-2 text-right text-slate-700">${totalSales.toFixed(0)}</td>
+                          <td className="px-3 py-2 text-right text-slate-700">${totalSpend.toFixed(0)}</td>
+                          <td className={cn('px-3 py-2 text-right', totalAcos != null && totalAcos > data.target_acos ? 'text-amber-600' : 'text-emerald-700')}>
+                            {totalAcos != null ? `${totalAcos.toFixed(1)}%` : '—'}
+                          </td>
+                          <td className="px-3 py-2 text-right text-slate-600">{totalSales > 0 && totalSpend > 0 ? `${(totalSales / totalSpend).toFixed(2)}x` : '—'}</td>
+                          <td className="px-3 py-2" />
+                          <td className="px-3 py-2 text-right text-blue-600">
+                            {totalAcos != null ? `~${(totalAcos * 0.8).toFixed(0)}%` : '—'}
+                          </td>
+                        </tr>
+                      </tfoot>
+                    </table>
+                  </div>
+                )
+              })()}
+
+              {/* Budget increase campaign cards */}
+              {qw.type === 'budget_increase' && qw.campaigns && qw.campaigns.length > 0 && (
+                <div className="divide-y divide-slate-100">
+                  {qw.campaigns.map((c, ci) => {
+                    const budgetGap = c.avg_daily_spend - c.current_budget
+                    const extraSalesWeekly = budgetGap * (c.roas ?? 4) * 7
+                    return (
+                      <div key={ci} className="px-4 py-3 flex items-center gap-4 flex-wrap text-xs">
+                        <span className="font-medium text-slate-800 truncate max-w-[180px]">{c.name}</span>
+                        <span className="text-slate-400 shrink-0">当前 <strong className="text-slate-600">${c.current_budget}/天</strong></span>
+                        <span className="text-rose-500 shrink-0">实际花费 <strong>${c.avg_daily_spend.toFixed(0)}/天</strong></span>
+                        <span className="text-blue-600 font-semibold shrink-0">建议 ${c.suggested_budget.toFixed(0)}/天</span>
+                        {c.acos != null && <span className="text-emerald-700 shrink-0">ACoS {c.acos}%</span>}
+                        {c.roas != null && <span className="text-slate-500 shrink-0">ROAS {c.roas}x</span>}
+                        <span className="ml-auto text-emerald-600 font-semibold shrink-0">
+                          +${extraSalesWeekly.toFixed(0)}/周销售额
+                        </span>
+                      </div>
+                    )
+                  })}
+                </div>
+              )}
             </div>
           ))}
         </div>
