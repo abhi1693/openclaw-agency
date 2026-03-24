@@ -130,6 +130,7 @@ def _parse_metric_record(payload: dict[str, Any], dataset_id: str) -> HourlyCamp
             ad_group_id=str(payload.get("ad_group_id") or payload.get("adGroupId") or ""),
             keyword_id=str(payload.get("keyword_id") or payload.get("keywordId") or ""),
             match_type=payload.get("match_type") or payload.get("matchType"),
+            placement=payload.get("placement") or None,
             report_date=report_date,
             hour=hour,
             impressions=int(payload.get("impressions", 0)),
@@ -154,6 +155,7 @@ async def _upsert_metric(session: AsyncSession, incoming: HourlyCampaignMetric) 
     stmt = select(HourlyCampaignMetric).where(
         HourlyCampaignMetric.campaign_id == incoming.campaign_id,
         col(HourlyCampaignMetric.keyword_id) == incoming.keyword_id,
+        col(HourlyCampaignMetric.placement) == incoming.placement,
         HourlyCampaignMetric.report_date == incoming.report_date,
         HourlyCampaignMetric.hour == incoming.hour,
     )

@@ -26,6 +26,7 @@ class HourlyCampaignMetric(QueryModel, table=True):
     match_type: str | None = None
     report_date: date_type = Field(sa_column=Column("date", Date(), nullable=False, index=True))
     hour: int = Field(index=True)
+    placement: str | None = Field(default=None, index=True)  # TOP_OF_SEARCH / DETAIL_PAGE / OTHER
     impressions: int = Field(default=0)
     clicks: int = Field(default=0)
     cost: Decimal = Field(default=Decimal("0"), sa_column=Column(Numeric(14, 4), nullable=False, server_default="0"))
