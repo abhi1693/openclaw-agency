@@ -186,7 +186,9 @@ export function DashboardSidebar() {
                     { href: "/shipments", icon: Ship, label: "Shipments", sub: "海运追踪" },
                   ].map((item) => {
                     const Icon = item.icon;
-                    const active = pathname === item.href || pathname.startsWith(`${item.href}/`);
+                    const active = item.href === '/ppc'
+                      ? pathname === '/ppc'
+                      : pathname === item.href || pathname.startsWith(`${item.href}/`);
 
                     return (
                       <Link

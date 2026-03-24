@@ -931,7 +931,7 @@ function BidRecommendationsTab() {
   const [statusFilter, setStatusFilter] = useState('pending')
   const [selected, setSelected] = useState<Set<string>>(new Set())
   const [expanded, setExpanded] = useState<Set<string>>(new Set())
-  const [sort, setSort] = useState<{ field: string; dir: 'asc' | 'desc' }>({ field: 'created_at', dir: 'desc' })
+  const [sort, setSort] = useState<{ field: string; dir: 'asc' | 'desc' }>({ field: 'score', dir: 'desc' })
   const [campaignFilter, setCampaignFilter] = useState<string | null>(null)
   const queryClient = useQueryClient()
 
@@ -998,44 +998,96 @@ function BidRecommendationsTab() {
     },
   })
 
-  const optTransfers = (optData as { budget_transfers?: Array<{ from_campaign: string; from_acos: number | null; to_campaign: string | null; to_acos: number | null; same_product: boolean; transfer_amount: number; steps: Array<{ timing: string; action: string; details: string[] }>; expected_impact: { from_saved: string; to_gained: string; net_weekly_gain: string } }> } | undefined)?.budget_transfers ?? []
-  const optHealth = (optData as { campaign_health?: { healthy: number; warning: number; critical: number } } | undefined)?.campaign_health
+  type OptTransfer = { from_campaign: string; from_acos: number | null; to_campaign: string | null; to_acos: number | null; same_product: boolean; transfer_amount: number; steps: Array<{ timing: string; action: string; details: string[] }>; expected_impact: { from_saved: string; to_gained: string; net_weekly_gain: string } }
+  type OptQuickWin = { campaign_id: string; campaign_name: string; action: string; impact: string; zero_conv_terms?: number; potential_savings?: number }
+  type OptMissing = { asin: string; product: string; missing: string; suggestion: string }
+  type OptRec = { budget_transfers?: OptTransfer[]; campaign_health?: { healthy: number; warning: number; critical: number; inactive?: number }; quick_wins?: OptQuickWin[]; missing_coverage?: OptMissing[] }
+
+  const optTransfers: OptTransfer[] = (optData as OptRec | undefined)?.budget_transfers ?? []
+  const optHealth = (optData as OptRec | undefined)?.campaign_health
+  const optQuickWins: OptQuickWin[] = (optData as OptRec | undefined)?.quick_wins ?? []
+  const optMissing: OptMissing[] = (optData as OptRec | undefined)?.missing_coverage ?? []
+
+  const hasOptPanel = optTransfers.length > 0 || optQuickWins.length > 0 || optMissing.length > 0 || !!optHealth
 
   return (
     <div className="space-y-4">
       {/* 📊 Campaign-level health panel */}
-      {(optTransfers.length > 0 || optHealth) && (
-        <div className="rounded-xl border border-amber-200 bg-amber-50/60 p-4">
-          <div className="flex items-center gap-2 mb-3">
+      {hasOptPanel && (
+        <div className="rounded-xl border border-amber-200 bg-amber-50/60 p-4 space-y-3">
+          {/* Header with health badges */}
+          <div className="flex items-center gap-2">
             <span className="text-sm font-semibold text-slate-700">📊 Campaign 级别建议</span>
             {optHealth && (
-              <div className="flex gap-1.5 ml-auto">
-                {optHealth.critical > 0 && <span className="rounded-full bg-rose-100 text-rose-600 text-[10px] font-semibold px-2 py-0.5 border border-rose-200">{optHealth.critical} 高危</span>}
-                {optHealth.warning > 0 && <span className="rounded-full bg-amber-100 text-amber-600 text-[10px] font-semibold px-2 py-0.5 border border-amber-200">{optHealth.warning} 警告</span>}
-                {optHealth.healthy > 0 && <span className="rounded-full bg-emerald-100 text-emerald-700 text-[10px] font-semibold px-2 py-0.5 border border-emerald-200">{optHealth.healthy} 健康</span>}
+              <div className="flex gap-1.5 ml-auto flex-wrap">
+                {(optHealth.inactive ?? 0) > 0 && <span className="rounded-full bg-slate-100 text-slate-500 text-[10px] font-semibold px-2 py-0.5 border border-slate-200">{optHealth.inactive} 不活跃</span>}
+                {optHealth.critical > 0 && <span className="rounded-full bg-rose-100 text-rose-600 text-[10px] font-semibold px-2 py-0.5 border border-rose-200">🔴 {optHealth.critical} 高危</span>}
+                {optHealth.warning > 0 && <span className="rounded-full bg-amber-100 text-amber-600 text-[10px] font-semibold px-2 py-0.5 border border-amber-200">⚠️ {optHealth.warning} 警告</span>}
+                {optHealth.healthy > 0 && <span className="rounded-full bg-emerald-100 text-emerald-700 text-[10px] font-semibold px-2 py-0.5 border border-emerald-200">✅ {optHealth.healthy} 健康</span>}
               </div>
             )}
           </div>
+
+          {/* Budget transfers */}
           {optTransfers.length > 0 && (
-            <div className="space-y-2">
-              {optTransfers.slice(0, 4).map((t, i) => (
-                <div key={i} className="rounded-lg bg-white border border-slate-200 px-3 py-2 text-xs">
-                  <div className="flex items-center gap-2">
-                    <span className="font-semibold text-slate-700 truncate flex-1">{t.from_campaign}</span>
-                    {t.to_campaign && <span className="text-slate-400 truncate max-w-[120px]">→ {t.to_campaign}</span>}
-                    <span className={cn('text-[10px] font-semibold px-1.5 py-0.5 rounded-full flex-shrink-0', t.same_product ? 'bg-emerald-50 text-emerald-700' : 'bg-amber-50 text-amber-600')}>
-                      {t.same_product ? '✅ 同产品' : '⚠️ 跨产品'}
-                    </span>
-                    <span className="font-bold text-rose-600 flex-shrink-0">${t.transfer_amount}/天</span>
-                    {t.from_acos != null && <span className="text-[10px] text-slate-400 flex-shrink-0">ACoS {t.from_acos}%</span>}
+            <div>
+              <p className="text-[10px] font-semibold uppercase tracking-wider text-slate-500 mb-1.5">🔄 预算调配建议</p>
+              <div className="space-y-2">
+                {optTransfers.slice(0, 4).map((t, i) => (
+                  <div key={i} className="rounded-lg bg-white border border-slate-200 px-3 py-2 text-xs">
+                    <div className="flex items-center gap-2 flex-wrap">
+                      <span className="font-semibold text-slate-700 truncate max-w-[160px]">{t.from_campaign}</span>
+                      {t.to_campaign && <><span className="text-slate-400">→</span><span className="text-slate-600 truncate max-w-[160px]">{t.to_campaign}</span></>}
+                      <span className={cn('text-[10px] font-semibold px-1.5 py-0.5 rounded-full flex-shrink-0', t.same_product ? 'bg-emerald-50 text-emerald-700' : 'bg-amber-50 text-amber-600')}>
+                        {t.same_product ? '✅ 同产品' : '⚠️ 跨产品'}
+                      </span>
+                      <span className="font-bold text-rose-600 flex-shrink-0">${t.transfer_amount}/天</span>
+                      {t.from_acos != null && <span className="text-slate-400">来源 ACoS {t.from_acos}%</span>}
+                    </div>
+                    <div className="mt-1.5 space-y-0.5">
+                      {t.steps.map((s, si) => (
+                        <p key={si} className="text-slate-500"><span className="font-medium text-slate-600">{s.timing}:</span> {s.action}</p>
+                      ))}
+                    </div>
+                    {t.expected_impact?.net_weekly_gain && (
+                      <p className="mt-1 text-emerald-600 font-medium">预期收益: {t.expected_impact.net_weekly_gain}</p>
+                    )}
                   </div>
-                  <div className="flex flex-wrap gap-3 mt-1 text-slate-400">
-                    {t.steps.slice(0, 2).map((s, si) => (
-                      <span key={si}><strong>{s.timing}:</strong> {s.action}</span>
-                    ))}
+                ))}
+              </div>
+            </div>
+          )}
+
+          {/* Quick wins */}
+          {optQuickWins.length > 0 && (
+            <div>
+              <p className="text-[10px] font-semibold uppercase tracking-wider text-slate-500 mb-1.5">🎯 快速优化点</p>
+              <div className="space-y-1">
+                {optQuickWins.slice(0, 5).map((qw, i) => (
+                  <div key={i} className="flex items-start gap-2 rounded-lg bg-white border border-slate-200 px-3 py-2 text-xs">
+                    <span className="font-medium text-slate-700 truncate flex-1">{qw.campaign_name || qw.campaign_id}</span>
+                    <span className="text-slate-500 shrink-0">{qw.action}</span>
+                    <span className="text-emerald-600 font-medium shrink-0">{qw.impact}</span>
                   </div>
-                </div>
-              ))}
+                ))}
+              </div>
+            </div>
+          )}
+
+          {/* Missing coverage */}
+          {optMissing.length > 0 && (
+            <div>
+              <p className="text-[10px] font-semibold uppercase tracking-wider text-slate-500 mb-1.5">⚠️ 覆盖缺口 ({optMissing.length} 个)</p>
+              <div className="space-y-1">
+                {optMissing.slice(0, 5).map((m, i) => (
+                  <div key={i} className="flex items-center gap-2 rounded-lg bg-white border border-slate-200 px-3 py-1.5 text-xs">
+                    <span className="font-mono text-slate-500 shrink-0">{m.asin}</span>
+                    <span className="text-slate-700 truncate flex-1">{m.product}</span>
+                    <span className="text-amber-600 shrink-0">{m.missing}</span>
+                  </div>
+                ))}
+                {optMissing.length > 5 && <p className="text-[10px] text-slate-400 pl-1">还有 {optMissing.length - 5} 个缺口...</p>}
+              </div>
             </div>
           )}
         </div>
@@ -1185,7 +1237,7 @@ function KeywordRecommendationsTab() {
   const [confidenceMin, setConfidenceMin] = useState<string>('')
   const [selected, setSelected] = useState<Set<string>>(new Set())
   const [expandedEvidence, setExpandedEvidence] = useState<Set<string>>(new Set())
-  const [sort, setSort] = useState<{ field: string; dir: 'asc' | 'desc' }>({ field: 'clicks', dir: 'desc' })
+  const [sort, setSort] = useState<{ field: string; dir: 'asc' | 'desc' }>({ field: 'confidence', dir: 'desc' })
   const [patternsOpen, setPatternsOpen] = useState(true)
   const queryClient = useQueryClient()
 
@@ -1319,12 +1371,12 @@ function KeywordRecommendationsTab() {
                             {isExpanded ? <ChevronUp className="h-3 w-3" /> : <ChevronDown className="h-3 w-3" />}
                           </button>
                         </td>
-                        <td className="px-3 py-2">
+                        <td className="px-3 py-2 align-middle">
                           <input
                             type="checkbox"
                             checked={selected.has(rec.id)}
                             onChange={() => setSelected((s) => { const n = new Set(s); n.has(rec.id) ? n.delete(rec.id) : n.add(rec.id); return n })}
-                            className="rounded"
+                            className="rounded align-middle"
                           />
                         </td>
                         <td className="px-3 py-2 font-medium text-slate-800">{rec.search_term}</td>

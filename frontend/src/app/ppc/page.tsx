@@ -460,7 +460,7 @@ function OverviewTab({ report, realtimeToday, optRecs }: { report: WeeklyReport 
             <span className="inline-block h-2 w-2 rounded-full bg-red-500 animate-pulse" />
             <span className="text-xs font-semibold text-red-600 uppercase tracking-wider">LIVE</span>
             <p className="text-xs text-slate-600 font-medium">
-              📡 今日实时 (AMS){realtimeToday.latest_hour != null ? ` · 截至 ${realtimeToday.latest_hour}:00` : ''}
+              📡 今日实时 (AMS){realtimeToday.latest_hour != null ? ` · 截至 ${String(realtimeToday.latest_hour).padStart(2, '0')}:00 EST` : ''}
             </p>
             <p className="text-[10px] text-slate-400 ml-auto">分钟级延迟</p>
           </div>
