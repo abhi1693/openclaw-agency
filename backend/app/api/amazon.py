@@ -7,7 +7,7 @@ from pathlib import Path
 from typing import Any
 
 from fastapi import APIRouter, Body, Depends, Query
-from sqlmodel import col, select
+from sqlmodel import col, select, text
 from sqlmodel.ext.asyncio.session import AsyncSession
 
 from app.core.time import utcnow
@@ -1342,9 +1342,107 @@ async def get_ppc_reports(
     }
 
 
+async def _live_weekly(session: AsyncSession) -> dict:
+    """Compute weekly report in real-time from search_term_reports + ad_metrics."""
+    dr = (await session.exec(text(
+        "SELECT MIN(report_date), MAX(report_date) FROM search_term_reports"
+    ))).first()
+    start_date = str(dr[0]) if dr and dr[0] else None
+    end_date = str(dr[1]) if dr and dr[1] else None
+
+    ov = (await session.exec(text(
+        "SELECT SUM(spend), SUM(sales), SUM(orders) FROM search_term_reports"
+    ))).first()
+    spend = float(ov[0] or 0)
+    sales = float(ov[1] or 0)
+    orders = int(ov[2] or 0)
+    overview = {
+        "totalSpend": round(spend, 2),
+        "totalSales": round(sales, 2),
+        "totalOrders": orders,
+        "acos": round(spend / sales * 100, 1) if sales > 0 else None,
+        "roas": round(sales / spend, 2) if spend > 0 else None,
+    }
+
+    money_rows = (await session.exec(text("""
+        SELECT search_term, SUM(orders) ord, SUM(sales) sal, SUM(spend) sp
+        FROM search_term_reports
+        GROUP BY search_term HAVING SUM(orders) > 0
+        ORDER BY SUM(sales) DESC LIMIT 15
+    """))).all()
+    money_kws = []
+    for r in money_rows:
+        s, sp = float(r[2] or 0), float(r[3] or 0)
+        money_kws.append({
+            "searchTerm": r[0], "orders": int(r[1]), "sales": round(s, 2), "spend": round(sp, 2),
+            "acos": round(sp / s * 100, 1) if s > 0 else 0,
+            "roas": round(s / sp, 2) if sp > 0 else 0,
+        })
+
+    burn_rows = (await session.exec(text("""
+        SELECT search_term, SUM(spend) sp, SUM(clicks) cl, SUM(impressions) imp
+        FROM search_term_reports
+        GROUP BY search_term HAVING SUM(orders) = 0 AND SUM(spend) > 5
+        ORDER BY SUM(spend) DESC LIMIT 15
+    """))).all()
+    burn_kws = [
+        {
+            "searchTerm": r[0], "spend": round(float(r[1]), 2),
+            "clicks": int(r[2]), "impressions": int(r[3]),
+            "level": "critical" if float(r[1]) >= 20 else "warning",
+        }
+        for r in burn_rows
+    ]
+
+    # Rule-based action items from campaigns with high ACoS
+    high_acos_rows = (await session.exec(text("""
+        SELECT c.name, ROUND(SUM(m.spend)/NULLIF(SUM(m.sales),0)*100,1) as acos,
+               SUM(m.spend) sp
+        FROM ad_metrics m JOIN campaigns c ON c.campaign_id = m.campaign_id
+        WHERE m.report_date >= CURRENT_DATE - 30 AND c.state = 'ENABLED'
+        GROUP BY c.campaign_id, c.name HAVING SUM(m.spend) > 50
+        ORDER BY (SUM(m.spend)/NULLIF(SUM(m.sales),0)) DESC NULLS LAST LIMIT 5
+    """))).all()
+    action_items = [
+        {
+            "priority": "high", "category": "ACoS优化",
+            "action": f"检查并降低 {r[0][:40]} 的出价",
+            "detail": f"ACoS {r[1]}%，花费 ${float(r[2]):.0f}",
+            "source": "live:ad_metrics",
+        }
+        for r in high_acos_rows if r[1] and float(r[1]) > 40
+    ]
+    risk_alerts = [
+        {
+            "severity": "critical" if float(r[1]) > 70 else "warning",
+            "type": "high_acos",
+            "message": f"{r[0][:40]} ACoS {r[1]}%",
+            "campaigns": [r[0]],
+        }
+        for r in high_acos_rows if r[1] and float(r[1]) > 40
+    ]
+
+    return {
+        "empty": False, "source": "live:search_term_reports",
+        "dateRange": {"start": start_date, "end": end_date},
+        "overview": overview,
+        "moneyKeywords": money_kws,
+        "burnKeywords": burn_kws,
+        "actionItems": action_items,
+        "riskAlerts": risk_alerts,
+        "summary": {
+            "highPriorityActions": sum(1 for a in action_items if a["priority"] == "high"),
+            "mediumPriorityActions": sum(1 for a in action_items if a["priority"] == "medium"),
+            "criticalAlerts": sum(1 for a in risk_alerts if a["severity"] == "critical"),
+            "warningAlerts": sum(1 for a in risk_alerts if a["severity"] == "warning"),
+        },
+    }
+
+
 @router.get("/ppc/weekly")
 async def get_ppc_weekly(session: AsyncSession = SESSION_DEP) -> dict:
-    """PPC weekly report — DB first (type=weekly), fallback to cache file."""
+    """PPC weekly report — live from search_term_reports, fallback to DB snapshot."""
+    from datetime import date as date_type
     stmt = (
         select(PpcAnalysisSnapshot)
         .where(PpcAnalysisSnapshot.analysis_type == "weekly")
@@ -1352,9 +1450,18 @@ async def get_ppc_weekly(session: AsyncSession = SESSION_DEP) -> dict:
         .limit(1)
     )
     row = (await session.exec(stmt)).first()
-    if row and row.data:
+    snapshot_fresh = (
+        row is not None
+        and row.report_date is not None
+        and (date_type.today() - row.report_date).days <= 7
+    )
+    if snapshot_fresh and row and row.data:
         return {**row.data, "empty": False, "source": f"db:{row.report_date}",
                 "report_date": str(row.report_date)}
+    try:
+        return await _live_weekly(session)
+    except Exception:
+        pass
     data = _get_ppc_cache_snapshot("weekly")
     if data:
         return {**data, "empty": False}
@@ -1367,9 +1474,87 @@ async def get_ppc_weekly(session: AsyncSession = SESSION_DEP) -> dict:
     }
 
 
+async def _live_campaign_analysis(session: AsyncSession) -> dict:
+    """Compute campaign analysis in real-time from campaigns + ad_metrics tables."""
+    camp_rows = (await session.exec(text(
+        "SELECT campaign_id, name, state, campaign_type, budget_amount FROM campaigns"
+    ))).all()
+
+    total = len(camp_rows)
+    active = sum(1 for r in camp_rows if r[2] == "ENABLED")
+    paused = sum(1 for r in camp_rows if r[2] == "PAUSED")
+    archived = sum(1 for r in camp_rows if r[2] == "ARCHIVED")
+    sp_active = [r for r in camp_rows if r[3] == "sp" and r[2] == "ENABLED"]
+    sb_active = [r for r in camp_rows if r[3] == "sb" and r[2] == "ENABLED"]
+    sp_budget = sum(float(r[4] or 0) for r in sp_active)
+    sb_budget = sum(float(r[4] or 0) for r in sb_active)
+    total_budget = sp_budget + sb_budget
+
+    # Campaigns with metrics (last 30d)
+    met_rows = (await session.exec(text("""
+        SELECT c.campaign_id, c.name, c.state, c.campaign_type,
+               SUM(m.spend) sp, SUM(m.sales) sal, SUM(m.orders) ord,
+               CASE WHEN SUM(m.sales)>0 THEN ROUND(SUM(m.spend)/SUM(m.sales)*100,1) END acos
+        FROM ad_metrics m JOIN campaigns c ON c.campaign_id = m.campaign_id
+        WHERE m.report_date >= CURRENT_DATE - 30
+        GROUP BY c.campaign_id, c.name, c.state, c.campaign_type
+    """))).all()
+
+    campaign_ids_with_spend = {r[0] for r in met_rows if float(r[4] or 0) > 0}
+
+    # Zombie: ENABLED but no spend in last 30d
+    zombie_campaigns = [
+        {
+            "name": r[1], "type": r[3],
+            "dailyBudget": float(next((c[4] for c in camp_rows if c[0] == r[0]), 0) or 0),
+            "startDaysAgo": 0,
+            "reason": "近30天无花费",
+        }
+        for r in camp_rows if r[2] == "ENABLED" and r[0] not in campaign_ids_with_spend
+    ]
+
+    # Deteriorating: ENABLED with ACoS > 50%
+    deteriorating = [
+        {"name": r[1], "acos": float(r[7]), "gap": round(float(r[7]) - 30, 1), "spend": round(float(r[4]), 2)}
+        for r in met_rows if r[7] is not None and float(r[7]) > 50 and r[2] == "ENABLED"
+    ]
+
+    # Recommendations
+    recs = [
+        {"priority": "high", "category": "ACoS控制", "action": f"降低 {r['name'][:40]} 出价/预算", "detail": f"ACoS {r['acos']}%"}
+        for r in deteriorating[:5]
+    ]
+    if zombie_campaigns:
+        recs.append({"priority": "medium", "category": "Campaign整理", "action": f"检查 {len(zombie_campaigns)} 个无花费 Campaign", "detail": "近30天零花费但仍 ENABLED"})
+
+    return {
+        "empty": False, "source": "live:campaigns+ad_metrics",
+        "summary": {
+            "totalCampaigns": total, "activeCampaigns": active,
+            "duplicateGroups": 0, "uncoveredAsins": 0,
+            "zombieCampaigns": len(zombie_campaigns), "namingIssues": 0,
+        },
+        "duplicates": [],
+        "asinCoverage": {"whitelist": [], "covered": [], "uncovered": [], "note": "实时分析不含 ASIN 覆盖数据"},
+        "typeDistribution": {
+            "sp": {"total": sum(1 for r in camp_rows if r[3] == "sp"),
+                   "active": len(sp_active), "paused": sum(1 for r in camp_rows if r[3] == "sp" and r[2] == "PAUSED"),
+                   "dailyBudget": round(sp_budget, 2), "budgetShare": round(sp_budget / total_budget, 3) if total_budget > 0 else 0},
+            "sb": {"total": sum(1 for r in camp_rows if r[3] == "sb"),
+                   "active": len(sb_active), "paused": sum(1 for r in camp_rows if r[3] == "sb" and r[2] == "PAUSED"),
+                   "dailyBudget": round(sb_budget, 2), "budgetShare": round(sb_budget / total_budget, 3) if total_budget > 0 else 0},
+            "totalDailyBudget": round(total_budget, 2),
+        },
+        "zombieCampaigns": zombie_campaigns[:10],
+        "naming": {"dominantPattern": "", "issueCount": 0, "totalChecked": total, "issues": []},
+        "recommendations": recs,
+    }
+
+
 @router.get("/ppc/campaign-analysis")
 async def get_ppc_campaign_analysis(session: AsyncSession = SESSION_DEP) -> dict:
-    """PPC campaign analysis — DB first (type=campaign), fallback to cache file."""
+    """PPC campaign analysis — live from campaigns+ad_metrics, fallback to DB snapshot."""
+    from datetime import date as date_type
     stmt = (
         select(PpcAnalysisSnapshot)
         .where(PpcAnalysisSnapshot.analysis_type == "campaign")
@@ -1377,9 +1562,18 @@ async def get_ppc_campaign_analysis(session: AsyncSession = SESSION_DEP) -> dict
         .limit(1)
     )
     row = (await session.exec(stmt)).first()
-    if row and row.data:
+    snapshot_fresh = (
+        row is not None
+        and row.report_date is not None
+        and (date_type.today() - row.report_date).days <= 7
+    )
+    if snapshot_fresh and row and row.data:
         return {**row.data, "empty": False, "source": f"db:{row.report_date}",
                 "report_date": str(row.report_date)}
+    try:
+        return await _live_campaign_analysis(session)
+    except Exception:
+        pass
     data = _get_ppc_cache_snapshot("campaign")
     if data:
         return {**data, "empty": False}
@@ -1393,9 +1587,148 @@ async def get_ppc_campaign_analysis(session: AsyncSession = SESSION_DEP) -> dict
     }
 
 
+async def _live_bid_analysis(session: AsyncSession) -> dict:
+    """Compute bid analysis from bid_recommendations + ad_metrics."""
+    from app.models.ppc_automation import BidRecommendation
+    import json as _json
+
+    recs = list(await session.exec(
+        select(BidRecommendation).where(BidRecommendation.status == "pending")
+    ))
+
+    overbidding = []
+    underbidding = []
+    for r in recs:
+        cur = float(r.current_bid)
+        rec_bid = float(r.recommended_bid)
+        delta_pct = (rec_bid - cur) / cur * 100 if cur > 0 else 0
+        # Parse tier/acos from reason JSON
+        reason_data: dict = {}
+        try:
+            if r.reason:
+                reason_data = _json.loads(r.reason)
+        except Exception:
+            pass
+        acos_val = float(reason_data.get("acos") or 0)
+        kw = reason_data.get("keyword") or reason_data.get("search_term") or r.keyword_id or ""
+        camp_id = r.campaign_id or ""
+
+        if delta_pct < -5:  # overbidding — recommend lower
+            overbidding.append({
+                "keyword": kw, "matchType": r.match_type or "",
+                "campaignName": camp_id,
+                "bid": cur, "actualCpc": cur,
+                "cpcRatio": round(cur / rec_bid, 2) if rec_bid > 0 else 1,
+                "spend": 0,
+                "suggestion": f"降至 ${rec_bid:.2f}",
+            })
+        elif delta_pct > 5:  # underbidding — recommend higher
+            underbidding.append({
+                "keyword": kw, "matchType": r.match_type or "",
+                "campaignName": camp_id,
+                "bid": cur, "actualCpc": cur,
+                "acos": acos_val, "orders": 0,
+                "suggestion": f"提至 ${rec_bid:.2f}",
+            })
+
+    # Campaign performers from ad_metrics (last 30d)
+    perf_rows = (await session.exec(text("""
+        SELECT c.name, ROUND(SUM(m.sales)/NULLIF(SUM(m.spend),0),2) roas,
+               CASE WHEN SUM(m.sales)>0 THEN ROUND(SUM(m.spend)/SUM(m.sales)*100,1) END acos,
+               SUM(m.spend) sp
+        FROM ad_metrics m JOIN campaigns c ON c.campaign_id = m.campaign_id
+        WHERE m.report_date >= CURRENT_DATE - 30
+        GROUP BY c.campaign_id, c.name HAVING SUM(m.spend) > 20
+        ORDER BY (SUM(m.sales)/NULLIF(SUM(m.spend),0)) DESC
+    """))).all()
+
+    top5 = [{"name": r[0], "roas": float(r[1] or 0), "acos": float(r[2]) if r[2] else None, "spend": round(float(r[3]), 2)} for r in perf_rows[:5]]
+    bottom5 = [{"name": r[0], "roas": float(r[1] or 0), "acos": float(r[2]) if r[2] else None, "spend": round(float(r[3]), 2)} for r in perf_rows[-5:] if perf_rows]
+
+    # Budget utilization from campaigns + ad_metrics
+    util_rows = (await session.exec(text("""
+        SELECT c.name, c.budget_amount,
+               ROUND(AVG(m.spend),2) avg_daily,
+               SUM(m.spend) total_spend, SUM(m.sales) total_sales,
+               CASE WHEN SUM(m.sales)>0 THEN ROUND(SUM(m.spend)/SUM(m.sales)*100,1) END acos,
+               CASE WHEN SUM(m.sales)>0 THEN ROUND(SUM(m.sales)/SUM(m.spend),2) END roas
+        FROM campaigns c LEFT JOIN ad_metrics m ON c.campaign_id = m.campaign_id
+             AND m.report_date >= CURRENT_DATE - 30
+        WHERE c.state = 'ENABLED'
+        GROUP BY c.campaign_id, c.name, c.budget_amount
+        ORDER BY c.budget_amount DESC LIMIT 20
+    """))).all()
+
+    budget_camps = []
+    capped = []
+    underutilized = []
+    dormant = []
+    for r in util_rows:
+        budget = float(r[1] or 0)
+        avg_d = float(r[2] or 0)
+        util = round(avg_d / budget * 100, 1) if budget > 0 else None
+        entry = {
+            "name": r[0], "dailyBudget": budget, "avgDailySpend": avg_d or None,
+            "utilization": util, "totalSpend": float(r[3] or 0) or None,
+            "totalSales": float(r[4] or 0) or None,
+            "acos": float(r[5]) if r[5] else None,
+            "roas": float(r[6]) if r[6] else None,
+            "status": "capped" if util and util >= 90 else "underutilized" if util and util < 30 else "normal" if util else "dormant",
+        }
+        budget_camps.append(entry)
+        if entry["status"] == "capped":
+            capped.append({"name": r[0], "utilization": util, "dailyBudget": budget})
+        elif entry["status"] == "underutilized":
+            underutilized.append({"name": r[0], "utilization": util, "dailyBudget": budget})
+        elif entry["status"] == "dormant":
+            dormant.append({"name": r[0]})
+
+    # ACoS analysis from ad_metrics
+    acos_rows = (await session.exec(text("""
+        SELECT c.name,
+               ROUND(SUM(m.spend)/NULLIF(SUM(m.sales),0)*100,1) acos,
+               SUM(m.spend) sp
+        FROM ad_metrics m JOIN campaigns c ON c.campaign_id = m.campaign_id
+        WHERE m.report_date >= CURRENT_DATE - 30 AND c.state = 'ENABLED'
+        GROUP BY c.campaign_id, c.name HAVING SUM(m.spend) > 50
+        ORDER BY (SUM(m.spend)/NULLIF(SUM(m.sales),0)) DESC NULLS LAST LIMIT 10
+    """))).all()
+    deteriorating = [
+        {"name": r[0], "acos": float(r[1] or 0), "gap": round(float(r[1] or 0) - 30, 1), "spend": round(float(r[2]), 2)}
+        for r in acos_rows if r[1] and float(r[1]) > 40
+    ]
+    breakeven = [
+        {"name": r[0], "acos": float(r[1] or 0), "spend": round(float(r[2]), 2), "severity": "critical" if float(r[1] or 0) > 70 else "warning"}
+        for r in acos_rows if r[1] and 30 <= float(r[1]) <= 40
+    ]
+
+    total = len(recs)
+    return {
+        "empty": False, "source": "live:bid_recommendations+ad_metrics",
+        "summary": {
+            "overbiddingCount": len(overbidding), "underbiddingCount": len(underbidding),
+            "cappedCampaigns": len(capped), "underutilizedCampaigns": len(underutilized),
+            "acosWorseningCount": len(deteriorating), "breakevenAlerts": len(breakeven),
+        },
+        "bidEfficiency": {
+            "overbidding": overbidding[:15], "underbidding": underbidding[:15],
+            "wellBidCount": total - len(overbidding) - len(underbidding),
+            "totalAnalyzed": total,
+        },
+        "budgetUtilization": {
+            "campaigns": budget_camps, "capped": capped,
+            "underutilized": underutilized, "dormant": dormant,
+        },
+        "acosAnalysis": {"targetAcos": 30, "breakevenAcos": 40, "deteriorating": deteriorating, "breakeven": breakeven},
+        "performers": {"top5": top5, "bottom5": bottom5},
+        "reallocations": [],
+    }
+
+
 @router.get("/ppc/bid-analysis")
 async def get_ppc_bid_analysis(session: AsyncSession = SESSION_DEP) -> dict:
-    """PPC bid analysis — DB first (type=bid), fallback to cache file."""
+    """PPC bid analysis — live from bid_recommendations+ad_metrics, fallback to DB snapshot."""
+    from datetime import date as date_type
     stmt = (
         select(PpcAnalysisSnapshot)
         .where(PpcAnalysisSnapshot.analysis_type == "bid")
@@ -1403,9 +1736,18 @@ async def get_ppc_bid_analysis(session: AsyncSession = SESSION_DEP) -> dict:
         .limit(1)
     )
     row = (await session.exec(stmt)).first()
-    if row and row.data:
+    snapshot_fresh = (
+        row is not None
+        and row.report_date is not None
+        and (date_type.today() - row.report_date).days <= 7
+    )
+    if snapshot_fresh and row and row.data:
         return {**row.data, "empty": False, "source": f"db:{row.report_date}",
                 "report_date": str(row.report_date)}
+    try:
+        return await _live_bid_analysis(session)
+    except Exception:
+        pass
     data = _get_ppc_cache_snapshot("bid")
     if data:
         return {**data, "empty": False}
