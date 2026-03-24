@@ -1450,18 +1450,15 @@ async def get_ppc_weekly(session: AsyncSession = SESSION_DEP) -> dict:
         .limit(1)
     )
     row = (await session.exec(stmt)).first()
-    snapshot_fresh = (
-        row is not None
-        and row.report_date is not None
-        and (date_type.today() - row.report_date).days <= 7
-    )
-    if snapshot_fresh and row and row.data:
-        return {**row.data, "empty": False, "source": f"db:{row.report_date}",
-                "report_date": str(row.report_date)}
+    # Always prefer live query — snapshots may have stale dateRange
     try:
         return await _live_weekly(session)
     except Exception:
         pass
+    # Fallback to snapshot
+    if row and row.data:
+        return {**row.data, "empty": False, "source": f"db:{row.report_date}",
+                "report_date": str(row.report_date)}
     data = _get_ppc_cache_snapshot("weekly")
     if data:
         return {**data, "empty": False}
@@ -1562,18 +1559,14 @@ async def get_ppc_campaign_analysis(session: AsyncSession = SESSION_DEP) -> dict
         .limit(1)
     )
     row = (await session.exec(stmt)).first()
-    snapshot_fresh = (
-        row is not None
-        and row.report_date is not None
-        and (date_type.today() - row.report_date).days <= 7
-    )
-    if snapshot_fresh and row and row.data:
-        return {**row.data, "empty": False, "source": f"db:{row.report_date}",
-                "report_date": str(row.report_date)}
+    # Always prefer live query
     try:
         return await _live_campaign_analysis(session)
     except Exception:
         pass
+    if row and row.data:
+        return {**row.data, "empty": False, "source": f"db:{row.report_date}",
+                "report_date": str(row.report_date)}
     data = _get_ppc_cache_snapshot("campaign")
     if data:
         return {**data, "empty": False}
@@ -1736,18 +1729,14 @@ async def get_ppc_bid_analysis(session: AsyncSession = SESSION_DEP) -> dict:
         .limit(1)
     )
     row = (await session.exec(stmt)).first()
-    snapshot_fresh = (
-        row is not None
-        and row.report_date is not None
-        and (date_type.today() - row.report_date).days <= 7
-    )
-    if snapshot_fresh and row and row.data:
-        return {**row.data, "empty": False, "source": f"db:{row.report_date}",
-                "report_date": str(row.report_date)}
+    # Always prefer live query
     try:
         return await _live_bid_analysis(session)
     except Exception:
         pass
+    if row and row.data:
+        return {**row.data, "empty": False, "source": f"db:{row.report_date}",
+                "report_date": str(row.report_date)}
     data = _get_ppc_cache_snapshot("bid")
     if data:
         return {**data, "empty": False}
@@ -2032,16 +2021,7 @@ async def get_ppc_keyword_analysis(session: AsyncSession = SESSION_DEP) -> dict:
         .limit(1)
     )
     row = (await session.exec(stmt)).first()
-    snapshot_fresh = (
-        row is not None
-        and row.report_date is not None
-        and (date_type.today() - row.report_date).days <= 7
-    )
-    if snapshot_fresh and row and row.data:
-        return {**row.data, "empty": False, "source": f"db:{row.report_date}",
-                "report_date": str(row.report_date)}
-
-    # Snapshot is stale or missing — compute live from DB
+    # Always prefer live query from DB
     return await _compute_keyword_analysis_live(session)
 
 
