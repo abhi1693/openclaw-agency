@@ -738,31 +738,44 @@ function RealtimeKPICard({ label, value, sub }: { label: string; value: string; 
   )
 }
 
-function HourlyBars({ hours }: { hours: RealtimeHour[] }) {
+function HourlyBars({ hours, latestHour }: { hours: RealtimeHour[]; latestHour: number | null }) {
   if (!hours.length) return <p className="text-sm text-slate-500 py-4 text-center">暂无今日数据</p>
-  const maxCost = Math.max(...hours.map(h => h.cost), 0.01)
+  // Build full timeline 0..latestHour, filling gaps with 0
+  const maxH = latestHour ?? Math.max(...hours.map(h => h.hour))
+  const hourMap = new Map(hours.map(h => [h.hour, h]))
+  const fullHours = Array.from({ length: maxH + 1 }, (_, i) => hourMap.get(i) ?? { hour: i, cost: 0, impressions: 0, clicks: 0, orders: 0, sales: 0, acos: null })
+  const maxImpr = Math.max(...fullHours.map(h => h.impressions), 1)
+  const maxCost = Math.max(...fullHours.map(h => h.cost), 0.01)
   return (
     <div className="space-y-1">
-      <p className="text-xs text-slate-500 mb-3">花费趋势（今日每小时，USD）</p>
-      <div className="flex items-end gap-1 h-20">
-        {hours.map(h => {
-          const pct = h.cost / maxCost * 100
+      <div className="flex items-center justify-between mb-2">
+        <p className="text-xs text-slate-500">每小时展示量 (bars) + 花费 ($)</p>
+        <p className="text-[10px] text-slate-400">共 {fullHours.length} 小时</p>
+      </div>
+      <div className="flex items-end gap-0.5 h-24">
+        {fullHours.map(h => {
+          const imprPct = h.impressions / maxImpr * 100
+          const hasCost = h.cost > 0
           return (
             <div key={h.hour} className="flex flex-col items-center flex-1 min-w-0 group relative">
               <div
-                className="w-full bg-blue-500 hover:bg-blue-600 rounded-t transition-all cursor-default"
-                style={{ height: `${Math.max(pct, 2)}%` }}
+                className={cn('w-full rounded-t transition-all cursor-default', hasCost ? 'bg-blue-500 hover:bg-blue-600' : 'bg-slate-200')}
+                style={{ height: `${Math.max(imprPct, hasCost ? 4 : 1)}%` }}
               />
-              <div className="absolute -top-8 left-1/2 -translate-x-1/2 hidden group-hover:flex bg-slate-800 text-white text-[9px] px-1.5 py-0.5 rounded whitespace-nowrap z-10">
-                {h.hour}:00 — ${h.cost.toFixed(2)}
+              <div className="absolute -top-10 left-1/2 -translate-x-1/2 hidden group-hover:flex flex-col items-center bg-slate-800 text-white text-[9px] px-1.5 py-0.5 rounded whitespace-nowrap z-10 gap-0.5">
+                <span>{h.hour}:00</span>
+                <span>{(h.impressions / 1000).toFixed(1)}K 展示</span>
+                {hasCost && <span>${h.cost.toFixed(2)}</span>}
               </div>
             </div>
           )
         })}
       </div>
-      <div className="flex items-center gap-1">
-        {hours.map(h => (
-          <p key={h.hour} className="flex-1 text-center text-[8px] text-slate-400 min-w-0 truncate">{h.hour}</p>
+      <div className="flex items-center gap-0.5">
+        {fullHours.map(h => (
+          <p key={h.hour} className={cn('flex-1 text-center text-[8px] min-w-0 truncate', h.cost > 0 ? 'text-slate-500 font-medium' : 'text-slate-300')}>
+            {h.hour}
+          </p>
         ))}
       </div>
     </div>
@@ -867,7 +880,7 @@ function RealtimeTab() {
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
         <div className="rounded-xl border border-slate-200 bg-white p-5">
           <h3 className="text-sm font-semibold text-slate-900 mb-4">📈 小时趋势</h3>
-          <HourlyBars hours={hourlyData?.hours ?? []} />
+          <HourlyBars hours={hourlyData?.hours ?? []} latestHour={latestHour} />
         </div>
 
         <div className="rounded-xl border border-slate-200 bg-white p-5">
@@ -943,7 +956,17 @@ type OptTransfer = {
   expected_impact: { from_saved: string; to_gained: string; net_weekly_gain: string }
   preserve_note?: string
 }
-type QWTerm = { keyword: string; orders: number; spend: number; sales: number; clicks: number; acos: number | null; roas: number | null; cvr: number }
+type QWTermSource = { campaign_name: string; targeting_type: string; orders: number; spend: number }
+type QWTerm = {
+  keyword: string; orders: number; spend: number; sales: number; clicks: number
+  acos: number | null; roas: number | null; cvr: number
+  source_campaigns?: QWTermSource[]
+  suggested_action?: string
+  suggested_exact_campaign?: string | null
+  suggested_bid?: number | null
+  suggested_daily_budget?: number | null
+  expected_acos_after?: number | null
+}
 type QWCampaign = { name: string; current_budget: number; avg_daily_spend: number; suggested_budget: number; acos: number | null; roas: number | null; orders_30d: number; sales_30d: number }
 type OptQuickWin = { type?: string; action: string; impact: string; impact_detail?: string; terms?: QWTerm[]; campaigns?: QWCampaign[] }
 type OptMissing = { asin: string; product: string; missing: string; suggestion: string }
@@ -1186,19 +1209,34 @@ function CampaignDiagnosticsTab() {
                       <thead className="bg-slate-50 text-[10px] uppercase tracking-wider text-slate-500">
                         <tr>
                           <th className="px-3 py-2 text-left">关键词</th>
+                          <th className="px-3 py-2 text-left">来源 Campaign</th>
                           <th className="px-3 py-2 text-right">订单</th>
                           <th className="px-3 py-2 text-right">销售</th>
                           <th className="px-3 py-2 text-right">花费</th>
                           <th className="px-3 py-2 text-right">ACoS</th>
                           <th className="px-3 py-2 text-right">ROAS</th>
                           <th className="px-3 py-2 text-right">CVR</th>
-                          <th className="px-3 py-2 text-right text-blue-600">加 Exact 后预估 ACoS</th>
+                          <th className="px-3 py-2 text-left text-blue-600">建议操作</th>
+                          <th className="px-3 py-2 text-right text-blue-600">建议 Bid</th>
+                          <th className="px-3 py-2 text-right text-emerald-600">预估 ACoS</th>
                         </tr>
                       </thead>
                       <tbody className="divide-y divide-slate-100">
                         {qw.terms.map((t, ti) => (
                           <tr key={ti} className="hover:bg-slate-50">
                             <td className="px-3 py-2 font-mono font-medium text-slate-700">{t.keyword}</td>
+                            <td className="px-3 py-2 text-xs text-slate-500 max-w-[160px]">
+                              {t.source_campaigns && t.source_campaigns.length > 0 ? (
+                                <div className="space-y-0.5">
+                                  {t.source_campaigns.slice(0, 2).map((s, si) => (
+                                    <div key={si} className="truncate" title={s.campaign_name}>
+                                      <span className={cn('inline-block mr-1 rounded px-1 text-[9px] font-mono', s.targeting_type === 'AUTO' ? 'bg-orange-50 text-orange-600' : 'bg-slate-100 text-slate-500')}>{s.targeting_type === 'AUTO' ? 'AUTO' : 'MAN'}</span>
+                                      <span className="truncate">{s.campaign_name.substring(0, 20)}{s.campaign_name.length > 20 ? '…' : ''}</span>
+                                    </div>
+                                  ))}
+                                </div>
+                              ) : '—'}
+                            </td>
                             <td className="px-3 py-2 text-right font-medium text-slate-700">{t.orders}</td>
                             <td className="px-3 py-2 text-right text-slate-600">${t.sales.toFixed(0)}</td>
                             <td className="px-3 py-2 text-right text-slate-500">${t.spend.toFixed(0)}</td>
@@ -1207,8 +1245,15 @@ function CampaignDiagnosticsTab() {
                             </td>
                             <td className="px-3 py-2 text-right text-slate-600">{t.roas != null ? `${t.roas}x` : '—'}</td>
                             <td className="px-3 py-2 text-right text-slate-500">{t.cvr}%</td>
+                            <td className="px-3 py-2 text-xs text-blue-700 max-w-[140px]">
+                              <div>{t.suggested_action ?? '—'}</div>
+                              {t.suggested_exact_campaign && <div className="text-[10px] text-slate-400 truncate" title={t.suggested_exact_campaign}>→ {t.suggested_exact_campaign.substring(0, 18)}{t.suggested_exact_campaign.length > 18 ? '…' : ''}</div>}
+                            </td>
                             <td className="px-3 py-2 text-right text-blue-600 font-medium">
-                              {t.acos != null ? `~${(t.acos * 0.8).toFixed(0)}%` : '—'}
+                              {t.suggested_bid != null ? `$${t.suggested_bid.toFixed(2)}` : '—'}
+                            </td>
+                            <td className="px-3 py-2 text-right text-emerald-600 font-medium">
+                              {t.expected_acos_after != null ? `~${t.expected_acos_after}%` : '—'}
                             </td>
                           </tr>
                         ))}
@@ -1216,6 +1261,7 @@ function CampaignDiagnosticsTab() {
                       <tfoot className="bg-slate-50 font-semibold">
                         <tr>
                           <td className="px-3 py-2 text-slate-700">合计 ({qw.terms.length} 词)</td>
+                          <td className="px-3 py-2" />
                           <td className="px-3 py-2 text-right text-slate-700">{totalOrders}</td>
                           <td className="px-3 py-2 text-right text-slate-700">${totalSales.toFixed(0)}</td>
                           <td className="px-3 py-2 text-right text-slate-700">${totalSpend.toFixed(0)}</td>
@@ -1224,7 +1270,9 @@ function CampaignDiagnosticsTab() {
                           </td>
                           <td className="px-3 py-2 text-right text-slate-600">{totalSales > 0 && totalSpend > 0 ? `${(totalSales / totalSpend).toFixed(2)}x` : '—'}</td>
                           <td className="px-3 py-2" />
-                          <td className="px-3 py-2 text-right text-blue-600">
+                          <td className="px-3 py-2" />
+                          <td className="px-3 py-2" />
+                          <td className="px-3 py-2 text-right text-emerald-600">
                             {totalAcos != null ? `~${(totalAcos * 0.8).toFixed(0)}%` : '—'}
                           </td>
                         </tr>

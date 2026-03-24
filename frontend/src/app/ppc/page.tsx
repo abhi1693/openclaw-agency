@@ -482,6 +482,38 @@ function OverviewTab({ report, realtimeToday, optRecs }: { report: WeeklyReport 
         </div>
       )}
 
+      {/* AMS spending pace */}
+      {realtimeToday && !realtimeToday.empty && realtimeToday.latest_hour != null && realtimeToday.latest_hour > 0 && (
+        <div className="rounded-xl border border-slate-200 bg-white p-4 mb-2">
+          <div className="flex items-center gap-2 mb-2">
+            <span className="text-xs font-semibold text-slate-700">📡 今日花费节奏分析</span>
+            <span className="text-[10px] text-slate-400 ml-auto">截至 {String(realtimeToday.latest_hour).padStart(2, '0')}:00 · Amazon 延迟约 2-4 小时</span>
+          </div>
+          {(() => {
+            const hoursElapsed = realtimeToday.latest_hour
+            const projectedDaily = hoursElapsed > 0 ? realtimeToday.cost / hoursElapsed * 24 : 0
+            const paceLabel = projectedDaily > realtimeToday.cost * 3 ? '⚠️ 偏快' : projectedDaily < realtimeToday.cost * 1.5 ? '📉 偏慢' : '✅ 正常'
+            return (
+              <div className="grid grid-cols-3 gap-3 text-xs">
+                <div className="rounded-lg bg-slate-50 border border-slate-100 p-2.5 text-center">
+                  <p className="text-[9px] uppercase tracking-widest text-slate-500 font-semibold mb-0.5">截至现在</p>
+                  <p className="font-bold text-slate-900">${realtimeToday.cost.toFixed(2)}</p>
+                </div>
+                <div className="rounded-lg bg-slate-50 border border-slate-100 p-2.5 text-center">
+                  <p className="text-[9px] uppercase tracking-widest text-slate-500 font-semibold mb-0.5">预计今日</p>
+                  <p className="font-bold text-slate-900">~${projectedDaily.toFixed(0)}</p>
+                  <p className="text-[9px] text-slate-400">按当前节奏外推</p>
+                </div>
+                <div className="rounded-lg bg-slate-50 border border-slate-100 p-2.5 text-center">
+                  <p className="text-[9px] uppercase tracking-widest text-slate-500 font-semibold mb-0.5">节奏判断</p>
+                  <p className="font-semibold text-slate-700">{paceLabel}</p>
+                </div>
+              </div>
+            )
+          })()}
+        </div>
+      )}
+
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         {/* Risk alerts */}
         {report.riskAlerts.length > 0 && (

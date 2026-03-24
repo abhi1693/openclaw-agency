@@ -109,6 +109,26 @@ def generate_optimization_steps(
     return steps
 
 
+def _get_product_group(campaign_name: str) -> str:
+    """Return a product-group key from campaign name for same-product transfer matching."""
+    n = campaign_name.lower()
+    if "tea tree" in n:
+        return "tea_tree"
+    if "hs 50" in n or "hs50" in n or "hs-50" in n:
+        return "hs_50"
+    if "foam" in n:
+        return "foam"
+    if "jasmine" in n:
+        return "jasmine"
+    if "bergamot" in n:
+        return "bergamot"
+    if "body" in n:
+        return "body"
+    if "brand" in n:
+        return "brand"
+    return "unknown"
+
+
 def _load_product_names() -> dict[str, str]:
     """Return {asin: product_name} from zoviro-products.md."""
     result: dict[str, str] = {}
@@ -235,6 +255,64 @@ async def get_optimization_recommendations(
             "cvr": round(int(r[1] or 0) / max(int(r[4] or 0), 1) * 100, 1),
         })
 
+    # ── 3b. Source campaigns for high-conv terms ──────────────────────────
+    if high_conv_terms:
+        kw_list = high_conv_terms[:20]
+        kw_placeholders = ", ".join(f"'{t['keyword'].replace(chr(39), chr(39)*2)}'" for t in kw_list)
+        tc_rows = (await session.exec(  # type: ignore[call-overload]
+            text(f"""
+                SELECT s.keyword, c.name, c.targeting_type, c.campaign_id,
+                       SUM(s.orders::bigint) ord, SUM(s.spend::numeric) sp,
+                       SUM(s.clicks::bigint) cl
+                FROM search_term_reports s
+                JOIN campaigns c ON s.campaign_id = c.campaign_id
+                WHERE s.keyword IN ({kw_placeholders})
+                  AND s.orders::bigint > 0
+                  AND c.state = 'ENABLED'
+                GROUP BY s.keyword, c.name, c.targeting_type, c.campaign_id
+                ORDER BY s.keyword, ord DESC
+            """),
+        )).all()
+        term_sources: dict[str, list[dict[str, Any]]] = {}
+        for r in tc_rows:
+            kw = str(r[0])
+            term_sources.setdefault(kw, []).append({
+                "campaign_name": str(r[1]),
+                "targeting_type": str(r[2] or ""),
+                "orders": int(r[4] or 0),
+                "spend": round(float(r[5] or 0), 2),
+            })
+
+        # Build lookup: campaign name → campaign data (for finding existing exact campaigns)
+        exact_campaigns_by_group: dict[str, list[str]] = {}
+        for r in camp_rows:
+            cname = str(r[1])
+            ttype = str(r[3] or "")
+            if ttype == "MANUAL":
+                grp = _get_product_group(cname)
+                exact_campaigns_by_group.setdefault(grp, []).append(cname)
+
+        for term in high_conv_terms:
+            kw = term["keyword"]
+            sources = term_sources.get(kw, [])
+            term["source_campaigns"] = sources[:3]
+            # Suggested bid = weighted avg CPC across source campaigns
+            total_cl = sum(s.get("spend", 0) for s in sources)
+            total_clicks_est = term.get("clicks", 1)
+            term["suggested_bid"] = round(term["spend"] / max(total_clicks_est, 1), 2)
+            # Suggested daily budget = keyword's 30d daily spend * 1.2
+            term["suggested_daily_budget"] = round(term["spend"] / 30 * 1.2, 2)
+            # Find existing exact campaign in same product group
+            primary_group = _get_product_group(sources[0]["campaign_name"]) if sources else "unknown"
+            existing_exact = exact_campaigns_by_group.get(primary_group, [])
+            if existing_exact:
+                term["suggested_exact_campaign"] = existing_exact[0]
+                term["suggested_action"] = "加入现有 Exact Campaign"
+            else:
+                term["suggested_exact_campaign"] = None
+                term["suggested_action"] = "新建 Exact Match Campaign"
+            term["expected_acos_after"] = round(term["acos"] * 0.8, 1) if term.get("acos") else None
+
     # ── 4. Products from inventory + products.md ──────────────────────────
     product_names = _load_product_names()
     inv_rows = (await session.exec(  # type: ignore[call-overload]
@@ -310,14 +388,14 @@ async def get_optimization_recommendations(
         target = None
         same_product = False
 
-        # Check if there's a same-product healthy campaign
-        # Heuristic: first 3-4 significant words overlap
-        src_words = set(w.lower() for w in source["name"].split() if len(w) > 3)
+        # Check if there's a same-product healthy campaign via product group
+        src_group = _get_product_group(source["name"])
         same_prod_candidates = [
             c for c in healthy_with_capacity
             if c["campaign_id"] != source["campaign_id"]
             and c["campaign_id"] not in used_targets
-            and len(src_words & set(w.lower() for w in c["name"].split() if len(w) > 3)) >= 1
+            and src_group != "unknown"
+            and _get_product_group(c["name"]) == src_group
         ]
         other_candidates = [
             c for c in healthy_with_capacity
