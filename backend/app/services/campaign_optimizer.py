@@ -243,10 +243,12 @@ async def get_optimization_recommendations(
             "campaign_id": cid,
             "name": str(r[1]),
             "type": str(r[2] or "SP"),
+            "targeting_type": str(r[3] or ""),
             "budget": budget,
             "spend_30d": round(spend, 2),
             "sales_30d": round(sales, 2),
             "clicks_30d": clicks,
+            "impressions_30d": int(r[8] or 0),
             "orders_30d": int(r[9] or 0),
             "acos": round(acos_dec * 100, 1) if acos_dec else None,
             "roas": round(sales / spend, 2) if spend > 0 else None,
@@ -383,11 +385,33 @@ async def get_optimization_recommendations(
             "campaigns": [c["name"] for c in capped_budgets[:5]],
         })
 
+    # Build clean campaigns list for the UI (exclude internal optimizer fields)
+    campaigns_list = [
+        {
+            "campaign_id": c["campaign_id"],
+            "name": c["name"],
+            "type": c["type"],
+            "targeting_type": c["targeting_type"],
+            "budget": c["budget"],
+            "spend_30d": c["spend_30d"],
+            "sales_30d": c["sales_30d"],
+            "clicks_30d": c["clicks_30d"],
+            "impressions_30d": c["impressions_30d"],
+            "orders_30d": c["orders_30d"],
+            "acos": c["acos"],
+            "roas": c["roas"],
+            "status": c["status"],
+            "depletes_early": c["depletes_early"],
+        }
+        for c in classified
+    ]
+
     return {
         "generated_at": date.today().isoformat(),
         "target_acos": target_acos,
         "campaign_health": health_counts,
         "total_campaigns": len(classified),
+        "campaigns": campaigns_list,
         "budget_transfers": budget_transfers,
         "missing_coverage": missing_coverage[:10],
         "quick_wins": quick_wins,

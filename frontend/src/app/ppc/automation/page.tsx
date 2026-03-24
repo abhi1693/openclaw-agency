@@ -589,13 +589,13 @@ async function apiFetch(path: string, init?: RequestInit) {
 
 // ─── Tabs ────────────────────────────────────────────────────────────────────────
 
-const TABS = ['📡 实时监控', '💰 Bid 建议', '🔑 关键词建议', '📊 预算分配', '📍 Placement 优化', '🏗️ Campaign 构建器', '⚙️ 设置'] as const
+const TABS = ['📡 实时监控', '📋 Campaign 诊断', '💰 Bid 建议', '🔑 关键词建议', '📍 Placement 优化', '🏗️ Campaign 构建器', '⚙️ 设置'] as const
 type Tab = typeof TABS[number]
 
 // ─── Main Page ────────────────────────────────────────────────────────────────
 
 export default function PpcAutomationPage() {
-  const [activeTab, setActiveTab] = useState<Tab>('💰 Bid 建议')
+  const [activeTab, setActiveTab] = useState<Tab>('📋 Campaign 诊断')
   const [changeLogOpen, setChangeLogOpen] = useState(false)
   const queryClient = useQueryClient()
 
@@ -629,9 +629,9 @@ export default function PpcAutomationPage() {
       {/* Tab content */}
       <div className="mt-4">
         {activeTab === '📡 实时监控' && <RealtimeTab />}
+        {activeTab === '📋 Campaign 诊断' && <CampaignDiagnosticsTab />}
         {activeTab === '💰 Bid 建议' && <BidRecommendationsTab />}
         {activeTab === '🔑 关键词建议' && <KeywordRecommendationsTab />}
-        {activeTab === '📊 预算分配' && <BudgetAllocationTab />}
         {activeTab === '📍 Placement 优化' && <PlacementsTab />}
         {activeTab === '🏗️ Campaign 构建器' && <CampaignBuilderTab />}
         {activeTab === '⚙️ 设置' && <SettingsTab />}
@@ -841,9 +841,9 @@ function RealtimeTab() {
           <span className="text-xs font-semibold text-red-600 uppercase tracking-wider">LIVE</span>
         </div>
         <p className="text-sm text-slate-600">
-          {today?.date ?? '--'}{latestHour !== null ? ` · 截至 ${latestHour}:00` : ''} · 最后更新 {lastUpdated}
+          {today?.date ?? '--'}{latestHour !== null ? ` · 截至 ${String(latestHour).padStart(2, '0')}:00 EST` : ''} · 最后更新 {lastUpdated}
         </p>
-        <p className="text-xs text-slate-400 ml-auto">每 60 秒自动刷新</p>
+        <p className="text-xs text-slate-400 ml-auto">Amazon 数据延迟约 2-4 小时 · 每 60 秒刷新</p>
       </div>
 
       {/* KPI cards */}
@@ -925,6 +925,231 @@ function RealtimeTab() {
   )
 }
 
+// ─── Campaign Diagnostics Tab ─────────────────────────────────────────────────
+
+type OptCampaign = {
+  campaign_id: string; name: string; type: string; targeting_type: string
+  budget: number; spend_30d: number; sales_30d: number
+  clicks_30d: number; impressions_30d: number; orders_30d: number
+  acos: number | null; roas: number | null
+  status: 'healthy' | 'warning' | 'critical' | 'inactive'
+  depletes_early: boolean
+}
+type OptTransfer = {
+  from_campaign: string; from_acos: number | null; to_campaign: string | null
+  same_product: boolean; transfer_amount: number
+  steps: Array<{ timing: string; action: string; details?: string[] }>
+  expected_impact: { from_saved: string; to_gained: string; net_weekly_gain: string }
+  preserve_note?: string
+}
+type OptQuickWin = { action: string; impact: string; terms?: string[]; campaigns?: string[] }
+type OptMissing = { asin: string; product: string; missing: string; suggestion: string }
+type OptData = {
+  campaign_health: { healthy: number; warning: number; critical: number; inactive: number }
+  campaigns: OptCampaign[]
+  budget_transfers: OptTransfer[]
+  quick_wins: OptQuickWin[]
+  missing_coverage: OptMissing[]
+  target_acos: number
+  total_campaigns: number
+}
+
+function statusBg(s: OptCampaign['status']) {
+  if (s === 'critical') return 'bg-rose-50'
+  if (s === 'warning') return 'bg-amber-50'
+  if (s === 'inactive') return 'bg-slate-50'
+  return ''
+}
+
+function CampaignDiagnosticsTab() {
+  const { data, isLoading } = useQuery<OptData>({
+    queryKey: ['opt-recs'],
+    queryFn: () => apiFetch('/api/ppc/automation/optimization-recommendations'),
+    staleTime: 5 * 60 * 1000,
+  })
+  const [section, setSection] = useState<'health' | 'transfers' | 'coverage' | 'wins'>('health')
+
+  if (isLoading) return <div className="py-16 text-center text-sm text-slate-400">加载中...</div>
+  if (!data) return <div className="py-16 text-center text-sm text-slate-400">暂无数据</div>
+
+  const { campaign_health: h, campaigns = [], budget_transfers = [], quick_wins = [], missing_coverage = [] } = data
+
+  const sectionTabs: Array<{ id: typeof section; label: string; count?: number }> = [
+    { id: 'health', label: '🏥 Campaign 健康' },
+    { id: 'transfers', label: '🔄 预算调配', count: budget_transfers.length },
+    { id: 'coverage', label: '⚠️ 覆盖缺口', count: missing_coverage.length },
+    { id: 'wins', label: '🎯 Quick Wins', count: quick_wins.length },
+  ]
+
+  return (
+    <div className="space-y-4">
+      {/* Summary badges */}
+      <div className="flex items-center gap-2 flex-wrap">
+        <span className="text-sm font-semibold text-slate-700">Campaign 健康总览</span>
+        <div className="flex gap-1.5 ml-2">
+          {h.critical > 0 && <span className="rounded-full bg-rose-100 text-rose-600 text-xs font-semibold px-2.5 py-0.5 border border-rose-200">🔴 {h.critical} 高危</span>}
+          {h.warning > 0 && <span className="rounded-full bg-amber-100 text-amber-600 text-xs font-semibold px-2.5 py-0.5 border border-amber-200">⚠️ {h.warning} 警告</span>}
+          {h.healthy > 0 && <span className="rounded-full bg-emerald-100 text-emerald-700 text-xs font-semibold px-2.5 py-0.5 border border-emerald-200">✅ {h.healthy} 健康</span>}
+          {h.inactive > 0 && <span className="rounded-full bg-slate-100 text-slate-500 text-xs font-semibold px-2.5 py-0.5 border border-slate-200">{h.inactive} 不活跃</span>}
+        </div>
+        <span className="ml-auto text-xs text-slate-400">目标 ACoS: {data.target_acos}%</span>
+      </div>
+
+      {/* Section nav */}
+      <div className="flex gap-0 border-b border-slate-200">
+        {sectionTabs.map(t => (
+          <button
+            key={t.id}
+            onClick={() => setSection(t.id)}
+            className={cn(
+              'px-4 py-2.5 text-sm font-medium border-b-2 transition-colors',
+              section === t.id ? 'border-blue-600 text-blue-700' : 'border-transparent text-slate-500 hover:text-slate-700',
+            )}
+          >
+            {t.label}{t.count != null ? ` (${t.count})` : ''}
+          </button>
+        ))}
+      </div>
+
+      {/* ── Section: Health table ── */}
+      {section === 'health' && (
+        <div className="rounded-xl border border-slate-200 bg-white shadow-sm overflow-hidden">
+          <table className="w-full text-sm">
+            <thead className="bg-slate-50 text-xs uppercase tracking-wider text-slate-500">
+              <tr>
+                <th className="px-4 py-2.5 text-left">Campaign</th>
+                <th className="px-3 py-2.5 text-left">类型</th>
+                <th className="px-3 py-2.5 text-right">预算/天</th>
+                <th className="px-3 py-2.5 text-right">30天花费</th>
+                <th className="px-3 py-2.5 text-right">30天销售</th>
+                <th className="px-3 py-2.5 text-right">ACoS</th>
+                <th className="px-3 py-2.5 text-right">ROAS</th>
+                <th className="px-3 py-2.5 text-center">状态</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-slate-100">
+              {[...campaigns]
+                .sort((a, b) => {
+                  const order = { critical: 0, warning: 1, healthy: 2, inactive: 3 }
+                  return (order[a.status] ?? 4) - (order[b.status] ?? 4)
+                })
+                .map(c => (
+                  <tr key={c.campaign_id} className={cn('hover:bg-slate-50', statusBg(c.status))}>
+                    <td className="max-w-[220px] truncate px-4 py-2.5 font-medium text-slate-800 text-xs" title={c.name}>{c.name}</td>
+                    <td className="px-3 py-2.5 text-xs">
+                      <span className="inline-flex items-center gap-1 rounded bg-slate-100 px-1.5 py-0.5 font-mono text-[10px] text-slate-600">
+                        {c.type} · {c.targeting_type || '—'}
+                      </span>
+                    </td>
+                    <td className="px-3 py-2.5 text-right text-xs text-slate-500">${c.budget.toFixed(2)}</td>
+                    <td className="px-3 py-2.5 text-right text-xs font-medium text-slate-700">${c.spend_30d.toFixed(2)}</td>
+                    <td className="px-3 py-2.5 text-right text-xs text-slate-600">{c.sales_30d > 0 ? `$${c.sales_30d.toFixed(2)}` : '—'}</td>
+                    <td className={cn('px-3 py-2.5 text-right text-xs font-bold', c.acos == null ? 'text-slate-400' : c.acos > data.target_acos * 2 ? 'text-rose-600' : c.acos > data.target_acos * 1.3 ? 'text-amber-600' : 'text-emerald-700')}>
+                      {c.acos != null ? `${c.acos}%` : '—'}
+                    </td>
+                    <td className="px-3 py-2.5 text-right text-xs text-slate-600">{c.roas != null ? `${c.roas}x` : '—'}</td>
+                    <td className="px-3 py-2.5 text-center text-xs">
+                      {c.status === 'critical' && <span className="text-rose-600">🔴 高危</span>}
+                      {c.status === 'warning' && <span className="text-amber-600">⚠️ 警告</span>}
+                      {c.status === 'healthy' && <span className="text-emerald-600">✅ 健康</span>}
+                      {c.status === 'inactive' && <span className="text-slate-400">— 不活跃</span>}
+                    </td>
+                  </tr>
+                ))}
+            </tbody>
+          </table>
+        </div>
+      )}
+
+      {/* ── Section: Budget transfers ── */}
+      {section === 'transfers' && (
+        <div className="space-y-3">
+          {budget_transfers.length === 0 && (
+            <div className="py-12 text-center text-sm text-slate-400">暂无预算调配建议</div>
+          )}
+          {budget_transfers.map((t, i) => (
+            <div key={i} className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
+              <div className="flex items-center gap-2 flex-wrap mb-3">
+                <span className="font-semibold text-rose-600 truncate max-w-[200px]">{t.from_campaign}</span>
+                <span className="text-slate-400 text-lg">→</span>
+                <span className="font-semibold text-emerald-700 truncate max-w-[200px]">{t.to_campaign ?? '未确定'}</span>
+                <span className={cn('rounded-full px-2 py-0.5 text-[11px] font-semibold ml-1', t.same_product ? 'bg-emerald-50 text-emerald-700 border border-emerald-200' : 'bg-amber-50 text-amber-600 border border-amber-200')}>
+                  {t.same_product ? '✅ 同产品' : '⚠️ 跨产品'}
+                </span>
+                <span className="ml-auto font-bold text-slate-900">${t.transfer_amount}/天</span>
+                {t.from_acos != null && <span className="text-xs text-slate-500">来源 ACoS {t.from_acos}%</span>}
+              </div>
+              <div className="space-y-1.5">
+                {t.steps.map((s, si) => (
+                  <div key={si} className="flex items-start gap-2 text-sm">
+                    <span className="shrink-0 rounded-full bg-slate-100 px-2 py-0.5 text-xs font-semibold text-slate-600">{s.timing}</span>
+                    <span className="text-slate-700">{s.action}</span>
+                    {s.details && s.details.length > 0 && (
+                      <span className="text-xs text-slate-400">({s.details.slice(0, 2).join(' · ')})</span>
+                    )}
+                  </div>
+                ))}
+              </div>
+              {t.expected_impact && (
+                <div className="mt-3 rounded-lg bg-emerald-50 border border-emerald-100 p-2.5 text-xs">
+                  <span className="font-semibold text-emerald-800">预期收益: </span>
+                  <span className="text-emerald-700">{t.expected_impact.to_gained} · 每周净收益 {t.expected_impact.net_weekly_gain}</span>
+                </div>
+              )}
+              {t.preserve_note && <p className="mt-2 text-xs text-slate-400">💡 {t.preserve_note}</p>}
+            </div>
+          ))}
+        </div>
+      )}
+
+      {/* ── Section: Missing coverage ── */}
+      {section === 'coverage' && (
+        <div className="space-y-2">
+          {missing_coverage.length === 0 && (
+            <div className="py-12 text-center text-sm text-slate-400">无覆盖缺口</div>
+          )}
+          {missing_coverage.map((m, i) => (
+            <div key={i} className="flex items-center gap-3 rounded-xl border border-slate-200 bg-white p-3.5 shadow-sm">
+              <span className="text-amber-500 text-lg shrink-0">⚠️</span>
+              <div className="min-w-0 flex-1">
+                <p className="font-medium text-sm text-slate-800 truncate">{m.product}</p>
+                <p className="text-xs text-slate-500 font-mono">{m.asin} · {m.missing}</p>
+              </div>
+              <p className="text-xs text-blue-600 shrink-0 max-w-[180px] text-right">{m.suggestion}</p>
+            </div>
+          ))}
+        </div>
+      )}
+
+      {/* ── Section: Quick wins ── */}
+      {section === 'wins' && (
+        <div className="space-y-2">
+          {quick_wins.length === 0 && (
+            <div className="py-12 text-center text-sm text-slate-400">暂无快速优化建议</div>
+          )}
+          {quick_wins.map((qw, i) => (
+            <div key={i} className="rounded-xl border border-blue-100 bg-blue-50/50 p-4">
+              <div className="flex items-start gap-3">
+                <span className="text-lg shrink-0">🎯</span>
+                <div className="min-w-0 flex-1">
+                  <p className="font-medium text-sm text-slate-800">{qw.action}</p>
+                  <p className="text-xs text-slate-500 mt-0.5">预计影响: {qw.impact}</p>
+                  {qw.terms && qw.terms.length > 0 && (
+                    <p className="text-xs text-slate-400 mt-1">关键词: {qw.terms.slice(0, 5).join(', ')}{qw.terms.length > 5 ? ` +${qw.terms.length - 5}` : ''}</p>
+                  )}
+                  {qw.campaigns && qw.campaigns.length > 0 && (
+                    <p className="text-xs text-slate-400 mt-1">Campaign: {qw.campaigns.slice(0, 3).join(', ')}</p>
+                  )}
+                </div>
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  )
+}
+
 // ─── Bid Recommendations Tab ───────────────────────────────────────────────────
 
 function BidRecommendationsTab() {
@@ -932,18 +1157,11 @@ function BidRecommendationsTab() {
   const [selected, setSelected] = useState<Set<string>>(new Set())
   const [expanded, setExpanded] = useState<Set<string>>(new Set())
   const [sort, setSort] = useState<{ field: string; dir: 'asc' | 'desc' }>({ field: 'score', dir: 'desc' })
-  const [campaignFilter, setCampaignFilter] = useState<string | null>(null)
   const queryClient = useQueryClient()
 
   const { data, isLoading, refetch } = useQuery({
     queryKey: ['bid-recs', statusFilter],
     queryFn: () => apiFetch(`/api/ppc/automation/bid-recommendations?status=${statusFilter}`),
-  })
-
-  const { data: optData } = useQuery({
-    queryKey: ['opt-recs'],
-    queryFn: () => apiFetch('/api/ppc/automation/optimization-recommendations'),
-    staleTime: 5 * 60 * 1000,
   })
 
   const items: BidRec[] = data?.items ?? []
@@ -970,11 +1188,6 @@ function BidRecommendationsTab() {
     })
   }, [enriched, sort])
 
-  const filtered = useMemo(() => {
-    if (!campaignFilter) return sorted
-    return sorted.filter(r => r.campaign_id === campaignFilter)
-  }, [sorted, campaignFilter])
-
   function handleSort(field: string) {
     setSort((s) => ({ field, dir: s.field === field && s.dir === 'asc' ? 'desc' : 'asc' }))
   }
@@ -998,101 +1211,7 @@ function BidRecommendationsTab() {
     },
   })
 
-  type OptTransfer = { from_campaign: string; from_acos: number | null; to_campaign: string | null; to_acos: number | null; same_product: boolean; transfer_amount: number; steps: Array<{ timing: string; action: string; details: string[] }>; expected_impact: { from_saved: string; to_gained: string; net_weekly_gain: string } }
-  type OptQuickWin = { campaign_id: string; campaign_name: string; action: string; impact: string; zero_conv_terms?: number; potential_savings?: number }
-  type OptMissing = { asin: string; product: string; missing: string; suggestion: string }
-  type OptRec = { budget_transfers?: OptTransfer[]; campaign_health?: { healthy: number; warning: number; critical: number; inactive?: number }; quick_wins?: OptQuickWin[]; missing_coverage?: OptMissing[] }
-
-  const optTransfers: OptTransfer[] = (optData as OptRec | undefined)?.budget_transfers ?? []
-  const optHealth = (optData as OptRec | undefined)?.campaign_health
-  const optQuickWins: OptQuickWin[] = (optData as OptRec | undefined)?.quick_wins ?? []
-  const optMissing: OptMissing[] = (optData as OptRec | undefined)?.missing_coverage ?? []
-
-  const hasOptPanel = optTransfers.length > 0 || optQuickWins.length > 0 || optMissing.length > 0 || !!optHealth
-
   return (
-    <div className="space-y-4">
-      {/* 📊 Campaign-level health panel */}
-      {hasOptPanel && (
-        <div className="rounded-xl border border-amber-200 bg-amber-50/60 p-4 space-y-3">
-          {/* Header with health badges */}
-          <div className="flex items-center gap-2">
-            <span className="text-sm font-semibold text-slate-700">📊 Campaign 级别建议</span>
-            {optHealth && (
-              <div className="flex gap-1.5 ml-auto flex-wrap">
-                {(optHealth.inactive ?? 0) > 0 && <span className="rounded-full bg-slate-100 text-slate-500 text-[10px] font-semibold px-2 py-0.5 border border-slate-200">{optHealth.inactive} 不活跃</span>}
-                {optHealth.critical > 0 && <span className="rounded-full bg-rose-100 text-rose-600 text-[10px] font-semibold px-2 py-0.5 border border-rose-200">🔴 {optHealth.critical} 高危</span>}
-                {optHealth.warning > 0 && <span className="rounded-full bg-amber-100 text-amber-600 text-[10px] font-semibold px-2 py-0.5 border border-amber-200">⚠️ {optHealth.warning} 警告</span>}
-                {optHealth.healthy > 0 && <span className="rounded-full bg-emerald-100 text-emerald-700 text-[10px] font-semibold px-2 py-0.5 border border-emerald-200">✅ {optHealth.healthy} 健康</span>}
-              </div>
-            )}
-          </div>
-
-          {/* Budget transfers */}
-          {optTransfers.length > 0 && (
-            <div>
-              <p className="text-[10px] font-semibold uppercase tracking-wider text-slate-500 mb-1.5">🔄 预算调配建议</p>
-              <div className="space-y-2">
-                {optTransfers.slice(0, 4).map((t, i) => (
-                  <div key={i} className="rounded-lg bg-white border border-slate-200 px-3 py-2 text-xs">
-                    <div className="flex items-center gap-2 flex-wrap">
-                      <span className="font-semibold text-slate-700 truncate max-w-[160px]">{t.from_campaign}</span>
-                      {t.to_campaign && <><span className="text-slate-400">→</span><span className="text-slate-600 truncate max-w-[160px]">{t.to_campaign}</span></>}
-                      <span className={cn('text-[10px] font-semibold px-1.5 py-0.5 rounded-full flex-shrink-0', t.same_product ? 'bg-emerald-50 text-emerald-700' : 'bg-amber-50 text-amber-600')}>
-                        {t.same_product ? '✅ 同产品' : '⚠️ 跨产品'}
-                      </span>
-                      <span className="font-bold text-rose-600 flex-shrink-0">${t.transfer_amount}/天</span>
-                      {t.from_acos != null && <span className="text-slate-400">来源 ACoS {t.from_acos}%</span>}
-                    </div>
-                    <div className="mt-1.5 space-y-0.5">
-                      {t.steps.map((s, si) => (
-                        <p key={si} className="text-slate-500"><span className="font-medium text-slate-600">{s.timing}:</span> {s.action}</p>
-                      ))}
-                    </div>
-                    {t.expected_impact?.net_weekly_gain && (
-                      <p className="mt-1 text-emerald-600 font-medium">预期收益: {t.expected_impact.net_weekly_gain}</p>
-                    )}
-                  </div>
-                ))}
-              </div>
-            </div>
-          )}
-
-          {/* Quick wins */}
-          {optQuickWins.length > 0 && (
-            <div>
-              <p className="text-[10px] font-semibold uppercase tracking-wider text-slate-500 mb-1.5">🎯 快速优化点</p>
-              <div className="space-y-1">
-                {optQuickWins.slice(0, 5).map((qw, i) => (
-                  <div key={i} className="flex items-start gap-2 rounded-lg bg-white border border-slate-200 px-3 py-2 text-xs">
-                    <span className="font-medium text-slate-700 truncate flex-1">{qw.campaign_name || qw.campaign_id}</span>
-                    <span className="text-slate-500 shrink-0">{qw.action}</span>
-                    <span className="text-emerald-600 font-medium shrink-0">{qw.impact}</span>
-                  </div>
-                ))}
-              </div>
-            </div>
-          )}
-
-          {/* Missing coverage */}
-          {optMissing.length > 0 && (
-            <div>
-              <p className="text-[10px] font-semibold uppercase tracking-wider text-slate-500 mb-1.5">⚠️ 覆盖缺口 ({optMissing.length} 个)</p>
-              <div className="space-y-1">
-                {optMissing.slice(0, 5).map((m, i) => (
-                  <div key={i} className="flex items-center gap-2 rounded-lg bg-white border border-slate-200 px-3 py-1.5 text-xs">
-                    <span className="font-mono text-slate-500 shrink-0">{m.asin}</span>
-                    <span className="text-slate-700 truncate flex-1">{m.product}</span>
-                    <span className="text-amber-600 shrink-0">{m.missing}</span>
-                  </div>
-                ))}
-                {optMissing.length > 5 && <p className="text-[10px] text-slate-400 pl-1">还有 {optMissing.length - 5} 个缺口...</p>}
-              </div>
-            </div>
-          )}
-        </div>
-      )}
-    {/* Bid recs table */}
     <div className="rounded-xl border border-slate-200 bg-white shadow-sm">
       {/* Toolbar */}
       <div className="flex items-center justify-between border-b border-slate-100 px-4 py-3">
@@ -1225,7 +1344,6 @@ function BidRecommendationsTab() {
           </tbody>
         </table>
       </div>
-    </div>
     </div>
   )
 }

@@ -462,7 +462,7 @@ function OverviewTab({ report, realtimeToday, optRecs }: { report: WeeklyReport 
             <p className="text-xs text-slate-600 font-medium">
               📡 今日实时 (AMS){realtimeToday.latest_hour != null ? ` · 截至 ${String(realtimeToday.latest_hour).padStart(2, '0')}:00 EST` : ''}
             </p>
-            <p className="text-[10px] text-slate-400 ml-auto">分钟级延迟</p>
+            <p className="text-[10px] text-slate-400 ml-auto">Amazon 数据延迟约 2-4 小时</p>
           </div>
           <div className="grid grid-cols-3 sm:grid-cols-6 gap-2">
             {[
