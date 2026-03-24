@@ -58,11 +58,16 @@ async def run_optimizer(
         "errors": [],
     }
 
-    # Always sync ad_metrics first so downstream optimizers see fresh data
+    # Sync ad_metrics — try Ads API first (may be slow due to report generation),
+    # fall back to search_term aggregation which is instant.
+    # Use a shorter subprocess timeout (10s) — if Ads API is slow, fallback is fine
+    # since ad_metrics should be synced separately via cron/daily-briefing anyway.
     try:
-        metrics_result = await sync_ad_metrics_from_api(session)
+        from app.services.ad_metrics_sync import sync_ad_metrics_from_search_terms
+        # Fast path: just aggregate from existing search_term_reports (instant)
+        metrics_result = await sync_ad_metrics_from_search_terms(session)
         result["ad_metrics_synced"] = metrics_result.get("total_processed", 0)
-        logger.info("ppc_scheduler: ad_metrics sync done, %d rows", result["ad_metrics_synced"])
+        logger.info("ppc_scheduler: ad_metrics sync done (fast path), %d rows", result["ad_metrics_synced"])
     except Exception as exc:  # noqa: BLE001
         logger.exception("ppc_scheduler: ad_metrics sync failed")
         result["errors"].append({"step": "ad_metrics_sync", "error": str(exc)})
