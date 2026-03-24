@@ -27,6 +27,11 @@ from app.models.ppc_automation import (
 from app.services.ads_api import AmazonAdsAPI
 from app.services.budget_allocator import generate_budget_allocations
 from app.services.ad_metrics_sync import sync_ad_metrics_from_api, sync_ad_metrics_from_search_terms
+from app.services.campaign_builder import (
+    generate_v2_campaign_plan,
+    get_campaign_structure,
+    get_products_list,
+)
 from app.services.campaign_creator import generate_campaign_plan
 from app.services.negative_pattern_detector import detect_negative_patterns
 from app.services.placement_optimizer import generate_placement_recommendations
@@ -89,7 +94,14 @@ class RunPlacementAnalysisRequest(BaseModel):
 
 
 class GenerateCampaignPlanRequest(BaseModel):
-    parent_asin: str
+    # v2 fields (strategy-based)
+    asin: str | None = None
+    daily_budget: float | None = None
+    strategy: str = "launch"          # launch | grow | defend | harvest | test
+    target_acos: float = 25.0
+    competitor_asins: list[str] | None = None
+    # legacy field (still accepted)
+    parent_asin: str | None = None
     total_daily_budget: float | None = None
 
 
@@ -665,16 +677,64 @@ async def generate_campaign_plan_endpoint(
     body: GenerateCampaignPlanRequest,
     session: AsyncSession = SESSION_DEP,
 ) -> dict[str, Any]:
-    """Generate a new campaign plan for the given parent ASIN."""
+    """Generate a new campaign plan. Supports v2 strategy-based generation."""
+    # v2 path: asin + strategy
+    effective_asin = body.asin or body.parent_asin
+    if not effective_asin:
+        raise HTTPException(status_code=422, detail="asin or parent_asin is required")
+
+    # If strategy is provided (v2), use new builder
+    if body.asin or (body.strategy and body.strategy != "launch") or body.target_acos != 25.0:
+        try:
+            budget = body.daily_budget or body.total_daily_budget or 50.0
+            result = await generate_v2_campaign_plan(
+                session,
+                asin=effective_asin,
+                daily_budget=budget,
+                strategy=body.strategy,
+                target_acos=body.target_acos,
+                competitor_asins=body.competitor_asins,
+            )
+            return result
+        except Exception as exc:  # noqa: BLE001
+            logger.exception("generate_v2_campaign_plan: failed")
+            raise HTTPException(status_code=500, detail=str(exc)) from exc
+
+    # Legacy path
     try:
         result = await generate_campaign_plan(
             session,
-            parent_asin=body.parent_asin,
+            parent_asin=effective_asin,
             total_daily_budget=body.total_daily_budget,
         )
         return result
     except Exception as exc:  # noqa: BLE001
         logger.exception("generate_campaign_plan: failed")
+        raise HTTPException(status_code=500, detail=str(exc)) from exc
+
+
+@router.get("/products")
+async def list_ppc_products(session: AsyncSession = SESSION_DEP) -> dict[str, Any]:
+    """Return products available for campaign building."""
+    try:
+        products = await get_products_list(session)
+        return {"products": products}
+    except Exception as exc:  # noqa: BLE001
+        logger.exception("list_ppc_products: failed")
+        raise HTTPException(status_code=500, detail=str(exc)) from exc
+
+
+@router.get("/campaign-structure/{asin}")
+async def get_asin_campaign_structure(
+    asin: str,
+    target_acos: float = Query(default=25.0, ge=5.0, le=100.0),
+    session: AsyncSession = SESSION_DEP,
+) -> dict[str, Any]:
+    """Return existing campaign structure + optimization recommendations for an ASIN."""
+    try:
+        return await get_campaign_structure(session, asin=asin, target_acos=target_acos)
+    except Exception as exc:  # noqa: BLE001
+        logger.exception("get_campaign_structure: failed for %s", asin)
         raise HTTPException(status_code=500, detail=str(exc)) from exc
 
 

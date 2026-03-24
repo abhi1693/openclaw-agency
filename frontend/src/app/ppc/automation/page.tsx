@@ -2542,195 +2542,811 @@ function PlacementsTab() {
 
 // ─── Campaign Builder Tab ──────────────────────────────────────────────────────
 
+// ─── Campaign Builder v2 Types ────────────────────────────────────────────────
+
+interface ProductItem {
+  asin: string
+  sku: string
+  name: string
+  stock: number
+  has_campaigns: boolean
+  campaign_count: number
+}
+
+interface KwEntry {
+  keyword: string
+  match_type: string
+  bid: number
+  search_volume: number
+  competition: string
+  source: string
+  category: string
+  acos: number | null
+}
+
+interface AdGroup {
+  name: string
+  default_bid: number
+  keywords?: KwEntry[]
+  targets?: { asin: string }[]
+  strategies?: string[]
+  targeting?: { tactic: string; description: string }[]
+}
+
+interface CampaignSlot {
+  name: string
+  type: string
+  targeting: string
+  budget_pct: number
+  daily_budget: number
+  bidding_strategy: string
+  placement_top_of_search_pct: number
+  purpose: string
+  ad_groups: AdGroup[]
+}
+
+interface BudgetBar {
+  name: string
+  budget: number
+  pct: number
+  type: string
+}
+
+interface GeneratedPlan {
+  plan_id: string
+  asin: string
+  product_name: string
+  strategy: string
+  strategy_label: string
+  campaign_count: number
+  total_daily_budget: number
+  target_acos: number
+  avg_cpc: number
+  status: string
+  plan: {
+    campaigns: CampaignSlot[]
+    budget_allocation: BudgetBar[]
+    keyword_sources: { search_term_reports: number; h10_cerebro: number; competitor_asins: number }
+    notes: string
+  }
+}
+
+interface ExistingCampaign {
+  campaign_id: string
+  name: string
+  type: string
+  targeting: string
+  budget: number
+  spend_30d: number
+  sales_30d: number
+  clicks_30d: number
+  orders_30d: number
+  acos: number | null
+  roas: number | null
+  status: 'healthy' | 'warning' | 'critical' | 'inactive'
+  depletes_early: boolean
+  zero_conv_terms: string[]
+}
+
+interface OptimizationStep {
+  priority: number
+  type: 'budget_transfer' | 'missing_campaign'
+  title: string
+  from_campaign?: string
+  to_campaign?: string
+  to_campaign_same_product?: boolean
+  transfer_amount?: number
+  steps?: { timing: string; action: string; details: string[] }[]
+  expected_impact?: { from_saved: string; to_gained: string; net_weekly_gain: string }
+  preserve_note?: string
+  recommendation?: string
+  competitor_asins?: string[]
+  suggested_budget?: number
+  expected_acos?: string
+}
+
+interface CampaignStructure {
+  asin: string
+  product_name: string
+  is_new_product: boolean
+  existing_campaigns: ExistingCampaign[]
+  optimization_steps: OptimizationStep[]
+  budget_transfer_summary: {
+    total_transferable: number
+    same_product_targets: { campaign: string; reason: string; capacity: number }[]
+    other_product_targets: { campaign: string; reason: string; capacity: number }[]
+    priority_note: string
+  } | null
+}
+
+const STRATEGY_OPTIONS = [
+  { id: 'launch', emoji: '🚀', name: 'Launch', description: '新品上架, 高曝光, auto+broad 为主' },
+  { id: 'grow', emoji: '📈', name: 'Grow', description: '精准投放, exact+phrase 为主, 抢排名' },
+  { id: 'defend', emoji: '🛡️', name: 'Defend', description: '品牌词+核心词防御' },
+  { id: 'harvest', emoji: '💰', name: 'Harvest', description: '降 ACoS, 只留高 ROI 词' },
+  { id: 'test', emoji: '🧪', name: 'Test', description: '低预算试新品/新词' },
+]
+
+const BUDGET_PRESETS = [10, 25, 50, 100]
+
+const TYPE_COLORS: Record<string, string> = {
+  SP: 'bg-blue-100 text-blue-700',
+  SB: 'bg-purple-100 text-purple-700',
+  SD: 'bg-amber-100 text-amber-700',
+}
+
+const STATUS_STYLES: Record<string, string> = {
+  healthy: 'bg-emerald-100 text-emerald-700 border-emerald-200',
+  warning: 'bg-amber-100 text-amber-700 border-amber-200',
+  critical: 'bg-rose-100 text-rose-700 border-rose-200',
+  inactive: 'bg-slate-100 text-slate-500 border-slate-200',
+}
+
+const STATUS_LABEL: Record<string, string> = {
+  healthy: '✅ 健康',
+  warning: '⚠️ 警告',
+  critical: '🔴 高危',
+  inactive: '⬜ 无数据',
+}
+
+const CATEGORY_BADGE: Record<string, string> = {
+  core: '🎯 核心',
+  long_tail: '🌱 长尾',
+  brand: '🏷️ 品牌',
+  competitor: '⚔️ 竞品',
+  discovery: '🔍 探索',
+}
+
 function CampaignBuilderTab() {
-  const [asin, setAsin] = useState(KNOWN_ASINS[0])
-  const [budget, setBudget] = useState('')
+  const [step, setStep] = useState<1 | 2 | 3>(1)
+  const [selectedProduct, setSelectedProduct] = useState<ProductItem | null>(null)
+  const [budget, setBudget] = useState(50)
+  const [customBudget, setCustomBudget] = useState('')
+  const [strategy, setStrategy] = useState('launch')
+  const [targetAcos, setTargetAcos] = useState(25)
   const [generating, setGenerating] = useState(false)
-  const [generated, setGenerated] = useState<{ plan_id: string; campaign_count: number } | null>(null)
-  const queryClient = useQueryClient()
+  const [generatedPlan, setGeneratedPlan] = useState<GeneratedPlan | null>(null)
+  const [structure, setStructure] = useState<CampaignStructure | null>(null)
+  const [loadingStructure, setLoadingStructure] = useState(false)
+  const [expandedCampaigns, setExpandedCampaigns] = useState<Set<number>>(new Set())
 
-  const { data, isLoading, refetch } = useQuery({
-    queryKey: ['campaign-plans'],
-    queryFn: () => apiFetch('/api/ppc/automation/campaign-plans?limit=20'),
+  const { data: productsData, isLoading: productsLoading } = useQuery({
+    queryKey: ['ppc-products'],
+    queryFn: () => apiFetch('/api/ppc/automation/products'),
   })
 
-  const plans: CampaignPlanRec[] = data?.items ?? []
+  const products: ProductItem[] = productsData?.products ?? []
 
-  const approveMutation = useMutation({
-    mutationFn: (planId: string) =>
-      apiFetch(`/api/ppc/automation/campaign-plans/${planId}/approve`, {
-        method: 'POST',
-        headers: { 'content-type': 'application/json' },
-        body: JSON.stringify({ approved_by: 'manual' }),
-      }),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['campaign-plans'] })
-    },
-  })
+  const effectiveBudget = customBudget ? parseFloat(customBudget) : budget
 
-  async function handleGenerate() {
+  function selectProduct(p: ProductItem) {
+    setSelectedProduct(p)
+  }
+
+  async function goToStep2() {
+    if (!selectedProduct) return
+    setStep(2)
+    // Pre-set strategy based on whether product has campaigns
+    if (!selectedProduct.has_campaigns) setStrategy('launch')
+    else setStrategy('grow')
+  }
+
+  async function goToStep3() {
+    if (!selectedProduct) return
     setGenerating(true)
-    setGenerated(null)
+    setGeneratedPlan(null)
+    setStructure(null)
+
     try {
+      if (selectedProduct.has_campaigns) {
+        // Fetch existing structure
+        setLoadingStructure(true)
+        const s = await apiFetch(
+          `/api/ppc/automation/campaign-structure/${selectedProduct.asin}?target_acos=${targetAcos}`
+        )
+        setStructure(s)
+        setLoadingStructure(false)
+      }
+
+      // Always generate a new plan
       const res = await apiFetch('/api/ppc/automation/campaign-plans/generate', {
         method: 'POST',
         headers: { 'content-type': 'application/json' },
         body: JSON.stringify({
-          parent_asin: asin,
-          total_daily_budget: budget ? parseFloat(budget) : undefined,
+          asin: selectedProduct.asin,
+          daily_budget: effectiveBudget,
+          strategy,
+          target_acos: targetAcos,
         }),
       })
-      setGenerated({ plan_id: res.plan_id, campaign_count: res.campaign_count })
-      refetch()
-    } catch { /* swallow */ }
-    finally { setGenerating(false) }
+      setGeneratedPlan(res)
+    } catch {
+      // swallow
+    } finally {
+      setGenerating(false)
+      setLoadingStructure(false)
+    }
+    setStep(3)
   }
 
-  const CAMPAIGN_TYPE_COLORS: Record<string, string> = {
-    SP: 'bg-blue-100 text-blue-700',
-    SB: 'bg-purple-100 text-purple-700',
-    SD: 'bg-amber-100 text-amber-700',
+  function toggleCampaign(idx: number) {
+    setExpandedCampaigns(prev => {
+      const next = new Set(prev)
+      if (next.has(idx)) next.delete(idx)
+      else next.add(idx)
+      return next
+    })
   }
+
+  function exportJSON() {
+    if (!generatedPlan) return
+    const blob = new Blob([JSON.stringify(generatedPlan.plan, null, 2)], { type: 'application/json' })
+    const url = URL.createObjectURL(blob)
+    const a = document.createElement('a')
+    a.href = url
+    a.download = `${generatedPlan.asin}_${strategy}_campaign_plan.json`
+    a.click()
+    URL.revokeObjectURL(url)
+  }
+
+  function exportCSV() {
+    if (!generatedPlan?.plan?.campaigns) return
+    const rows: string[][] = [['Campaign', 'Type', 'Targeting', 'Budget/Day', 'Bidding', 'Purpose']]
+    for (const c of generatedPlan.plan.campaigns) {
+      rows.push([c.name, c.type, c.targeting, String(c.daily_budget), c.bidding_strategy, c.purpose])
+      for (const ag of c.ad_groups || []) {
+        for (const kw of ag.keywords || []) {
+          rows.push([c.name, 'KW', kw.match_type, String(kw.bid), kw.source, kw.keyword])
+        }
+      }
+    }
+    const csv = rows.map(r => r.map(cell => `"${cell}"`).join(',')).join('\n')
+    const blob = new Blob([csv], { type: 'text/csv' })
+    const url = URL.createObjectURL(blob)
+    const a = document.createElement('a')
+    a.href = url
+    a.download = `${generatedPlan.asin}_${strategy}_campaign_plan.csv`
+    a.click()
+    URL.revokeObjectURL(url)
+  }
+
+  // ── Step indicators ──
+  const stepLabels = ['选产品', '设参数', '预览方案']
 
   return (
     <div className="space-y-4">
-      {/* Generator form */}
-      <div className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
-        <p className="mb-3 text-sm font-semibold text-slate-700">生成新广告计划</p>
-        <div className="flex flex-wrap items-end gap-3">
-          <div>
-            <label className="mb-1 block text-xs font-medium text-slate-600">Parent ASIN</label>
-            <select
-              value={asin}
-              onChange={(e) => setAsin(e.target.value)}
-              className="rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-sm text-slate-700 focus:outline-none focus:ring-2 focus:ring-blue-500"
-            >
-              {KNOWN_ASINS.map((a) => <option key={a}>{a}</option>)}
-            </select>
-          </div>
-          <div>
-            <label className="mb-1 block text-xs font-medium text-slate-600">日预算 (USD，可选)</label>
-            <input
-              type="number"
-              min={1}
-              step={1}
-              placeholder="auto"
-              value={budget}
-              onChange={(e) => setBudget(e.target.value)}
-              className="w-28 rounded-lg border border-slate-200 px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
-            />
-          </div>
-          <button
-            onClick={handleGenerate}
-            disabled={generating}
-            className={cn(
-              'inline-flex items-center gap-2 rounded-lg px-4 py-1.5 text-sm font-medium transition',
-              generating ? 'bg-slate-100 text-slate-400 cursor-not-allowed' : 'bg-blue-600 text-white hover:bg-blue-700',
-            )}
-          >
-            {generating ? <RefreshCw className="h-4 w-4 animate-spin" /> : <Play className="h-4 w-4" />}
-            {generating ? '生成中…' : '生成方案'}
-          </button>
-          {generated && (
-            <span className="text-xs font-medium text-emerald-600">
-              Created plan with {generated.campaign_count} campaigns (ID: {generated.plan_id.slice(0, 8)}…)
-            </span>
-          )}
-        </div>
-        <p className="mt-2 text-[11px] text-slate-400">
-          从关键词发现引擎导入（置信度 ≥ 50%）。竞价基于平均 CPC 推算。提交前请仔细审核。
-        </p>
+      {/* Step indicator */}
+      <div className="flex items-center gap-0">
+        {stepLabels.map((label, i) => {
+          const s = i + 1
+          const active = step === s
+          const done = step > s
+          return (
+            <React.Fragment key={s}>
+              <div
+                className={cn(
+                  'flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium cursor-pointer transition',
+                  active ? 'bg-blue-600 text-white' : done ? 'text-emerald-600 hover:bg-slate-50' : 'text-slate-400'
+                )}
+                onClick={() => {
+                  if (done || (s === 2 && selectedProduct)) setStep(s as 1 | 2 | 3)
+                }}
+              >
+                <span className={cn('h-5 w-5 rounded-full flex items-center justify-center text-xs font-bold',
+                  active ? 'bg-white text-blue-600' : done ? 'bg-emerald-100 text-emerald-700' : 'bg-slate-200 text-slate-500'
+                )}>
+                  {done ? '✓' : s}
+                </span>
+                {label}
+              </div>
+              {i < 2 && <div className="h-px w-6 bg-slate-200 flex-shrink-0" />}
+            </React.Fragment>
+          )
+        })}
       </div>
 
-      {/* Plans list */}
-      {isLoading ? (
-        <div className="py-12 text-center text-sm text-slate-400">Loading…</div>
-      ) : plans.length === 0 ? (
-        <div className="rounded-xl border border-dashed border-slate-200 py-12 text-center text-sm text-slate-400">
-          暂无 Campaign 计划。点击上方 <strong className="text-slate-500">生成方案</strong> 按钮，系统将根据关键词发现引擎自动创建 Campaign 结构。
-        </div>
-      ) : (
+      {/* ── Step 1: Product Selection ── */}
+      {step === 1 && (
         <div className="space-y-3">
-          {plans.map((plan) => (
-            <PlanCard key={plan.id} plan={plan} onApprove={() => approveMutation.mutate(plan.id)} isPending={approveMutation.isPending} />
-          ))}
-        </div>
-      )}
-    </div>
-  )
-}
-
-function PlanCard({ plan, onApprove, isPending }: { plan: CampaignPlanRec; onApprove: () => void; isPending: boolean }) {
-  const [expanded, setExpanded] = useState(false)
-  const [detail, setDetail] = useState<{ plan_parsed?: { campaigns?: Array<{ campaign_type: string; campaign_name: string; daily_budget: number; ad_groups?: Array<{ keywords?: unknown[] }> }> } } | null>(null)
-
-  async function loadDetail() {
-    if (detail) return
-    try {
-      const d = await apiFetch(`/api/ppc/automation/campaign-plans/${plan.id}`)
-      setDetail(d)
-    } catch { /* swallow */ }
-  }
-
-  function handleExpand() {
-    setExpanded((v) => !v)
-    if (!expanded) loadDetail()
-  }
-
-  const CAMPAIGN_TYPE_COLORS: Record<string, string> = {
-    SP: 'bg-blue-100 text-blue-700',
-    SB: 'bg-purple-100 text-purple-700',
-    SD: 'bg-amber-100 text-amber-700',
-  }
-
-  return (
-    <div className="rounded-xl border border-slate-200 bg-white shadow-sm overflow-hidden">
-      <div className="flex items-center justify-between px-4 py-3">
-        <div className="flex items-center gap-3">
-          <button onClick={handleExpand} className="text-slate-400 hover:text-slate-600">
-            {expanded ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
-          </button>
-          <div>
-            <p className="text-sm font-semibold text-slate-700">{plan.parent_asin}</p>
-            <p className="text-xs text-slate-400">{plan.campaign_count} campaigns · ${N(plan.total_daily_budget).toFixed(0)}/day · {fmtDate(plan.created_at)}</p>
-          </div>
-        </div>
-        <div className="flex items-center gap-2">
-          <StatusPill status={plan.status} />
-          {plan.status === 'draft' && (
-            <button
-              onClick={onApprove}
-              disabled={isPending}
-              title="批准此广告计划并提交创建"
-              className="rounded-lg bg-emerald-600 px-3 py-1 text-xs font-medium text-white hover:bg-emerald-700 disabled:opacity-50"
-            >
-              批准执行
-            </button>
-          )}
-        </div>
-      </div>
-      {expanded && (
-        <div className="border-t border-slate-100 px-4 py-3 bg-slate-50">
-          {!detail ? (
-            <p className="text-xs text-slate-400">Loading plan details…</p>
+          <p className="text-sm font-semibold text-slate-700">选择产品</p>
+          {productsLoading ? (
+            <div className="py-8 text-center text-sm text-slate-400">加载产品列表…</div>
           ) : (
-            <div className="space-y-2">
-              {detail.plan_parsed?.campaigns?.map((c, i) => (
-                <div key={i} className="flex items-center justify-between rounded-lg border border-slate-200 bg-white px-3 py-2 text-xs">
-                  <div className="flex items-center gap-2">
-                    <span className={cn('rounded-full px-1.5 py-0.5 text-[10px] font-semibold', CAMPAIGN_TYPE_COLORS[c.campaign_type] ?? 'bg-slate-100 text-slate-500')}>
-                      {c.campaign_type}
-                    </span>
-                    <span className="font-medium text-slate-700">{c.campaign_name}</span>
-                  </div>
-                  <div className="flex items-center gap-4 text-slate-500">
-                    <span>${N(c.daily_budget).toFixed(2)}/day</span>
-                    {c.ad_groups && (
-                      <span>{c.ad_groups.reduce((s, ag) => s + (ag.keywords?.length ?? 0), 0)} keywords</span>
+            <div className="grid grid-cols-2 lg:grid-cols-3 gap-3">
+              {products.map(p => (
+                <div
+                  key={p.asin}
+                  onClick={() => selectProduct(p)}
+                  className={cn(
+                    'border rounded-lg p-3 cursor-pointer transition hover:border-blue-300',
+                    selectedProduct?.asin === p.asin
+                      ? 'border-blue-500 bg-blue-50'
+                      : 'border-slate-200 bg-white hover:bg-slate-50'
+                  )}
+                >
+                  <p className="font-medium text-sm truncate text-slate-800">{p.name}</p>
+                  <p className="text-xs text-slate-400 mt-0.5">{p.asin}{p.sku ? ` · ${p.sku}` : ''}</p>
+                  <div className="flex flex-wrap gap-1.5 mt-2">
+                    {p.has_campaigns ? (
+                      <span className="inline-flex items-center rounded-full bg-blue-50 px-2 py-0.5 text-[11px] font-medium text-blue-700 border border-blue-200">
+                        📊 {p.campaign_count} campaigns
+                      </span>
+                    ) : (
+                      <span className="inline-flex items-center rounded-full bg-slate-50 px-2 py-0.5 text-[11px] font-medium text-slate-500 border border-slate-200">
+                        🆕 新品
+                      </span>
                     )}
+                    <span className={cn(
+                      'inline-flex items-center rounded-full px-2 py-0.5 text-[11px] font-medium border',
+                      p.stock > 0 ? 'bg-emerald-50 text-emerald-700 border-emerald-200' : 'bg-rose-50 text-rose-600 border-rose-200'
+                    )}>
+                      库存: {p.stock}
+                    </span>
                   </div>
                 </div>
               ))}
+              {products.length === 0 && (
+                <div className="col-span-3 py-8 text-center text-sm text-slate-400">
+                  暂无产品数据。请先同步库存。
+                </div>
+              )}
+            </div>
+          )}
+          <div className="flex justify-end pt-2">
+            <button
+              onClick={goToStep2}
+              disabled={!selectedProduct}
+              className={cn(
+                'inline-flex items-center gap-2 rounded-lg px-5 py-2 text-sm font-medium transition',
+                selectedProduct ? 'bg-blue-600 text-white hover:bg-blue-700' : 'bg-slate-100 text-slate-400 cursor-not-allowed'
+              )}
+            >
+              下一步 →
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* ── Step 2: Parameters ── */}
+      {step === 2 && selectedProduct && (
+        <div className="space-y-5">
+          <div className="flex items-center gap-2 text-sm">
+            <span className="text-slate-400">产品:</span>
+            <span className="font-medium text-slate-700">{selectedProduct.name}</span>
+            <span className="text-slate-400">({selectedProduct.asin})</span>
+          </div>
+
+          {/* Budget */}
+          <div>
+            <label className="block text-sm font-semibold text-slate-700 mb-2">日预算 (USD)</label>
+            <div className="flex items-center gap-2 flex-wrap">
+              {BUDGET_PRESETS.map(b => (
+                <button
+                  key={b}
+                  onClick={() => { setBudget(b); setCustomBudget('') }}
+                  className={cn(
+                    'px-4 py-1.5 rounded-lg border text-sm font-medium transition',
+                    budget === b && !customBudget
+                      ? 'bg-blue-50 border-blue-500 text-blue-700'
+                      : 'border-slate-200 text-slate-600 hover:border-blue-300'
+                  )}
+                >
+                  ${b}/天
+                </button>
+              ))}
+              <input
+                type="number"
+                min={1}
+                step={1}
+                placeholder="自定义"
+                value={customBudget}
+                onChange={e => setCustomBudget(e.target.value)}
+                className="w-24 rounded-lg border border-slate-200 px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+              />
+            </div>
+          </div>
+
+          {/* Strategy */}
+          <div>
+            <label className="block text-sm font-semibold text-slate-700 mb-2">投放策略</label>
+            <div className="grid grid-cols-2 lg:grid-cols-3 gap-3">
+              {STRATEGY_OPTIONS.map(s => (
+                <div
+                  key={s.id}
+                  onClick={() => setStrategy(s.id)}
+                  className={cn(
+                    'border rounded-lg p-3 cursor-pointer transition',
+                    strategy === s.id
+                      ? 'border-blue-500 bg-blue-50'
+                      : 'border-slate-200 bg-white hover:border-blue-300 hover:bg-slate-50'
+                  )}
+                >
+                  <p className="text-sm font-semibold text-slate-800">{s.emoji} {s.name}</p>
+                  <p className="text-xs text-slate-500 mt-1">{s.description}</p>
+                </div>
+              ))}
+            </div>
+          </div>
+
+          {/* Target ACoS */}
+          <div>
+            <label className="block text-sm font-semibold text-slate-700 mb-2">
+              目标 ACoS: <span className="text-blue-600 font-bold">{targetAcos}%</span>
+            </label>
+            <div className="flex items-center gap-3">
+              <input
+                type="range"
+                min={10}
+                max={50}
+                step={1}
+                value={targetAcos}
+                onChange={e => setTargetAcos(Number(e.target.value))}
+                className="flex-1 h-2 rounded-full appearance-none bg-slate-200 accent-blue-600"
+              />
+              <span className="text-xs text-slate-400 w-20">10% – 50%</span>
+            </div>
+            <p className="text-xs text-slate-400 mt-1">
+              建议: Launch/Test = 35-40%，Grow = 25-30%，Harvest = 15-20%
+            </p>
+          </div>
+
+          <div className="flex justify-between pt-2">
+            <button
+              onClick={() => setStep(1)}
+              className="px-4 py-2 rounded-lg border border-slate-200 text-sm text-slate-600 hover:bg-slate-50"
+            >
+              ← 返回
+            </button>
+            <button
+              onClick={goToStep3}
+              disabled={generating}
+              className={cn(
+                'inline-flex items-center gap-2 rounded-lg px-5 py-2 text-sm font-medium transition',
+                generating ? 'bg-slate-100 text-slate-400 cursor-not-allowed' : 'bg-blue-600 text-white hover:bg-blue-700'
+              )}
+            >
+              {generating ? <RefreshCw className="h-4 w-4 animate-spin" /> : <Play className="h-4 w-4" />}
+              {generating ? '生成中…' : '生成方案'}
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* ── Step 3: Preview ── */}
+      {step === 3 && (
+        <div className="space-y-4">
+          <div className="flex items-center justify-between">
+            <button
+              onClick={() => setStep(2)}
+              className="px-4 py-2 rounded-lg border border-slate-200 text-sm text-slate-600 hover:bg-slate-50"
+            >
+              ← 重新设置
+            </button>
+            {generatedPlan && (
+              <div className="flex gap-2">
+                <button
+                  onClick={exportCSV}
+                  className="inline-flex items-center gap-1.5 rounded-lg border border-slate-200 px-3 py-1.5 text-xs font-medium text-slate-600 hover:bg-slate-50"
+                >
+                  📥 导出 CSV
+                </button>
+                <button
+                  onClick={exportJSON}
+                  className="inline-flex items-center gap-1.5 rounded-lg border border-slate-200 px-3 py-1.5 text-xs font-medium text-slate-600 hover:bg-slate-50"
+                >
+                  📥 导出 JSON
+                </button>
+              </div>
+            )}
+          </div>
+
+          {generating && (
+            <div className="py-8 text-center text-sm text-slate-400">
+              <RefreshCw className="h-5 w-5 animate-spin mx-auto mb-2 text-blue-500" />
+              生成广告方案中…
+            </div>
+          )}
+
+          {/* Existing product: structure + optimization */}
+          {!generating && structure && !structure.is_new_product && (
+            <div className="space-y-4">
+              {/* Existing campaigns */}
+              <div className="rounded-xl border border-slate-200 bg-white shadow-sm overflow-hidden">
+                <div className="px-4 py-3 border-b border-slate-100 bg-slate-50">
+                  <p className="text-sm font-semibold text-slate-700">📊 现有 Campaign 结构</p>
+                  <p className="text-xs text-slate-400 mt-0.5">{structure.product_name}</p>
+                </div>
+                <div className="divide-y divide-slate-100">
+                  {structure.existing_campaigns.map(c => (
+                    <div key={c.campaign_id} className="px-4 py-3 flex items-center gap-3">
+                      <span className={cn('rounded-full px-2 py-0.5 text-[10px] font-bold border',
+                        STATUS_STYLES[c.status] ?? STATUS_STYLES.inactive)}>
+                        {STATUS_LABEL[c.status]}
+                      </span>
+                      <span className={cn('rounded-full px-1.5 py-0.5 text-[10px] font-semibold',
+                        TYPE_COLORS[c.type] ?? 'bg-slate-100 text-slate-500')}>
+                        {c.type}
+                      </span>
+                      <div className="flex-1 min-w-0">
+                        <p className="text-sm font-medium text-slate-700 truncate">{c.name}</p>
+                        <p className="text-xs text-slate-400">${c.budget}/天 · 30天花费 ${c.spend_30d.toFixed(0)} · 销售 ${c.sales_30d.toFixed(0)}</p>
+                      </div>
+                      <div className="flex items-center gap-3 text-xs text-slate-500 text-right">
+                        {c.acos != null ? (
+                          <span className={cn('font-semibold',
+                            c.acos > targetAcos * 2 ? 'text-rose-600' : c.acos > targetAcos * 1.3 ? 'text-amber-600' : 'text-emerald-600')}>
+                            ACoS {c.acos}%
+                          </span>
+                        ) : <span>—</span>}
+                        {c.roas != null && <span>ROAS {c.roas}x</span>}
+                        {c.depletes_early && <span className="text-amber-500">⚡预算耗尽</span>}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+
+              {/* Optimization steps */}
+              {structure.optimization_steps.length > 0 && (
+                <div className="space-y-3">
+                  <p className="text-sm font-semibold text-slate-700">🔧 优化建议</p>
+                  {structure.optimization_steps.map(opt => (
+                    <div key={opt.priority} className="rounded-xl border border-slate-200 bg-white shadow-sm overflow-hidden">
+                      <div className={cn('px-4 py-3 flex items-start gap-3',
+                        opt.type === 'budget_transfer' ? 'bg-rose-50 border-b border-rose-100' : 'bg-blue-50 border-b border-blue-100'
+                      )}>
+                        <span className="rounded-full bg-white px-2 py-0.5 text-xs font-bold text-slate-600 border border-slate-200 flex-shrink-0">
+                          #{opt.priority}
+                        </span>
+                        <div className="flex-1">
+                          <p className="text-sm font-semibold text-slate-800">{opt.title}</p>
+                          {opt.type === 'budget_transfer' && opt.to_campaign && (
+                            <p className="text-xs text-slate-500 mt-0.5">
+                              转移到: <span className="font-medium">{opt.to_campaign}</span>
+                              {opt.to_campaign_same_product
+                                ? <span className="ml-1.5 text-emerald-600">✅ 同产品</span>
+                                : <span className="ml-1.5 text-amber-600">⚠️ 跨产品(备选)</span>}
+                            </p>
+                          )}
+                          {opt.type === 'missing_campaign' && (
+                            <p className="text-xs text-slate-500 mt-0.5">{opt.recommendation}</p>
+                          )}
+                        </div>
+                        {opt.transfer_amount != null && opt.transfer_amount > 0 && (
+                          <span className="text-sm font-bold text-rose-600 flex-shrink-0">${opt.transfer_amount}/天</span>
+                        )}
+                        {opt.suggested_budget && (
+                          <span className="text-sm font-bold text-blue-600 flex-shrink-0">建议 ${opt.suggested_budget}/天</span>
+                        )}
+                      </div>
+                      {opt.steps && (
+                        <div className="px-4 py-3 space-y-2">
+                          {opt.steps.map((s, si) => (
+                            <div key={si} className="flex gap-3">
+                              <span className="text-xs font-semibold text-slate-500 w-32 flex-shrink-0">{s.timing}</span>
+                              <div>
+                                <p className="text-xs font-medium text-slate-700">{s.action}</p>
+                                {s.details.length > 0 && (
+                                  <p className="text-xs text-slate-400 mt-0.5">{s.details.join(' · ')}</p>
+                                )}
+                              </div>
+                            </div>
+                          ))}
+                          {opt.preserve_note && (
+                            <p className="text-xs text-slate-400 italic mt-1">{opt.preserve_note}</p>
+                          )}
+                        </div>
+                      )}
+                      {opt.type === 'budget_transfer' && opt.expected_impact && (
+                        <div className="px-4 py-2 bg-slate-50 border-t border-slate-100 flex gap-4 text-xs">
+                          <span className="text-rose-600">{opt.expected_impact.from_saved}</span>
+                          <span className="text-emerald-600">{opt.expected_impact.to_gained}</span>
+                          <span className="font-bold text-slate-700">净收益: {opt.expected_impact.net_weekly_gain}</span>
+                        </div>
+                      )}
+                      {opt.competitor_asins && opt.competitor_asins.length > 0 && (
+                        <div className="px-4 py-2 border-t border-slate-100">
+                          <p className="text-xs text-slate-500">竞品 ASIN: {opt.competitor_asins.join(', ')}</p>
+                          <p className="text-xs text-slate-400">预期 ACoS: {opt.expected_acos}</p>
+                        </div>
+                      )}
+                    </div>
+                  ))}
+                </div>
+              )}
+
+              {/* Budget transfer summary */}
+              {structure.budget_transfer_summary && structure.budget_transfer_summary.total_transferable > 0 && (
+                <div className="rounded-xl border border-slate-200 bg-white shadow-sm p-4">
+                  <p className="text-sm font-semibold text-slate-700 mb-2">💰 预算转移总览</p>
+                  <div className="flex gap-6 text-sm">
+                    <div>
+                      <p className="text-xs text-slate-400">可转移</p>
+                      <p className="font-bold text-slate-800">${structure.budget_transfer_summary.total_transferable}/天</p>
+                    </div>
+                    {structure.budget_transfer_summary.same_product_targets.length > 0 && (
+                      <div>
+                        <p className="text-xs text-slate-400">同产品目标 (优先)</p>
+                        {structure.budget_transfer_summary.same_product_targets.map(t => (
+                          <p key={t.campaign} className="text-xs font-medium text-emerald-700">✅ {t.campaign}</p>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                  <p className="text-xs text-slate-400 mt-2">{structure.budget_transfer_summary.priority_note}</p>
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* New plan preview */}
+          {!generating && generatedPlan && (
+            <div className="space-y-4">
+              <div className="rounded-xl border border-slate-200 bg-white shadow-sm p-4">
+                <div className="flex items-start justify-between">
+                  <div>
+                    <p className="text-sm font-semibold text-slate-700">
+                      {generatedPlan.strategy_label} — {generatedPlan.product_name}
+                    </p>
+                    <p className="text-xs text-slate-400 mt-0.5">
+                      {generatedPlan.campaign_count} campaigns · ${generatedPlan.total_daily_budget}/天 · 目标 ACoS {generatedPlan.target_acos}%
+                    </p>
+                  </div>
+                  <StatusPill status={generatedPlan.status} />
+                </div>
+                <div className="mt-3 flex gap-4 text-xs text-slate-500">
+                  <span>平均 CPC: <strong>${generatedPlan.avg_cpc?.toFixed(2) ?? '—'}</strong></span>
+                  <span>搜索词报告: <strong>{generatedPlan.plan?.keyword_sources?.search_term_reports ?? 0}</strong> kw</span>
+                  <span>H10 Cerebro: <strong>{generatedPlan.plan?.keyword_sources?.h10_cerebro ?? 0}</strong> kw</span>
+                  <span>竞品 ASIN: <strong>{generatedPlan.plan?.keyword_sources?.competitor_asins ?? 0}</strong></span>
+                </div>
+              </div>
+
+              {/* Budget allocation bars */}
+              {generatedPlan.plan?.budget_allocation && generatedPlan.plan.budget_allocation.length > 0 && (
+                <div className="rounded-xl border border-slate-200 bg-white shadow-sm p-4">
+                  <p className="text-xs font-semibold text-slate-500 uppercase tracking-wide mb-3">预算分配</p>
+                  <div className="space-y-2">
+                    {generatedPlan.plan.budget_allocation.map(b => (
+                      <div key={b.name} className="flex items-center gap-3 text-xs">
+                        <span className="w-40 truncate text-slate-600 flex-shrink-0">{b.name}</span>
+                        <div className="flex-1 bg-slate-100 rounded-full h-2 overflow-hidden">
+                          <div
+                            className={cn('h-2 rounded-full', b.type === 'SP' ? 'bg-blue-400' : b.type === 'SB' ? 'bg-purple-400' : 'bg-amber-400')}
+                            style={{ width: `${b.pct}%` }}
+                          />
+                        </div>
+                        <span className="w-20 text-right text-slate-500 flex-shrink-0">${b.budget}/天 ({b.pct}%)</span>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {/* Campaign list */}
+              <p className="text-sm font-semibold text-slate-700">Campaign 详情</p>
+              <div className="space-y-2">
+                {generatedPlan.plan?.campaigns?.map((c, idx) => {
+                  const isOpen = expandedCampaigns.has(idx)
+                  const totalKws = c.ad_groups?.reduce((sum, ag) => sum + (ag.keywords?.length ?? 0), 0) ?? 0
+                  return (
+                    <div key={idx} className="rounded-xl border border-slate-200 bg-white shadow-sm overflow-hidden">
+                      <button
+                        onClick={() => toggleCampaign(idx)}
+                        className="w-full flex items-center gap-3 px-4 py-3 text-left hover:bg-slate-50 transition"
+                      >
+                        {isOpen ? <ChevronUp className="h-4 w-4 text-slate-400 flex-shrink-0" /> : <ChevronDown className="h-4 w-4 text-slate-400 flex-shrink-0" />}
+                        <span className={cn('rounded-full px-1.5 py-0.5 text-[10px] font-semibold flex-shrink-0',
+                          TYPE_COLORS[c.type] ?? 'bg-slate-100 text-slate-500')}>
+                          {c.type}
+                        </span>
+                        <div className="flex-1 min-w-0">
+                          <p className="text-sm font-medium text-slate-700 truncate">{c.name}</p>
+                          <p className="text-xs text-slate-400">{c.purpose}</p>
+                        </div>
+                        <div className="flex items-center gap-3 text-xs text-slate-500 flex-shrink-0">
+                          <span>${c.daily_budget}/天</span>
+                          {totalKws > 0 && <span>{totalKws} kw</span>}
+                          {c.placement_top_of_search_pct > 0 && (
+                            <span className="text-blue-600">Top +{c.placement_top_of_search_pct}%</span>
+                          )}
+                        </div>
+                      </button>
+                      {isOpen && (
+                        <div className="border-t border-slate-100 px-4 py-3 bg-slate-50 space-y-3">
+                          <div className="flex gap-4 text-xs text-slate-500">
+                            <span>竞价策略: <strong>{c.bidding_strategy}</strong></span>
+                            {c.placement_top_of_search_pct > 0 && (
+                              <span>Top of Search 加价: <strong className="text-blue-600">+{c.placement_top_of_search_pct}%</strong></span>
+                            )}
+                          </div>
+                          {c.ad_groups?.map((ag, agi) => (
+                            <div key={agi}>
+                              <p className="text-xs font-semibold text-slate-600 mb-1.5">Ad Group: {ag.name}</p>
+                              {/* Keyword table */}
+                              {ag.keywords && ag.keywords.length > 0 && (
+                                <div className="overflow-x-auto rounded-lg border border-slate-200">
+                                  <table className="w-full text-xs">
+                                    <thead className="bg-slate-100">
+                                      <tr>
+                                        {['关键词', '匹配', 'Bid', '来源', '搜索量', '竞争度', '分类'].map(h => (
+                                          <th key={h} className="px-2 py-1.5 text-left font-semibold text-slate-500 uppercase tracking-wide text-[10px]">{h}</th>
+                                        ))}
+                                      </tr>
+                                    </thead>
+                                    <tbody className="divide-y divide-slate-100 bg-white">
+                                      {ag.keywords.slice(0, 20).map((kw, ki) => (
+                                        <tr key={ki} className="hover:bg-slate-50">
+                                          <td className="px-2 py-1.5 font-medium text-slate-700">{kw.keyword}</td>
+                                          <td className="px-2 py-1.5 text-slate-500">{kw.match_type}</td>
+                                          <td className="px-2 py-1.5 text-emerald-700 font-medium">${kw.bid}</td>
+                                          <td className="px-2 py-1.5 text-slate-400">{kw.source}</td>
+                                          <td className="px-2 py-1.5 text-slate-500">{kw.search_volume > 0 ? kw.search_volume.toLocaleString() : '—'}</td>
+                                          <td className="px-2 py-1.5">
+                                            <span className={cn('rounded-full px-1.5 py-0.5 text-[10px] font-medium',
+                                              kw.competition === 'high' ? 'bg-rose-50 text-rose-600' :
+                                              kw.competition === 'medium' ? 'bg-amber-50 text-amber-600' :
+                                              'bg-emerald-50 text-emerald-600')}>
+                                              {kw.competition === 'high' ? '高' : kw.competition === 'medium' ? '中' : '低'}
+                                            </span>
+                                          </td>
+                                          <td className="px-2 py-1.5 text-slate-500">{CATEGORY_BADGE[kw.category] ?? kw.category}</td>
+                                        </tr>
+                                      ))}
+                                    </tbody>
+                                  </table>
+                                  {ag.keywords.length > 20 && (
+                                    <p className="px-3 py-1.5 text-xs text-slate-400 bg-slate-50">
+                                      + {ag.keywords.length - 20} 个关键词 (导出 JSON 查看全部)
+                                    </p>
+                                  )}
+                                </div>
+                              )}
+                              {/* Auto strategies */}
+                              {ag.strategies && (
+                                <div className="flex gap-1.5 flex-wrap">
+                                  {ag.strategies.map(s => (
+                                    <span key={s} className="rounded-full bg-blue-50 border border-blue-200 px-2 py-0.5 text-[11px] text-blue-700">
+                                      {s}
+                                    </span>
+                                  ))}
+                                </div>
+                              )}
+                              {/* Product targets */}
+                              {ag.targets && ag.targets.length > 0 && (
+                                <div>
+                                  <p className="text-xs text-slate-500 mb-1">竞品 ASIN 投放:</p>
+                                  <div className="flex gap-1.5 flex-wrap">
+                                    {ag.targets.map(t => (
+                                      <span key={t.asin} className="rounded-full bg-amber-50 border border-amber-200 px-2 py-0.5 text-[11px] text-amber-700 font-mono">
+                                        {t.asin}
+                                      </span>
+                                    ))}
+                                  </div>
+                                </div>
+                              )}
+                              {/* SD targeting */}
+                              {ag.targeting && ag.targeting.length > 0 && (
+                                <div className="flex gap-1.5 flex-wrap">
+                                  {ag.targeting.map((t, ti) => (
+                                    <span key={ti} className="rounded-full bg-purple-50 border border-purple-200 px-2 py-0.5 text-[11px] text-purple-700">
+                                      {t.description}
+                                    </span>
+                                  ))}
+                                </div>
+                              )}
+                            </div>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+                  )
+                })}
+              </div>
+
+              {generatedPlan.plan?.notes && (
+                <p className="text-xs text-slate-400 italic px-1">{generatedPlan.plan.notes}</p>
+              )}
             </div>
           )}
         </div>
