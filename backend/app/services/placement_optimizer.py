@@ -343,6 +343,6 @@ async def generate_placement_recommendations(
     await session.commit()
     logger.info(
         "placement_optimizer: created %d placement recommendations for %d campaigns",
-        len(created), len(rows),
+        len(created), len(all_campaign_ids),
     )
     return created

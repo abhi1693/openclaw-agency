@@ -431,6 +431,138 @@ function SignalsPanel({ rd }: { rd: ReasonData }) {
   )
 }
 
+function TierLegend() {
+  const [open, setOpen] = useState(false)
+  return (
+    <div className="mb-3 rounded-lg border border-slate-200 bg-slate-50">
+      <button
+        onClick={() => setOpen((v) => !v)}
+        className="flex w-full items-center justify-between rounded-lg px-4 py-2.5 text-xs font-medium text-slate-600 hover:bg-slate-100"
+      >
+        <span>📋 关键词分级说明</span>
+        {open ? <ChevronUp className="h-3.5 w-3.5 text-slate-400" /> : <ChevronDown className="h-3.5 w-3.5 text-slate-400" />}
+      </button>
+      {open && (
+        <div className="grid grid-cols-1 gap-2 px-4 pb-3 sm:grid-cols-5 sm:gap-3">
+          {[
+            { tier: 'star',   icon: '⭐', label: 'Star 明星词',    desc: 'ACoS 远低于目标，转化率高，建议加大投入获取更多订单' },
+            { tier: 'stable', icon: '✅', label: 'Stable 稳定词',   desc: 'ACoS 接近目标，表现稳定，微调即可' },
+            { tier: 'watch',  icon: '👀', label: 'Watch 观察词',    desc: 'ACoS 偏高但有数据支撑，需持续观察或小幅降 Bid' },
+            { tier: 'drain',  icon: '🚿', label: 'Drain 亏损词',    desc: 'ACoS 严重超标，持续亏损，建议大幅降 Bid 或暂停' },
+            { tier: 'sparse', icon: '📊', label: 'Sparse 数据不足', desc: '点击量不足 5 次，数据太少无法判断，暂不调整' },
+          ].map(({ tier, icon, label, desc }) => {
+            const cfg = TIER_CONFIG[tier] ?? { cls: 'bg-slate-100 text-slate-500', dot: 'bg-slate-400', label: '' }
+            return (
+              <div key={tier} className={cn('rounded-lg border p-2.5 text-xs', cfg.cls)}>
+                <p className="mb-0.5 font-semibold">{icon} {label}</p>
+                <p className="leading-snug opacity-75">{desc}</p>
+              </div>
+            )
+          })}
+        </div>
+      )}
+    </div>
+  )
+}
+
+function BidDetailPanel({ rec, rd }: { rec: BidRec; rd: ReasonData }) {
+  const delta = changePct(rec.current_bid, rec.recommended_bid)
+  const isIncrease = delta > 0.5
+  const isDecrease = delta < -0.5
+  const directionMsg = isIncrease
+    ? '⬆️ 提升曝光量和订单量 — 当前 ACoS 低于目标，有空间争取更多流量'
+    : isDecrease
+    ? '⬇️ 控制广告花费 — 当前 ACoS 高于目标，需要降低成本提高效率'
+    : '➡️ 维持当前出价 — 表现稳定，暂无调整必要'
+  const directionCls = isIncrease
+    ? 'bg-green-50 border-green-200 text-green-700'
+    : isDecrease
+    ? 'bg-red-50 border-red-200 text-red-700'
+    : 'bg-slate-50 border-slate-200 text-slate-600'
+  const signals = rd.signals
+  return (
+    <div className="space-y-3 py-1">
+      <div className={cn('rounded-lg border px-3 py-2 text-sm font-medium', directionCls)}>
+        {directionMsg}
+      </div>
+      <div className="grid grid-cols-3 gap-3 text-xs">
+        <div className="rounded-lg border border-slate-100 bg-white p-2.5">
+          <p className="mb-0.5 text-slate-400">当前 ACoS</p>
+          <p className="font-semibold text-slate-800">
+            {rd.current_acos != null ? `${(N(rd.current_acos) * 100).toFixed(1)}%` : '—'}
+            <span className="ml-1 text-[10px] font-normal text-slate-400">目标 {(N(rd.target_acos) * 100).toFixed(1)}%</span>
+          </p>
+          {rd.current_acos != null && (
+            <p className={cn('mt-0.5 text-[10px]', N(rd.current_acos) <= N(rd.target_acos) ? 'text-emerald-600' : 'text-rose-600')}>
+              {N(rd.current_acos) <= N(rd.target_acos) ? '低于目标，表现良好' : '高于目标，需要优化'}
+            </p>
+          )}
+        </div>
+        <div className="rounded-lg border border-slate-100 bg-white p-2.5">
+          <p className="mb-0.5 text-slate-400">转化率 (CVR)</p>
+          <p className="font-semibold text-slate-800">
+            {rec.conversion_rate != null ? `${(N(rec.conversion_rate) * 100).toFixed(1)}%` : '—'}
+          </p>
+          {rd.trend_7d_vs_14d_cvr != null && (
+            <p className={cn('mt-0.5 text-[10px]', N(rd.trend_7d_vs_14d_cvr) >= 1 ? 'text-emerald-600' : 'text-rose-600')}>
+              近7d趋势: {N(rd.trend_7d_vs_14d_cvr).toFixed(2)}× {N(rd.trend_7d_vs_14d_cvr) >= 1 ? '↑ 上升' : '↓ 下降'}
+            </p>
+          )}
+        </div>
+        <div className="rounded-lg border border-slate-100 bg-white p-2.5">
+          <p className="mb-0.5 text-slate-400">综合评分</p>
+          <p className="font-semibold text-slate-800">{Math.round(rd.score * 100)} / 100</p>
+          <div className="mt-1 h-1 rounded-full bg-slate-200">
+            <div
+              className={cn('h-1 rounded-full', rd.score >= 0.7 ? 'bg-emerald-500' : rd.score >= 0.4 ? 'bg-amber-500' : 'bg-rose-500')}
+              style={{ width: `${Math.round(rd.score * 100)}%` }}
+            />
+          </div>
+        </div>
+      </div>
+      <div className="rounded-lg border border-slate-100 bg-white p-3 text-xs">
+        <p className="mb-2 font-semibold text-slate-600">信号分析</p>
+        {[
+          { key: 'acos_efficiency'      as const, label: 'ACoS 效率', weight: '30%' },
+          { key: 'conversion_trend'     as const, label: '转化趋势',  weight: '25%' },
+          { key: 'revenue_contribution' as const, label: '营收贡献',  weight: '20%' },
+          { key: 'cpc_trend'            as const, label: 'CPC 趋势',  weight: '15%' },
+          { key: 'impression_share'     as const, label: '展示占比',  weight: '10%' },
+        ].map(({ key, label, weight }) => {
+          const val = signals[key]
+          return (
+            <div key={key} className="flex items-center gap-2 py-0.5">
+              <span className="w-28 text-slate-500">{label} <span className="text-slate-400">({weight})</span></span>
+              <div className="h-1.5 w-24 rounded-full bg-slate-200">
+                <div
+                  className={cn('h-1.5 rounded-full', val >= 0.7 ? 'bg-emerald-500' : val >= 0.4 ? 'bg-amber-500' : 'bg-rose-500')}
+                  style={{ width: `${Math.round(val * 100)}%` }}
+                />
+              </div>
+              <span className="text-slate-400">{Math.round(val * 100)}</span>
+            </div>
+          )
+        })}
+      </div>
+      <div className="rounded-lg border border-slate-100 bg-white p-3 text-xs space-y-1 text-slate-600">
+        <p className="mb-1 font-semibold text-slate-700">Bid 调整详情</p>
+        <div className="flex items-center gap-2">
+          <span className="text-slate-400">当前竞价:</span>
+          <span className="font-medium">{fmtUSD(rec.current_bid)}</span>
+          <span className="text-slate-400">→</span>
+          <span className={cn('font-semibold', isIncrease ? 'text-green-600' : isDecrease ? 'text-red-600' : 'text-slate-600')}>
+            {fmtUSD(rec.recommended_bid)}
+            <span className="ml-1 text-[10px]">({delta > 0 ? '+' : ''}{N(delta).toFixed(1)}%)</span>
+          </span>
+        </div>
+        <p><span className="text-slate-400">ACoS 偏差:</span> <span className={cn('font-medium', N(rd.gap_pct) > 0 ? 'text-rose-600' : 'text-emerald-600')}>{(N(rd.gap_pct) * 100).toFixed(1)}%</span></p>
+        <p><span className="text-slate-400">阻尼系数:</span> {N(rd.damping_factor).toFixed(2)} · <span className="text-slate-400">调整幅度:</span> {(N(rd.applied_step_pct) * 100).toFixed(1)}%</p>
+        {rd.bound_note && <p className="text-amber-600">⚠ {rd.bound_note}</p>}
+      </div>
+    </div>
+  )
+}
+
 function SortableHeader({ label, field, sort, onSort, title }: { label: string; field: string; sort: { field: string; dir: 'asc' | 'desc' }; onSort: (f: string) => void; title?: string }) {
   const active = sort.field === field
   return (
@@ -595,10 +727,17 @@ function BidRecommendationsTab() {
 
   const items: BidRec[] = data?.items ?? []
 
+  const enriched = useMemo(() => items.map((rec) => {
+    const rd = parseReason(rec.reason)
+    return { ...rec, _tier: rd?.tier ?? '', _score: rd?.score ?? 0, _delta_pct: changePct(rec.current_bid, rec.recommended_bid) }
+  }), [items])
+
   const sorted = useMemo(() => {
-    return [...items].sort((a, b) => {
-      const av = (a as unknown as Record<string, unknown>)[sort.field]
-      const bv = (b as unknown as Record<string, unknown>)[sort.field]
+    const FIELD_MAP: Record<string, string> = { tier: '_tier', score: '_score', delta_pct: '_delta_pct' }
+    return [...enriched].sort((a, b) => {
+      const f = FIELD_MAP[sort.field] ?? sort.field
+      const av = (a as unknown as Record<string, unknown>)[f]
+      const bv = (b as unknown as Record<string, unknown>)[f]
       if (av == null) return 1
       if (bv == null) return -1
       const na = typeof av === 'string' ? parseFloat(av) : (av as number)
@@ -608,7 +747,7 @@ function BidRecommendationsTab() {
       const cmp = aVal < bVal ? -1 : aVal > bVal ? 1 : 0
       return sort.dir === 'asc' ? cmp : -cmp
     })
-  }, [items, sort])
+  }, [enriched, sort])
 
   function handleSort(field: string) {
     setSort((s) => ({ field, dir: s.field === field && s.dir === 'asc' ? 'desc' : 'asc' }))
@@ -680,6 +819,11 @@ function BidRecommendationsTab() {
         </div>
       </div>
 
+      {/* Tier Legend */}
+      <div className="px-4 pt-3">
+        <TierLegend />
+      </div>
+
       {/* Table */}
       <div className="overflow-x-auto">
         <table className="w-full text-sm">
@@ -695,7 +839,7 @@ function BidRecommendationsTab() {
               <SortableHeader label="Match" field="match_type" sort={sort} onSort={handleSort} title="匹配类型：exact / phrase / broad" />
               <SortableHeader label="当前竞价" field="current_bid" sort={sort} onSort={handleSort} title="当前竞价金额 (USD)" />
               <SortableHeader label="建议竞价" field="recommended_bid" sort={sort} onSort={handleSort} title="系统推荐竞价金额 (USD)" />
-              <SortableHeader label="变化 %" field="recommended_bid" sort={sort} onSort={handleSort} title="相较当前竞价的涨跌幅" />
+              <SortableHeader label="变化 %" field="delta_pct" sort={sort} onSort={handleSort} title="相较当前竞价的涨跌幅" />
               <SortableHeader label="转化率" field="conversion_rate" sort={sort} onSort={handleSort} title="点击转化率 (CVR)" />
               <SortableHeader label="状态" field="status" sort={sort} onSort={handleSort} title="待处理 / 已采纳 / 已拒绝" />
             </tr>
@@ -708,7 +852,6 @@ function BidRecommendationsTab() {
             ) : (
               sorted.map((rec) => {
                 const delta = changePct(rec.current_bid, rec.recommended_bid)
-                const isIncrease = delta > 0
                 const rd = parseReason(rec.reason)
                 const isExpanded = expanded.has(rec.id)
                 return (
@@ -735,13 +878,13 @@ function BidRecommendationsTab() {
                       <td className="max-w-[140px] truncate px-3 py-2 font-mono text-xs text-slate-600" title={rec.campaign_id}>{rec.campaign_id}</td>
                       <td className="px-3 py-2 text-xs text-slate-500">{rec.match_type ?? '—'}</td>
                       <td className="px-3 py-2 font-medium text-slate-700">{fmtUSD(rec.current_bid)}</td>
-                      <td className="px-3 py-2 font-medium text-slate-900">
+                      <td className={cn('px-3 py-2 font-medium', delta > 0.5 ? 'text-green-700 bg-green-50' : delta < -0.5 ? 'text-red-700 bg-red-50' : 'text-slate-900')}>
                         {fmtUSD(rec.recommended_bid)}
-                        {rd && <span className="ml-1 text-[10px] text-slate-400" title="Next cycle estimate">→~${N(rd.next_cycle_approx).toFixed(2)}</span>}
+                        {rd && <span className={cn('ml-1 text-[10px] font-normal', delta > 0.5 ? 'text-green-500' : delta < -0.5 ? 'text-red-400' : 'text-slate-400')} title="Next cycle estimate">→~${N(rd.next_cycle_approx).toFixed(2)}</span>}
                       </td>
                       <td className="px-3 py-2">
-                        <span className={cn('inline-flex items-center gap-1 text-xs font-medium', isIncrease ? 'text-rose-600' : 'text-emerald-600')}>
-                          {isIncrease ? <TrendingUp className="h-3 w-3" /> : <TrendingDown className="h-3 w-3" />}
+                        <span className={cn('inline-flex items-center gap-1 text-xs font-medium', delta > 0.5 ? 'text-green-600' : delta < -0.5 ? 'text-red-600' : 'text-slate-500')}>
+                          {delta > 0.5 ? <TrendingUp className="h-3 w-3" /> : delta < -0.5 ? <TrendingDown className="h-3 w-3" /> : null}
                           {delta > 0 ? '+' : ''}{N(delta).toFixed(1)}%
                         </span>
                       </td>
@@ -750,8 +893,8 @@ function BidRecommendationsTab() {
                     </tr>
                     {isExpanded && rd && (
                       <tr>
-                        <td colSpan={11} className="bg-slate-50 px-6 pb-3 pt-0">
-                          <SignalsPanel rd={rd} />
+                        <td colSpan={11} className="bg-slate-50 px-6 pb-3 pt-2">
+                          <BidDetailPanel rec={rec} rd={rd} />
                         </td>
                       </tr>
                     )}
@@ -2290,7 +2433,7 @@ function CampaignBuilderTab() {
         <div className="py-12 text-center text-sm text-slate-400">Loading…</div>
       ) : plans.length === 0 ? (
         <div className="rounded-xl border border-dashed border-slate-200 py-12 text-center text-sm text-slate-400">
-          暂无广告计划 — 在上方生成一个。
+          暂无 Campaign 计划。点击上方 <strong className="text-slate-500">生成方案</strong> 按钮，系统将根据关键词发现引擎自动创建 Campaign 结构。
         </div>
       ) : (
         <div className="space-y-3">

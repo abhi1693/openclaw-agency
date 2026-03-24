@@ -460,3 +460,24 @@
 2026-03-23 19:30:05: 2026-03-23 19:30:05,184 INFO app.services.ams_consumer ams_consumer.poll_done dataset=sp-conversion processed=1 failed=0 app=mission-control version=0.1.0
 2026-03-23 19:30:50: 2026-03-23 19:30:50,886 INFO app.services.ams_consumer ams_consumer.poll_done dataset=sp-traffic processed=3 failed=0 app=mission-control version=0.1.0
 2026-03-23 19:31:56: 2026-03-23 19:31:56,634 INFO app.services.ams_consumer ams_consumer.poll_done dataset=sp-traffic processed=7 failed=0 app=mission-control version=0.1.0
+2026-03-23 20:30:01: 2026-03-23 20:30:01,131 INFO app.core.logging logging.configured level=INFO format=text use_utc=False app=mission-control version=0.1.0
+2026-03-23 20:30:01: 2026-03-23 20:30:01,207 INFO alembic.runtime.plugins setup plugin alembic.autogenerate.schemas app=mission-control version=0.1.0
+2026-03-23 20:30:01: 2026-03-23 20:30:01,207 INFO alembic.runtime.plugins setup plugin alembic.autogenerate.tables app=mission-control version=0.1.0
+2026-03-23 20:30:01: 2026-03-23 20:30:01,207 INFO alembic.runtime.plugins setup plugin alembic.autogenerate.types app=mission-control version=0.1.0
+2026-03-23 20:30:01: 2026-03-23 20:30:01,207 INFO alembic.runtime.plugins setup plugin alembic.autogenerate.constraints app=mission-control version=0.1.0
+2026-03-23 20:30:01: 2026-03-23 20:30:01,207 INFO alembic.runtime.plugins setup plugin alembic.autogenerate.defaults app=mission-control version=0.1.0
+2026-03-23 20:30:01: 2026-03-23 20:30:01,207 INFO alembic.runtime.plugins setup plugin alembic.autogenerate.comments app=mission-control version=0.1.0
+2026-03-23 20:30:01: 2026-03-23 20:30:01,441 INFO __main__ ams_worker.started dry_run=False app=mission-control version=0.1.0
+2026-03-23 20:30:21: 2026-03-23 20:30:21,749 INFO app.services.ams_consumer ams_consumer.placement_found placement=Top of Search on-Amazon campaign=374369318636497 app=mission-control version=0.1.0
+2026-03-23 20:30:21: 2026-03-23 20:30:21,877 INFO app.services.ams_consumer ams_consumer.poll_done dataset=sp-conversion processed=1 failed=0 app=mission-control version=0.1.0
+2026-03-23 20:30:22: 2026-03-23 20:30:22,060 INFO app.services.ams_consumer ams_consumer.poll_done dataset=budget-usage processed=1 failed=0 app=mission-control version=0.1.0
+2026-03-23 20:30:59: 2026-03-23 20:30:59,807 INFO __main__ ams_worker.sigterm_received — shutting down gracefully app=mission-control version=0.1.0
+2026-03-23 20:31:01: 2026-03-23 20:31:01,675 INFO app.core.logging logging.configured level=INFO format=text use_utc=False app=mission-control version=0.1.0
+2026-03-23 20:31:01: 2026-03-23 20:31:01,753 INFO alembic.runtime.plugins setup plugin alembic.autogenerate.schemas app=mission-control version=0.1.0
+2026-03-23 20:31:01: 2026-03-23 20:31:01,754 INFO alembic.runtime.plugins setup plugin alembic.autogenerate.tables app=mission-control version=0.1.0
+2026-03-23 20:31:01: 2026-03-23 20:31:01,754 INFO alembic.runtime.plugins setup plugin alembic.autogenerate.types app=mission-control version=0.1.0
+2026-03-23 20:31:01: 2026-03-23 20:31:01,754 INFO alembic.runtime.plugins setup plugin alembic.autogenerate.constraints app=mission-control version=0.1.0
+2026-03-23 20:31:01: 2026-03-23 20:31:01,754 INFO alembic.runtime.plugins setup plugin alembic.autogenerate.defaults app=mission-control version=0.1.0
+2026-03-23 20:31:01: 2026-03-23 20:31:01,754 INFO alembic.runtime.plugins setup plugin alembic.autogenerate.comments app=mission-control version=0.1.0
+2026-03-23 20:31:01: 2026-03-23 20:31:01,997 INFO __main__ ams_worker.started dry_run=False app=mission-control version=0.1.0
+2026-03-23 20:31:22: 2026-03-23 20:31:22,449 INFO app.services.ams_consumer ams_consumer.poll_done dataset=sp-conversion processed=1 failed=0 app=mission-control version=0.1.0
