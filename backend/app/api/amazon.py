@@ -1233,8 +1233,9 @@ async def get_ppc_search_terms(
     session: AsyncSession = SESSION_DEP,
 ) -> dict:
     """PPC search term performance from SearchTermReport DB."""
-    cutoff = utcnow() - timedelta(days=days)
-    stmt = select(SearchTermReport).where(col(SearchTermReport.synced_at) >= cutoff)
+    from datetime import date as date_type
+    cutoff_date = date_type.today() - timedelta(days=days)
+    stmt = select(SearchTermReport).where(col(SearchTermReport.report_date) >= cutoff_date)
     if campaign_id:
         stmt = stmt.where(SearchTermReport.campaign_id == campaign_id)
     stmt = stmt.order_by(col(SearchTermReport.spend).desc().nullslast()).limit(limit)
@@ -1245,10 +1246,10 @@ async def get_ppc_search_terms(
             "empty": True, "message": "暂无搜索词数据，请先同步 /api/v1/amazon/search-terms/sync",
         }
     last_synced = max((r.synced_at for r in rows), default=None)
-    period = rows[0].period if rows else ""
-    parts = period.split("_") if "_" in period else []
-    start_date = parts[0] if parts else None
-    end_date = parts[-1] if parts else None
+    # Derive actual date range from data (not the cutoff)
+    dates = sorted(r.report_date for r in rows if r.report_date)
+    start_date = str(dates[0]) if dates else None
+    end_date = str(dates[-1]) if dates else None
 
     def to_term(r: SearchTermReport) -> dict:
         impressions = r.impressions or 0
@@ -1419,6 +1420,94 @@ async def get_ppc_bid_analysis(session: AsyncSession = SESSION_DEP) -> dict:
     }
 
 
+def _normalize_ai_insights(data: dict) -> dict:
+    """Normalize snake_case AI insights keys to camelCase for frontend."""
+    out: dict[str, Any] = {}
+
+    # Simple scalar fields
+    out["generatedAt"] = data.get("generated_at") or data.get("generatedAt")
+    out["model"] = data.get("model")
+    out["overall"] = data.get("overall")
+    out["h10CrossAnalysis"] = data.get("h10_cross_analysis") or data.get("h10CrossAnalysis")
+
+    # date_range: "2026-02-21 to 2026-03-23" → { start, end }
+    dr = data.get("date_range") or data.get("dateRange")
+    if isinstance(dr, str) and " to " in dr:
+        parts = dr.split(" to ", 1)
+        out["dateRange"] = {"start": parts[0].strip(), "end": parts[1].strip()}
+    elif isinstance(dr, dict):
+        out["dateRange"] = dr
+    else:
+        out["dateRange"] = None
+
+    # keyword_semantic_groups → keywordGrouping: { brandTerms, categoryTerms, competitorTerms, problemSolvingTerms }
+    GROUP_MAP = {
+        "brand": "brandTerms",
+        "品牌": "brandTerms",
+        "category": "categoryTerms",
+        "品类": "categoryTerms",
+        "competitor": "competitorTerms",
+        "竞品": "competitorTerms",
+        "problem": "problemSolvingTerms",
+        "问题": "problemSolvingTerms",
+        "功能": "problemSolvingTerms",
+    }
+    kg: dict[str, list] = {
+        "brandTerms": [], "categoryTerms": [], "competitorTerms": [], "problemSolvingTerms": [],
+    }
+    groups = data.get("keyword_semantic_groups") or data.get("keywordGrouping") or []
+    if isinstance(groups, list):
+        for grp in groups:
+            group_label = (grp.get("group") or "").lower()
+            bucket = "categoryTerms"  # default
+            for key, bucket_name in GROUP_MAP.items():
+                if key in group_label:
+                    bucket = bucket_name
+                    break
+            strategy = grp.get("strategy") or ""
+            for kw in grp.get("keywords") or []:
+                kg[bucket].append({"term": kw, "strategy": strategy})
+    elif isinstance(groups, dict):
+        kg = groups  # already normalized
+    out["keywordGrouping"] = kg
+
+    # negative_keyword_risk → negativeRiskAssessment
+    VERDICT_MAP = {"直接否定": "否定"}
+    neg_risks = data.get("negative_keyword_risk") or data.get("negativeRiskAssessment") or []
+    if neg_risks and isinstance(neg_risks[0], dict) and "keyword" in neg_risks[0]:
+        out["negativeRiskAssessment"] = [
+            {
+                "term": r.get("keyword") or r.get("term") or "",
+                "spend": float(r.get("spend") or 0),
+                "verdict": VERDICT_MAP.get(r.get("verdict") or "", r.get("verdict") or "观察"),
+                "reason": r.get("reason") or "",
+            }
+            for r in neg_risks
+        ]
+    else:
+        out["negativeRiskAssessment"] = neg_risks
+
+    # anomaly_analysis → anomalyAnalysis (root_cause → rootCause)
+    anomalies = data.get("anomaly_analysis") or data.get("anomalyAnalysis") or []
+    if anomalies and isinstance(anomalies[0], dict) and "root_cause" in anomalies[0]:
+        out["anomalyAnalysis"] = [
+            {
+                "campaign": r.get("campaign") or "",
+                "issue": r.get("issue") or "",
+                "rootCause": r.get("root_cause") or r.get("rootCause") or "",
+                "fix": r.get("fix") or "",
+            }
+            for r in anomalies
+        ]
+    else:
+        out["anomalyAnalysis"] = anomalies
+
+    # action_plan → weeklyActionPlan
+    out["weeklyActionPlan"] = data.get("action_plan") or data.get("weeklyActionPlan") or []
+
+    return out
+
+
 @router.get("/ppc/ai-insights")
 async def get_ppc_ai_insights(session: AsyncSession = SESSION_DEP) -> dict:
     """PPC AI insights — DB first (type=ai-insights), fallback to cache file."""
@@ -1430,11 +1519,13 @@ async def get_ppc_ai_insights(session: AsyncSession = SESSION_DEP) -> dict:
     )
     row = (await session.exec(stmt)).first()
     if row and row.data:
-        return {**row.data, "empty": False, "source": f"db:{row.report_date}",
+        normalized = _normalize_ai_insights(row.data)
+        return {**normalized, "empty": False, "source": f"db:{row.report_date}",
                 "report_date": str(row.report_date)}
     data = _get_ppc_cache_snapshot("ai-insights")
     if data:
-        return {**data, "empty": False}
+        normalized = _normalize_ai_insights(data)
+        return {**normalized, "empty": False}
     return {
         "empty": True,
         "message": "等待下次 AI 分析运行",
@@ -1442,9 +1533,156 @@ async def get_ppc_ai_insights(session: AsyncSession = SESSION_DEP) -> dict:
     }
 
 
+async def _compute_keyword_analysis_live(session: AsyncSession) -> dict:
+    """Compute keyword analysis in real-time from search_term_reports (last 30 days)."""
+    from datetime import date as date_type
+    cutoff = date_type.today() - timedelta(days=30)
+    rows = list(await session.exec(
+        select(SearchTermReport).where(col(SearchTermReport.report_date) >= cutoff)
+    ))
+    if not rows:
+        return {
+            "empty": True, "source": "live:no_data",
+            "message": "search_term_reports 暂无数据（30天内）",
+            "summary": None,
+            "addKeywords": [], "negativeKeywords": [], "matchUpgrades": [],
+            "longTail": [], "duplicateTargeting": [],
+        }
+
+    # Aggregate by search_term across all rows
+    from collections import defaultdict
+    agg: dict[str, dict] = defaultdict(lambda: {
+        "impressions": 0, "clicks": 0, "orders": 0,
+        "spend": 0.0, "sales": 0.0, "campaigns": set(),
+        "match_types": set(), "keywords": set(),
+    })
+    for r in rows:
+        st = (r.search_term or "").strip().lower()
+        if not st:
+            continue
+        a = agg[st]
+        a["impressions"] += r.impressions or 0
+        a["clicks"] += r.clicks or 0
+        a["orders"] += r.orders or 0
+        a["spend"] += float(r.spend or 0)
+        a["sales"] += float(r.sales or 0)
+        if r.campaign_name:
+            a["campaigns"].add(r.campaign_name)
+        if r.match_type:
+            a["match_types"].add(r.match_type.upper())
+        if r.keyword:
+            a["keywords"].add((r.keyword or "").strip().lower())
+
+    # addKeywords: good CVR, not already an exact targeted keyword
+    add_kws: list[dict] = []
+    for st, a in agg.items():
+        if a["orders"] < 1 or a["clicks"] < 3:
+            continue
+        acos = a["spend"] / a["sales"] * 100 if a["sales"] > 0 else 999
+        if acos > 50:
+            continue
+        # Skip if already targeted as exact keyword
+        if st in a["keywords"] and "EXACT" in a["match_types"]:
+            continue
+        add_kws.append({
+            "searchTerm": st,
+            "impressions": a["impressions"],
+            "clicks": a["clicks"],
+            "orders": a["orders"],
+            "sales": round(a["sales"], 2),
+            "spend": round(a["spend"], 2),
+            "acos": round(acos, 1),
+            "suggestedMatchType": "EXACT",
+            "campaigns": sorted(a["campaigns"]),
+        })
+    add_kws.sort(key=lambda x: (-x["orders"], x["acos"]))
+    add_kws = add_kws[:25]
+
+    # negativeKeywords: high spend with zero orders
+    neg_kws: list[dict] = []
+    for st, a in agg.items():
+        if a["orders"] > 0 or a["clicks"] < 3:
+            continue
+        if a["spend"] < 2.0:
+            continue
+        level = "flag" if a["spend"] >= 10 else "warn"
+        neg_kws.append({
+            "searchTerm": st,
+            "impressions": a["impressions"],
+            "clicks": a["clicks"],
+            "spend": round(a["spend"], 2),
+            "campaigns": sorted(a["campaigns"]),
+            "level": level,
+            "action": "建议添加否定关键词",
+        })
+    neg_kws.sort(key=lambda x: -x["spend"])
+    neg_kws = neg_kws[:25]
+
+    # matchUpgrades: BROAD match with good conversion → suggest EXACT
+    broad_agg: dict[str, dict] = defaultdict(lambda: {
+        "orders": 0, "spend": 0.0, "sales": 0.0, "campaigns": set(),
+    })
+    for r in rows:
+        if (r.match_type or "").upper() != "BROAD":
+            continue
+        kw = (r.keyword or r.search_term or "").strip().lower()
+        if not kw:
+            continue
+        b = broad_agg[kw]
+        b["orders"] += r.orders or 0
+        b["spend"] += float(r.spend or 0)
+        b["sales"] += float(r.sales or 0)
+        if r.campaign_name:
+            b["campaigns"].add(r.campaign_name)
+
+    upgrades: list[dict] = []
+    for kw, b in broad_agg.items():
+        if b["orders"] < 2:
+            continue
+        acos = b["spend"] / b["sales"] * 100 if b["sales"] > 0 else 999
+        if acos > 40:
+            continue
+        upgrades.append({
+            "keyword": kw,
+            "currentMatch": "BROAD",
+            "orders": b["orders"],
+            "acos": round(acos, 1),
+            "suggestion": f"升级为 EXACT，保留转化，减少无关曝光",
+        })
+    upgrades.sort(key=lambda x: (-x["orders"], x["acos"]))
+    upgrades = upgrades[:20]
+
+    dates = sorted(r.report_date for r in rows if r.report_date)
+    start_date = str(dates[0]) if dates else None
+    end_date = str(dates[-1]) if dates else None
+
+    return {
+        "empty": False,
+        "source": "live:search_term_reports",
+        "derivedFrom": f"search_term_reports ({len(rows)} rows)",
+        "startDate": start_date,
+        "endDate": end_date,
+        "summary": {
+            "addKeywordCount": len(add_kws),
+            "negativeCount": len(neg_kws),
+            "negWarnCount": sum(1 for k in neg_kws if k["level"] == "warn"),
+            "negFlagCount": sum(1 for k in neg_kws if k["level"] == "flag"),
+            "upgradeCount": len(upgrades),
+            "longTailCount": 0,
+            "duplicateGroupCount": 0,
+        },
+        "addKeywords": add_kws,
+        "negativeKeywords": neg_kws,
+        "matchUpgrades": upgrades,
+        "longTail": [],
+        "duplicateTargeting": [],
+    }
+
+
 @router.get("/ppc/keyword-analysis")
 async def get_ppc_keyword_analysis(session: AsyncSession = SESSION_DEP) -> dict:
-    """PPC keyword analysis (add/negative/upgrade suggestions) — DB first, fallback to cache."""
+    """PPC keyword analysis — DB snapshot if fresh (<7 days), else live from search_term_reports."""
+    from datetime import date as date_type
     stmt = (
         select(PpcAnalysisSnapshot)
         .where(PpcAnalysisSnapshot.analysis_type == "keyword")
@@ -1452,19 +1690,17 @@ async def get_ppc_keyword_analysis(session: AsyncSession = SESSION_DEP) -> dict:
         .limit(1)
     )
     row = (await session.exec(stmt)).first()
-    if row and row.data:
+    snapshot_fresh = (
+        row is not None
+        and row.report_date is not None
+        and (date_type.today() - row.report_date).days <= 7
+    )
+    if snapshot_fresh and row and row.data:
         return {**row.data, "empty": False, "source": f"db:{row.report_date}",
                 "report_date": str(row.report_date)}
-    data = _get_ppc_cache_snapshot("keyword")
-    if data:
-        return {**data, "empty": False}
-    return {
-        "empty": True, "source": "none",
-        "message": "暂无分析数据，等待下次分析运行",
-        "summary": None,
-        "addKeywords": [], "negativeKeywords": [], "matchUpgrades": [],
-        "longTail": [], "duplicateTargeting": [],
-    }
+
+    # Snapshot is stale or missing — compute live from DB
+    return await _compute_keyword_analysis_live(session)
 
 
 @router.get("/product-costs")
