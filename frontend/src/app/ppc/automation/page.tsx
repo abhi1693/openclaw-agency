@@ -932,11 +932,18 @@ function BidRecommendationsTab() {
   const [selected, setSelected] = useState<Set<string>>(new Set())
   const [expanded, setExpanded] = useState<Set<string>>(new Set())
   const [sort, setSort] = useState<{ field: string; dir: 'asc' | 'desc' }>({ field: 'created_at', dir: 'desc' })
+  const [campaignFilter, setCampaignFilter] = useState<string | null>(null)
   const queryClient = useQueryClient()
 
   const { data, isLoading, refetch } = useQuery({
     queryKey: ['bid-recs', statusFilter],
     queryFn: () => apiFetch(`/api/ppc/automation/bid-recommendations?status=${statusFilter}`),
+  })
+
+  const { data: optData } = useQuery({
+    queryKey: ['opt-recs'],
+    queryFn: () => apiFetch('/api/ppc/automation/optimization-recommendations'),
+    staleTime: 5 * 60 * 1000,
   })
 
   const items: BidRec[] = data?.items ?? []
@@ -963,6 +970,11 @@ function BidRecommendationsTab() {
     })
   }, [enriched, sort])
 
+  const filtered = useMemo(() => {
+    if (!campaignFilter) return sorted
+    return sorted.filter(r => r.campaign_id === campaignFilter)
+  }, [sorted, campaignFilter])
+
   function handleSort(field: string) {
     setSort((s) => ({ field, dir: s.field === field && s.dir === 'asc' ? 'desc' : 'asc' }))
   }
@@ -986,7 +998,49 @@ function BidRecommendationsTab() {
     },
   })
 
+  const optTransfers = (optData as { budget_transfers?: Array<{ from_campaign: string; from_acos: number | null; to_campaign: string | null; to_acos: number | null; same_product: boolean; transfer_amount: number; steps: Array<{ timing: string; action: string; details: string[] }>; expected_impact: { from_saved: string; to_gained: string; net_weekly_gain: string } }> } | undefined)?.budget_transfers ?? []
+  const optHealth = (optData as { campaign_health?: { healthy: number; warning: number; critical: number } } | undefined)?.campaign_health
+
   return (
+    <div className="space-y-4">
+      {/* 📊 Campaign-level health panel */}
+      {(optTransfers.length > 0 || optHealth) && (
+        <div className="rounded-xl border border-amber-200 bg-amber-50/60 p-4">
+          <div className="flex items-center gap-2 mb-3">
+            <span className="text-sm font-semibold text-slate-700">📊 Campaign 级别建议</span>
+            {optHealth && (
+              <div className="flex gap-1.5 ml-auto">
+                {optHealth.critical > 0 && <span className="rounded-full bg-rose-100 text-rose-600 text-[10px] font-semibold px-2 py-0.5 border border-rose-200">{optHealth.critical} 高危</span>}
+                {optHealth.warning > 0 && <span className="rounded-full bg-amber-100 text-amber-600 text-[10px] font-semibold px-2 py-0.5 border border-amber-200">{optHealth.warning} 警告</span>}
+                {optHealth.healthy > 0 && <span className="rounded-full bg-emerald-100 text-emerald-700 text-[10px] font-semibold px-2 py-0.5 border border-emerald-200">{optHealth.healthy} 健康</span>}
+              </div>
+            )}
+          </div>
+          {optTransfers.length > 0 && (
+            <div className="space-y-2">
+              {optTransfers.slice(0, 4).map((t, i) => (
+                <div key={i} className="rounded-lg bg-white border border-slate-200 px-3 py-2 text-xs">
+                  <div className="flex items-center gap-2">
+                    <span className="font-semibold text-slate-700 truncate flex-1">{t.from_campaign}</span>
+                    {t.to_campaign && <span className="text-slate-400 truncate max-w-[120px]">→ {t.to_campaign}</span>}
+                    <span className={cn('text-[10px] font-semibold px-1.5 py-0.5 rounded-full flex-shrink-0', t.same_product ? 'bg-emerald-50 text-emerald-700' : 'bg-amber-50 text-amber-600')}>
+                      {t.same_product ? '✅ 同产品' : '⚠️ 跨产品'}
+                    </span>
+                    <span className="font-bold text-rose-600 flex-shrink-0">${t.transfer_amount}/天</span>
+                    {t.from_acos != null && <span className="text-[10px] text-slate-400 flex-shrink-0">ACoS {t.from_acos}%</span>}
+                  </div>
+                  <div className="flex flex-wrap gap-3 mt-1 text-slate-400">
+                    {t.steps.slice(0, 2).map((s, si) => (
+                      <span key={si}><strong>{s.timing}:</strong> {s.action}</span>
+                    ))}
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      )}
+    {/* Bid recs table */}
     <div className="rounded-xl border border-slate-200 bg-white shadow-sm">
       {/* Toolbar */}
       <div className="flex items-center justify-between border-b border-slate-100 px-4 py-3">
@@ -1119,6 +1173,7 @@ function BidRecommendationsTab() {
           </tbody>
         </table>
       </div>
+    </div>
     </div>
   )
 }

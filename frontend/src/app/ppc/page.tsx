@@ -1,5 +1,5 @@
 'use client'
-import { useEffect, useState, useMemo } from 'react'
+import { useEffect, useState, useMemo, useCallback } from 'react'
 import { Skeleton } from '@/components/ui/skeleton'
 import { Badge } from '@/components/ui/badge'
 import { DashboardPageLayout } from '@/components/templates/DashboardPageLayout'
@@ -165,6 +165,52 @@ interface AiInsights {
   weeklyActionPlan?: AiAction[]
 }
 
+// ─── Optimization Recommendations Types ──────────────────────────────────────
+
+interface OptTransferStep {
+  timing: string
+  action: string
+  details: string[]
+}
+
+interface OptBudgetTransfer {
+  from_campaign: string
+  from_acos: number | null
+  from_spend_30d: number
+  to_campaign: string | null
+  to_acos: number | null
+  same_product: boolean
+  transfer_amount: number
+  steps: OptTransferStep[]
+  preserve_note: string
+  expected_impact: { from_saved: string; to_gained: string; net_weekly_gain: string }
+}
+
+interface OptMissingCoverage {
+  product: string
+  asin: string
+  missing: string
+  suggestion: string
+  competitor_asins?: string[]
+}
+
+interface OptQuickWin {
+  action: string
+  impact: string
+  terms?: string[]
+  campaigns?: string[]
+}
+
+interface OptRecommendations {
+  generated_at: string
+  target_acos: number
+  campaign_health: { healthy: number; warning: number; critical: number; inactive: number }
+  total_campaigns: number
+  budget_transfers: OptBudgetTransfer[]
+  missing_coverage: OptMissingCoverage[]
+  quick_wins: OptQuickWin[]
+}
+
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
 function fmtNum(n: number): string {
@@ -244,6 +290,116 @@ function EmptyState({ message, hint }: { message: string; hint?: string }) {
   )
 }
 
+// ─── Optimization Panel ───────────────────────────────────────────────────────
+
+function OptimizationPanel({ data }: { data: OptRecommendations }) {
+  const [expanded, setExpanded] = useState<Set<number>>(new Set())
+  const toggle = (i: number) => setExpanded(prev => {
+    const n = new Set(prev); n.has(i) ? n.delete(i) : n.add(i); return n
+  })
+
+  const hasContent = data.budget_transfers.length > 0 || data.missing_coverage.length > 0 || data.quick_wins.length > 0
+
+  if (!hasContent) return null
+
+  return (
+    <div className="rounded-xl border border-amber-200 bg-white p-5">
+      <div className="flex items-center gap-2 mb-4">
+        <Zap className="w-4 h-4 text-amber-600" />
+        <h3 className="text-base font-semibold text-slate-900">🔧 优化建议</h3>
+        <div className="flex gap-1.5 ml-auto">
+          {data.campaign_health.critical > 0 && (
+            <Badge className="text-[9px] bg-rose-100 text-rose-600 border-0">{data.campaign_health.critical} 高危</Badge>
+          )}
+          {data.campaign_health.warning > 0 && (
+            <Badge className="text-[9px] bg-amber-100 text-amber-600 border-0">{data.campaign_health.warning} 警告</Badge>
+          )}
+          {data.campaign_health.healthy > 0 && (
+            <Badge className="text-[9px] bg-emerald-100 text-emerald-700 border-0">{data.campaign_health.healthy} 健康</Badge>
+          )}
+        </div>
+      </div>
+
+      <div className="space-y-3">
+        {/* Budget transfers */}
+        {data.budget_transfers.map((t, i) => (
+          <div key={i} className="rounded-lg border border-rose-200 overflow-hidden">
+            <button
+              onClick={() => toggle(i)}
+              className="w-full flex items-center gap-2 px-3 py-2.5 bg-rose-50 hover:bg-rose-100/70 transition text-left"
+            >
+              {expanded.has(i) ? <ChevronUp className="w-3.5 h-3.5 text-rose-500 flex-shrink-0" /> : <ChevronDown className="w-3.5 h-3.5 text-rose-500 flex-shrink-0" />}
+              <div className="flex-1 min-w-0">
+                <p className="text-sm font-semibold text-slate-800 truncate">
+                  🔄 {t.from_campaign}
+                  {t.to_campaign && <span className="text-slate-400 font-normal"> → {t.to_campaign}</span>}
+                </p>
+                <p className="text-[10px] text-slate-500">
+                  from ACoS {t.from_acos != null ? `${t.from_acos}%` : '—'}
+                  {t.to_campaign && t.to_acos != null && ` → to ACoS ${t.to_acos}%`}
+                  {t.same_product
+                    ? <span className="ml-1.5 text-emerald-600">✅ 同产品</span>
+                    : <span className="ml-1.5 text-amber-600">⚠️ 跨产品</span>}
+                </p>
+              </div>
+              <span className="text-sm font-bold text-rose-600 flex-shrink-0">${t.transfer_amount}/天</span>
+            </button>
+            {expanded.has(i) && (
+              <div className="px-4 py-3 space-y-2 bg-white">
+                {t.steps.map((s, si) => (
+                  <div key={si} className="flex gap-3 text-xs">
+                    <span className="text-slate-500 font-semibold w-28 flex-shrink-0">{s.timing}</span>
+                    <div>
+                      <p className="font-medium text-slate-700">{s.action}</p>
+                      {s.details.length > 0 && <p className="text-slate-400 mt-0.5">{s.details.join(' · ')}</p>}
+                    </div>
+                  </div>
+                ))}
+                {t.preserve_note && <p className="text-[10px] text-slate-400 italic">{t.preserve_note}</p>}
+                <div className="flex gap-3 text-[10px] pt-1 border-t border-slate-100">
+                  <span className="text-rose-600">{t.expected_impact.from_saved}</span>
+                  <span className="text-emerald-600">{t.expected_impact.to_gained}</span>
+                  <span className="font-semibold text-slate-700">净 {t.expected_impact.net_weekly_gain}</span>
+                </div>
+              </div>
+            )}
+          </div>
+        ))}
+
+        {/* Missing coverage */}
+        {data.missing_coverage.length > 0 && (
+          <div className="rounded-lg border border-blue-200 bg-blue-50 p-3 space-y-1.5">
+            <p className="text-xs font-semibold text-blue-800 mb-2">⚠️ 缺失覆盖</p>
+            {data.missing_coverage.map((m, i) => (
+              <div key={i} className="flex items-start gap-2 text-xs">
+                <span className="text-blue-400 flex-shrink-0 mt-0.5">•</span>
+                <div>
+                  <span className="font-medium text-slate-700">{m.product}</span>
+                  <span className="text-slate-500"> — {m.missing}</span>
+                  <p className="text-blue-600 mt-0.5">{m.suggestion}</p>
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
+
+        {/* Quick wins */}
+        {data.quick_wins.length > 0 && (
+          <div className="rounded-lg border border-emerald-200 bg-emerald-50 p-3 space-y-1.5">
+            <p className="text-xs font-semibold text-emerald-800 mb-2">🎯 Quick Wins</p>
+            {data.quick_wins.map((q, i) => (
+              <div key={i} className="text-xs">
+                <p className="font-medium text-slate-700">{q.action}</p>
+                <p className="text-slate-500">{q.impact}</p>
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
+    </div>
+  )
+}
+
 // ─── Tab 1: Overview ─────────────────────────────────────────────────────────
 
 interface RealtimeTodayData {
@@ -252,7 +408,7 @@ interface RealtimeTodayData {
   cpc: number | null; ctr: number | null; campaigns: number; latest_hour: number | null
 }
 
-function OverviewTab({ report, realtimeToday }: { report: WeeklyReport | null; realtimeToday?: RealtimeTodayData | null }) {
+function OverviewTab({ report, realtimeToday, optRecs }: { report: WeeklyReport | null; realtimeToday?: RealtimeTodayData | null; optRecs?: OptRecommendations | null }) {
   if (!report) {
     return (
       <div className="space-y-4">
@@ -450,6 +606,9 @@ function OverviewTab({ report, realtimeToday }: { report: WeeklyReport | null; r
           )}
         </div>
       </div>
+
+      {/* Optimization recommendations */}
+      {optRecs && <OptimizationPanel data={optRecs} />}
     </div>
   )
 }
@@ -1776,6 +1935,9 @@ function PPCPageContent({ period, topTab }: { period: Period; topTab: TopTab }) 
   // AMS realtime today
   const [realtimeToday, setRealtimeToday] = useState<RealtimeTodayData | null>(null)
 
+  // Optimization recommendations
+  const [optRecs, setOptRecs] = useState<OptRecommendations | null>(null)
+
   // Load keyword performance
   useEffect(() => {
     setKwLoading(true)
@@ -1827,6 +1989,12 @@ function PPCPageContent({ period, topTab }: { period: Period; topTab: TopTab }) 
     fetch('/api/ppc/weekly-report')
       .then(r => r.json()).then(d => setReport(d)).catch(() => {})
       .finally(() => setReportLoading(false))
+  }, [])
+
+  // Load optimization recommendations (lazy — only when overview tab active)
+  useEffect(() => {
+    fetch('/api/ppc/automation/optimization-recommendations')
+      .then(r => r.json()).then(d => setOptRecs(d)).catch(() => {})
   }, [])
 
   // AMS realtime today (auto-refresh every 60s)
@@ -1888,7 +2056,7 @@ function PPCPageContent({ period, topTab }: { period: Period; topTab: TopTab }) 
         {topTab === 'overview' && (
           reportLoading
             ? <div className="space-y-4">{[...Array(3)].map((_, i) => <Skeleton key={i} className="h-24 rounded-xl" />)}</div>
-            : <OverviewTab report={report} realtimeToday={realtimeToday} />
+            : <OverviewTab report={report} realtimeToday={realtimeToday} optRecs={optRecs} />
         )}
 
         {topTab === 'keywords-opt' && (

@@ -84,6 +84,7 @@ from app.services.amazon_sync import (
     sync_search_terms,
     sync_top_products,
 )
+from app.services.campaign_optimizer import get_optimization_recommendations
 from app.services.profit_calculator import compute_profit
 
 router = APIRouter(prefix="/amazon", tags=["amazon"])
@@ -2043,3 +2044,16 @@ async def get_product_costs(session: AsyncSession = SESSION_DEP) -> dict:
         ],
         "total": len(rows),
     }
+
+
+@router.get("/ppc/optimization-recommendations")
+async def get_ppc_optimization_recommendations(
+    target_acos: float = Query(default=25.0, ge=5.0, le=100.0),
+    session: AsyncSession = SESSION_DEP,
+) -> dict:
+    """Global campaign optimization recommendations — budget transfers, missing coverage, quick wins."""
+    from fastapi import HTTPException
+    try:
+        return await get_optimization_recommendations(session, target_acos=target_acos)
+    except Exception as exc:  # noqa: BLE001
+        raise HTTPException(status_code=500, detail=str(exc)) from exc

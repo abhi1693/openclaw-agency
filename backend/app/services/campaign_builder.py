@@ -28,6 +28,10 @@ from sqlmodel.ext.asyncio.session import AsyncSession
 from app.core.logging import get_logger
 from app.core.time import utcnow
 from app.models.ppc_automation import CampaignPlan, PpcAutomationSettings
+from app.services.campaign_optimizer import (
+    classify_campaign_status,
+    generate_optimization_steps,
+)
 
 logger = get_logger(__name__)
 
@@ -762,15 +766,7 @@ async def get_campaign_structure(
         spend_30d = m.get("spend", 0)
         avg_daily_spend = spend_30d / 30 if spend_30d > 0 else 0
 
-        # Determine status
-        if acos_val is None or m.get("spend", 0) < 1:
-            status = "inactive"
-        elif acos_val > target_acos / 100 * 2:
-            status = "critical"
-        elif acos_val > target_acos / 100 * 1.3:
-            status = "warning"
-        else:
-            status = "healthy"
+        status = classify_campaign_status(acos_val, m.get("spend", 0), target_acos)
 
         # Budget depletes early if avg daily spend >= 90% of budget
         depletes_early = avg_daily_spend >= budget * 0.9 and budget > 0
@@ -843,34 +839,13 @@ async def get_campaign_structure(
                 }
                 to_same_product = False
 
-        steps = []
-        if zc_terms:
-            steps.append({
-                "timing": "立即",
-                "action": f"否定 {len(zc_terms)} 个 0 转化搜索词",
-                "details": zc_terms[:15],
-            })
-        avg_bid_estimate = source_c["spend_30d"] / max(source_c["clicks_30d"], 1)
-        steps.append({
-            "timing": "本周",
-            "action": "降 bid 20%",
-            "details": [
-                f"当前 avg bid ≈ ${avg_bid_estimate:.2f}",
-                f"新 bid ≈ ${avg_bid_estimate * 0.8:.2f}",
-                "观察 7 天后评估",
-            ],
-        })
-        if transferable > 0 and transfer_target:
-            expected_sales = transferable * (transfer_target.get("roas", 4) if "roas" in transfer_target else 4)
-            steps.append({
-                "timing": f"7天后如果 ACoS 仍 > {target_acos}%",
-                "action": f"转移 ${transferable}/天",
-                "details": [
-                    f"转移到: {transfer_target['name']}",
-                    f"预期销售增加: +${round(expected_sales * 7, 0)}/周",
-                    f"保留 $5/天维持 {source_c['name']} 最低覆盖",
-                ],
-            })
+        steps = generate_optimization_steps(
+            campaign=source_c,
+            zero_conv_terms=zc_terms,
+            target_acos=target_acos,
+            transfer_amount=transferable,
+            transfer_target_name=transfer_target["name"] if transfer_target else None,
+        )
 
         optimization_steps.append({
             "priority": priority,
