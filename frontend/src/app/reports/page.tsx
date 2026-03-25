@@ -894,6 +894,8 @@ function DiscoveryTab({ tabId, initialReport, deepLinkReport, onCountChange, onH
   onCountChange?: (count: number, loaded: boolean) => void
   onHighlightCreated?: () => void
 }) {
+  const onCountChangeRef = useRef(onCountChange)
+  onCountChangeRef.current = onCountChange
   const [files, setFiles] = useState<DiscoveryFile[]>([])
   const [loading, setLoading] = useState(true)
   const [selected, setSelected] = useState<DiscoveryFile | null>(null)
@@ -931,7 +933,7 @@ function DiscoveryTab({ tabId, initialReport, deepLinkReport, onCountChange, onH
     if (f) { setSelected(f); setSelectedContent(null) }
   }, [deepLinkReport, files]) // eslint-disable-line react-hooks/exhaustive-deps
 
-  useEffect(() => { onCountChange?.(files.length, !loading) }, [files.length, loading, onCountChange])
+  useEffect(() => { onCountChangeRef.current?.(files.length, !loading) }, [files.length, loading])
 
   const handleDelete = useCallback(async (e: React.MouseEvent, f: DiscoveryFile) => {
     e.stopPropagation()
@@ -1130,6 +1132,8 @@ function ListingTab({ tabId, initialReport, deepLinkReport, onCountChange, onHig
   onCountChange?: (count: number, loaded: boolean) => void
   onHighlightCreated?: () => void
 }) {
+  const onCountChangeRef = useRef(onCountChange)
+  onCountChangeRef.current = onCountChange
   const [files, setFiles] = useState<ListingReportFile[]>([])
   const [loading, setLoading] = useState(true)
   const [selected, setSelected] = useState<ListingReportFile | null>(null)
@@ -1175,7 +1179,7 @@ function ListingTab({ tabId, initialReport, deepLinkReport, onCountChange, onHig
     if (f) { setSelected(f); setSelectedContent(null) }
   }, [deepLinkReport, files]) // eslint-disable-line react-hooks/exhaustive-deps
 
-  useEffect(() => { onCountChange?.(files.length, !loading) }, [files.length, loading, onCountChange])
+  useEffect(() => { onCountChangeRef.current?.(files.length, !loading) }, [files.length, loading])
 
   const handleDelete = useCallback(async (e: React.MouseEvent, f: ListingReportFile) => {
     e.stopPropagation()
@@ -1400,6 +1404,8 @@ function PpcTab({ tabId, initialReport, deepLinkReport, onCountChange, onHighlig
   onCountChange?: (count: number, loaded: boolean) => void
   onHighlightCreated?: () => void
 }) {
+  const onCountChangeRef = useRef(onCountChange)
+  onCountChangeRef.current = onCountChange
   const [files, setFiles] = useState<PpcReportFile[]>([])
   const [loading, setLoading] = useState(true)
   const [selected, setSelected] = useState<PpcReportFile | null>(null)
@@ -1436,7 +1442,7 @@ function PpcTab({ tabId, initialReport, deepLinkReport, onCountChange, onHighlig
     if (f) { setSelected(f); setSelectedContent(null) }
   }, [deepLinkReport, files]) // eslint-disable-line react-hooks/exhaustive-deps
 
-  useEffect(() => { onCountChange?.(files.length, !loading) }, [files.length, loading, onCountChange])
+  useEffect(() => { onCountChangeRef.current?.(files.length, !loading) }, [files.length, loading])
 
   const handleDelete = useCallback(async (e: React.MouseEvent, f: PpcReportFile) => {
     e.stopPropagation()
@@ -1618,6 +1624,8 @@ function StrategyTab({ tabId, initialReport, deepLinkReport, onCountChange, onHi
   onCountChange?: (count: number, loaded: boolean) => void
   onHighlightCreated?: () => void
 }) {
+  const onCountChangeRef = useRef(onCountChange)
+  onCountChangeRef.current = onCountChange
   const [files, setFiles] = useState<StrategyFile[]>([])
   const [loading, setLoading] = useState(true)
   const [selected, setSelected] = useState<StrategyFile | null>(null)
@@ -1654,7 +1662,7 @@ function StrategyTab({ tabId, initialReport, deepLinkReport, onCountChange, onHi
     if (f) { setSelected(f); setSelectedContent(null) }
   }, [deepLinkReport, files]) // eslint-disable-line react-hooks/exhaustive-deps
 
-  useEffect(() => { onCountChange?.(files.length, !loading) }, [files.length, loading, onCountChange])
+  useEffect(() => { onCountChangeRef.current?.(files.length, !loading) }, [files.length, loading])
 
   const handleDelete = useCallback(async (e: React.MouseEvent, f: StrategyFile) => {
     e.stopPropagation()
@@ -1957,6 +1965,8 @@ function IntelTab({ tabId, initialReport, deepLinkReport, onCountChange, onHighl
   onCountChange?: (count: number, loaded: boolean) => void
   onHighlightCreated?: () => void
 }) {
+  const onCountChangeRef = useRef(onCountChange)
+  onCountChangeRef.current = onCountChange
   const [files, setFiles]                   = useState<IntelReportFile[]>([])
   const [loading, setLoading]               = useState(true)
   const [selected, setSelected]             = useState<IntelReportFile | null>(null)
@@ -1994,7 +2004,7 @@ function IntelTab({ tabId, initialReport, deepLinkReport, onCountChange, onHighl
     if (f) { setSelected(f); setSelectedContent(null) }
   }, [deepLinkReport, files]) // eslint-disable-line react-hooks/exhaustive-deps
 
-  useEffect(() => { onCountChange?.(files.length, !loading) }, [files.length, loading, onCountChange])
+  useEffect(() => { onCountChangeRef.current?.(files.length, !loading) }, [files.length, loading])
 
   const handleDelete = useCallback(async (e: React.MouseEvent, f: IntelReportFile) => {
     e.stopPropagation()
