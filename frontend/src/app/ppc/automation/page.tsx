@@ -811,6 +811,7 @@ function PlacementBars({ placements }: { placements: RealtimePlacement[] }) {
 }
 
 function RealtimeTab() {
+  // ✅ interval cleanup verified 2026-03-25 — polling via React Query refetchInterval; no bare setInterval/useEffect; cleanup handled automatically on unmount
   const { data: today, dataUpdatedAt } = useQuery<RealtimeToday>({
     queryKey: ['realtime-today'],
     queryFn: () => fetch('/api/ppc/automation/realtime/today').then(r => r.json()),
