@@ -8,7 +8,7 @@ import {
   Tooltip,
   YAxis,
 } from "recharts";
-import { useId } from "react";
+import { useId, useEffect, useRef, useState } from "react";
 
 import { cn } from "@/lib/utils";
 
@@ -79,6 +79,26 @@ export default function MetricSparkline({
   className,
 }: MetricSparklineProps) {
   const gradientId = useId();
+  const containerRef = useRef<HTMLDivElement>(null);
+  const [hasWidth, setHasWidth] = useState(false);
+
+  useEffect(() => {
+    const el = containerRef.current;
+    if (!el) return;
+    const { width } = el.getBoundingClientRect();
+    if (width > 0) {
+      setHasWidth(true);
+      return;
+    }
+    const observer = new ResizeObserver((entries) => {
+      if ((entries[0]?.contentRect.width ?? 0) > 0) {
+        setHasWidth(true);
+        observer.disconnect();
+      }
+    });
+    observer.observe(el);
+    return () => observer.disconnect();
+  }, []);
 
   if (!values.length) {
     return null;
@@ -89,37 +109,45 @@ export default function MetricSparkline({
   const fillColor = "#bfdbfe";
 
   return (
-    <div className={cn("h-8 w-full", className)}>
-      <ResponsiveContainer width="100%" height="100%">
-        <AreaChart
-          data={data}
-          margin={{ top: 4, right: 0, bottom: 0, left: 0 }}
-        >
-          <defs>
-            <linearGradient id={gradientId} x1="0" y1="0" x2="0" y2="1">
-              <stop offset="0%" stopColor={fillColor} stopOpacity={0.35} />
-              <stop offset="100%" stopColor={fillColor} stopOpacity={0} />
-            </linearGradient>
-          </defs>
-          <YAxis hide domain={["dataMin", "dataMax"]} />
-          <Tooltip
-            cursor={false}
-            content={(props) => (
-              <SparklineTooltip {...props} bucket={bucket} labels={labels} />
-            )}
-          />
-          <Area
-            type="monotone"
-            dataKey="value"
-            stroke={strokeColor}
-            strokeWidth={1.75}
-            fill={`url(#${gradientId})`}
-            fillOpacity={1}
-            dot={false}
-            isAnimationActive={false}
-          />
-        </AreaChart>
-      </ResponsiveContainer>
+    <div
+      ref={containerRef}
+      className={cn("h-8 w-full", className)}
+      style={{ minHeight: "2rem" }}
+    >
+      {hasWidth ? (
+        <ResponsiveContainer width="100%" height="100%">
+          <AreaChart
+            data={data}
+            margin={{ top: 4, right: 0, bottom: 0, left: 0 }}
+          >
+            <defs>
+              <linearGradient id={gradientId} x1="0" y1="0" x2="0" y2="1">
+                <stop offset="0%" stopColor={fillColor} stopOpacity={0.35} />
+                <stop offset="100%" stopColor={fillColor} stopOpacity={0} />
+              </linearGradient>
+            </defs>
+            <YAxis hide domain={["dataMin", "dataMax"]} />
+            <Tooltip
+              cursor={false}
+              content={(props) => (
+                <SparklineTooltip {...props} bucket={bucket} labels={labels} />
+              )}
+            />
+            <Area
+              type="monotone"
+              dataKey="value"
+              stroke={strokeColor}
+              strokeWidth={1.75}
+              fill={`url(#${gradientId})`}
+              fillOpacity={1}
+              dot={false}
+              isAnimationActive={false}
+            />
+          </AreaChart>
+        </ResponsiveContainer>
+      ) : (
+        <div className="h-8 w-full bg-transparent" />
+      )}
     </div>
   );
 }
