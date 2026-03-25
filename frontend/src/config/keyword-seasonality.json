@@ -1,0 +1,5 @@
+{
+  "body shimmer oil": { "type": "seasonal", "peak": [5, 6, 7], "note": "Peaks in summer (index 99 in Jul); drops sharply in Sep" },
+  "radiant body oil": { "type": "year-round", "peak": [], "note": "Stable year-round (peak index 68)" },
+  "body oil": { "type": "year-round", "peak": [], "note": "Stable year-round" }
+}

@@ -1,5 +1,6 @@
 'use client'
 
+import seasonality from '@/config/keyword-seasonality.json'
 import { Fragment, useState, useEffect, useCallback } from 'react'
 import {
   Key, TrendingUp, ChevronDown, ChevronRight,
@@ -140,6 +141,34 @@ function Sparkline({ data }: { data: number[] }) {
   )
 }
 
+// ─── Seasonal Badge ────────────────────────────────────────────────────────────
+
+type SeasonEntry = { type: string; peak: number[]; note: string }
+const SEASONALITY = seasonality as Record<string, SeasonEntry>
+const CURRENT_MONTH = new Date().getMonth() // 0-based
+
+function SeasonBadge({ keyword }: { keyword: string }) {
+  const entry = SEASONALITY[keyword.toLowerCase()]
+  if (!entry) return null
+  if (entry.type === 'year-round') {
+    return (
+      <span title={entry.note} className="inline-flex items-center gap-1 rounded-full border border-slate-200 bg-slate-100 px-2 py-0.5 text-[11px] font-medium text-slate-500 cursor-default select-none">
+        ⚪ Year-Round
+      </span>
+    )
+  }
+  const isPeak = entry.peak.includes(CURRENT_MONTH)
+  return isPeak ? (
+    <span title={entry.note} className="inline-flex items-center gap-1 rounded-full border border-green-200 bg-green-50 px-2 py-0.5 text-[11px] font-medium text-green-700 cursor-default select-none">
+      🌡️ Peak
+    </span>
+  ) : (
+    <span title={entry.note} className="inline-flex items-center gap-1 rounded-full border border-amber-200 bg-amber-50 px-2 py-0.5 text-[11px] font-medium text-amber-700 cursor-default select-none">
+      📉 Off-Peak
+    </span>
+  )
+}
+
 // ─── Tab 1: Rankings ──────────────────────────────────────────────────────────
 
 function RankingsTab({ asin }: { asin: string }) {
@@ -268,6 +297,7 @@ function RankingsTab({ asin }: { asin: string }) {
             <tr className="bg-[hsl(var(--muted)/0.4)] border-b border-[hsl(var(--border))]">
               <th className="text-left px-3 py-3 text-[hsl(var(--muted-foreground))] font-medium text-xs uppercase tracking-wider w-10">#</th>
               <th className="text-left px-3 py-3 text-[hsl(var(--muted-foreground))] font-medium text-xs uppercase tracking-wider">关键词</th>
+              <th className="text-left px-3 py-3 text-[hsl(var(--muted-foreground))] font-medium text-xs uppercase tracking-wider">季节</th>
               <th className="text-right px-3 py-3 text-[hsl(var(--muted-foreground))] font-medium text-xs uppercase tracking-wider">有机排名</th>
               <th className="text-right px-3 py-3 text-[hsl(var(--muted-foreground))] font-medium text-xs uppercase tracking-wider">排名变化</th>
               <th className="text-right px-3 py-3 text-[hsl(var(--muted-foreground))] font-medium text-xs uppercase tracking-wider">搜索量</th>
@@ -306,6 +336,9 @@ function RankingsTab({ asin }: { asin: string }) {
                     <td className="px-3 py-3 font-medium text-[hsl(var(--foreground))] max-w-[200px] truncate">
                       {row.keyword}
                     </td>
+                    <td className="px-3 py-3">
+                      <SeasonBadge keyword={row.keyword} />
+                    </td>
                     <td className="px-3 py-3 text-right tabular-nums">
                       {row.organic_rank != null ? (
                         <span className="font-semibold text-[hsl(var(--foreground))]">#{row.organic_rank}</span>
@@ -343,7 +376,7 @@ function RankingsTab({ asin }: { asin: string }) {
                   </tr>
                   {expanded && (
                     <tr className="bg-[hsl(var(--muted)/0.15)]">
-                      <td colSpan={8} className="px-6 py-4">
+                      <td colSpan={9} className="px-6 py-4">
                         <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:gap-8">
                           <div>
                             <p className="text-xs text-[hsl(var(--muted-foreground))] mb-2 font-medium uppercase tracking-wider">排名趋势</p>
