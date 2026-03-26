@@ -58,6 +58,25 @@ async def get_cron_jobs(
         )
 
 
+@router.get("/cron-jobs/{job_id}/runs")
+async def get_cron_job_runs(
+    job_id: str,
+    session: AsyncSession = SESSION_DEP,
+    ctx: OrganizationContext = ORG_MEMBER_DEP,
+) -> JSONResponse:
+    """Return recent run history for a cron job."""
+    gateway = await _first_gateway(session, ctx.organization.id)
+    if gateway is None:
+        return JSONResponse(status_code=503, content={"error": "Gateway 不可用", "runs": []})
+    try:
+        config = gateway_client_config(gateway)
+        result = await openclaw_call("cron.runs", {"id": job_id}, config=config)
+        runs = result if isinstance(result, list) else (result or [])
+        return JSONResponse(content={"runs": runs})
+    except (OpenClawGatewayError, Exception):
+        return JSONResponse(status_code=503, content={"error": "Gateway 不可用", "runs": []})
+
+
 class _CronJobUpdateBody:
     def __init__(self, enabled: bool) -> None:
         self.enabled = enabled

@@ -68,6 +68,13 @@ interface CronJobsData {
   jobs: CronJob[]
 }
 
+interface CronRun {
+  startedAtMs?: number; startAt?: number; startedAt?: number
+  durationMs?: number; duration?: number
+  status?: string; exitStatus?: string; exitCode?: number
+  output?: string; stdout?: string; log?: string
+}
+
 // ─── Cron → Human Readable ───────────────────────────────────────────────────
 
 function cronToHuman(expr: string): string {
@@ -455,6 +462,23 @@ function SystemPageContent({ forceRefresh, onAutoRefresh }: { forceRefresh: numb
   const [toast, setToast] = useState<{ msg: string; ok: boolean } | null>(null)
   const [activeTab, setActiveTab] = useState<'system' | 'cron'>('system')
 
+  const [expandedJobId, setExpandedJobId] = useState<string | null>(null)
+  const [cronRunsCache, setCronRunsCache] = useState<Record<string, CronRun[]>>({})
+  const [cronRunsLoading, setCronRunsLoading] = useState<Record<string, boolean>>({})
+
+  const toggleJobExpand = useCallback(async (jobId: string) => {
+    if (expandedJobId === jobId) { setExpandedJobId(null); return }
+    setExpandedJobId(jobId)
+    if (cronRunsCache[jobId]) return
+    setCronRunsLoading(p => ({ ...p, [jobId]: true }))
+    try {
+      const res = await fetch(`/api/system/cron-jobs/${jobId}/runs`)
+      const data = res.ok ? await res.json() : { runs: [] }
+      setCronRunsCache(p => ({ ...p, [jobId]: data.runs ?? [] }))
+    } catch { setCronRunsCache(p => ({ ...p, [jobId]: [] })) }
+    finally { setCronRunsLoading(p => ({ ...p, [jobId]: false })) }
+  }, [expandedJobId, cronRunsCache])
+
   // Unique agent IDs derived from cron jobs
   const allAgents = useMemo(() => {
     if (!cronJobs) return []
@@ -825,49 +849,71 @@ function SystemPageContent({ forceRefresh, onAutoRefresh }: { forceRefresh: numb
                   const fmtTime = (ms?: number) => ms ? new Date(ms).toLocaleString('zh-CN', { month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit' }) : '—'
                   const jobColor = getJobColor(job, cronJobs.jobs)
 
+                  const isExpanded = expandedJobId === job.id
+                  const runs = cronRunsCache[job.id]
+                  const runsLoading = cronRunsLoading[job.id]
+                  const lastRun: CronRun | undefined = runs?.[0]
+                  const runOutput = lastRun?.output ?? lastRun?.stdout ?? lastRun?.log ?? ''
+                  const runDurationMs = lastRun?.durationMs ?? lastRun?.duration
+                  const runStatus = lastRun?.status ?? lastRun?.exitStatus ?? (lastRun?.exitCode === 0 ? 'ok' : lastRun?.exitCode != null ? 'error' : undefined)
+
                   return (
-                    <div key={job.id} onClick={() => openEdit(job)} className={`grid grid-cols-[2fr_1fr_1fr_1fr_80px_1fr] gap-3 px-4 py-3 items-center cursor-pointer hover:bg-[hsl(var(--secondary)/0.3)] transition-colors ${i < cronJobs.jobs.length - 1 ? 'border-b border-[hsl(var(--border)/0.5)]' : ''} ${!job.enabled ? 'opacity-60' : ''} ${consecutiveErrors >= 3 ? 'bg-red-500/5' : consecutiveErrors >= 1 ? 'bg-amber-500/5' : ''}`}>
-                      <div className="flex items-center gap-2">
-                        <div
-                          className="w-2 h-2 rounded-full flex-shrink-0"
-                          style={{ backgroundColor: job.enabled ? jobColor : 'hsl(var(--muted-foreground))' }}
-                        />
-                        <span className="text-sm font-medium text-[hsl(var(--foreground))] truncate">{job.name}</span>
+                    <div key={job.id} className={i < cronJobs.jobs.length - 1 ? 'border-b border-[hsl(var(--border)/0.5)]' : ''}>
+                      <div onClick={() => openEdit(job)} className={`grid grid-cols-[2fr_1fr_1fr_1fr_80px_1fr_20px] gap-3 px-4 py-3 items-center cursor-pointer hover:bg-[hsl(var(--secondary)/0.3)] transition-colors ${!job.enabled ? 'opacity-60' : ''} ${consecutiveErrors >= 3 ? 'bg-red-500/5' : consecutiveErrors >= 1 ? 'bg-amber-500/5' : ''}`}>
+                        <div className="flex items-center gap-2">
+                          <div className="w-2 h-2 rounded-full flex-shrink-0" style={{ backgroundColor: job.enabled ? jobColor : 'hsl(var(--muted-foreground))' }} />
+                          <span className="text-sm font-medium text-[hsl(var(--foreground))] truncate">{job.name}</span>
+                        </div>
+                        <span className="text-xs text-[hsl(var(--muted-foreground))] truncate cursor-default" title={`${schedExpr}${tz ? ` (${tz})` : ''}`}>{schedHuman}</span>
+                        <span className="text-xs text-[hsl(var(--muted-foreground))] truncate">{agentLabel}</span>
+                        <span className={`text-xs truncate ${rawModel ? 'text-[hsl(var(--foreground))]' : 'text-[hsl(var(--muted-foreground))]'}`}>{modelLabel}</span>
+                        <div className="flex items-center gap-2 text-sm">
+                          <span>{!job.enabled ? '⏸️' : lastStatus === 'ok' ? '✅' : lastStatus === 'error' ? '❌' : '—'}</span>
+                          {consecutiveErrors >= 1 && (
+                            <span className={`inline-flex items-center rounded-full px-2 py-0.5 text-[10px] font-medium ${errorBadgeColor}`}>×{consecutiveErrors} errors</span>
+                          )}
+                        </div>
+                        {(() => {
+                          const now = Date.now()
+                          const diffMs = nextRunMs ? nextRunMs - now : null
+                          const diffMin = diffMs !== null ? Math.floor(diffMs / 60000) : null
+                          return diffMin !== null ? (
+                            <span className={`inline-flex items-center rounded-full px-1.5 py-0.5 text-[10px] font-medium ${diffMin < 0 ? 'bg-red-500/15 text-red-400' : diffMin < 30 ? 'bg-amber-500/15 text-amber-400' : 'bg-green-500/15 text-green-500'}`}>
+                              {diffMin < 0 ? 'overdue' : diffMin < 60 ? `in ${diffMin}m` : `in ${Math.floor(diffMin/60)}h${diffMin%60 > 0 ? ` ${diffMin%60}m` : ''}`}
+                            </span>
+                          ) : (
+                            <span className="text-xs text-[hsl(var(--muted-foreground))]">{fmtTime(nextRunMs)}</span>
+                          )
+                        })()}
+                        <button onClick={e => { e.stopPropagation(); toggleJobExpand(job.id) }} className="text-[hsl(var(--muted-foreground))] hover:text-[hsl(var(--foreground))] transition-colors">
+                          {isExpanded ? <ChevronUp className="w-3.5 h-3.5" /> : <ChevronDown className="w-3.5 h-3.5" />}
+                        </button>
                       </div>
-                      <span
-                        className="text-xs text-[hsl(var(--muted-foreground))] truncate cursor-default"
-                        title={`${schedExpr}${tz ? ` (${tz})` : ''}`}
-                      >{schedHuman}</span>
-                      <span className="text-xs text-[hsl(var(--muted-foreground))] truncate">{agentLabel}</span>
-                      <span className={`text-xs truncate ${rawModel ? 'text-[hsl(var(--foreground))]' : 'text-[hsl(var(--muted-foreground))]'}`}>{modelLabel}</span>
-                      <div className="flex items-center gap-2 text-sm">
-                        <span>
-                          {!job.enabled ? '⏸️' : lastStatus === 'ok' ? '✅' : lastStatus === 'error' ? '❌' : '—'}
-                        </span>
-                        {consecutiveErrors >= 1 && (
-                          <span className={`inline-flex items-center rounded-full px-2 py-0.5 text-[10px] font-medium ${errorBadgeColor}`}>
-                            ×{consecutiveErrors} errors
-                          </span>
-                        )}
-                      </div>
-                      {(() => {
-                        const now = Date.now()
-                        const diffMs = nextRunMs ? nextRunMs - now : null
-                        const diffMin = diffMs !== null ? Math.floor(diffMs / 60000) : null
-                        return diffMin !== null ? (
-                          <span className={`inline-flex items-center rounded-full px-1.5 py-0.5 text-[10px] font-medium ${
-                            diffMin < 0
-                              ? 'bg-red-500/15 text-red-400'
-                              : diffMin < 30
-                                ? 'bg-amber-500/15 text-amber-400'
-                                : 'bg-green-500/15 text-green-500'
-                          }`}>
-                            {diffMin < 0 ? 'overdue' : diffMin < 60 ? `in ${diffMin}m` : `in ${Math.floor(diffMin/60)}h${diffMin%60 > 0 ? ` ${diffMin%60}m` : ''}`}
-                          </span>
-                        ) : (
-                          <span className="text-xs text-[hsl(var(--muted-foreground))]">{fmtTime(nextRunMs)}</span>
-                        )
-                      })()}
+                      {isExpanded && (
+                        <div className="px-4 py-3 bg-[hsl(var(--secondary)/0.3)] border-t border-[hsl(var(--border)/0.5)] text-xs space-y-1.5">
+                          {runsLoading ? (
+                            <span className="text-[hsl(var(--muted-foreground))]">Loading…</span>
+                          ) : (
+                            <>
+                              <div className="flex items-center gap-4 flex-wrap">
+                                <span className="text-[hsl(var(--muted-foreground))]">上次运行：<span className="text-[hsl(var(--foreground))]">{fmtTime(job.state?.lastRunAtMs)}</span></span>
+                                {runDurationMs != null && <span className="text-[hsl(var(--muted-foreground))]">耗时：<span className="text-[hsl(var(--foreground))]">{runDurationMs < 1000 ? `${runDurationMs}ms` : `${(runDurationMs / 1000).toFixed(1)}s`}</span></span>}
+                                <span className={`inline-flex items-center rounded-full px-2 py-0.5 font-medium ${runStatus === 'ok' ? 'bg-green-500/15 text-green-500' : runStatus === 'error' ? 'bg-red-500/15 text-red-400' : 'bg-[hsl(var(--secondary))] text-[hsl(var(--muted-foreground))]'}`}>
+                                  {runStatus ?? (lastStatus ?? '—')}
+                                </span>
+                              </div>
+                              {runOutput && (
+                                <div className="font-mono text-[10px] text-[hsl(var(--muted-foreground))] bg-[hsl(var(--background))] rounded px-2 py-1.5 break-all">
+                                  {runOutput.slice(0, 200)}{runOutput.length > 200 ? '…' : ''}
+                                </div>
+                              )}
+                              {!runOutput && !runsLoading && runs !== undefined && (
+                                <span className="text-[hsl(var(--muted-foreground))]">无输出记录</span>
+                              )}
+                            </>
+                          )}
+                        </div>
+                      )}
                     </div>
                   )
                 })}
