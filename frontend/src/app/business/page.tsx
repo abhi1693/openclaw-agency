@@ -22,7 +22,10 @@ import {
   RotateCcw,
   CheckCircle2,
   Target,
+  CalendarClock,
 } from "lucide-react";
+
+import seasonalWindows from "@/config/seasonal-windows.json";
 
 import { DashboardPageLayout } from "@/components/templates/DashboardPageLayout";
 import { Card, CardHeader, CardContent } from "@/components/ui/card";
@@ -393,6 +396,63 @@ const salesChartConfig = {
   },
 } satisfies ChartConfig;
 
+// ─── Seasonal Windows ─────────────────────────────────────────────────────────
+
+interface SeasonalWindow {
+  product: string;
+  asin: string;
+  peakMonth: number;
+  prepDeadlineDays: number;
+  urgency: string;
+}
+
+function SeasonalWindowsCard() {
+  const today = new Date();
+  const windows = seasonalWindows as SeasonalWindow[];
+
+  return (
+    <Card>
+      <CardHeader className="pb-3">
+        <div className="flex items-center gap-2">
+          <CalendarClock className="w-4 h-4 text-primary" />
+          <h3 className="text-base font-semibold text-foreground">季节性窗口</h3>
+        </div>
+      </CardHeader>
+      <CardContent>
+        <div className="space-y-2">
+          {windows.map((w, i) => {
+            const deadline = new Date(today);
+            deadline.setDate(today.getDate() + w.prepDeadlineDays);
+            const daysLeft = Math.ceil((deadline.getTime() - today.getTime()) / 86_400_000);
+            const urgencyDot =
+              daysLeft < 30 ? "🔴" : daysLeft <= 90 ? "🟡" : "⚪";
+            const peakLabel = new Date(today.getFullYear(), w.peakMonth - 1, 1)
+              .toLocaleString("en-US", { month: "long" });
+            return (
+              <div
+                key={i}
+                className="flex items-center justify-between px-3 py-2 rounded-lg bg-muted/40 hover:bg-muted/60 transition-colors"
+              >
+                <div className="flex items-center gap-2 min-w-0">
+                  <span className="text-base leading-none">{urgencyDot}</span>
+                  <div className="min-w-0">
+                    <p className="text-sm font-medium text-foreground truncate">{w.product}</p>
+                    <p className="text-[10px] text-muted-foreground">峰值月份: {peakLabel}</p>
+                  </div>
+                </div>
+                <div className="text-right flex-shrink-0 ml-3">
+                  <p className="text-sm font-bold text-foreground">{daysLeft}d</p>
+                  <p className="text-[10px] text-muted-foreground">备货截止</p>
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      </CardContent>
+    </Card>
+  );
+}
+
 // ─── Main Page ────────────────────────────────────────────────────────────────
 
 export default function BusinessPage() {
@@ -663,6 +723,11 @@ export default function BusinessPage() {
           icon={<TrendingUp className="h-4 w-4" />}
           loading={salesLoading}
         />
+      </div>
+
+      {/* ── Seasonal Windows ─────────────────────────────────────────────── */}
+      <div className="mb-6">
+        <SeasonalWindowsCard />
       </div>
 
       {/* ── Sales chart + Insights ───────────────────────────────────────── */}
