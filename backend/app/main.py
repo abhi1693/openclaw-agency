@@ -5,6 +5,8 @@ from __future__ import annotations
 from contextlib import asynccontextmanager
 from typing import TYPE_CHECKING, Any
 
+import psutil
+
 from fastapi import APIRouter, FastAPI, status
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.openapi.utils import get_openapi
@@ -533,7 +535,8 @@ install_error_handling(app)
 )
 def health() -> HealthStatusResponse:
     """Lightweight liveness probe endpoint."""
-    return HealthStatusResponse(ok=True)
+    memory_mb = psutil.Process().memory_info().rss / (1024 ** 2)
+    return HealthStatusResponse(ok=True, process_memory_mb=round(memory_mb, 2))
 
 
 @app.get(
@@ -551,7 +554,8 @@ def health() -> HealthStatusResponse:
 )
 def healthz() -> HealthStatusResponse:
     """Alias liveness probe endpoint for platform compatibility."""
-    return HealthStatusResponse(ok=True)
+    memory_mb = psutil.Process().memory_info().rss / (1024 ** 2)
+    return HealthStatusResponse(ok=True, process_memory_mb=round(memory_mb, 2))
 
 
 @app.get(

@@ -15,6 +15,11 @@ class HealthStatusResponse(SQLModel):
         description="Indicates whether the probe check succeeded.",
         examples=[True],
     )
+    process_memory_mb: float | None = Field(
+        default=None,
+        description="Current process RSS memory usage in megabytes.",
+        examples=[128.4],
+    )
 
 
 class AgentHealthStatusResponse(HealthStatusResponse):

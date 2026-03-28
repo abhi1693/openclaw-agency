@@ -32,6 +32,7 @@ dependencies = [
     "beautifulsoup4>=4.14.3",
     "lxml>=6.0.2",
     "aioboto3>=15.5.0",
+    "psutil>=6.0.0",
 ]
 
 [project.optional-dependencies]
