@@ -2481,25 +2481,30 @@ function ReportsContent({
   onHighlightCreated: () => void
   onBacklink: (tab: string, filename: string) => void
 }) {
+  const onDiscoveryCount = useCallback((c: number, l: boolean) => onTabCountChange('discovery', c, l), [onTabCountChange])
+  const onListingCount = useCallback((c: number, l: boolean) => onTabCountChange('listing', c, l), [onTabCountChange])
+  const onPpcCount = useCallback((c: number, l: boolean) => onTabCountChange('ppc', c, l), [onTabCountChange])
+  const onStrategyCount = useCallback((c: number, l: boolean) => onTabCountChange('strategy', c, l), [onTabCountChange])
+  const onIntelCount = useCallback((c: number, l: boolean) => onTabCountChange('intel', c, l), [onTabCountChange])
   return (
     <div className="max-w-full space-y-6">
       <div className={cn(activeTab === 'discovery' ? 'block' : 'hidden')}>
-        <DiscoveryTab tabId="discovery" initialReport={activeTab === 'discovery' ? initialReport : null} deepLinkReport={deepLinkTarget?.tab === 'discovery' ? deepLinkTarget.filename : null} onCountChange={(c, l) => onTabCountChange('discovery', c, l)} onHighlightCreated={onHighlightCreated}/>
+        <DiscoveryTab tabId="discovery" initialReport={activeTab === 'discovery' ? initialReport : null} deepLinkReport={deepLinkTarget?.tab === 'discovery' ? deepLinkTarget.filename : null} onCountChange={onDiscoveryCount} onHighlightCreated={onHighlightCreated}/>
       </div>
       <div className={cn(activeTab === 'listing' ? 'block' : 'hidden')}>
-        <ListingTab tabId="listing" initialReport={activeTab === 'listing' ? initialReport : null} deepLinkReport={deepLinkTarget?.tab === 'listing' ? deepLinkTarget.filename : null} onCountChange={(c, l) => onTabCountChange('listing', c, l)} onHighlightCreated={onHighlightCreated}/>
+        <ListingTab tabId="listing" initialReport={activeTab === 'listing' ? initialReport : null} deepLinkReport={deepLinkTarget?.tab === 'listing' ? deepLinkTarget.filename : null} onCountChange={onListingCount} onHighlightCreated={onHighlightCreated}/>
       </div>
       <div className={cn(activeTab === 'ppc' ? 'block' : 'hidden')}>
-        <PpcTab tabId="ppc" initialReport={activeTab === 'ppc' ? initialReport : null} deepLinkReport={deepLinkTarget?.tab === 'ppc' ? deepLinkTarget.filename : null} onCountChange={(c, l) => onTabCountChange('ppc', c, l)} onHighlightCreated={onHighlightCreated}/>
+        <PpcTab tabId="ppc" initialReport={activeTab === 'ppc' ? initialReport : null} deepLinkReport={deepLinkTarget?.tab === 'ppc' ? deepLinkTarget.filename : null} onCountChange={onPpcCount} onHighlightCreated={onHighlightCreated}/>
       </div>
       <div className={cn(activeTab === 'content' ? 'block' : 'hidden')}>
         <ComingSoon label="Content Reports"/>
       </div>
       <div className={cn(activeTab === 'strategy' ? 'block' : 'hidden')}>
-        <StrategyTab tabId="strategy" initialReport={activeTab === 'strategy' ? initialReport : null} deepLinkReport={deepLinkTarget?.tab === 'strategy' ? deepLinkTarget.filename : null} onCountChange={(c, l) => onTabCountChange('strategy', c, l)} onHighlightCreated={onHighlightCreated}/>
+        <StrategyTab tabId="strategy" initialReport={activeTab === 'strategy' ? initialReport : null} deepLinkReport={deepLinkTarget?.tab === 'strategy' ? deepLinkTarget.filename : null} onCountChange={onStrategyCount} onHighlightCreated={onHighlightCreated}/>
       </div>
       <div className={cn(activeTab === 'intel' ? 'block' : 'hidden')}>
-        <IntelTab tabId="intel" initialReport={activeTab === 'intel' ? initialReport : null} deepLinkReport={deepLinkTarget?.tab === 'intel' ? deepLinkTarget.filename : null} onCountChange={(c, l) => onTabCountChange('intel', c, l)} onHighlightCreated={onHighlightCreated}/>
+        <IntelTab tabId="intel" initialReport={activeTab === 'intel' ? initialReport : null} deepLinkReport={deepLinkTarget?.tab === 'intel' ? deepLinkTarget.filename : null} onCountChange={onIntelCount} onHighlightCreated={onHighlightCreated}/>
       </div>
       <div className={cn(activeTab === 'highlights' ? 'block' : 'hidden')}>
         <HighlightsTab refreshKey={highlightsRefreshKey} onBacklink={onBacklink}/>
