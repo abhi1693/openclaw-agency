@@ -13,6 +13,7 @@ import {
 import { Input } from '@/components/ui/input'
 import { Cpu, MemoryStick, HardDrive, Clock, Monitor, Zap, RefreshCw, Bot, Coins, MessageSquare, ChevronDown, ChevronUp } from 'lucide-react'
 import { DashboardPageLayout } from '@/components/templates/DashboardPageLayout'
+import MetricSparkline from '@/components/charts/metric-sparkline'
 import CronCalendar from '@/components/system/CronCalendar'
 import { getLocalAuthToken, isLocalAuthMode } from '@/auth/localAuth'
 import { getJobColor } from '@/lib/cron-colors'
@@ -489,6 +490,20 @@ function SystemPageContent({ forceRefresh, onAutoRefresh }: { forceRefresh: numb
   const [usageExpanded, setUsageExpanded] = useState(false)
   const TOP_N = 5
 
+  const [memHistory, setMemHistory] = useState<number[]>([])
+
+  const loadBackendMemory = useCallback(async () => {
+    try {
+      const res = await fetch('/api/system/health')
+      if (res.ok) {
+        const data: { process_memory_mb?: number } = await res.json()
+        if (typeof data.process_memory_mb === 'number') {
+          setMemHistory(prev => [...prev.slice(-19), data.process_memory_mb!])
+        }
+      }
+    } catch { /* ignore */ }
+  }, [])
+
   const loadHardware = useCallback(async () => {
     try {
       const res = await fetch('/api/system/hardware')
@@ -577,16 +592,18 @@ function SystemPageContent({ forceRefresh, onAutoRefresh }: { forceRefresh: numb
     loadHardware()
     loadUsage()
     loadCronJobs()
-  }, [forceRefresh, loadHardware, loadUsage, loadCronJobs])
+    loadBackendMemory()
+  }, [forceRefresh, loadHardware, loadUsage, loadCronJobs, loadBackendMemory])
 
   // Auto-refresh hardware every 30s
   useEffect(() => {
     const t = setInterval(() => {
       loadHardware()
+      loadBackendMemory()
       onAutoRefresh()
     }, 30_000)
     return () => clearInterval(t)
-  }, [loadHardware, onAutoRefresh])
+  }, [loadHardware, loadBackendMemory, onAutoRefresh])
 
   // Auto-refresh cron jobs every 60s
   useEffect(() => {
@@ -662,6 +679,17 @@ function SystemPageContent({ forceRefresh, onAutoRefresh }: { forceRefresh: numb
                   accent={hw.ramPct >= 88}
                 >
                   <UsageBar pct={hw.ramPct} />
+                  {memHistory.length > 0 && (
+                    <div className="mt-3">
+                      <div className="flex items-center justify-between mb-1">
+                        <span className="text-[10px] uppercase tracking-widest text-[hsl(var(--muted-foreground))] font-semibold">mc-backend RSS</span>
+                        <span className={`text-xs font-semibold ${memHistory[memHistory.length - 1] > 400 ? 'text-[hsl(var(--zv-red))]' : memHistory[memHistory.length - 1] > 200 ? 'text-[hsl(var(--zv-amber))]' : 'text-[hsl(var(--primary))]'}`}>
+                          {memHistory[memHistory.length - 1].toFixed(1)} MB
+                        </span>
+                      </div>
+                      <MetricSparkline values={memHistory} />
+                    </div>
+                  )}
                 </StatCard>
 
                 <StatCard
