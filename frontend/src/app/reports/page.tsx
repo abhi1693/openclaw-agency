@@ -2535,6 +2535,27 @@ export default function ReportsPage() {
     setTabLoaded(prev => prev[tabId] === loaded ? prev : { ...prev, [tabId]: loaded })
   }, [])
 
+  // Pre-fetch all tab counts on mount so badges appear before the user visits each tab
+  useEffect(() => {
+    const TAB_ENDPOINTS: { id: TabId; url: string }[] = [
+      { id: 'discovery', url: '/api/discovery/reports' },
+      { id: 'listing',   url: '/api/listing/reports' },
+      { id: 'ppc',       url: '/api/ppc/reports' },
+      { id: 'strategy',  url: '/api/strategy/reports' },
+      { id: 'intel',     url: '/api/intel/reports' },
+    ]
+    Promise.allSettled(
+      TAB_ENDPOINTS.map(({ id, url }) =>
+        fetch(url)
+          .then(r => r.json())
+          .then((data: { files?: unknown[] }) => {
+            const count = Array.isArray(data.files) ? data.files.length : 0
+            handleTabCountChange(id, count, true)
+          })
+      )
+    )
+  }, [handleTabCountChange])
+
   const handleHighlightCreated = useCallback(() => {
     setHighlightsRefreshKey(k => k + 1)
   }, [])
