@@ -492,13 +492,25 @@ function SystemPageContent({ forceRefresh, onAutoRefresh }: { forceRefresh: numb
 
   const [memHistory, setMemHistory] = useState<number[]>([])
 
+  // Hydrate sparkline from persisted backend history on first mount
+  useEffect(() => {
+    fetch('/api/system/backend-sparkline')
+      .then(r => r.ok ? r.json() : null)
+      .then((data: { readings?: { mb: number }[] } | null) => {
+        if (data?.readings?.length) {
+          setMemHistory(data.readings.map(r => r.mb))
+        }
+      })
+      .catch(() => { /* ignore */ })
+  }, [])
+
   const loadBackendMemory = useCallback(async () => {
     try {
       const res = await fetch('/api/system/health')
       if (res.ok) {
         const data: { process_memory_mb?: number } = await res.json()
         if (typeof data.process_memory_mb === 'number') {
-          setMemHistory(prev => [...prev.slice(-19), data.process_memory_mb!])
+          setMemHistory(prev => [...prev.slice(-119), data.process_memory_mb!])
         }
       }
     } catch { /* ignore */ }

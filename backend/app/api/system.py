@@ -15,6 +15,7 @@ from sqlmodel.ext.asyncio.session import AsyncSession
 from app.api.deps import require_org_member
 from app.db.session import get_session
 from app.models.gateways import Gateway
+from app.services import sparkline_store
 from app.services.openclaw.gateway_resolver import gateway_client_config
 from app.services.openclaw.gateway_rpc import OpenClawGatewayError, openclaw_call
 from app.services.organizations import OrganizationContext
@@ -113,6 +114,12 @@ def _run(cmd: list[str]) -> str:
         return subprocess.run(cmd, capture_output=True, text=True, check=False).stdout.strip()
     except Exception:
         return ""
+
+
+@public_router.get("/api/system/backend-sparkline")
+def get_backend_sparkline() -> JSONResponse:
+    """Return persisted RSS memory sparkline readings for mc-backend."""
+    return JSONResponse(content={"readings": sparkline_store.get_readings()})
 
 
 @public_router.get("/api/system/hardware")

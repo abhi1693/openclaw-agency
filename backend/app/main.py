@@ -58,6 +58,7 @@ from app.core.rate_limit_backend import RateLimitBackend
 from app.core.security_headers import SecurityHeadersMiddleware
 from app.db.session import init_db
 from app.schemas.health import HealthStatusResponse, Pm2Info
+from app.services import sparkline_store
 
 if TYPE_CHECKING:
     from collections.abc import AsyncIterator
@@ -561,6 +562,7 @@ def _get_pm2_info() -> Pm2Info | None:
 def health() -> HealthStatusResponse:
     """Lightweight liveness probe endpoint."""
     memory_mb = psutil.Process().memory_info().rss / (1024 ** 2)
+    sparkline_store.append(memory_mb)
     return HealthStatusResponse(ok=True, process_memory_mb=round(memory_mb, 2), pm2=_get_pm2_info())
 
 
@@ -580,6 +582,7 @@ def health() -> HealthStatusResponse:
 def healthz() -> HealthStatusResponse:
     """Alias liveness probe endpoint for platform compatibility."""
     memory_mb = psutil.Process().memory_info().rss / (1024 ** 2)
+    sparkline_store.append(memory_mb)
     return HealthStatusResponse(ok=True, process_memory_mb=round(memory_mb, 2), pm2=_get_pm2_info())
 
 
