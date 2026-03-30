@@ -2,6 +2,9 @@
 
 from __future__ import annotations
 
+import json
+import subprocess
+import time
 from contextlib import asynccontextmanager
 from typing import TYPE_CHECKING, Any
 
@@ -54,7 +57,7 @@ from app.core.rate_limit import validate_rate_limit_redis
 from app.core.rate_limit_backend import RateLimitBackend
 from app.core.security_headers import SecurityHeadersMiddleware
 from app.db.session import init_db
-from app.schemas.health import HealthStatusResponse
+from app.schemas.health import HealthStatusResponse, Pm2Info
 
 if TYPE_CHECKING:
     from collections.abc import AsyncIterator
@@ -533,10 +536,32 @@ install_error_handling(app)
         }
     },
 )
+def _get_pm2_info() -> Pm2Info | None:
+    """Query pm2 jlist for mc-backend restart count and uptime. Returns None on failure."""
+    try:
+        result = subprocess.run(
+            ["pm2", "jlist"],
+            capture_output=True,
+            timeout=3,
+        )
+        if result.returncode != 0:
+            return None
+        processes = json.loads(result.stdout)
+        for proc in processes:
+            if proc.get("name") == "mc-backend":
+                restarts = proc.get("pm2_env", {}).get("restart_time")
+                pm_uptime = proc.get("pm2_env", {}).get("pm_uptime")
+                uptime_sec = int((time.time() * 1000 - pm_uptime) / 1000) if pm_uptime else None
+                return Pm2Info(restarts=restarts, uptime_sec=uptime_sec)
+    except Exception:
+        pass
+    return None
+
+
 def health() -> HealthStatusResponse:
     """Lightweight liveness probe endpoint."""
     memory_mb = psutil.Process().memory_info().rss / (1024 ** 2)
-    return HealthStatusResponse(ok=True, process_memory_mb=round(memory_mb, 2))
+    return HealthStatusResponse(ok=True, process_memory_mb=round(memory_mb, 2), pm2=_get_pm2_info())
 
 
 @app.get(
@@ -555,7 +580,7 @@ def health() -> HealthStatusResponse:
 def healthz() -> HealthStatusResponse:
     """Alias liveness probe endpoint for platform compatibility."""
     memory_mb = psutil.Process().memory_info().rss / (1024 ** 2)
-    return HealthStatusResponse(ok=True, process_memory_mb=round(memory_mb, 2))
+    return HealthStatusResponse(ok=True, process_memory_mb=round(memory_mb, 2), pm2=_get_pm2_info())
 
 
 @app.get(

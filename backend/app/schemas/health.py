@@ -8,6 +8,21 @@ from pydantic import Field
 from sqlmodel import SQLModel
 
 
+class Pm2Info(SQLModel):
+    """pm2 process metadata for the mc-backend process."""
+
+    restarts: int | None = Field(
+        default=None,
+        description="Number of times pm2 has restarted the process.",
+        examples=[3],
+    )
+    uptime_sec: int | None = Field(
+        default=None,
+        description="Process uptime in seconds derived from pm2 pm_uptime epoch.",
+        examples=[3600],
+    )
+
+
 class HealthStatusResponse(SQLModel):
     """Standard payload for service liveness/readiness checks."""
 
@@ -19,6 +34,10 @@ class HealthStatusResponse(SQLModel):
         default=None,
         description="Current process RSS memory usage in megabytes.",
         examples=[128.4],
+    )
+    pm2: Pm2Info | None = Field(
+        default=None,
+        description="pm2 process metadata (restarts, uptime). Null if pm2 unavailable.",
     )
 
 
