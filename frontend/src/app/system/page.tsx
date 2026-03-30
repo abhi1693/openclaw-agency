@@ -11,7 +11,7 @@ import {
   DialogTitle,
 } from '@/components/ui/dialog'
 import { Input } from '@/components/ui/input'
-import { Cpu, MemoryStick, HardDrive, Clock, Monitor, Zap, RefreshCw, Bot, Coins, MessageSquare, ChevronDown, ChevronUp } from 'lucide-react'
+import { Cpu, MemoryStick, HardDrive, Clock, Monitor, Zap, RefreshCw, Bot, Coins, MessageSquare, ChevronDown, ChevronUp, AlertTriangle, X } from 'lucide-react'
 import { DashboardPageLayout } from '@/components/templates/DashboardPageLayout'
 import MetricSparkline from '@/components/charts/metric-sparkline'
 import CronCalendar from '@/components/system/CronCalendar'
@@ -491,6 +491,8 @@ function SystemPageContent({ forceRefresh, onAutoRefresh }: { forceRefresh: numb
   const TOP_N = 5
 
   const [memHistory, setMemHistory] = useState<number[]>([])
+  const [pm2Info, setPm2Info] = useState<{ restarts: number; uptime_sec: number } | null>(null)
+  const [crashBannerDismissed, setCrashBannerDismissed] = useState(false)
 
   // Hydrate sparkline from persisted backend history on first mount
   useEffect(() => {
@@ -508,9 +510,12 @@ function SystemPageContent({ forceRefresh, onAutoRefresh }: { forceRefresh: numb
     try {
       const res = await fetch('/api/system/health')
       if (res.ok) {
-        const data: { process_memory_mb?: number } = await res.json()
+        const data: { process_memory_mb?: number; pm2?: { restarts?: number; uptime_sec?: number } } = await res.json()
         if (typeof data.process_memory_mb === 'number') {
           setMemHistory(prev => [...prev.slice(-119), data.process_memory_mb!])
+        }
+        if (data.pm2 && typeof data.pm2.restarts === 'number' && typeof data.pm2.uptime_sec === 'number') {
+          setPm2Info({ restarts: data.pm2.restarts, uptime_sec: data.pm2.uptime_sec })
         }
       }
     } catch { /* ignore */ }
@@ -632,8 +637,33 @@ function SystemPageContent({ forceRefresh, onAutoRefresh }: { forceRefresh: numb
     ? usageExpanded ? usage.models : usage.models.slice(0, TOP_N)
     : []
 
+  // ─── Crash rate banner logic ───────────────────────────────────────────────
+  const crashRate = pm2Info && pm2Info.uptime_sec > 0
+    ? pm2Info.restarts / (pm2Info.uptime_sec / 3600)
+    : null
+  const uptimeHours = pm2Info ? Math.round(pm2Info.uptime_sec / 3600) : 0
+  const bannerLevel = crashRate === null ? null
+    : crashRate > 10 ? 'red'
+    : crashRate > 5 ? 'amber'
+    : null
+
   return (
     <div className="space-y-6 max-w-6xl mx-auto">
+      {bannerLevel && !crashBannerDismissed && (
+        <div className={`flex items-start gap-3 rounded-lg border px-4 py-3 text-sm ${
+          bannerLevel === 'red'
+            ? 'border-red-500/40 bg-red-500/10 text-red-300'
+            : 'border-amber-500/40 bg-amber-500/10 text-amber-300'
+        }`}>
+          <AlertTriangle className="w-4 h-4 mt-0.5 flex-shrink-0" />
+          <span className="flex-1">
+            ⚠ mc-backend 异常重启 — {pm2Info!.restarts} 次重启 / {uptimeHours}h (~{crashRate!.toFixed(1)}/hr). 疑似原因: AMS subprocess timeout
+          </span>
+          <button onClick={() => setCrashBannerDismissed(true)} className="flex-shrink-0 opacity-60 hover:opacity-100 transition-opacity">
+            <X className="w-3.5 h-3.5" />
+          </button>
+        </div>
+      )}
       <div className="flex gap-1 mb-6 bg-[hsl(var(--secondary)/0.5)] rounded-full p-1 w-fit">
         {[
           { key: 'system', label: '🖥️ 系统 & 模型' },
