@@ -657,7 +657,7 @@ function SystemPageContent({ forceRefresh, onAutoRefresh }: { forceRefresh: numb
         }`}>
           <AlertTriangle className="w-4 h-4 mt-0.5 flex-shrink-0" />
           <span className="flex-1">
-            ⚠ mc-backend 异常重启 — {pm2Info!.restarts} 次重启 / {uptimeHours}h (~{crashRate!.toFixed(1)}/hr). 疑似原因: AMS subprocess timeout
+            ⚠ mc-backend 异常重启 — {pm2Info!.restarts} 次重启 / {uptimeHours}h (~{crashRate!.toFixed(1)}/hr). 后台重启频繁，请检查 PM2 日志获取详情。
           </span>
           <button onClick={() => setCrashBannerDismissed(true)} className="flex-shrink-0 opacity-60 hover:opacity-100 transition-opacity">
             <X className="w-3.5 h-3.5" />
