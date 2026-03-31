@@ -22,6 +22,7 @@ from app.models.ppc_automation import (
     BudgetPacingTarget,
     CampaignGoal,
     CampaignPlan,
+    DaypartingSchedule,
     KeywordHarvestSuggestion,
     KeywordRecommendation,
     PlacementRecommendation,
@@ -41,6 +42,11 @@ from app.services.negative_pattern_detector import detect_negative_patterns
 from app.services.placement_optimizer import generate_placement_recommendations
 from app.services.ppc_scheduler import run_optimizer
 from app.services.ppc_automation.budget_pacer import get_budget_pacing
+from app.services.ppc_automation.dayparting import (
+    cvr_coefficients_to_multipliers,
+    get_dayparting_schedule,
+    get_hourly_performance,
+)
 from app.services.ppc_automation.goal_optimizer import run_goal_optimizer
 from app.services.ppc_automation.keyword_harvester import run_keyword_harvester
 from app.services.tacos_calculator import calculate_tacos, metrics_to_dict
@@ -154,6 +160,19 @@ class UpsertCampaignGoalRequest(BaseModel):
     ki: float = 0.05
     kd: float = 0.1
     max_bid_adjustment_pct: float = 0.15
+
+
+class UpsertDaypartingScheduleRequest(BaseModel):
+    campaign_name: str | None = None
+    hourly_multipliers: list[float] | None = None  # 24 floats; None = auto-generate from CVR data
+    enabled: bool = False
+
+
+class ImportHourlyDataRequest(BaseModel):
+    campaign_id: str
+    campaign_name: str | None = None
+    date: str  # YYYY-MM-DD
+    hourly_data: list[dict[str, Any]]  # [{hour, impressions, clicks, orders, cost, sales}]
 
 
 # ---------------------------------------------------------------------------
@@ -1420,3 +1439,98 @@ async def reject_bid_suggestion(
     await session.commit()
     await session.refresh(s)
     return s.model_dump()
+
+
+# ---------------------------------------------------------------------------
+# Dayparting
+# ---------------------------------------------------------------------------
+
+
+@router.get("/dayparting/{campaign_id}")
+async def get_dayparting_heatmap(
+    campaign_id: str,
+    days: int = Query(default=30, ge=7, le=90),
+    session: AsyncSession = SESSION_DEP,
+) -> dict[str, Any]:
+    """Return 24-hour performance heatmap and dayparting schedule for a campaign."""
+    hourly = await get_hourly_performance(session, campaign_id, days=days)
+    schedule = await get_dayparting_schedule(session, campaign_id)
+    recommended_multipliers = cvr_coefficients_to_multipliers(hourly)
+    return {
+        "campaign_id": campaign_id,
+        "days_analyzed": days,
+        "hourly": hourly,
+        "recommended_multipliers": recommended_multipliers,
+        "schedule": schedule.model_dump() if schedule else None,
+    }
+
+
+@router.put("/dayparting/{campaign_id}/schedule")
+async def upsert_dayparting_schedule(
+    campaign_id: str,
+    body: UpsertDaypartingScheduleRequest,
+    session: AsyncSession = SESSION_DEP,
+) -> dict[str, Any]:
+    import json as json_mod
+    schedule = await get_dayparting_schedule(session, campaign_id)
+
+    # If no multipliers provided, generate from CVR data
+    if body.hourly_multipliers is None:
+        hourly = await get_hourly_performance(session, campaign_id)
+        multipliers = cvr_coefficients_to_multipliers(hourly)
+    else:
+        if len(body.hourly_multipliers) != 24:
+            raise HTTPException(status_code=400, detail="hourly_multipliers must have exactly 24 values")
+        multipliers = body.hourly_multipliers
+
+    if schedule is None:
+        schedule = DaypartingSchedule(
+            campaign_id=campaign_id,
+            campaign_name=body.campaign_name,
+            hourly_multipliers=json_mod.dumps(multipliers),
+            enabled=body.enabled,
+        )
+        session.add(schedule)
+    else:
+        if body.campaign_name is not None:
+            schedule.campaign_name = body.campaign_name
+        schedule.hourly_multipliers = json_mod.dumps(multipliers)
+        schedule.enabled = body.enabled
+        schedule.updated_at = utcnow()
+    await session.commit()
+    await session.refresh(schedule)
+    return schedule.model_dump()
+
+
+@router.post("/dayparting/import-hourly")
+async def import_hourly_data(
+    body: ImportHourlyDataRequest,
+    session: AsyncSession = SESSION_DEP,
+) -> dict[str, Any]:
+    from datetime import date as date_mod
+    from app.models.ppc_automation import HourlyCampaignMetric
+    from decimal import Decimal
+
+    try:
+        report_date = date_mod.fromisoformat(body.date)
+    except ValueError:
+        raise HTTPException(status_code=400, detail="Invalid date format (use YYYY-MM-DD)")
+
+    created = 0
+    for row in body.hourly_data:
+        hour = int(row.get("hour", 0))
+        if not 0 <= hour <= 23:
+            continue
+        session.add(HourlyCampaignMetric(
+            campaign_id=body.campaign_id,
+            report_date=report_date,
+            hour=hour,
+            impressions=int(row.get("impressions", 0)),
+            clicks=int(row.get("clicks", 0)),
+            orders=int(row.get("orders", 0)),
+            cost=Decimal(str(row.get("cost", 0))),
+            sales=Decimal(str(row.get("sales", 0))),
+        ))
+        created += 1
+    await session.commit()
+    return {"created": created, "campaign_id": body.campaign_id, "date": body.date}

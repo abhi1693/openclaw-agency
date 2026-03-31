@@ -589,7 +589,7 @@ async function apiFetch(path: string, init?: RequestInit) {
 
 // ─── Tabs ────────────────────────────────────────────────────────────────────────
 
-const TABS = ['📡 实时监控', '📋 Campaign 诊断', '💰 Bid 建议', '🔑 关键词建议', '📍 Placement 优化', '🏗️ Campaign 构建器', '🌾 关键词收割', '📊 预算节奏', '🎯 智能优化', '⚙️ 设置'] as const
+const TABS = ['📡 实时监控', '📋 Campaign 诊断', '💰 Bid 建议', '🔑 关键词建议', '📍 Placement 优化', '🏗️ Campaign 构建器', '🌾 关键词收割', '📊 预算节奏', '🎯 智能优化', '⏰ 分时投放', '⚙️ 设置'] as const
 type Tab = typeof TABS[number]
 
 // ─── Main Page ────────────────────────────────────────────────────────────────
@@ -637,6 +637,7 @@ export default function PpcAutomationPage() {
         {activeTab === '🌾 关键词收割' && <KeywordHarvestTab />}
         {activeTab === '📊 预算节奏' && <BudgetPacingTab />}
         {activeTab === '🎯 智能优化' && <GoalOptimizerTab />}
+        {activeTab === '⏰ 分时投放' && <DaypartingTab />}
         {activeTab === '⚙️ 设置' && <SettingsTab />}
       </div>
 
@@ -4484,6 +4485,272 @@ function GoalOptimizerTab() {
             </tbody>
           </table>
         </div>
+      )}
+    </div>
+  )
+}
+
+// ─── Dayparting Tab ──────────────────────────────────────────────────────────
+
+interface HourlyEntry {
+  hour: number
+  impressions: number
+  clicks: number
+  orders: number
+  spend: number
+  sales: number
+  cvr: number
+  cpc: number
+  acos: number | null
+  cvr_coefficient: number
+  avg_cvr: number
+}
+
+interface DaypartingData {
+  campaign_id: string
+  days_analyzed: number
+  hourly: HourlyEntry[]
+  recommended_multipliers: number[]
+  schedule: { hourly_multipliers: string; enabled: boolean } | null
+}
+
+function DaypartingTab() {
+  const queryClient = useQueryClient()
+  const [campaignId, setCampaignId] = React.useState('')
+  const [inputId, setInputId] = React.useState('')
+  const [days, setDays] = React.useState(30)
+  const [saving, setSaving] = React.useState(false)
+  const [heatmapMetric, setHeatmapMetric] = React.useState<'cvr_coefficient' | 'clicks' | 'orders' | 'acos'>('cvr_coefficient')
+
+  const { data, isLoading } = useQuery({
+    queryKey: ['dayparting', campaignId, days],
+    queryFn: async () => {
+      const res = await apiFetch(`/api/ppc/automation/dayparting/${campaignId}?days=${days}`)
+      return res as DaypartingData
+    },
+    enabled: !!campaignId,
+  })
+
+  async function handleSaveSchedule() {
+    if (!campaignId || !data) return
+    setSaving(true)
+    try {
+      await apiFetch(`/api/ppc/automation/dayparting/${campaignId}/schedule`, {
+        method: 'PUT',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ enabled: true }),
+      })
+      queryClient.invalidateQueries({ queryKey: ['dayparting', campaignId] })
+    } catch { /* swallow */ } finally {
+      setSaving(false)
+    }
+  }
+
+  const hourly = data?.hourly ?? []
+
+  // Compute color intensity for heatmap cell
+  function cellColor(entry: HourlyEntry): string {
+    let val: number
+    let max: number
+    if (heatmapMetric === 'cvr_coefficient') {
+      val = entry.cvr_coefficient
+      max = 2.0
+      if (val === 0) return 'bg-slate-100'
+      const pct = Math.min(1, val / max)
+      if (pct > 0.7) return 'bg-green-500'
+      if (pct > 0.5) return 'bg-green-300'
+      if (pct > 0.3) return 'bg-yellow-200'
+      return 'bg-red-200'
+    }
+    if (heatmapMetric === 'clicks') {
+      const maxClicks = Math.max(...hourly.map(h => h.clicks), 1)
+      val = entry.clicks / maxClicks
+      if (val > 0.75) return 'bg-blue-500'
+      if (val > 0.5) return 'bg-blue-300'
+      if (val > 0.25) return 'bg-blue-200'
+      return val > 0 ? 'bg-blue-100' : 'bg-slate-100'
+    }
+    if (heatmapMetric === 'orders') {
+      const maxOrders = Math.max(...hourly.map(h => h.orders), 1)
+      val = entry.orders / maxOrders
+      if (val > 0.75) return 'bg-purple-500'
+      if (val > 0.5) return 'bg-purple-300'
+      if (val > 0.25) return 'bg-purple-200'
+      return val > 0 ? 'bg-purple-100' : 'bg-slate-100'
+    }
+    // acos
+    if (entry.acos == null) return 'bg-slate-100'
+    if (entry.acos < 15) return 'bg-green-500'
+    if (entry.acos < 25) return 'bg-green-300'
+    if (entry.acos < 35) return 'bg-yellow-200'
+    return 'bg-red-300'
+  }
+
+  function cellLabel(entry: HourlyEntry): string {
+    if (heatmapMetric === 'cvr_coefficient') return entry.cvr_coefficient > 0 ? `×${entry.cvr_coefficient.toFixed(2)}` : '—'
+    if (heatmapMetric === 'clicks') return String(entry.clicks)
+    if (heatmapMetric === 'orders') return String(entry.orders)
+    return entry.acos != null ? `${entry.acos.toFixed(0)}%` : '—'
+  }
+
+  return (
+    <div className="space-y-4">
+      {/* Toolbar */}
+      <div className="flex items-center gap-3 flex-wrap rounded-xl border border-slate-200 bg-white px-4 py-3 shadow-sm">
+        <input
+          type="text"
+          value={inputId}
+          onChange={(e) => setInputId(e.target.value)}
+          placeholder="Campaign ID"
+          className="rounded-lg border border-slate-200 px-3 py-1.5 text-sm text-slate-700 focus:outline-none focus:ring-2 focus:ring-blue-500 w-64"
+        />
+        <button
+          onClick={() => setCampaignId(inputId.trim())}
+          disabled={!inputId.trim()}
+          className="rounded-lg bg-blue-600 px-4 py-1.5 text-sm font-medium text-white hover:bg-blue-700 disabled:opacity-50"
+        >
+          加载数据
+        </button>
+        <select
+          value={days}
+          onChange={(e) => setDays(Number(e.target.value))}
+          className="rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-sm text-slate-700"
+        >
+          <option value={7}>最近 7 天</option>
+          <option value={14}>最近 14 天</option>
+          <option value={30}>最近 30 天</option>
+          <option value={60}>最近 60 天</option>
+        </select>
+        <select
+          value={heatmapMetric}
+          onChange={(e) => setHeatmapMetric(e.target.value as typeof heatmapMetric)}
+          className="rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-sm text-slate-700"
+        >
+          <option value="cvr_coefficient">CVR 系数</option>
+          <option value="clicks">点击量</option>
+          <option value="orders">订单数</option>
+          <option value="acos">ACoS</option>
+        </select>
+      </div>
+
+      {!campaignId ? (
+        <div className="rounded-xl border border-slate-200 bg-white px-4 py-16 text-center text-slate-400 shadow-sm">
+          输入 Campaign ID 后点击「加载数据」查看 24 小时热力图
+        </div>
+      ) : isLoading ? (
+        <div className="rounded-xl border border-slate-200 bg-white px-4 py-16 text-center text-slate-400 shadow-sm">加载中...</div>
+      ) : hourly.length === 0 ? (
+        <div className="rounded-xl border border-slate-200 bg-white px-4 py-16 text-center text-slate-400 shadow-sm">
+          该 Campaign 暂无小时级数据。可通过「导入」接口上传数据。
+        </div>
+      ) : (
+        <>
+          {/* 24h Heatmap */}
+          <div className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
+            <div className="mb-3 flex items-center justify-between">
+              <h3 className="text-sm font-semibold text-slate-700">24 小时热力图 — {campaignId}</h3>
+              <span className="text-xs text-slate-400">分析 {data?.days_analyzed} 天</span>
+            </div>
+            <div className="grid grid-cols-12 gap-1">
+              {hourly.map((entry) => (
+                <div
+                  key={entry.hour}
+                  title={`${entry.hour}:00 | clicks=${entry.clicks} orders=${entry.orders} cvr=${(entry.cvr * 100).toFixed(2)}% coeff=×${entry.cvr_coefficient.toFixed(2)}`}
+                  className={cn('rounded p-1.5 text-center cursor-default', cellColor(entry))}
+                >
+                  <div className="text-[10px] font-bold text-slate-700">{entry.hour}h</div>
+                  <div className="text-[10px] text-slate-600">{cellLabel(entry)}</div>
+                </div>
+              ))}
+            </div>
+            <div className="mt-3 flex items-center gap-4 text-xs text-slate-500">
+              <span>显示: <strong>{heatmapMetric === 'cvr_coefficient' ? 'CVR系数(×avg)' : heatmapMetric}</strong></span>
+              {heatmapMetric === 'cvr_coefficient' && (
+                <span className="flex items-center gap-1">
+                  <span className="inline-block w-3 h-3 rounded bg-green-500" /> 高效
+                  <span className="inline-block w-3 h-3 rounded bg-yellow-200 ml-2" /> 中等
+                  <span className="inline-block w-3 h-3 rounded bg-red-200 ml-2" /> 低效
+                </span>
+              )}
+            </div>
+          </div>
+
+          {/* Recommended multipliers */}
+          <div className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
+            <div className="flex items-center justify-between mb-3">
+              <h3 className="text-sm font-semibold text-slate-700">推荐竞价倍率（基于 CVR 系数）</h3>
+              <button
+                onClick={handleSaveSchedule}
+                disabled={saving}
+                className="flex items-center gap-2 rounded-lg bg-blue-600 px-3 py-1.5 text-sm font-medium text-white hover:bg-blue-700 disabled:opacity-50"
+              >
+                {saving ? <RefreshCw className="h-4 w-4 animate-spin" /> : null}
+                保存分时策略
+              </button>
+            </div>
+            <div className="grid grid-cols-12 gap-1">
+              {(data?.recommended_multipliers ?? []).map((m, h) => (
+                <div
+                  key={h}
+                  className={cn(
+                    'rounded p-1.5 text-center',
+                    m >= 1.3 ? 'bg-green-100' : m >= 1.0 ? 'bg-slate-50' : 'bg-red-50',
+                  )}
+                >
+                  <div className="text-[10px] font-bold text-slate-600">{h}h</div>
+                  <div className={cn('text-[10px] font-semibold', m >= 1.3 ? 'text-green-700' : m >= 1.0 ? 'text-slate-600' : 'text-red-600')}>
+                    ×{m.toFixed(2)}
+                  </div>
+                </div>
+              ))}
+            </div>
+            {data?.schedule && (
+              <p className="mt-2 text-xs text-green-600">✓ 已保存分时策略，启用状态: {data.schedule.enabled ? '开启' : '关闭'}</p>
+            )}
+          </div>
+
+          {/* Hourly detail table */}
+          <div className="rounded-xl border border-slate-200 bg-white shadow-sm overflow-hidden">
+            <table className="w-full text-sm">
+              <thead className="bg-slate-50 text-xs font-semibold text-slate-500 uppercase tracking-wide">
+                <tr>
+                  <th className="px-4 py-2.5 text-left">时段</th>
+                  <th className="px-4 py-2.5 text-right">曝光</th>
+                  <th className="px-4 py-2.5 text-right">点击</th>
+                  <th className="px-4 py-2.5 text-right">订单</th>
+                  <th className="px-4 py-2.5 text-right">CVR</th>
+                  <th className="px-4 py-2.5 text-right">CVR 系数</th>
+                  <th className="px-4 py-2.5 text-right">花费</th>
+                  <th className="px-4 py-2.5 text-right">ACoS</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-slate-100">
+                {hourly.map((h) => (
+                  <tr key={h.hour} className="hover:bg-slate-50">
+                    <td className="px-4 py-2 font-mono text-slate-700">{h.hour}:00–{h.hour}:59</td>
+                    <td className="px-4 py-2 text-right text-slate-600">{h.impressions.toLocaleString()}</td>
+                    <td className="px-4 py-2 text-right text-slate-600">{h.clicks.toLocaleString()}</td>
+                    <td className="px-4 py-2 text-right font-medium text-slate-700">{h.orders}</td>
+                    <td className="px-4 py-2 text-right text-slate-600">{(h.cvr * 100).toFixed(2)}%</td>
+                    <td className="px-4 py-2 text-right">
+                      <span className={cn('font-semibold', h.cvr_coefficient > 1 ? 'text-green-600' : h.cvr_coefficient > 0 ? 'text-slate-600' : 'text-slate-400')}>
+                        {h.cvr_coefficient > 0 ? `×${h.cvr_coefficient.toFixed(2)}` : '—'}
+                      </span>
+                    </td>
+                    <td className="px-4 py-2 text-right text-slate-600">${h.spend.toFixed(2)}</td>
+                    <td className="px-4 py-2 text-right">
+                      {h.acos != null ? (
+                        <span className={cn('font-medium', h.acos < 25 ? 'text-green-600' : 'text-red-500')}>
+                          {h.acos.toFixed(1)}%
+                        </span>
+                      ) : '—'}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </>
       )}
     </div>
   )

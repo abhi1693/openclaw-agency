@@ -226,6 +226,21 @@ class TrafficDaily(QueryModel, table=True):
     created_at: datetime = Field(default_factory=utcnow)
 
 
+class DaypartingSchedule(QueryModel, table=True):
+    """Dayparting bid modifier schedule per campaign (JSON array of 24 hourly multipliers)."""
+
+    __tablename__ = "dayparting_schedules"  # pyright: ignore[reportAssignmentType]
+
+    id: UUID = Field(default_factory=uuid4, primary_key=True)
+    campaign_id: str = Field(index=True, unique=True)
+    campaign_name: str | None = Field(default=None)
+    # JSON array of 24 floats: hourly bid multiplier (1.0 = no change, 0.5 = -50%, 1.5 = +50%)
+    hourly_multipliers: str = Field(default="[]")
+    enabled: bool = Field(default=False)
+    created_at: datetime = Field(default_factory=utcnow)
+    updated_at: datetime = Field(default_factory=utcnow)
+
+
 class CampaignGoal(QueryModel, table=True):
     """Per-campaign optimization goal configuration for PID-based bid optimization."""
 
