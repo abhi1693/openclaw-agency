@@ -226,6 +226,19 @@ class TrafficDaily(QueryModel, table=True):
     created_at: datetime = Field(default_factory=utcnow)
 
 
+class BudgetPacingTarget(QueryModel, table=True):
+    """Monthly budget target per campaign for pacing calculations."""
+
+    __tablename__ = "budget_pacing_targets"  # pyright: ignore[reportAssignmentType]
+
+    id: UUID = Field(default_factory=uuid4, primary_key=True)
+    campaign_id: str = Field(index=True, unique=True)
+    campaign_name: str | None = Field(default=None)
+    monthly_budget: Decimal = Field(sa_column=Column(Numeric(12, 2), nullable=False))
+    created_at: datetime = Field(default_factory=utcnow)
+    updated_at: datetime = Field(default_factory=utcnow)
+
+
 class KeywordHarvestSuggestion(QueryModel, table=True):
     """Threshold-based keyword harvest and negation suggestions."""
 

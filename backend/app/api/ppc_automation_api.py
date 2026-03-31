@@ -18,6 +18,7 @@ from app.core.time import utcnow
 from app.models.ppc_automation import (
     BidRecommendation,
     BudgetAllocation,
+    BudgetPacingTarget,
     CampaignPlan,
     KeywordHarvestSuggestion,
     KeywordRecommendation,
@@ -37,6 +38,7 @@ from app.services.campaign_creator import generate_campaign_plan
 from app.services.negative_pattern_detector import detect_negative_patterns
 from app.services.placement_optimizer import generate_placement_recommendations
 from app.services.ppc_scheduler import run_optimizer
+from app.services.ppc_automation.budget_pacer import get_budget_pacing
 from app.services.ppc_automation.keyword_harvester import run_keyword_harvester
 from app.services.tacos_calculator import calculate_tacos, metrics_to_dict
 
@@ -134,6 +136,11 @@ class GenerateKeywordSuggestionsRequest(BaseModel):
     min_orders: int = 2
     min_clicks: int = 15
     target_acos: float = 25.0
+
+
+class UpsertBudgetPacingTargetRequest(BaseModel):
+    campaign_name: str | None = None
+    monthly_budget: Decimal
 
 
 # ---------------------------------------------------------------------------
@@ -1240,3 +1247,42 @@ async def reject_keyword_suggestion(
     await session.commit()
     await session.refresh(suggestion)
     return suggestion.model_dump()
+
+
+# ---------------------------------------------------------------------------
+# Budget Pacing
+# ---------------------------------------------------------------------------
+
+
+@router.get("/budget-pacing")
+async def list_budget_pacing(session: AsyncSession = SESSION_DEP) -> dict[str, Any]:
+    """Return pacing status for all campaigns with monthly budget targets."""
+    items = await get_budget_pacing(session)
+    return {"items": items, "total": len(items)}
+
+
+@router.put("/budget-pacing/{campaign_id}")
+async def upsert_budget_pacing_target(
+    campaign_id: str,
+    body: UpsertBudgetPacingTargetRequest,
+    session: AsyncSession = SESSION_DEP,
+) -> dict[str, Any]:
+    result = await session.exec(
+        select(BudgetPacingTarget).where(BudgetPacingTarget.campaign_id == campaign_id)
+    )
+    target = result.first()
+    if target is None:
+        target = BudgetPacingTarget(
+            campaign_id=campaign_id,
+            campaign_name=body.campaign_name,
+            monthly_budget=body.monthly_budget,
+        )
+        session.add(target)
+    else:
+        target.monthly_budget = body.monthly_budget
+        if body.campaign_name is not None:
+            target.campaign_name = body.campaign_name
+        target.updated_at = utcnow()
+    await session.commit()
+    await session.refresh(target)
+    return target.model_dump()
