@@ -524,19 +524,6 @@ app.add_middleware(
 install_error_handling(app)
 
 
-@app.get(
-    "/health",
-    tags=["health"],
-    response_model=HealthStatusResponse,
-    summary="Health Check",
-    description="Lightweight liveness probe endpoint.",
-    responses={
-        status.HTTP_200_OK: {
-            "description": "Service is alive.",
-            "content": {"application/json": {"example": {"ok": True}}},
-        }
-    },
-)
 def _get_pm2_info() -> Pm2Info | None:
     """Query pm2 jlist for mc-backend restart count and uptime. Returns None on failure."""
     try:
@@ -559,6 +546,19 @@ def _get_pm2_info() -> Pm2Info | None:
     return None
 
 
+@app.get(
+    "/health",
+    tags=["health"],
+    response_model=HealthStatusResponse,
+    summary="Health Check",
+    description="Lightweight liveness probe endpoint.",
+    responses={
+        status.HTTP_200_OK: {
+            "description": "Service is alive.",
+            "content": {"application/json": {"example": {"ok": True}}},
+        }
+    },
+)
 def health() -> HealthStatusResponse:
     """Lightweight liveness probe endpoint."""
     memory_mb = psutil.Process().memory_info().rss / (1024 ** 2)
