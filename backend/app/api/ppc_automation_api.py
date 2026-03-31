@@ -48,7 +48,6 @@ from app.services.ppc_automation.dayparting import (
     get_hourly_performance,
 )
 from app.services.ppc_automation.goal_optimizer import run_goal_optimizer
-from app.services.ppc_automation.keyword_harvester import run_keyword_harvester
 from app.services.tacos_calculator import calculate_tacos, metrics_to_dict
 
 router = APIRouter(prefix="/ppc/automation", tags=["ppc-automation"])
@@ -140,11 +139,6 @@ class ApplyBudgetAllocRequest(BaseModel):
     allocation_ids: list[UUID]
     triggered_by: str = "manual"
 
-
-class GenerateKeywordSuggestionsRequest(BaseModel):
-    min_orders: int = 2
-    min_clicks: int = 15
-    target_acos: float = 25.0
 
 
 class UpsertBudgetPacingTargetRequest(BaseModel):
@@ -1225,60 +1219,6 @@ async def list_keyword_suggestions(
     return {"items": [i.model_dump() for i in items], "total": len(items), "offset": offset, "limit": limit}
 
 
-@router.post("/keyword-suggestions/generate")
-async def generate_keyword_suggestions(
-    body: GenerateKeywordSuggestionsRequest,
-    session: AsyncSession = SESSION_DEP,
-) -> dict[str, Any]:
-    counts = await run_keyword_harvester(
-        session,
-        min_orders=body.min_orders,
-        min_clicks=body.min_clicks,
-        target_acos=body.target_acos,
-    )
-    return {"created": counts, "min_orders": body.min_orders, "min_clicks": body.min_clicks, "target_acos": body.target_acos}
-
-
-@router.post("/keyword-suggestions/{suggestion_id}/approve")
-async def approve_keyword_suggestion(
-    suggestion_id: UUID,
-    session: AsyncSession = SESSION_DEP,
-) -> dict[str, Any]:
-    result = await session.exec(
-        select(KeywordHarvestSuggestion).where(KeywordHarvestSuggestion.id == suggestion_id)
-    )
-    suggestion = result.first()
-    if not suggestion:
-        raise HTTPException(status_code=404, detail="Suggestion not found")
-    if suggestion.status != "pending":
-        raise HTTPException(status_code=400, detail=f"Suggestion is already {suggestion.status}")
-    suggestion.status = "approved"
-    suggestion.resolved_at = utcnow()
-    suggestion.resolved_by = "manual"
-    await session.commit()
-    await session.refresh(suggestion)
-    return suggestion.model_dump()
-
-
-@router.post("/keyword-suggestions/{suggestion_id}/reject")
-async def reject_keyword_suggestion(
-    suggestion_id: UUID,
-    session: AsyncSession = SESSION_DEP,
-) -> dict[str, Any]:
-    result = await session.exec(
-        select(KeywordHarvestSuggestion).where(KeywordHarvestSuggestion.id == suggestion_id)
-    )
-    suggestion = result.first()
-    if not suggestion:
-        raise HTTPException(status_code=404, detail="Suggestion not found")
-    if suggestion.status != "pending":
-        raise HTTPException(status_code=400, detail=f"Suggestion is already {suggestion.status}")
-    suggestion.status = "rejected"
-    suggestion.resolved_at = utcnow()
-    suggestion.resolved_by = "manual"
-    await session.commit()
-    await session.refresh(suggestion)
-    return suggestion.model_dump()
 
 
 # ---------------------------------------------------------------------------
