@@ -226,6 +226,32 @@ class TrafficDaily(QueryModel, table=True):
     created_at: datetime = Field(default_factory=utcnow)
 
 
+class KeywordHarvestSuggestion(QueryModel, table=True):
+    """Threshold-based keyword harvest and negation suggestions."""
+
+    __tablename__ = "keyword_harvest_suggestions"  # pyright: ignore[reportAssignmentType]
+
+    id: UUID = Field(default_factory=uuid4, primary_key=True)
+    search_term: str = Field(index=True)
+    campaign_id: str | None = Field(default=None, index=True)
+    campaign_name: str | None = Field(default=None)
+    impressions: int = Field(default=0)
+    clicks: int = Field(default=0)
+    orders: int = Field(default=0)
+    spend: Decimal | None = Field(default=None, sa_column=Column(Numeric(12, 4), nullable=True))
+    acos: Decimal | None = Field(default=None, sa_column=Column(Numeric(8, 4), nullable=True))
+    # action: harvest = promote to exact keyword; negate = add as negative
+    action: str = Field(index=True)  # harvest / negate
+    # thresholds snapshot at generation time
+    min_orders_threshold: int = Field(default=2)
+    min_clicks_threshold: int = Field(default=15)
+    max_acos_threshold: Decimal | None = Field(default=None, sa_column=Column(Numeric(8, 4), nullable=True))
+    status: str = Field(default="pending", index=True)  # pending / approved / rejected
+    created_at: datetime = Field(default_factory=utcnow, index=True)
+    resolved_at: datetime | None = None
+    resolved_by: str | None = None
+
+
 class CampaignPlan(QueryModel, table=True):
     """Generated campaign structure plans for approval and execution."""
 

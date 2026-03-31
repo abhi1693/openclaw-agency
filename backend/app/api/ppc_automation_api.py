@@ -19,6 +19,7 @@ from app.models.ppc_automation import (
     BidRecommendation,
     BudgetAllocation,
     CampaignPlan,
+    KeywordHarvestSuggestion,
     KeywordRecommendation,
     PlacementRecommendation,
     PpcAutomationSettings,
@@ -36,6 +37,7 @@ from app.services.campaign_creator import generate_campaign_plan
 from app.services.negative_pattern_detector import detect_negative_patterns
 from app.services.placement_optimizer import generate_placement_recommendations
 from app.services.ppc_scheduler import run_optimizer
+from app.services.ppc_automation.keyword_harvester import run_keyword_harvester
 from app.services.tacos_calculator import calculate_tacos, metrics_to_dict
 
 router = APIRouter(prefix="/ppc/automation", tags=["ppc-automation"])
@@ -126,6 +128,12 @@ class RunBudgetAllocationRequest(BaseModel):
 class ApplyBudgetAllocRequest(BaseModel):
     allocation_ids: list[UUID]
     triggered_by: str = "manual"
+
+
+class GenerateKeywordSuggestionsRequest(BaseModel):
+    min_orders: int = 2
+    min_clicks: int = 15
+    target_acos: float = 25.0
 
 
 # ---------------------------------------------------------------------------
@@ -1149,3 +1157,86 @@ async def realtime_placements(session: AsyncSession = SESSION_DEP) -> dict:
             "sharePct": round(cost / total_cost * 100, 1) if total_cost > 0 else 0,
         })
     return {"date": str(date.today()), "placements": placements}
+
+
+# ---------------------------------------------------------------------------
+# Keyword Harvest Suggestions
+# ---------------------------------------------------------------------------
+
+
+@router.get("/keyword-suggestions")
+async def list_keyword_suggestions(
+    status_filter: str = Query(default="pending", alias="status"),
+    action: str | None = Query(default=None),
+    limit: int = Query(default=100, le=500),
+    offset: int = Query(default=0, ge=0),
+    session: AsyncSession = SESSION_DEP,
+) -> dict[str, Any]:
+    query = (
+        select(KeywordHarvestSuggestion)
+        .where(KeywordHarvestSuggestion.status == status_filter)
+        .order_by(col(KeywordHarvestSuggestion.created_at).desc())
+        .offset(offset)
+        .limit(limit)
+    )
+    if action:
+        query = query.where(KeywordHarvestSuggestion.action == action)
+    result = await session.exec(query)
+    items = result.all()
+    return {"items": [i.model_dump() for i in items], "total": len(items), "offset": offset, "limit": limit}
+
+
+@router.post("/keyword-suggestions/generate")
+async def generate_keyword_suggestions(
+    body: GenerateKeywordSuggestionsRequest,
+    session: AsyncSession = SESSION_DEP,
+) -> dict[str, Any]:
+    counts = await run_keyword_harvester(
+        session,
+        min_orders=body.min_orders,
+        min_clicks=body.min_clicks,
+        target_acos=body.target_acos,
+    )
+    return {"created": counts, "min_orders": body.min_orders, "min_clicks": body.min_clicks, "target_acos": body.target_acos}
+
+
+@router.post("/keyword-suggestions/{suggestion_id}/approve")
+async def approve_keyword_suggestion(
+    suggestion_id: UUID,
+    session: AsyncSession = SESSION_DEP,
+) -> dict[str, Any]:
+    result = await session.exec(
+        select(KeywordHarvestSuggestion).where(KeywordHarvestSuggestion.id == suggestion_id)
+    )
+    suggestion = result.first()
+    if not suggestion:
+        raise HTTPException(status_code=404, detail="Suggestion not found")
+    if suggestion.status != "pending":
+        raise HTTPException(status_code=400, detail=f"Suggestion is already {suggestion.status}")
+    suggestion.status = "approved"
+    suggestion.resolved_at = utcnow()
+    suggestion.resolved_by = "manual"
+    await session.commit()
+    await session.refresh(suggestion)
+    return suggestion.model_dump()
+
+
+@router.post("/keyword-suggestions/{suggestion_id}/reject")
+async def reject_keyword_suggestion(
+    suggestion_id: UUID,
+    session: AsyncSession = SESSION_DEP,
+) -> dict[str, Any]:
+    result = await session.exec(
+        select(KeywordHarvestSuggestion).where(KeywordHarvestSuggestion.id == suggestion_id)
+    )
+    suggestion = result.first()
+    if not suggestion:
+        raise HTTPException(status_code=404, detail="Suggestion not found")
+    if suggestion.status != "pending":
+        raise HTTPException(status_code=400, detail=f"Suggestion is already {suggestion.status}")
+    suggestion.status = "rejected"
+    suggestion.resolved_at = utcnow()
+    suggestion.resolved_by = "manual"
+    await session.commit()
+    await session.refresh(suggestion)
+    return suggestion.model_dump()

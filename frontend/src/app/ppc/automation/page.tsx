@@ -589,7 +589,7 @@ async function apiFetch(path: string, init?: RequestInit) {
 
 // ─── Tabs ────────────────────────────────────────────────────────────────────────
 
-const TABS = ['📡 实时监控', '📋 Campaign 诊断', '💰 Bid 建议', '🔑 关键词建议', '📍 Placement 优化', '🏗️ Campaign 构建器', '⚙️ 设置'] as const
+const TABS = ['📡 实时监控', '📋 Campaign 诊断', '💰 Bid 建议', '🔑 关键词建议', '📍 Placement 优化', '🏗️ Campaign 构建器', '🌾 关键词收割', '⚙️ 设置'] as const
 type Tab = typeof TABS[number]
 
 // ─── Main Page ────────────────────────────────────────────────────────────────
@@ -634,6 +634,7 @@ export default function PpcAutomationPage() {
         {activeTab === '🔑 关键词建议' && <KeywordRecommendationsTab />}
         {activeTab === '📍 Placement 优化' && <PlacementsTab />}
         {activeTab === '🏗️ Campaign 构建器' && <CampaignBuilderTab />}
+        {activeTab === '🌾 关键词收割' && <KeywordHarvestTab />}
         {activeTab === '⚙️ 设置' && <SettingsTab />}
       </div>
 
@@ -3795,6 +3796,245 @@ function ChangeLogPanel() {
           )}
         </tbody>
       </table>
+    </div>
+  )
+}
+
+// ─── Keyword Harvest Tab ─────────────────────────────────────────────────────
+
+interface HarvestSuggestion {
+  id: string
+  search_term: string
+  campaign_id: string | null
+  campaign_name: string | null
+  impressions: number
+  clicks: number
+  orders: number
+  spend: number | null
+  acos: number | null
+  action: string
+  min_orders_threshold: number
+  min_clicks_threshold: number
+  max_acos_threshold: number | null
+  status: string
+  created_at: string
+}
+
+function KeywordHarvestTab() {
+  const queryClient = useQueryClient()
+  const [statusFilter, setStatusFilter] = React.useState('pending')
+  const [actionFilter, setActionFilter] = React.useState('')
+  const [minOrders, setMinOrders] = React.useState(2)
+  const [minClicks, setMinClicks] = React.useState(15)
+  const [targetAcos, setTargetAcos] = React.useState(25)
+  const [generating, setGenerating] = React.useState(false)
+  const [genResult, setGenResult] = React.useState<{ harvest: number; negate: number } | null>(null)
+
+  const { data, isLoading } = useQuery({
+    queryKey: ['keyword-harvest-suggestions', statusFilter, actionFilter],
+    queryFn: async () => {
+      const qs = new URLSearchParams({ status: statusFilter })
+      if (actionFilter) qs.set('action', actionFilter)
+      const res = await apiFetch(`/api/ppc/automation/keyword-suggestions?${qs}`)
+      return res as { items: HarvestSuggestion[]; total: number }
+    },
+  })
+
+  const approveMutation = useMutation({
+    mutationFn: (id: string) =>
+      apiFetch(`/api/ppc/automation/keyword-suggestions/${id}/approve`, { method: 'POST' }),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['keyword-harvest-suggestions'] }),
+  })
+
+  const rejectMutation = useMutation({
+    mutationFn: (id: string) =>
+      apiFetch(`/api/ppc/automation/keyword-suggestions/${id}/reject`, { method: 'POST' }),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['keyword-harvest-suggestions'] }),
+  })
+
+  async function handleGenerate() {
+    setGenerating(true)
+    setGenResult(null)
+    try {
+      const data = await apiFetch('/api/ppc/automation/keyword-suggestions/generate', {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ min_orders: minOrders, min_clicks: minClicks, target_acos: targetAcos }),
+      })
+      setGenResult(data.created)
+      queryClient.invalidateQueries({ queryKey: ['keyword-harvest-suggestions'] })
+    } catch {
+      // swallow
+    } finally {
+      setGenerating(false)
+    }
+  }
+
+  const items = data?.items ?? []
+
+  return (
+    <div className="space-y-4">
+      {/* Toolbar */}
+      <div className="rounded-xl border border-slate-200 bg-white px-4 py-3 shadow-sm space-y-3">
+        <div className="flex items-center justify-between flex-wrap gap-3">
+          <div className="flex items-center gap-3 flex-wrap">
+            <select
+              value={statusFilter}
+              onChange={(e) => setStatusFilter(e.target.value)}
+              className="rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-sm text-slate-700 focus:outline-none focus:ring-2 focus:ring-blue-500"
+            >
+              <option value="pending">待处理</option>
+              <option value="approved">已批准</option>
+              <option value="rejected">已拒绝</option>
+            </select>
+            <select
+              value={actionFilter}
+              onChange={(e) => setActionFilter(e.target.value)}
+              className="rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-sm text-slate-700 focus:outline-none focus:ring-2 focus:ring-blue-500"
+            >
+              <option value="">全部类型</option>
+              <option value="harvest">收割 (加词)</option>
+              <option value="negate">否定 (排除)</option>
+            </select>
+            <span className="text-xs text-slate-400">{items.length} 条建议</span>
+          </div>
+          <button
+            onClick={handleGenerate}
+            disabled={generating}
+            className="flex items-center gap-2 rounded-lg bg-green-600 px-4 py-2 text-sm font-medium text-white hover:bg-green-700 disabled:opacity-50"
+          >
+            <RefreshCw className={cn('h-4 w-4', generating && 'animate-spin')} />
+            {generating ? '分析中...' : '重新生成建议'}
+          </button>
+        </div>
+
+        {/* Threshold config */}
+        <div className="flex items-center gap-4 flex-wrap text-sm text-slate-600">
+          <label className="flex items-center gap-2">
+            收割阈值: orders ≥
+            <input
+              type="number"
+              value={minOrders}
+              onChange={(e) => setMinOrders(Number(e.target.value))}
+              className="w-16 rounded border border-slate-200 px-2 py-0.5 text-center text-sm"
+              min={1}
+            />
+            且 ACoS &lt;
+            <input
+              type="number"
+              value={targetAcos}
+              onChange={(e) => setTargetAcos(Number(e.target.value))}
+              className="w-16 rounded border border-slate-200 px-2 py-0.5 text-center text-sm"
+              min={1}
+            />
+            %
+          </label>
+          <label className="flex items-center gap-2">
+            否定阈值: clicks ≥
+            <input
+              type="number"
+              value={minClicks}
+              onChange={(e) => setMinClicks(Number(e.target.value))}
+              className="w-16 rounded border border-slate-200 px-2 py-0.5 text-center text-sm"
+              min={1}
+            />
+            且 0 成交
+          </label>
+        </div>
+
+        {genResult && (
+          <p className="text-xs text-green-600 font-medium">
+            生成完成：{genResult.harvest} 条收割建议，{genResult.negate} 条否定建议
+          </p>
+        )}
+      </div>
+
+      {/* Table */}
+      <div className="rounded-xl border border-slate-200 bg-white shadow-sm overflow-hidden">
+        <table className="w-full text-sm">
+          <thead className="bg-slate-50 text-xs font-semibold text-slate-500 uppercase tracking-wide">
+            <tr>
+              <th className="px-4 py-3 text-left">搜索词</th>
+              <th className="px-4 py-3 text-left">Campaign</th>
+              <th className="px-4 py-3 text-right">曝光</th>
+              <th className="px-4 py-3 text-right">点击</th>
+              <th className="px-4 py-3 text-right">订单</th>
+              <th className="px-4 py-3 text-right">花费</th>
+              <th className="px-4 py-3 text-right">ACoS</th>
+              <th className="px-4 py-3 text-center">类型</th>
+              <th className="px-4 py-3 text-center">操作</th>
+            </tr>
+          </thead>
+          <tbody className="divide-y divide-slate-100">
+            {isLoading ? (
+              <tr><td colSpan={9} className="px-4 py-8 text-center text-slate-400">加载中...</td></tr>
+            ) : items.length === 0 ? (
+              <tr><td colSpan={9} className="px-4 py-8 text-center text-slate-400">暂无建议，点击「重新生成」分析搜索词报告</td></tr>
+            ) : (
+              items.map((item) => (
+                <tr key={item.id} className="hover:bg-slate-50">
+                  <td className="px-4 py-2.5 font-mono text-xs text-slate-700 max-w-[200px] truncate" title={item.search_term}>
+                    {item.search_term}
+                  </td>
+                  <td className="px-4 py-2.5 text-xs text-slate-500 max-w-[140px] truncate" title={item.campaign_name ?? item.campaign_id ?? ''}>
+                    {item.campaign_name ?? item.campaign_id ?? '—'}
+                  </td>
+                  <td className="px-4 py-2.5 text-right text-slate-600">{item.impressions.toLocaleString()}</td>
+                  <td className="px-4 py-2.5 text-right text-slate-600">{item.clicks.toLocaleString()}</td>
+                  <td className="px-4 py-2.5 text-right font-medium text-slate-700">{item.orders}</td>
+                  <td className="px-4 py-2.5 text-right text-slate-600">
+                    {item.spend != null ? `$${Number(item.spend).toFixed(2)}` : '—'}
+                  </td>
+                  <td className="px-4 py-2.5 text-right">
+                    {item.acos != null ? (
+                      <span className={cn('font-medium', Number(item.acos) * 100 < 25 ? 'text-green-600' : 'text-red-500')}>
+                        {(Number(item.acos) * 100).toFixed(1)}%
+                      </span>
+                    ) : '—'}
+                  </td>
+                  <td className="px-4 py-2.5 text-center">
+                    <span className={cn(
+                      'inline-flex items-center rounded-full px-2 py-0.5 text-[10px] font-semibold uppercase',
+                      item.action === 'harvest'
+                        ? 'bg-green-100 text-green-700'
+                        : 'bg-red-100 text-red-700',
+                    )}>
+                      {item.action === 'harvest' ? '加词' : '否定'}
+                    </span>
+                  </td>
+                  <td className="px-4 py-2.5 text-center">
+                    {item.status === 'pending' ? (
+                      <div className="flex items-center justify-center gap-2">
+                        <button
+                          onClick={() => approveMutation.mutate(item.id)}
+                          disabled={approveMutation.isPending}
+                          className="rounded bg-blue-600 px-2.5 py-1 text-xs font-medium text-white hover:bg-blue-700 disabled:opacity-50"
+                        >
+                          批准
+                        </button>
+                        <button
+                          onClick={() => rejectMutation.mutate(item.id)}
+                          disabled={rejectMutation.isPending}
+                          className="rounded bg-slate-200 px-2.5 py-1 text-xs font-medium text-slate-600 hover:bg-slate-300 disabled:opacity-50"
+                        >
+                          拒绝
+                        </button>
+                      </div>
+                    ) : (
+                      <span className={cn(
+                        'inline-flex items-center rounded-full px-2 py-0.5 text-[10px] font-semibold uppercase',
+                        item.status === 'approved' ? 'bg-green-100 text-green-700' : 'bg-slate-100 text-slate-500',
+                      )}>
+                        {item.status === 'approved' ? '已批准' : '已拒绝'}
+                      </span>
+                    )}
+                  </td>
+                </tr>
+              ))
+            )}
+          </tbody>
+        </table>
+      </div>
     </div>
   )
 }
