@@ -3932,11 +3932,6 @@ interface PacingItem {
 }
 
 function BudgetPacingTab() {
-  const queryClient = useQueryClient()
-  const [editingId, setEditingId] = React.useState<string | null>(null)
-  const [editBudget, setEditBudget] = React.useState('')
-  const [editName, setEditName] = React.useState('')
-
   const { data, isLoading } = useQuery({
     queryKey: ['budget-pacing'],
     queryFn: async () => {
@@ -3945,25 +3940,6 @@ function BudgetPacingTab() {
     },
     refetchInterval: 60_000,
   })
-
-  const saveMutation = useMutation({
-    mutationFn: ({ campaignId, monthly_budget, campaign_name }: { campaignId: string; monthly_budget: number; campaign_name: string }) =>
-      apiFetch(`/api/ppc/automation/budget-pacing/${campaignId}`, {
-        method: 'PUT',
-        headers: { 'content-type': 'application/json' },
-        body: JSON.stringify({ monthly_budget, campaign_name }),
-      }),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['budget-pacing'] })
-      setEditingId(null)
-    },
-  })
-
-  function startEdit(item: PacingItem) {
-    setEditingId(item.campaign_id)
-    setEditBudget(String(item.monthly_budget))
-    setEditName(item.campaign_name ?? item.campaign_id)
-  }
 
   function statusBadge(status: string) {
     if (status === 'over') return <span className="inline-flex items-center rounded-full px-2 py-0.5 text-[10px] font-semibold bg-red-100 text-red-700 uppercase">超速</span>
@@ -3976,10 +3952,8 @@ function BudgetPacingTab() {
   return (
     <div className="space-y-4">
       <div className="flex items-center justify-between rounded-xl border border-slate-200 bg-white px-4 py-3 shadow-sm">
-        <p className="text-sm text-slate-600">
-          按月度预算目标计算每日节奏。超速 &gt;110%，偏慢 &lt;70%。
-        </p>
-        <span className="text-xs text-slate-400">{items.length} 个 campaign</span>
+        <p className="text-sm text-slate-600">按月度预算目标计算每日节奏。超速 &gt;110%，偏慢 &lt;70%。</p>
+        <span className="text-xs text-slate-400">{items.length} 个 campaign · 只读模式</span>
       </div>
 
       <div className="rounded-xl border border-slate-200 bg-white shadow-sm overflow-hidden">
@@ -3994,18 +3968,13 @@ function BudgetPacingTab() {
               <th className="px-4 py-3 text-right">剩余预算</th>
               <th className="px-4 py-3 text-right">节奏</th>
               <th className="px-4 py-3 text-center">状态</th>
-              <th className="px-4 py-3 text-center">操作</th>
             </tr>
           </thead>
           <tbody className="divide-y divide-slate-100">
             {isLoading ? (
-              <tr><td colSpan={9} className="px-4 py-8 text-center text-slate-400">加载中...</td></tr>
+              <tr><td colSpan={8} className="px-4 py-8 text-center text-slate-400">加载中...</td></tr>
             ) : items.length === 0 ? (
-              <tr>
-                <td colSpan={9} className="px-4 py-8 text-center text-slate-400">
-                  暂无数据。点击某行的「设置」为 campaign 添加月度预算目标。
-                </td>
-              </tr>
+              <tr><td colSpan={8} className="px-4 py-8 text-center text-slate-400">暂无 campaign 预算目标数据</td></tr>
             ) : (
               items.map((item) => (
                 <tr key={item.campaign_id} className="hover:bg-slate-50">
@@ -4022,7 +3991,6 @@ function BudgetPacingTab() {
                     </span>
                   </td>
                   <td className="px-4 py-2.5 text-right">
-                    {/* Progress bar */}
                     <div className="flex items-center justify-end gap-2">
                       <div className="w-20 bg-slate-100 rounded-full h-1.5">
                         <div
@@ -4034,29 +4002,6 @@ function BudgetPacingTab() {
                     </div>
                   </td>
                   <td className="px-4 py-2.5 text-center">{statusBadge(item.status)}</td>
-                  <td className="px-4 py-2.5 text-center">
-                    {editingId === item.campaign_id ? (
-                      <div className="flex items-center gap-1">
-                        <input
-                          type="number"
-                          value={editBudget}
-                          onChange={(e) => setEditBudget(e.target.value)}
-                          className="w-20 rounded border border-slate-200 px-1.5 py-0.5 text-xs text-center"
-                          placeholder="月预算"
-                        />
-                        <button
-                          onClick={() => saveMutation.mutate({ campaignId: item.campaign_id, monthly_budget: Number(editBudget), campaign_name: editName })}
-                          disabled={saveMutation.isPending}
-                          className="rounded bg-blue-600 px-2 py-0.5 text-xs font-medium text-white hover:bg-blue-700 disabled:opacity-50"
-                        >保存</button>
-                        <button onClick={() => setEditingId(null)} className="rounded bg-slate-200 px-2 py-0.5 text-xs text-slate-600 hover:bg-slate-300">取消</button>
-                      </div>
-                    ) : (
-                      <button onClick={() => startEdit(item)} className="rounded bg-slate-100 px-2.5 py-1 text-xs text-slate-600 hover:bg-slate-200">
-                        设置
-                      </button>
-                    )}
-                  </td>
                 </tr>
               ))
             )}

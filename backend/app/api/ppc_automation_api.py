@@ -141,10 +141,6 @@ class ApplyBudgetAllocRequest(BaseModel):
 
 
 
-class UpsertBudgetPacingTargetRequest(BaseModel):
-    campaign_name: str | None = None
-    monthly_budget: Decimal
-
 
 class UpsertCampaignGoalRequest(BaseModel):
     campaign_name: str | None = None
@@ -1233,31 +1229,6 @@ async def list_budget_pacing(session: AsyncSession = SESSION_DEP) -> dict[str, A
     return {"items": items, "total": len(items)}
 
 
-@router.put("/budget-pacing/{campaign_id}")
-async def upsert_budget_pacing_target(
-    campaign_id: str,
-    body: UpsertBudgetPacingTargetRequest,
-    session: AsyncSession = SESSION_DEP,
-) -> dict[str, Any]:
-    result = await session.exec(
-        select(BudgetPacingTarget).where(BudgetPacingTarget.campaign_id == campaign_id)
-    )
-    target = result.first()
-    if target is None:
-        target = BudgetPacingTarget(
-            campaign_id=campaign_id,
-            campaign_name=body.campaign_name,
-            monthly_budget=body.monthly_budget,
-        )
-        session.add(target)
-    else:
-        target.monthly_budget = body.monthly_budget
-        if body.campaign_name is not None:
-            target.campaign_name = body.campaign_name
-        target.updated_at = utcnow()
-    await session.commit()
-    await session.refresh(target)
-    return target.model_dump()
 
 
 # ---------------------------------------------------------------------------
