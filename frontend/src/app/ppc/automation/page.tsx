@@ -4232,11 +4232,9 @@ interface DaypartingData {
 }
 
 function DaypartingTab() {
-  const queryClient = useQueryClient()
   const [campaignId, setCampaignId] = React.useState('')
   const [inputId, setInputId] = React.useState('')
   const [days, setDays] = React.useState(30)
-  const [saving, setSaving] = React.useState(false)
   const [heatmapMetric, setHeatmapMetric] = React.useState<'cvr_coefficient' | 'clicks' | 'orders' | 'acos'>('cvr_coefficient')
 
   const { data, isLoading } = useQuery({
@@ -4247,21 +4245,6 @@ function DaypartingTab() {
     },
     enabled: !!campaignId,
   })
-
-  async function handleSaveSchedule() {
-    if (!campaignId || !data) return
-    setSaving(true)
-    try {
-      await apiFetch(`/api/ppc/automation/dayparting/${campaignId}/schedule`, {
-        method: 'PUT',
-        headers: { 'content-type': 'application/json' },
-        body: JSON.stringify({ enabled: true }),
-      })
-      queryClient.invalidateQueries({ queryKey: ['dayparting', campaignId] })
-    } catch { /* swallow */ } finally {
-      setSaving(false)
-    }
-  }
 
   const hourly = data?.hourly ?? []
 
@@ -4358,7 +4341,7 @@ function DaypartingTab() {
         <div className="rounded-xl border border-slate-200 bg-white px-4 py-16 text-center text-slate-400 shadow-sm">加载中...</div>
       ) : hourly.length === 0 ? (
         <div className="rounded-xl border border-slate-200 bg-white px-4 py-16 text-center text-slate-400 shadow-sm">
-          该 Campaign 暂无小时级数据。可通过「导入」接口上传数据。
+          该 Campaign 暂无小时级数据。
         </div>
       ) : (
         <>
@@ -4394,17 +4377,7 @@ function DaypartingTab() {
 
           {/* Recommended multipliers */}
           <div className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
-            <div className="flex items-center justify-between mb-3">
-              <h3 className="text-sm font-semibold text-slate-700">推荐竞价倍率（基于 CVR 系数）</h3>
-              <button
-                onClick={handleSaveSchedule}
-                disabled={saving}
-                className="flex items-center gap-2 rounded-lg bg-blue-600 px-3 py-1.5 text-sm font-medium text-white hover:bg-blue-700 disabled:opacity-50"
-              >
-                {saving ? <RefreshCw className="h-4 w-4 animate-spin" /> : null}
-                保存分时策略
-              </button>
-            </div>
+            <h3 className="text-sm font-semibold text-slate-700 mb-3">推荐竞价倍率（基于 CVR 系数）</h3>
             <div className="grid grid-cols-12 gap-1">
               {(data?.recommended_multipliers ?? []).map((m, h) => (
                 <div
@@ -4421,9 +4394,6 @@ function DaypartingTab() {
                 </div>
               ))}
             </div>
-            {data?.schedule && (
-              <p className="mt-2 text-xs text-green-600">✓ 已保存分时策略，启用状态: {data.schedule.enabled ? '开启' : '关闭'}</p>
-            )}
           </div>
 
           {/* Hourly detail table */}
