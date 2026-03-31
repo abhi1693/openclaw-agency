@@ -47,7 +47,6 @@ from app.services.ppc_automation.dayparting import (
     get_dayparting_schedule,
     get_hourly_performance,
 )
-from app.services.ppc_automation.goal_optimizer import run_goal_optimizer
 from app.services.tacos_calculator import calculate_tacos, metrics_to_dict
 
 router = APIRouter(prefix="/ppc/automation", tags=["ppc-automation"])
@@ -141,15 +140,6 @@ class ApplyBudgetAllocRequest(BaseModel):
 
 
 
-
-class UpsertCampaignGoalRequest(BaseModel):
-    campaign_name: str | None = None
-    goal_mode: str = "target_acos"   # target_acos / max_sales / efficiency
-    target_acos: float = 25.0
-    kp: float = 0.3
-    ki: float = 0.05
-    kd: float = 0.1
-    max_bid_adjustment_pct: float = 0.15
 
 
 class UpsertDaypartingScheduleRequest(BaseModel):
@@ -1249,28 +1239,6 @@ async def list_campaign_goals(
     return {"items": [g.model_dump() for g in goals], "total": len(goals)}
 
 
-@router.put("/goals/{campaign_id}")
-async def upsert_campaign_goal(
-    campaign_id: str,
-    body: UpsertCampaignGoalRequest,
-    session: AsyncSession = SESSION_DEP,
-) -> dict[str, Any]:
-    result = await session.exec(
-        select(CampaignGoal).where(CampaignGoal.campaign_id == campaign_id)
-    )
-    goal = result.first()
-    if goal is None:
-        goal = CampaignGoal(campaign_id=campaign_id, **body.model_dump())
-        session.add(goal)
-    else:
-        for field, value in body.model_dump().items():
-            setattr(goal, field, value)
-        goal.updated_at = utcnow()
-    await session.commit()
-    await session.refresh(goal)
-    return goal.model_dump()
-
-
 @router.get("/bid-suggestions")
 async def list_bid_suggestions(
     status_filter: str = Query(default="pending", alias="status"),
@@ -1290,66 +1258,6 @@ async def list_bid_suggestions(
     return {"items": [i.model_dump() for i in items], "total": len(items)}
 
 
-@router.post("/bid-suggestions/generate")
-async def generate_bid_suggestions(session: AsyncSession = SESSION_DEP) -> dict[str, Any]:
-    counts = await run_goal_optimizer(session)
-    return counts
-
-
-@router.post("/bid-suggestions/approve-all")
-async def approve_all_bid_suggestions(session: AsyncSession = SESSION_DEP) -> dict[str, Any]:
-    result = await session.exec(
-        select(BidSuggestion).where(BidSuggestion.status == "pending")
-    )
-    pending = result.all()
-    for s in pending:
-        s.status = "approved"
-        s.resolved_at = utcnow()
-        s.resolved_by = "manual"
-    await session.commit()
-    return {"approved": len(pending)}
-
-
-@router.post("/bid-suggestions/{suggestion_id}/approve")
-async def approve_bid_suggestion(
-    suggestion_id: UUID,
-    session: AsyncSession = SESSION_DEP,
-) -> dict[str, Any]:
-    result = await session.exec(
-        select(BidSuggestion).where(BidSuggestion.id == suggestion_id)
-    )
-    s = result.first()
-    if not s:
-        raise HTTPException(status_code=404, detail="Suggestion not found")
-    if s.status != "pending":
-        raise HTTPException(status_code=400, detail=f"Already {s.status}")
-    s.status = "approved"
-    s.resolved_at = utcnow()
-    s.resolved_by = "manual"
-    await session.commit()
-    await session.refresh(s)
-    return s.model_dump()
-
-
-@router.post("/bid-suggestions/{suggestion_id}/reject")
-async def reject_bid_suggestion(
-    suggestion_id: UUID,
-    session: AsyncSession = SESSION_DEP,
-) -> dict[str, Any]:
-    result = await session.exec(
-        select(BidSuggestion).where(BidSuggestion.id == suggestion_id)
-    )
-    s = result.first()
-    if not s:
-        raise HTTPException(status_code=404, detail="Suggestion not found")
-    if s.status != "pending":
-        raise HTTPException(status_code=400, detail=f"Already {s.status}")
-    s.status = "rejected"
-    s.resolved_at = utcnow()
-    s.resolved_by = "manual"
-    await session.commit()
-    await session.refresh(s)
-    return s.model_dump()
 
 
 # ---------------------------------------------------------------------------

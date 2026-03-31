@@ -4043,12 +4043,8 @@ interface BidSuggestionItem {
 }
 
 function GoalOptimizerTab() {
-  const queryClient = useQueryClient()
   const [activeSection, setActiveSection] = React.useState<'goals' | 'suggestions'>('suggestions')
   const [statusFilter, setStatusFilter] = React.useState('pending')
-  const [editingId, setEditingId] = React.useState<string | null>(null)
-  const [editForm, setEditForm] = React.useState({ campaign_name: '', goal_mode: 'target_acos', target_acos: 25 })
-  const [generating, setGenerating] = React.useState(false)
 
   const { data: goalsData, isLoading: goalsLoading } = useQuery({
     queryKey: ['campaign-goals'],
@@ -4063,47 +4059,8 @@ function GoalOptimizerTab() {
     },
   })
 
-  const saveMutation = useMutation({
-    mutationFn: ({ campaignId, body }: { campaignId: string; body: object }) =>
-      apiFetch(`/api/ppc/automation/goals/${campaignId}`, {
-        method: 'PUT',
-        headers: { 'content-type': 'application/json' },
-        body: JSON.stringify(body),
-      }),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['campaign-goals'] })
-      setEditingId(null)
-    },
-  })
-
-  const approveMutation = useMutation({
-    mutationFn: (id: string) => apiFetch(`/api/ppc/automation/bid-suggestions/${id}/approve`, { method: 'POST' }),
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['bid-suggestions'] }),
-  })
-
-  const rejectMutation = useMutation({
-    mutationFn: (id: string) => apiFetch(`/api/ppc/automation/bid-suggestions/${id}/reject`, { method: 'POST' }),
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['bid-suggestions'] }),
-  })
-
-  const approveAllMutation = useMutation({
-    mutationFn: () => apiFetch('/api/ppc/automation/bid-suggestions/approve-all', { method: 'POST' }),
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['bid-suggestions'] }),
-  })
-
-  async function handleGenerate() {
-    setGenerating(true)
-    try {
-      await apiFetch('/api/ppc/automation/bid-suggestions/generate', { method: 'POST' })
-      queryClient.invalidateQueries({ queryKey: ['bid-suggestions'] })
-    } catch { /* swallow */ } finally {
-      setGenerating(false)
-    }
-  }
-
   const goals = goalsData?.items ?? []
   const suggestions = suggestionsData?.items ?? []
-  const pendingCount = suggestions.filter(s => s.status === 'pending').length
 
   return (
     <div className="space-y-4">
@@ -4113,7 +4070,7 @@ function GoalOptimizerTab() {
           onClick={() => setActiveSection('suggestions')}
           className={cn('rounded-lg px-3 py-1.5 text-sm font-medium', activeSection === 'suggestions' ? 'bg-blue-600 text-white' : 'bg-slate-100 text-slate-600 hover:bg-slate-200')}
         >
-          竞价建议 {pendingCount > 0 && <span className="ml-1 rounded-full bg-white/30 px-1.5 text-xs">{pendingCount}</span>}
+          竞价建议
         </button>
         <button
           onClick={() => setActiveSection('goals')}
@@ -4125,38 +4082,17 @@ function GoalOptimizerTab() {
 
       {activeSection === 'suggestions' && (
         <div className="space-y-3">
-          <div className="flex items-center justify-between flex-wrap gap-3 rounded-xl border border-slate-200 bg-white px-4 py-3 shadow-sm">
-            <div className="flex items-center gap-3">
-              <select
-                value={statusFilter}
-                onChange={(e) => setStatusFilter(e.target.value)}
-                className="rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-sm text-slate-700 focus:outline-none focus:ring-2 focus:ring-blue-500"
-              >
-                <option value="pending">待处理</option>
-                <option value="approved">已批准</option>
-                <option value="rejected">已拒绝</option>
-              </select>
-              <span className="text-xs text-slate-400">{suggestions.length} 条</span>
-            </div>
-            <div className="flex items-center gap-2">
-              {pendingCount > 0 && (
-                <button
-                  onClick={() => approveAllMutation.mutate()}
-                  disabled={approveAllMutation.isPending}
-                  className="rounded-lg bg-green-600 px-3 py-1.5 text-sm font-medium text-white hover:bg-green-700 disabled:opacity-50"
-                >
-                  全部批准 ({pendingCount})
-                </button>
-              )}
-              <button
-                onClick={handleGenerate}
-                disabled={generating}
-                className="flex items-center gap-2 rounded-lg bg-blue-600 px-3 py-1.5 text-sm font-medium text-white hover:bg-blue-700 disabled:opacity-50"
-              >
-                <RefreshCw className={cn('h-4 w-4', generating && 'animate-spin')} />
-                生成建议
-              </button>
-            </div>
+          <div className="flex items-center gap-3 rounded-xl border border-slate-200 bg-white px-4 py-3 shadow-sm">
+            <select
+              value={statusFilter}
+              onChange={(e) => setStatusFilter(e.target.value)}
+              className="rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-sm text-slate-700 focus:outline-none focus:ring-2 focus:ring-blue-500"
+            >
+              <option value="pending">待处理</option>
+              <option value="approved">已批准</option>
+              <option value="rejected">已拒绝</option>
+            </select>
+            <span className="text-xs text-slate-400">{suggestions.length} 条</span>
           </div>
 
           <div className="rounded-xl border border-slate-200 bg-white shadow-sm overflow-hidden">
@@ -4169,14 +4105,14 @@ function GoalOptimizerTab() {
                   <th className="px-4 py-3 text-right">目标 ACoS</th>
                   <th className="px-4 py-3 text-right">误差</th>
                   <th className="px-4 py-3 text-right">建议调整</th>
-                  <th className="px-4 py-3 text-center">操作</th>
+                  <th className="px-4 py-3 text-center">状态</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-100">
                 {suggestionsLoading ? (
                   <tr><td colSpan={7} className="px-4 py-8 text-center text-slate-400">加载中...</td></tr>
                 ) : suggestions.length === 0 ? (
-                  <tr><td colSpan={7} className="px-4 py-8 text-center text-slate-400">暂无建议，先设置目标后点击「生成建议」</td></tr>
+                  <tr><td colSpan={7} className="px-4 py-8 text-center text-slate-400">暂无建议数据</td></tr>
                 ) : (
                   suggestions.map((s) => {
                     const adjPct = s.bid_adjustment_pct != null ? s.bid_adjustment_pct * 100 : null
@@ -4211,16 +4147,13 @@ function GoalOptimizerTab() {
                           ) : '—'}
                         </td>
                         <td className="px-4 py-2.5 text-center">
-                          {s.status === 'pending' ? (
-                            <div className="flex items-center justify-center gap-2">
-                              <button onClick={() => approveMutation.mutate(s.id)} disabled={approveMutation.isPending} className="rounded bg-blue-600 px-2.5 py-1 text-xs font-medium text-white hover:bg-blue-700 disabled:opacity-50">批准</button>
-                              <button onClick={() => rejectMutation.mutate(s.id)} disabled={rejectMutation.isPending} className="rounded bg-slate-200 px-2.5 py-1 text-xs font-medium text-slate-600 hover:bg-slate-300 disabled:opacity-50">拒绝</button>
-                            </div>
-                          ) : (
-                            <span className={cn('inline-flex rounded-full px-2 py-0.5 text-[10px] font-semibold uppercase', s.status === 'approved' ? 'bg-green-100 text-green-700' : 'bg-slate-100 text-slate-500')}>
-                              {s.status === 'approved' ? '已批准' : '已拒绝'}
-                            </span>
-                          )}
+                          <span className={cn('inline-flex rounded-full px-2 py-0.5 text-[10px] font-semibold uppercase',
+                            s.status === 'approved' ? 'bg-green-100 text-green-700' :
+                            s.status === 'rejected' ? 'bg-slate-100 text-slate-500' :
+                            'bg-yellow-100 text-yellow-700'
+                          )}>
+                            {s.status === 'approved' ? '已批准' : s.status === 'rejected' ? '已拒绝' : '待处理'}
+                          </span>
                         </td>
                       </tr>
                     )
@@ -4242,14 +4175,13 @@ function GoalOptimizerTab() {
                 <th className="px-4 py-3 text-center">模式</th>
                 <th className="px-4 py-3 text-right">目标 ACoS</th>
                 <th className="px-4 py-3 text-right">Kp / Ki / Kd</th>
-                <th className="px-4 py-3 text-center">操作</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-100">
               {goalsLoading ? (
-                <tr><td colSpan={6} className="px-4 py-8 text-center text-slate-400">加载中...</td></tr>
+                <tr><td colSpan={5} className="px-4 py-8 text-center text-slate-400">加载中...</td></tr>
               ) : goals.length === 0 ? (
-                <tr><td colSpan={6} className="px-4 py-8 text-center text-slate-400">暂无目标配置</td></tr>
+                <tr><td colSpan={5} className="px-4 py-8 text-center text-slate-400">暂无目标配置</td></tr>
               ) : (
                 goals.map((g) => (
                   <tr key={g.campaign_id} className="hover:bg-slate-50">
@@ -4263,39 +4195,6 @@ function GoalOptimizerTab() {
                     <td className="px-4 py-2.5 text-right font-medium text-slate-700">{g.target_acos.toFixed(1)}%</td>
                     <td className="px-4 py-2.5 text-right font-mono text-xs text-slate-500">
                       {g.kp}/{g.ki}/{g.kd}
-                    </td>
-                    <td className="px-4 py-2.5 text-center">
-                      {editingId === g.campaign_id ? (
-                        <div className="flex items-center gap-1 justify-center">
-                          <select
-                            value={editForm.goal_mode}
-                            onChange={(e) => setEditForm(f => ({ ...f, goal_mode: e.target.value }))}
-                            className="rounded border border-slate-200 px-1.5 py-0.5 text-xs"
-                          >
-                            <option value="target_acos">目标ACoS</option>
-                            <option value="max_sales">最大销量</option>
-                            <option value="efficiency">效率</option>
-                          </select>
-                          <input
-                            type="number"
-                            value={editForm.target_acos}
-                            onChange={(e) => setEditForm(f => ({ ...f, target_acos: Number(e.target.value) }))}
-                            className="w-16 rounded border border-slate-200 px-1.5 py-0.5 text-xs text-center"
-                            placeholder="ACoS%"
-                          />
-                          <button
-                            onClick={() => saveMutation.mutate({ campaignId: g.campaign_id, body: { ...editForm } })}
-                            disabled={saveMutation.isPending}
-                            className="rounded bg-blue-600 px-2 py-0.5 text-xs font-medium text-white hover:bg-blue-700 disabled:opacity-50"
-                          >保存</button>
-                          <button onClick={() => setEditingId(null)} className="rounded bg-slate-200 px-2 py-0.5 text-xs text-slate-600">取消</button>
-                        </div>
-                      ) : (
-                        <button
-                          onClick={() => { setEditingId(g.campaign_id); setEditForm({ campaign_name: g.campaign_name ?? '', goal_mode: g.goal_mode, target_acos: g.target_acos }) }}
-                          className="rounded bg-slate-100 px-2.5 py-1 text-xs text-slate-600 hover:bg-slate-200"
-                        >编辑</button>
-                      )}
                     </td>
                   </tr>
                 ))
