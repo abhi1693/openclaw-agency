@@ -17,8 +17,10 @@ from app.core.logging import get_logger
 from app.core.time import utcnow
 from app.models.ppc_automation import (
     BidRecommendation,
+    BidSuggestion,
     BudgetAllocation,
     BudgetPacingTarget,
+    CampaignGoal,
     CampaignPlan,
     KeywordHarvestSuggestion,
     KeywordRecommendation,
@@ -39,6 +41,7 @@ from app.services.negative_pattern_detector import detect_negative_patterns
 from app.services.placement_optimizer import generate_placement_recommendations
 from app.services.ppc_scheduler import run_optimizer
 from app.services.ppc_automation.budget_pacer import get_budget_pacing
+from app.services.ppc_automation.goal_optimizer import run_goal_optimizer
 from app.services.ppc_automation.keyword_harvester import run_keyword_harvester
 from app.services.tacos_calculator import calculate_tacos, metrics_to_dict
 
@@ -141,6 +144,16 @@ class GenerateKeywordSuggestionsRequest(BaseModel):
 class UpsertBudgetPacingTargetRequest(BaseModel):
     campaign_name: str | None = None
     monthly_budget: Decimal
+
+
+class UpsertCampaignGoalRequest(BaseModel):
+    campaign_name: str | None = None
+    goal_mode: str = "target_acos"   # target_acos / max_sales / efficiency
+    target_acos: float = 25.0
+    kp: float = 0.3
+    ki: float = 0.05
+    kd: float = 0.1
+    max_bid_adjustment_pct: float = 0.15
 
 
 # ---------------------------------------------------------------------------
@@ -1286,3 +1299,124 @@ async def upsert_budget_pacing_target(
     await session.commit()
     await session.refresh(target)
     return target.model_dump()
+
+
+# ---------------------------------------------------------------------------
+# Campaign Goals & Bid Suggestions (Goal-Based Optimizer)
+# ---------------------------------------------------------------------------
+
+
+@router.get("/goals")
+async def list_campaign_goals(
+    limit: int = Query(default=100, le=500),
+    offset: int = Query(default=0, ge=0),
+    session: AsyncSession = SESSION_DEP,
+) -> dict[str, Any]:
+    result = await session.exec(
+        select(CampaignGoal).order_by(col(CampaignGoal.updated_at).desc()).offset(offset).limit(limit)
+    )
+    goals = result.all()
+    return {"items": [g.model_dump() for g in goals], "total": len(goals)}
+
+
+@router.put("/goals/{campaign_id}")
+async def upsert_campaign_goal(
+    campaign_id: str,
+    body: UpsertCampaignGoalRequest,
+    session: AsyncSession = SESSION_DEP,
+) -> dict[str, Any]:
+    result = await session.exec(
+        select(CampaignGoal).where(CampaignGoal.campaign_id == campaign_id)
+    )
+    goal = result.first()
+    if goal is None:
+        goal = CampaignGoal(campaign_id=campaign_id, **body.model_dump())
+        session.add(goal)
+    else:
+        for field, value in body.model_dump().items():
+            setattr(goal, field, value)
+        goal.updated_at = utcnow()
+    await session.commit()
+    await session.refresh(goal)
+    return goal.model_dump()
+
+
+@router.get("/bid-suggestions")
+async def list_bid_suggestions(
+    status_filter: str = Query(default="pending", alias="status"),
+    limit: int = Query(default=100, le=500),
+    offset: int = Query(default=0, ge=0),
+    session: AsyncSession = SESSION_DEP,
+) -> dict[str, Any]:
+    query = (
+        select(BidSuggestion)
+        .where(BidSuggestion.status == status_filter)
+        .order_by(col(BidSuggestion.created_at).desc())
+        .offset(offset)
+        .limit(limit)
+    )
+    result = await session.exec(query)
+    items = result.all()
+    return {"items": [i.model_dump() for i in items], "total": len(items)}
+
+
+@router.post("/bid-suggestions/generate")
+async def generate_bid_suggestions(session: AsyncSession = SESSION_DEP) -> dict[str, Any]:
+    counts = await run_goal_optimizer(session)
+    return counts
+
+
+@router.post("/bid-suggestions/approve-all")
+async def approve_all_bid_suggestions(session: AsyncSession = SESSION_DEP) -> dict[str, Any]:
+    result = await session.exec(
+        select(BidSuggestion).where(BidSuggestion.status == "pending")
+    )
+    pending = result.all()
+    for s in pending:
+        s.status = "approved"
+        s.resolved_at = utcnow()
+        s.resolved_by = "manual"
+    await session.commit()
+    return {"approved": len(pending)}
+
+
+@router.post("/bid-suggestions/{suggestion_id}/approve")
+async def approve_bid_suggestion(
+    suggestion_id: UUID,
+    session: AsyncSession = SESSION_DEP,
+) -> dict[str, Any]:
+    result = await session.exec(
+        select(BidSuggestion).where(BidSuggestion.id == suggestion_id)
+    )
+    s = result.first()
+    if not s:
+        raise HTTPException(status_code=404, detail="Suggestion not found")
+    if s.status != "pending":
+        raise HTTPException(status_code=400, detail=f"Already {s.status}")
+    s.status = "approved"
+    s.resolved_at = utcnow()
+    s.resolved_by = "manual"
+    await session.commit()
+    await session.refresh(s)
+    return s.model_dump()
+
+
+@router.post("/bid-suggestions/{suggestion_id}/reject")
+async def reject_bid_suggestion(
+    suggestion_id: UUID,
+    session: AsyncSession = SESSION_DEP,
+) -> dict[str, Any]:
+    result = await session.exec(
+        select(BidSuggestion).where(BidSuggestion.id == suggestion_id)
+    )
+    s = result.first()
+    if not s:
+        raise HTTPException(status_code=404, detail="Suggestion not found")
+    if s.status != "pending":
+        raise HTTPException(status_code=400, detail=f"Already {s.status}")
+    s.status = "rejected"
+    s.resolved_at = utcnow()
+    s.resolved_by = "manual"
+    await session.commit()
+    await session.refresh(s)
+    return s.model_dump()

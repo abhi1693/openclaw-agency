@@ -226,6 +226,49 @@ class TrafficDaily(QueryModel, table=True):
     created_at: datetime = Field(default_factory=utcnow)
 
 
+class CampaignGoal(QueryModel, table=True):
+    """Per-campaign optimization goal configuration for PID-based bid optimization."""
+
+    __tablename__ = "campaign_goals"  # pyright: ignore[reportAssignmentType]
+
+    id: UUID = Field(default_factory=uuid4, primary_key=True)
+    campaign_id: str = Field(index=True, unique=True)
+    campaign_name: str | None = Field(default=None)
+    # goal_mode: target_acos / max_sales / efficiency
+    goal_mode: str = Field(default="target_acos")
+    target_acos: float = Field(default=25.0, sa_column=Column(Float, nullable=False, server_default="25.0"))
+    # PID controller parameters
+    kp: float = Field(default=0.3, sa_column=Column(Float, nullable=False, server_default="0.3"))
+    ki: float = Field(default=0.05, sa_column=Column(Float, nullable=False, server_default="0.05"))
+    kd: float = Field(default=0.1, sa_column=Column(Float, nullable=False, server_default="0.1"))
+    max_bid_adjustment_pct: float = Field(default=0.15, sa_column=Column(Float, nullable=False, server_default="0.15"))
+    # PID state (integral accumulator)
+    pid_integral: float = Field(default=0.0, sa_column=Column(Float, nullable=False, server_default="0"))
+    pid_last_error: float = Field(default=0.0, sa_column=Column(Float, nullable=False, server_default="0"))
+    created_at: datetime = Field(default_factory=utcnow)
+    updated_at: datetime = Field(default_factory=utcnow)
+
+
+class BidSuggestion(QueryModel, table=True):
+    """PID-generated bid adjustment suggestions per campaign."""
+
+    __tablename__ = "bid_suggestions"  # pyright: ignore[reportAssignmentType]
+
+    id: UUID = Field(default_factory=uuid4, primary_key=True)
+    campaign_id: str = Field(index=True)
+    campaign_name: str | None = Field(default=None)
+    goal_mode: str = Field(default="target_acos")
+    actual_acos: float | None = Field(default=None, sa_column=Column(Float, nullable=True))
+    target_acos: float | None = Field(default=None, sa_column=Column(Float, nullable=True))
+    pid_error: float | None = Field(default=None, sa_column=Column(Float, nullable=True))
+    bid_adjustment_pct: float | None = Field(default=None, sa_column=Column(Float, nullable=True))
+    reason: str | None = Field(default=None)
+    status: str = Field(default="pending", index=True)  # pending / approved / rejected
+    created_at: datetime = Field(default_factory=utcnow, index=True)
+    resolved_at: datetime | None = None
+    resolved_by: str | None = None
+
+
 class BudgetPacingTarget(QueryModel, table=True):
     """Monthly budget target per campaign for pacing calculations."""
 
