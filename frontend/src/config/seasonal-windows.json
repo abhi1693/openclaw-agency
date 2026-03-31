@@ -5,5 +5,12 @@
     "peakMonth": 7,
     "prepDeadlineDays": 30,
     "urgency": "high"
+  },
+  {
+    "product": "Q2 Shimmer Prep",
+    "asin": "",
+    "peakMonth": 7,
+    "prepDeadlineDays": 15,
+    "urgency": "high"
   }
 ]
