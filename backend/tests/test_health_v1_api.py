@@ -14,3 +14,4 @@ def test_health_v1_returns_ok() -> None:
     assert isinstance(response.version, str) and len(response.version) > 0
     ts = datetime.fromisoformat(response.timestamp)
     assert before <= ts <= after
+    assert response.uptime_seconds >= 0
