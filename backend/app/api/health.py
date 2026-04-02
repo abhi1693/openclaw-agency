@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import socket
 import time
 from datetime import datetime, timezone
 from importlib.metadata import version as pkg_version, PackageNotFoundError
@@ -26,6 +27,7 @@ class HealthResponse(BaseModel):
     version: str
     timestamp: str
     uptime_seconds: int
+    hostname: str
 
 
 @router.get("/health", response_model=HealthResponse, summary="Versioned Health Check")
@@ -36,4 +38,5 @@ def health_v1() -> HealthResponse:
         version=_get_version(),
         timestamp=datetime.now(timezone.utc).isoformat(),
         uptime_seconds=int(time.time() - _start_time),
+        hostname=socket.gethostname(),
     )
