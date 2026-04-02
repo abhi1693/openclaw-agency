@@ -493,6 +493,7 @@ function SystemPageContent({ forceRefresh, onAutoRefresh }: { forceRefresh: numb
   const [memHistory, setMemHistory] = useState<number[]>([])
   const [pm2Info, setPm2Info] = useState<{ restarts: number; uptime_sec: number } | null>(null)
   const [crashBannerDismissed, setCrashBannerDismissed] = useState(false)
+  const [healthTimestamp, setHealthTimestamp] = useState<string | null>(null)
 
   // Hydrate sparkline from persisted backend history on first mount
   useEffect(() => {
@@ -510,12 +511,15 @@ function SystemPageContent({ forceRefresh, onAutoRefresh }: { forceRefresh: numb
     try {
       const res = await fetch('/api/system/health')
       if (res.ok) {
-        const data: { process_memory_mb?: number; pm2?: { restarts?: number; uptime_sec?: number } } = await res.json()
+        const data: { process_memory_mb?: number; pm2?: { restarts?: number; uptime_sec?: number }; timestamp?: string } = await res.json()
         if (typeof data.process_memory_mb === 'number') {
           setMemHistory(prev => [...prev.slice(-119), data.process_memory_mb!])
         }
         if (data.pm2 && typeof data.pm2.restarts === 'number' && typeof data.pm2.uptime_sec === 'number') {
           setPm2Info({ restarts: data.pm2.restarts, uptime_sec: data.pm2.uptime_sec })
+        }
+        if (data.timestamp) {
+          setHealthTimestamp(data.timestamp)
         }
       }
     } catch { /* ignore */ }
@@ -663,6 +667,11 @@ function SystemPageContent({ forceRefresh, onAutoRefresh }: { forceRefresh: numb
             <X className="w-3.5 h-3.5" />
           </button>
         </div>
+      )}
+      {healthTimestamp && (
+        <p className="text-xs text-muted-foreground -mt-2">
+          最后检查: {new Date(healthTimestamp).toLocaleString('zh-CN', { timeZone: 'Asia/Shanghai', hour12: false })}
+        </p>
       )}
       <div className="flex gap-1 mb-6 bg-[hsl(var(--secondary)/0.5)] rounded-full p-1 w-fit">
         {[
