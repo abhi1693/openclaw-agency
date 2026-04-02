@@ -2147,7 +2147,7 @@ export default function PPCPage() {
           </button>
         ))}
       </div>
-      <div className="flex max-w-full flex-wrap gap-1 rounded-lg border border-slate-200 p-0.5">
+      <div className="flex overflow-x-auto gap-1 rounded-lg border border-slate-200 p-0.5">
         {TOP_TABS.map((tab) => {
           const isActive = topTab === tab.key
           return (
