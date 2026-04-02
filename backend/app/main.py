@@ -16,6 +16,7 @@ from fastapi.openapi.utils import get_openapi
 from fastapi_pagination import add_pagination
 
 from app.api.activity import router as activity_router
+from app.api.health import router as health_v1_router
 from app.api.agent import router as agent_router
 from app.api.agents import router as agents_router
 from app.api.amazon import router as amazon_router
@@ -633,6 +634,7 @@ api_v1.include_router(report_highlights_router)
 api_v1.include_router(shipments_router)
 api_v1.include_router(ppc_automation_router)
 api_v1.include_router(ams_router)
+api_v1.include_router(health_v1_router)
 app.include_router(api_v1)
 app.include_router(intel_router)
 app.include_router(reports_router)
