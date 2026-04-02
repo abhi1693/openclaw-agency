@@ -743,12 +743,27 @@ function SystemPageContent({ forceRefresh, onAutoRefresh }: { forceRefresh: numb
                   <UsageBar pct={hw.diskUsedPct} warn={75} danger={88} />
                 </StatCard>
 
-                {/* Issue #50: restart count visibility pending Wei review — mc-backend at 156 restarts 2026-03-21 */}
                 <StatCard
                   icon={Clock} label="运行时长"
                   value={hw.uptime}
                   sub="自上次重启"
                 />
+
+                {/* Issue #50: pm2 restart count — shows fallback when pm2 is unreachable */}
+                {pm2Info ? (
+                  <StatCard
+                    icon={RefreshCw} label="后台重启"
+                    value={String(pm2Info.restarts)}
+                    sub={`mc-backend · 运行 ${Math.round(pm2Info.uptime_sec / 3600)}h`}
+                    accent={pm2Info.restarts > 10}
+                  />
+                ) : (
+                  <StatCard
+                    icon={RefreshCw} label="后台重启"
+                    value="—"
+                    sub="pm2 不可达"
+                  />
+                )}
               </div>
             ) : (
               <p className="text-base text-[hsl(var(--muted-foreground))]">无法获取硬件信息</p>
