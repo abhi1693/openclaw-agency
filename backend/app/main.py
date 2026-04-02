@@ -2,7 +2,10 @@
 
 from __future__ import annotations
 
+import glob as glob_module
 import json
+import os
+import shutil
 import subprocess
 import time
 from contextlib import asynccontextmanager
@@ -525,11 +528,27 @@ app.add_middleware(
 install_error_handling(app)
 
 
+def _find_pm2_binary() -> str | None:
+    """Locate the pm2 binary via PATH or NVM fallback."""
+    found = shutil.which("pm2")
+    if found:
+        return found
+    nvm_candidates = glob_module.glob(
+        os.path.expanduser("~/.nvm/versions/node/*/bin/pm2")
+    )
+    if nvm_candidates:
+        return sorted(nvm_candidates)[-1]
+    return None
+
+
 def _get_pm2_info() -> Pm2Info | None:
     """Query pm2 jlist for mc-backend restart count and uptime. Returns None on failure."""
+    pm2_bin = _find_pm2_binary()
+    if pm2_bin is None:
+        return None
     try:
         result = subprocess.run(
-            ["pm2", "jlist"],
+            [pm2_bin, "jlist"],
             capture_output=True,
             timeout=3,
         )
