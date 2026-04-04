@@ -495,6 +495,7 @@ function SystemPageContent({ forceRefresh, onAutoRefresh }: { forceRefresh: numb
   const [memHistory, setMemHistory] = useState<number[]>([])
   const [pm2Info, setPm2Info] = useState<{ restarts: number; uptime_sec: number } | null>(null)
   const [crashBannerDismissed, setCrashBannerDismissed] = useState(false)
+  const [overdueJobsBannerDismissed, setOverdueJobsBannerDismissed] = useState(false)
   const [healthTimestamp, setHealthTimestamp] = useState<string | null>(null)
 
   // Hydrate sparkline from persisted backend history on first mount
@@ -653,6 +654,10 @@ function SystemPageContent({ forceRefresh, onAutoRefresh }: { forceRefresh: numb
     : crashRate > 5 ? 'amber'
     : null
 
+  const overdueJobs = (cronJobs?.jobs ?? []).filter(
+    j => j.enabled && j.state?.nextRunAtMs !== undefined && j.state.nextRunAtMs < Date.now() - 5 * 60 * 1000,
+  )
+
   return (
     <div className="space-y-6 max-w-6xl mx-auto">
       {bannerLevel && !crashBannerDismissed && (
@@ -683,13 +688,18 @@ function SystemPageContent({ forceRefresh, onAutoRefresh }: { forceRefresh: numb
           <button
             key={key}
             onClick={() => setActiveTab(key as 'system' | 'cron')}
-            className={`px-4 py-2 rounded-full text-sm font-medium transition-all ${
+            className={`relative px-4 py-2 rounded-full text-sm font-medium transition-all ${
               activeTab === key
                 ? 'bg-blue-600 text-white shadow-sm'
                 : 'bg-[hsl(var(--secondary))] text-[hsl(var(--muted-foreground))] hover:bg-[hsl(var(--secondary)/0.8)]'
             }`}
           >
             {label}
+            {key === 'cron' && overdueJobs.length > 0 && (
+              <span className="absolute -top-1 -right-1 flex h-4 min-w-4 items-center justify-center rounded-full bg-red-500 px-1 text-[10px] font-bold text-white">
+                {overdueJobs.length}
+              </span>
+            )}
           </button>
         ))}
       </div>
@@ -903,6 +913,19 @@ function SystemPageContent({ forceRefresh, onAutoRefresh }: { forceRefresh: numb
 
       {activeTab === 'cron' && (
         <section className="space-y-6">
+          {overdueJobs.length > 0 && !overdueJobsBannerDismissed && (
+            <div className="flex items-start gap-3 rounded-lg border border-amber-500/40 bg-amber-500/10 px-4 py-3 text-sm text-amber-300">
+              <AlertTriangle className="w-4 h-4 mt-0.5 flex-shrink-0" />
+              <span className="flex-1">
+                ⚠ {overdueJobs.length} 个定时任务已超时:{' '}
+                {overdueJobs.slice(0, 3).map(j => j.name).join(', ')}
+                {overdueJobs.length > 3 ? ` + ${overdueJobs.length - 3} more` : ''}
+              </span>
+              <button onClick={() => setOverdueJobsBannerDismissed(true)} className="flex-shrink-0 opacity-60 hover:opacity-100 transition-opacity">
+                <X className="w-3.5 h-3.5" />
+              </button>
+            </div>
+          )}
           {cronJobs && cronJobs.jobs.length > 0 && <CronCalendar jobs={cronJobs.jobs} onEditJob={openEdit} />}
           {cronJobs && cronJobs.jobs.length > 0 && <CronTimeline jobs={cronJobs.jobs} />}
 
