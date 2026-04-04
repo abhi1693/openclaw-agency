@@ -7,10 +7,13 @@
     "urgency": "high"
   },
   {
+    "id": "q2-shimmer-prep-2026",
     "product": "Q2 Shimmer Prep",
     "asin": "",
     "peakMonth": 7,
     "prepDeadlineDays": 15,
-    "urgency": "high"
+    "urgency": "high",
+    "deadline": "2026-04-15",
+    "bannerText": "⚡ Q2 Shimmer Prep 窗口即将关闭 — 距 4月15日 还有 {N} 天，锁定 listing 文案并提升 PPC 预算。"
   }
 ]

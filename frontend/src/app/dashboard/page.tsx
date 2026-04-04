@@ -10,13 +10,17 @@ import { useQuery } from "@tanstack/react-query";
 import { SignedIn, SignedOut, useAuth } from "@/auth/clerk";
 import {
   Activity,
+  AlertTriangle,
   ArrowUpRight,
   Bot,
   Info,
   LayoutGrid,
   Shield,
   Timer,
+  X,
 } from "lucide-react";
+
+import seasonalWindows from "@/config/seasonal-windows.json";
 
 import { DashboardSidebar } from "@/components/organisms/DashboardSidebar";
 import { DashboardShell } from "@/components/templates/DashboardShell";
@@ -475,6 +479,69 @@ function InfoBlock({
   );
 }
 
+// ─── SeasonalBanner ──────────────────────────────────────────────────────────
+
+interface SeasonalWindow {
+  id?: string
+  product: string
+  deadline?: string
+  bannerText?: string
+  urgency?: string
+}
+
+function SeasonalBanner() {
+  const now = Date.now()
+  const FOURTEEN_DAYS = 14 * 24 * 60 * 60 * 1000
+  const [dismissed, setDismissed] = useState<Record<string, boolean>>({})
+
+  useEffect(() => {
+    const initial: Record<string, boolean> = {}
+    for (const w of seasonalWindows as SeasonalWindow[]) {
+      if (!w.id || !w.deadline) continue
+      const key = `mc:shimmer-banner-dismissed-${w.id}`
+      if (localStorage.getItem(key) === "1") initial[w.id] = true
+    }
+    setDismissed(initial)
+  }, [])
+
+  const activeWindows = (seasonalWindows as SeasonalWindow[]).filter((w) => {
+    if (!w.id || !w.deadline) return false
+    const deadlineMs = new Date(w.deadline).getTime()
+    return deadlineMs > now && deadlineMs - now < FOURTEEN_DAYS && !dismissed[w.id]
+  })
+
+  if (activeWindows.length === 0) return null
+
+  return (
+    <div className="mb-4 space-y-2">
+      {activeWindows.map((w) => {
+        const deadlineMs = new Date(w.deadline!).getTime()
+        const daysLeft = Math.ceil((deadlineMs - now) / (24 * 60 * 60 * 1000))
+        const text = (w.bannerText ?? `⚡ ${w.product} 窗口即将关闭 — 还有 {N} 天`).replace("{N}", String(daysLeft))
+        return (
+          <div
+            key={w.id}
+            className="flex items-start gap-3 rounded-lg border border-amber-300 bg-amber-50 px-4 py-3 text-sm text-amber-800"
+          >
+            <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0 text-amber-500" />
+            <span className="flex-1">{text}</span>
+            <button
+              aria-label="dismiss"
+              onClick={() => {
+                localStorage.setItem(`mc:shimmer-banner-dismissed-${w.id}`, "1")
+                setDismissed((prev) => ({ ...prev, [w.id!]: true }))
+              }}
+              className="shrink-0 rounded p-0.5 hover:bg-amber-200"
+            >
+              <X className="h-3.5 w-3.5" />
+            </button>
+          </div>
+        )
+      })}
+    </div>
+  )
+}
+
 export default function DashboardPage() {
   const router = useRouter();
   const { isSignedIn } = useAuth();
@@ -912,6 +979,7 @@ export default function DashboardPage() {
         <DashboardSidebar />
         <main className="flex-1 overflow-y-auto bg-slate-50">
           <div className="p-4 md:p-8">
+            <SeasonalBanner />
             {metricsQuery.error ? (
               <div className="mb-4 rounded-lg border border-rose-300 bg-rose-50 p-3 text-sm text-rose-700">
                 Load failed: {metricsQuery.error.message}
