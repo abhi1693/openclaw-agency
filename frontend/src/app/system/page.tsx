@@ -670,7 +670,7 @@ function SystemPageContent({ forceRefresh, onAutoRefresh }: { forceRefresh: numb
       )}
       {healthTimestamp && (
         <p className="text-xs text-muted-foreground -mt-2">
-          最后检查: {new Date(healthTimestamp).toLocaleString('zh-CN', { timeZone: 'Asia/Shanghai', hour12: false })}
+          最后检查: {new Date(healthTimestamp).toLocaleString('zh-CN', { timeZone: Intl.DateTimeFormat().resolvedOptions().timeZone, hour12: false })}
         </p>
       )}
       <div className="flex gap-1 mb-6 bg-[hsl(var(--secondary)/0.5)] rounded-full p-1 w-fit">
