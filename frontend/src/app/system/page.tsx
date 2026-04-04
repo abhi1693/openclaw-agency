@@ -165,6 +165,8 @@ function CronTimeline({ jobs }: { jobs: CronJob[] }) {
     return [{ id: j.id, fraction, color, label }]
   }).sort((a, b) => a.fraction - b.fraction)
 
+  if (dots.length === 0) return <p className="text-sm text-muted-foreground text-center py-4">未来 24 小时内无计划任务</p>
+
   // Cluster dots within 30 min of each other (1/48 of day)
   const THRESH = 30 / (24 * 60)
   const clusters: JobDot[][] = []
