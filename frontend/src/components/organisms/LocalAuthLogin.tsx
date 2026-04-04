@@ -83,7 +83,7 @@ export function LocalAuthLogin({ onAuthenticated }: LocalAuthLoginProps) {
     (onAuthenticated ?? defaultOnAuthenticated)();
   };
 
-  if (!mounted) return null;
+  if (!mounted) return <div className="w-full max-w-sm mx-auto h-48 rounded-lg bg-muted animate-pulse" />;
 
   return (
     <div className="relative flex min-h-screen items-center justify-center overflow-hidden bg-app px-4 py-10">
