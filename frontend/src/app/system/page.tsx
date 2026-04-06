@@ -494,8 +494,15 @@ function SystemPageContent({ forceRefresh, onAutoRefresh }: { forceRefresh: numb
 
   const [memHistory, setMemHistory] = useState<number[]>([])
   const [pm2Info, setPm2Info] = useState<{ restarts: number; uptime_sec: number } | null>(null)
-  const [crashBannerDismissed, setCrashBannerDismissed] = useState(false)
-  const [overdueJobsBannerDismissed, setOverdueJobsBannerDismissed] = useState(false)
+  const BANNER_TTL_MS = 15 * 60 * 1000
+  function readDismissed(key: string): boolean {
+    try {
+      const ts = Number(localStorage.getItem(key))
+      return ts > 0 && Date.now() - ts < BANNER_TTL_MS
+    } catch { return false }
+  }
+  const [crashBannerDismissed, setCrashBannerDismissed] = useState(() => readDismissed('mc:crash-banner-dismissed'))
+  const [overdueJobsBannerDismissed, setOverdueJobsBannerDismissed] = useState(() => readDismissed('mc:overdue-banner-dismissed'))
   const [healthTimestamp, setHealthTimestamp] = useState<string | null>(null)
 
   // Hydrate sparkline from persisted backend history on first mount
@@ -670,7 +677,7 @@ function SystemPageContent({ forceRefresh, onAutoRefresh }: { forceRefresh: numb
           <span className="flex-1">
             ⚠ mc-backend 异常重启 — {pm2Info!.restarts} 次重启 / {uptimeHours}h (~{crashRate!.toFixed(1)}/hr). 后台重启频繁，请检查 PM2 日志获取详情。
           </span>
-          <button onClick={() => setCrashBannerDismissed(true)} className="flex-shrink-0 opacity-60 hover:opacity-100 transition-opacity">
+          <button onClick={() => { try { localStorage.setItem('mc:crash-banner-dismissed', Date.now().toString()) } catch {} setCrashBannerDismissed(true) }} className="flex-shrink-0 opacity-60 hover:opacity-100 transition-opacity">
             <X className="w-3.5 h-3.5" />
           </button>
         </div>
@@ -921,7 +928,7 @@ function SystemPageContent({ forceRefresh, onAutoRefresh }: { forceRefresh: numb
                 {overdueJobs.slice(0, 3).map(j => j.name).join(', ')}
                 {overdueJobs.length > 3 ? ` + ${overdueJobs.length - 3} more` : ''}
               </span>
-              <button onClick={() => setOverdueJobsBannerDismissed(true)} className="flex-shrink-0 opacity-60 hover:opacity-100 transition-opacity">
+              <button onClick={() => { try { localStorage.setItem('mc:overdue-banner-dismissed', Date.now().toString()) } catch {} setOverdueJobsBannerDismissed(true) }} className="flex-shrink-0 opacity-60 hover:opacity-100 transition-opacity">
                 <X className="w-3.5 h-3.5" />
               </button>
             </div>
