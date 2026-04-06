@@ -1,5 +1,5 @@
 'use client'
-import { useEffect, useState, useCallback, useMemo } from 'react'
+import { useEffect, useState, useCallback, useMemo, useRef } from 'react'
 import { Skeleton } from '@/components/ui/skeleton'
 import { Progress } from '@/components/ui/progress'
 import { Badge } from '@/components/ui/badge'
@@ -447,7 +447,7 @@ function buildAuthHeaders(): Record<string, string> {
 
 // ─── Page ─────────────────────────────────────────────────────────────────────
 
-function SystemPageContent({ forceRefresh, onAutoRefresh }: { forceRefresh: number; onAutoRefresh: () => void }) {
+function SystemPageContent({ forceRefresh, onAutoRefresh, cronRefreshRef }: { forceRefresh: number; onAutoRefresh: () => void; cronRefreshRef?: React.MutableRefObject<(() => void) | null> }) {
   const [hw,  setHw]  = useState<HardwareData | null>(null)
   const [usage, setUsage] = useState<UsageData | null>(null)
   const [hwLoading,    setHwLoading]    = useState(true)
@@ -571,6 +571,10 @@ function SystemPageContent({ forceRefresh, onAutoRefresh }: { forceRefresh: numb
     } catch { setCronError('Gateway 不可用') }
     finally { setCronLoading(false) }
   }, [])
+
+  useEffect(() => {
+    if (cronRefreshRef) cronRefreshRef.current = loadCronJobs
+  }, [cronRefreshRef, loadCronJobs])
 
   function openEdit(job: CronJob) {
     const sched = typeof job.schedule === 'string' ? job.schedule : (job.schedule as { expr?: string })?.expr || ''
@@ -1145,10 +1149,12 @@ function SystemPageContent({ forceRefresh, onAutoRefresh }: { forceRefresh: numb
 export default function SystemPage() {
   const [lastRefresh, setLastRefresh] = useState<Date>(new Date())
   const [forceRefresh, setForceRefresh] = useState(0)
+  const cronRefreshRef = useRef<(() => void) | null>(null)
 
   const handleRefresh = () => {
     setForceRefresh(n => n + 1)
     setLastRefresh(new Date())
+    cronRefreshRef.current?.()
   }
 
   return (
@@ -1171,7 +1177,7 @@ export default function SystemPage() {
         </div>
       }
     >
-      <SystemPageContent forceRefresh={forceRefresh} onAutoRefresh={() => setLastRefresh(new Date())} />
+      <SystemPageContent forceRefresh={forceRefresh} onAutoRefresh={() => setLastRefresh(new Date())} cronRefreshRef={cronRefreshRef} />
     </DashboardPageLayout>
   )
 }
