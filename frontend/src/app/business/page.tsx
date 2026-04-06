@@ -23,6 +23,7 @@ import {
   CheckCircle2,
   Target,
   CalendarClock,
+  ExternalLink,
 } from "lucide-react";
 
 import seasonalWindows from "@/config/seasonal-windows.json";
@@ -404,6 +405,7 @@ interface SeasonalWindow {
   peakMonth: number;
   prepDeadlineDays: number;
   urgency: string;
+  deadline?: string;
 }
 
 function SeasonalWindowsCard() {
@@ -421,13 +423,16 @@ function SeasonalWindowsCard() {
       <CardContent>
         <div className="space-y-2">
           {windows.map((w, i) => {
-            const deadline = new Date(today);
-            deadline.setDate(today.getDate() + w.prepDeadlineDays);
-            const daysLeft = Math.ceil((deadline.getTime() - today.getTime()) / 86_400_000);
+            const daysLeft = w.deadline
+              ? Math.ceil((new Date(w.deadline).getTime() - Date.now()) / 86_400_000)
+              : w.prepDeadlineDays;
             const urgencyDot =
               daysLeft < 30 ? "🔴" : daysLeft <= 90 ? "🟡" : "⚪";
             const peakLabel = new Date(today.getFullYear(), w.peakMonth - 1, 1)
               .toLocaleString("en-US", { month: "long" });
+            const absoluteLabel = w.deadline
+              ? new Date(w.deadline).toLocaleDateString("en-US", { month: "short", day: "numeric" })
+              : null;
             return (
               <div
                 key={i}
@@ -436,13 +441,30 @@ function SeasonalWindowsCard() {
                 <div className="flex items-center gap-2 min-w-0">
                   <span className="text-base leading-none">{urgencyDot}</span>
                   <div className="min-w-0">
-                    <p className="text-sm font-medium text-foreground truncate">{w.product}</p>
+                    <div className="flex items-center gap-1.5">
+                      <p className="text-sm font-medium text-foreground truncate">{w.product}</p>
+                      {w.asin && (
+                        <a
+                          href={`https://www.amazon.com/dp/${w.asin}`}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="text-muted-foreground hover:text-primary flex-shrink-0"
+                        >
+                          <ExternalLink className="w-3 h-3" />
+                        </a>
+                      )}
+                    </div>
                     <p className="text-[10px] text-muted-foreground">峰值月份: {peakLabel}</p>
                   </div>
                 </div>
                 <div className="text-right flex-shrink-0 ml-3">
                   <p className="text-sm font-bold text-foreground">{daysLeft}d</p>
-                  <p className="text-[10px] text-muted-foreground">备货截止</p>
+                  {absoluteLabel && (
+                    <p className="text-[10px] text-muted-foreground">{absoluteLabel}</p>
+                  )}
+                  {!absoluteLabel && (
+                    <p className="text-[10px] text-muted-foreground">备货截止</p>
+                  )}
                 </div>
               </div>
             );
