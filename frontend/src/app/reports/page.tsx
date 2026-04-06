@@ -2081,6 +2081,26 @@ function IntelTab({ tabId, initialReport, deepLinkReport, onCountChange, onHighl
         </div>
       </div>
 
+      {(() => {
+        const latest = files.filter(f => f.type === 'weekly').sort((a, b) => b.date.localeCompare(a.date))[0]
+        if (!latest) return null
+        const weekLabel = 'Week of ' + new Date(latest.date + 'T12:00:00').toLocaleDateString('en-US', { month: 'short', day: 'numeric' })
+        return (
+          <div className="flex items-center gap-3 rounded-lg border-l-4 border-amber-400 bg-amber-50 dark:bg-amber-900/20 px-4 py-3">
+            <div className="min-w-0 flex-1">
+              <p className="text-[10px] font-semibold uppercase tracking-wider text-amber-600 dark:text-amber-400">{weekLabel}</p>
+              <p className="truncate text-sm font-medium text-foreground">{latest.title ?? latest.filename}</p>
+            </div>
+            <button
+              onClick={() => openReport(latest)}
+              className="flex-shrink-0 rounded-md bg-amber-400/20 px-3 py-1.5 text-xs font-semibold text-amber-700 hover:bg-amber-400/30 dark:text-amber-300 transition-colors"
+            >
+              Read →
+            </button>
+          </div>
+        )
+      })()}
+
       <div className="flex flex-col gap-2">
         <div className="relative">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground"/>
