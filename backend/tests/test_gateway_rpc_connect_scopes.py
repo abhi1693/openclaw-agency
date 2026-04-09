@@ -50,6 +50,7 @@ def test_build_connect_params_defaults_to_device_pairing(
         "_build_device_connect_payload",
         _fake_build_device_connect_payload,
     )
+    monkeypatch.setattr(gateway_rpc.platform, "system", lambda: "Darwin")
 
     params = _build_connect_params(GatewayConfig(url="ws://gateway.example/ws"))
 
@@ -57,6 +58,7 @@ def test_build_connect_params_defaults_to_device_pairing(
     assert params["scopes"] == list(GATEWAY_OPERATOR_SCOPES)
     assert params["client"]["id"] == DEFAULT_GATEWAY_CLIENT_ID
     assert params["client"]["mode"] == DEFAULT_GATEWAY_CLIENT_MODE
+    assert params["client"]["platform"] == "Darwin"
     assert params["device"] == expected_device_payload
     assert "auth" not in params
     assert captured["client_id"] == DEFAULT_GATEWAY_CLIENT_ID
@@ -67,7 +69,11 @@ def test_build_connect_params_defaults_to_device_pairing(
     assert captured["connect_nonce"] is None
 
 
-def test_build_connect_params_uses_control_ui_when_pairing_disabled() -> None:
+def test_build_connect_params_uses_control_ui_when_pairing_disabled(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setattr(gateway_rpc.platform, "system", lambda: "Linux")
+
     params = _build_connect_params(
         GatewayConfig(
             url="ws://gateway.example/ws",
@@ -80,6 +86,7 @@ def test_build_connect_params_uses_control_ui_when_pairing_disabled() -> None:
     assert params["scopes"] == list(GATEWAY_OPERATOR_SCOPES)
     assert params["client"]["id"] == CONTROL_UI_CLIENT_ID
     assert params["client"]["mode"] == CONTROL_UI_CLIENT_MODE
+    assert params["client"]["platform"] == "Linux"
     assert "device" not in params
 
 

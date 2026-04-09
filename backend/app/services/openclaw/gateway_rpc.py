@@ -9,6 +9,7 @@ from __future__ import annotations
 
 import asyncio
 import json
+import platform
 import ssl
 from dataclasses import dataclass
 from time import perf_counter, time
@@ -334,7 +335,7 @@ def _build_connect_params(
         "client": {
             "id": CONTROL_UI_CLIENT_ID if use_control_ui else DEFAULT_GATEWAY_CLIENT_ID,
             "version": "1.0.0",
-            "platform": "python",
+            "platform": platform.system(),
             "mode": CONTROL_UI_CLIENT_MODE if use_control_ui else DEFAULT_GATEWAY_CLIENT_MODE,
         },
     }
