@@ -69,7 +69,7 @@ function addDays(d: Date, n: number): Date {
 }
 
 function formatTime(d: Date): string {
-  return d.toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit', hour12: false })
+  return d.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: false })
 }
 
 // ─── Month View ─────────────────────────────────────────────────────────────
@@ -119,7 +119,7 @@ function MonthView({ jobs, onEditJob }: { jobs: CronJob[]; onEditJob: (j: CronJo
     return map
   }, [jobs])
 
-  const dayKeys = ['一', '二', '三', '四', '五', '六', '日']
+  const dayKeys = ['Mo', 'Tu', 'We', 'Th', 'Fr', 'Sa', 'Su']
 
   return (
     <div>
@@ -175,7 +175,7 @@ function MonthView({ jobs, onEditJob }: { jobs: CronJob[]; onEditJob: (j: CronJo
                   </div>
                   {/* Count badge */}
                   <span className="text-[9px] font-semibold text-[hsl(var(--muted-foreground))]">
-                    {data.count} 次
+                    {data.count} runs
                   </span>
                 </div>
               )}
@@ -192,7 +192,7 @@ function MonthView({ jobs, onEditJob }: { jobs: CronJob[]; onEditJob: (j: CronJo
         return (
           <div className="mt-4 rounded-lg border border-[hsl(var(--border))] bg-[hsl(var(--background))] p-4">
             <h4 className="text-sm font-semibold text-[hsl(var(--foreground))] mb-3">
-              {selectedDay.toLocaleDateString('zh-CN', { month: 'long', day: 'numeric' })} 执行计划
+              {selectedDay.toLocaleDateString('en-US', { month: 'long', day: 'numeric' })} schedule
             </h4>
             <div className="space-y-2">
               {data.entries
@@ -257,7 +257,7 @@ function WeekView({ jobs, onEditJob }: { jobs: CronJob[]; onEditJob: (j: CronJob
     return result
   }, [jobs])
 
-  const dayLabels = ['周一', '周二', '周三', '周四', '周五', '周六', '周日']
+  const dayLabels = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun']
 
   return (
     <div className="grid grid-cols-7 gap-2">
@@ -300,7 +300,7 @@ function WeekView({ jobs, onEditJob }: { jobs: CronJob[]; onEditJob: (j: CronJob
               )}
               {entries.length > 8 && (
                 <div className="text-[9px] text-[hsl(var(--muted-foreground))] text-center">
-                  +{entries.length - 8} 更多
+                  +{entries.length - 8} more
                 </div>
               )}
             </div>
@@ -340,11 +340,11 @@ function DayView({ jobs, onEditJob }: { jobs: CronJob[]; onEditJob: (j: CronJob)
   return (
     <div>
       <div className="text-sm font-semibold text-[hsl(var(--foreground))] mb-4">
-        {today.toLocaleDateString('zh-CN', { year: 'numeric', month: 'long', day: 'numeric', weekday: 'long' })}
+        {today.toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric', weekday: 'long' })}
       </div>
 
       {entries.length === 0 ? (
-        <div className="text-center text-sm text-[hsl(var(--muted-foreground))] py-8">今天没有计划执行的任务</div>
+        <div className="text-center text-sm text-[hsl(var(--muted-foreground))] py-8">No tasks scheduled for today</div>
       ) : (
         <div className="relative">
           {/* Timeline line */}
@@ -405,9 +405,9 @@ export default function CronCalendar({ jobs, onEditJob }: CronCalendarProps) {
   const [view, setView] = useState<ViewType>('month')
 
   const tabs: { key: ViewType; label: string }[] = [
-    { key: 'month', label: '📅 月视图' },
-    { key: 'week',  label: '📆 周视图' },
-    { key: 'day',   label: '🕐 日视图' },
+    { key: 'month', label: '📅 Month' },
+    { key: 'week',  label: '📆 Week' },
+    { key: 'day',   label: '🕐 Day' },
   ]
 
   return (
