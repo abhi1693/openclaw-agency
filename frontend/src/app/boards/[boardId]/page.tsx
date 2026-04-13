@@ -483,6 +483,22 @@ const liveFeedEventPillClass = (eventType: LiveFeedEventType): string => {
   return "border-slate-200 bg-slate-100 text-slate-700";
 };
 
+const liveFeedCardSeverityClass = (eventType: LiveFeedEventType): string => {
+  if (eventType === "approval.rejected") {
+    return "border-rose-200 bg-rose-50/80 hover:border-rose-300";
+  }
+  if (
+    eventType === "approval.created" ||
+    eventType === "approval.updated"
+  ) {
+    return "border-amber-200 bg-amber-50/80 hover:border-amber-300";
+  }
+  if (eventType === "agent.offline") {
+    return "border-slate-300 bg-slate-100 hover:border-slate-400";
+  }
+  return "border-slate-200 bg-white hover:border-slate-300";
+};
+
 const normalizeTask = (task: TaskCardRead): Task => ({
   ...task,
   status: task.status ?? "inbox",
@@ -665,13 +681,14 @@ const LiveFeedCard = memo(function LiveFeedCard({
   const message = (item.message ?? "").trim();
   const eventLabel = liveFeedEventLabel(item.event_type);
   const eventPillClass = liveFeedEventPillClass(item.event_type);
+  const eventCardClass = liveFeedCardSeverityClass(item.event_type);
   return (
     <div
       className={cn(
         "rounded-xl border p-3 transition-colors duration-300",
         isNew
           ? "border-blue-200 bg-blue-50/70 shadow-sm hover:border-blue-300 motion-safe:animate-in motion-safe:fade-in motion-safe:zoom-in-95 motion-safe:slide-in-from-right-2 motion-safe:duration-300"
-          : "border-slate-200 bg-white hover:border-slate-300",
+          : eventCardClass,
       )}
     >
       <div className="flex items-start gap-3">
