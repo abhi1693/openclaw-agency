@@ -2,6 +2,7 @@
   "name": "frontend",
   "version": "0.1.0",
   "private": true,
+  "// nextjs-cve-check": "Verified next@16.2.1 on 2026-04-13; no upgrade required",
   "scripts": {
     "dev": "next dev",
     "build": "next build",
