@@ -58,6 +58,7 @@ interface CronJob {
   enabled: boolean
   state?: {
     lastRunAtMs?: number
+    lastRunOutcome?: string
     lastRunStatus?: string
     lastStatus?: string
     nextRunAtMs?: number
@@ -971,13 +972,24 @@ function SystemPageContent({ forceRefresh, onAutoRefresh, cronRefreshRef }: { fo
                     ? rawModel.includes('/') ? rawModel.split('/').slice(1).join('/') : rawModel
                     : '默认'
                   const nextRunMs = job.state?.nextRunAtMs
+                  const lastRunOutcome = job.state?.lastRunOutcome
                   const lastStatus = job.state?.lastStatus || job.state?.lastRunStatus
+                  const normalizedOutcome = lastRunOutcome === 'success' || lastStatus === 'ok'
+                    ? 'success'
+                    : lastRunOutcome === 'failure' || lastStatus === 'error'
+                      ? 'failure'
+                      : 'unknown'
                   const consecutiveErrors = job.state?.consecutiveErrors ?? 0
                   const errorBadgeColor = consecutiveErrors >= 3
                     ? 'bg-red-500/15 text-red-400'
                     : 'bg-amber-500/15 text-amber-400'
                   const fmtTime = (ms?: number) => ms ? new Date(ms).toLocaleString('zh-CN', { month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit' }) : '—'
                   const jobColor = getJobColor(job, cronJobs.jobs)
+                  const outcomeDot = normalizedOutcome === 'success'
+                    ? '🟢'
+                    : normalizedOutcome === 'failure'
+                      ? '🔴'
+                      : '⚪'
 
                   const isExpanded = expandedJobId === job.id
                   const runs = cronRunsCache[job.id]
@@ -992,16 +1004,19 @@ function SystemPageContent({ forceRefresh, onAutoRefresh, cronRefreshRef }: { fo
                       <div onClick={() => openEdit(job)} className={`grid grid-cols-[2fr_1fr_1fr_1fr_80px_1fr_20px] gap-3 px-4 py-3 items-center cursor-pointer hover:bg-[hsl(var(--secondary)/0.3)] transition-colors ${!job.enabled ? 'opacity-60' : ''} ${consecutiveErrors >= 3 ? 'bg-red-500/5' : consecutiveErrors >= 1 ? 'bg-amber-500/5' : ''}`}>
                         <div className="flex items-center gap-2">
                           <div className="w-2 h-2 rounded-full flex-shrink-0" style={{ backgroundColor: job.enabled ? jobColor : 'hsl(var(--muted-foreground))' }} />
+                          <span className="text-sm leading-none flex-shrink-0" aria-hidden="true">{outcomeDot}</span>
                           <span className="text-sm font-medium text-[hsl(var(--foreground))] truncate">{job.name}</span>
+                          {consecutiveErrors > 0 && (
+                            <span className={`inline-flex flex-shrink-0 items-center rounded-full px-2 py-0.5 text-[10px] font-medium ${errorBadgeColor}`}>
+                              ({consecutiveErrors} errors)
+                            </span>
+                          )}
                         </div>
                         <span className="text-xs text-[hsl(var(--muted-foreground))] truncate cursor-default" title={`${schedExpr}${tz ? ` (${tz})` : ''}`}>{schedHuman}</span>
                         <span className="text-xs text-[hsl(var(--muted-foreground))] truncate">{agentLabel}</span>
                         <span className={`text-xs truncate ${rawModel ? 'text-[hsl(var(--foreground))]' : 'text-[hsl(var(--muted-foreground))]'}`}>{modelLabel}</span>
                         <div className="flex items-center gap-2 text-sm">
-                          <span>{!job.enabled ? '⏸️' : lastStatus === 'ok' ? '✅' : lastStatus === 'error' ? '❌' : '—'}</span>
-                          {consecutiveErrors >= 1 && (
-                            <span className={`inline-flex items-center rounded-full px-2 py-0.5 text-[10px] font-medium ${errorBadgeColor}`}>×{consecutiveErrors} errors</span>
-                          )}
+                          <span>{!job.enabled ? '⏸️' : normalizedOutcome === 'success' ? '✅' : normalizedOutcome === 'failure' ? '❌' : '—'}</span>
                         </div>
                         {(() => {
                           const now = Date.now()
