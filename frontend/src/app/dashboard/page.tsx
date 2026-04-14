@@ -51,8 +51,10 @@ import type { ActivityEventRead } from "@/api/generated/model";
 import {
   formatRelativeTimestamp,
   formatTimestamp,
+  getPendingSinceTone,
   parseTimestamp,
 } from "@/lib/formatters";
+import { cn } from "@/lib/utils";
 
 type SessionSummary = {
   key: string;
@@ -93,6 +95,13 @@ const DASHBOARD_RANGE_LABEL = "7 days";
 
 const numberFormatter = new Intl.NumberFormat("en-US");
 const SESSION_ID_KEYS = ["key", "id", "session_key", "sessionKey", "sessionId"];
+
+const pendingSinceBadgeClass = (createdAt?: string | null) => {
+  const tone = getPendingSinceTone(createdAt);
+  if (tone === "danger") return "bg-rose-100 text-rose-700";
+  if (tone === "warning") return "bg-amber-100 text-amber-700";
+  return "bg-slate-100 text-slate-600";
+};
 
 const toRecord = (value: unknown): Record<string, unknown> | null => {
   if (!value || Array.isArray(value) || typeof value !== "object") return null;
@@ -1074,8 +1083,18 @@ export default function DashboardPage() {
                           <span className="block truncate font-medium text-slate-800">
                             {item.task_title || "Pending approval"}
                           </span>
-                          <span className="block truncate text-xs text-slate-500">
-                            {item.board_name} · {item.confidence}% score
+                          <span className="mt-1 flex flex-wrap items-center gap-2 text-xs text-slate-500">
+                            <span className="truncate">
+                              {item.board_name} · {item.confidence}% score
+                            </span>
+                            <span
+                              className={cn(
+                                "rounded px-1.5 py-0.5 font-semibold",
+                                pendingSinceBadgeClass(item.created_at),
+                              )}
+                            >
+                              Pending since {formatRelativeTimestamp(item.created_at)}
+                            </span>
                           </span>
                         </span>
                         <span className="shrink-0 text-xs text-slate-500">

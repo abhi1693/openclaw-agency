@@ -26,6 +26,7 @@ import {
 } from "@/components/charts/chart";
 import { Button } from "@/components/ui/button";
 import { apiDatetimeToMs, parseApiDatetime } from "@/lib/datetime";
+import { formatRelativeTimestamp, getPendingSinceTone } from "@/lib/formatters";
 import { cn } from "@/lib/utils";
 
 type Approval = ApprovalRead & { status: string };
@@ -81,6 +82,13 @@ const confidenceBadgeClass = (confidence: number) => {
     return "bg-amber-100 text-amber-700";
   }
   return "bg-orange-100 text-orange-700";
+};
+
+const pendingSinceBadgeClass = (createdAt?: string | null) => {
+  const tone = getPendingSinceTone(createdAt);
+  if (tone === "danger") return "bg-rose-100 text-rose-700";
+  if (tone === "warning") return "bg-amber-100 text-amber-700";
+  return "bg-slate-100 text-slate-600";
 };
 
 const humanizeAction = (value: string) =>
@@ -662,6 +670,16 @@ export function BoardApprovalsPanel({
                       <span className="rounded bg-slate-100 px-1.5 py-0.5 font-semibold text-slate-700">
                         {approval.confidence}% score
                       </span>
+                      {isPending ? (
+                        <span
+                          className={cn(
+                            "rounded px-1.5 py-0.5 font-semibold",
+                            pendingSinceBadgeClass(approval.created_at),
+                          )}
+                        >
+                          Pending since {formatRelativeTimestamp(approval.created_at)}
+                        </span>
+                      ) : null}
                       <Clock className="h-3.5 w-3.5 opacity-60" />
                       <span>{formatTimestamp(approval.created_at)}</span>
                     </div>

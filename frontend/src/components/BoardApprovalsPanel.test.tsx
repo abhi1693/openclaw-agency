@@ -38,6 +38,36 @@ const renderWithQueryClient = (ui: React.ReactNode) => {
 };
 
 describe("BoardApprovalsPanel", () => {
+  it("shows a pending since SLA indicator for stale approvals", () => {
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date("2026-04-14T12:00:00Z"));
+
+    const approval = {
+      id: "approval-sla",
+      board_id: "board-1",
+      action_type: "task.update",
+      confidence: 74,
+      status: "pending",
+      task_id: "task-1",
+      created_at: "2026-04-13T23:00:00Z",
+      resolved_at: null,
+      payload: {
+        title: "Review launch checklist",
+      },
+      rubric_scores: null,
+    } as ApprovalRead;
+
+    try {
+      renderWithQueryClient(
+        <BoardApprovalsPanel boardId="board-1" approvals={[approval]} />,
+      );
+
+      expect(screen.getByText("Pending since 13h ago")).toBeInTheDocument();
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
   it("renders nested linked-approval metadata and rubric scores", () => {
     const approval = {
       id: "approval-1",

@@ -47,3 +47,15 @@ export const formatRelativeTimestamp = (
   const days = Math.round(hours / 24);
   return `${days}d ago`;
 };
+
+export const getPendingSinceTone = (
+  value?: string | null,
+  now = Date.now(),
+): "default" | "warning" | "danger" => {
+  const date = parseTimestamp(value);
+  if (!date) return "default";
+  const ageMs = now - date.getTime();
+  if (ageMs >= 24 * 60 * 60 * 1000) return "danger";
+  if (ageMs >= 12 * 60 * 60 * 1000) return "warning";
+  return "default";
+};
