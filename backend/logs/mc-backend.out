@@ -1,0 +1,23 @@
+2026-04-14 13:02:50,857 INFO app.core.logging logging.configured level=INFO format=text use_utc=False app=mission-control version=0.1.0
+2026-04-14 13:02:50,947 INFO alembic.runtime.plugins setup plugin alembic.autogenerate.schemas app=mission-control version=0.1.0
+2026-04-14 13:02:50,947 INFO alembic.runtime.plugins setup plugin alembic.autogenerate.tables app=mission-control version=0.1.0
+2026-04-14 13:02:50,947 INFO alembic.runtime.plugins setup plugin alembic.autogenerate.types app=mission-control version=0.1.0
+2026-04-14 13:02:50,947 INFO alembic.runtime.plugins setup plugin alembic.autogenerate.constraints app=mission-control version=0.1.0
+2026-04-14 13:02:50,947 INFO alembic.runtime.plugins setup plugin alembic.autogenerate.defaults app=mission-control version=0.1.0
+2026-04-14 13:02:50,947 INFO alembic.runtime.plugins setup plugin alembic.autogenerate.comments app=mission-control version=0.1.0
+2026-04-14 13:02:51,954 INFO app.main app.cors.enabled origins_count=2 app=mission-control version=0.1.0
+INFO:     Started server process [93429]
+INFO:     Waiting for application startup.
+2026-04-14 13:02:52,251 INFO app.main app.lifecycle.starting environment=dev db_auto_migrate=True app=mission-control version=0.1.0
+2026-04-14 13:02:52,252 INFO app.db.session Running migrations on startup app=mission-control version=0.1.0
+2026-04-14 13:02:52,252 INFO app.db.session Running database migrations. app=mission-control version=0.1.0
+2026-04-14 13:02:52,283 INFO alembic.runtime.migration Context impl PostgresqlImpl. app=mission-control version=0.1.0
+2026-04-14 13:02:52,283 INFO alembic.runtime.migration Will assume transactional DDL. app=mission-control version=0.1.0
+2026-04-14 13:02:52,306 INFO app.db.session Database migrations complete. app=mission-control version=0.1.0
+2026-04-14 13:02:52,306 INFO app.main app.lifecycle.rate_limit backend=memory app=mission-control version=0.1.0
+2026-04-14 13:02:52,306 INFO app.main app.lifecycle.started app=mission-control version=0.1.0
+INFO:     Application startup complete.
+ERROR:    [Errno 48] error while attempting to bind on address ('0.0.0.0', 8000): address already in use
+INFO:     Waiting for application shutdown.
+2026-04-14 13:02:52,308 INFO app.main app.lifecycle.stopped app=mission-control version=0.1.0
+INFO:     Application shutdown complete.
