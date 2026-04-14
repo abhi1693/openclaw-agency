@@ -151,6 +151,10 @@ def _load_h10_competitors(asin: str) -> list[str]:
         data = json.load(open(competitors_file))
         if isinstance(data, list):
             return [c["asin"] for c in data[:10] if isinstance(c, dict) and "asin" in c]
+        elif isinstance(data, dict):
+            # Support current H10 object schema: { updated, competitors: [...] }
+            competitors = data.get("competitors", [])
+            return [c["asin"] for c in competitors[:10] if isinstance(c, dict) and "asin" in c]
     except Exception:  # noqa: BLE001
         pass
     return []
