@@ -6,7 +6,7 @@ import Link from "next/link";
 import { useAuth } from "@/auth/clerk";
 import { useQueryClient } from "@tanstack/react-query";
 
-import { CheckCircle2, Clock } from "lucide-react";
+import { Clock } from "lucide-react";
 import { Cell, Pie, PieChart } from "recharts";
 
 import { ApiError } from "@/api/mutator";
@@ -571,9 +571,20 @@ export function BoardApprovalsPanel({
           )}
         >
           <div className="max-w-sm">
-            <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-full bg-emerald-50 text-emerald-600">
-              <CheckCircle2 className="h-6 w-6" />
-            </div>
+            <svg
+              className="mx-auto h-16 w-16 text-slate-300"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="1.5"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+            >
+              <rect x="3" y="3" width="7" height="7" />
+              <rect x="14" y="3" width="7" height="7" />
+              <rect x="14" y="14" width="7" height="7" />
+              <rect x="3" y="14" width="7" height="7" />
+            </svg>
             <p className="mt-4 text-sm font-semibold text-slate-900">
               All clear
             </p>
