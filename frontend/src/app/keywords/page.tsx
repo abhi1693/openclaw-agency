@@ -261,10 +261,27 @@ function RankingsTab({ asin }: { asin: string }) {
 
   if (rankings.length === 0) {
     return (
-      <div className="flex flex-col items-center justify-center py-20 text-[hsl(var(--muted-foreground))]">
-        <Key className="w-12 h-12 mb-3 opacity-20" />
-        <p className="text-sm font-medium">暂无数据，等待下次 Cerebro 采集</p>
-        <p className="text-xs mt-1 opacity-60">当前 ASIN 尚未有 H10 Cerebro 数据</p>
+      <div className="flex flex-col items-center justify-center py-20 text-center text-[hsl(var(--muted-foreground))]">
+        <svg
+          className="h-16 w-16 text-slate-300"
+          viewBox="0 0 24 24"
+          fill="none"
+          stroke="currentColor"
+          strokeWidth="1.5"
+          strokeLinecap="round"
+          strokeLinejoin="round"
+        >
+          <rect x="3" y="3" width="7" height="7" />
+          <rect x="14" y="3" width="7" height="7" />
+          <rect x="14" y="14" width="7" height="7" />
+          <rect x="3" y="14" width="7" height="7" />
+        </svg>
+        <p className="mt-4 text-sm font-medium text-[hsl(var(--foreground))]">
+          暂无关键词数据
+        </p>
+        <p className="mt-2 text-xs opacity-70">
+          当前 ASIN 尚未有 H10 Cerebro 数据，等待下次采集后会显示在这里。
+        </p>
       </div>
     )
   }
