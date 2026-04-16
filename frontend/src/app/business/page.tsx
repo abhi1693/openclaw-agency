@@ -346,11 +346,22 @@ function InsightPanel({
 
 function EmptyState({ message }: { message: string }) {
   return (
-    <div className="flex flex-col items-center justify-center py-6 gap-2 text-center">
-      <div className="w-8 h-8 rounded-full bg-muted flex items-center justify-center">
-        <CheckCircle2 className="w-4 h-4 text-muted-foreground" />
-      </div>
-      <p className="text-sm text-muted-foreground">{message}</p>
+    <div className="flex flex-col items-center justify-center py-10 text-center">
+      <svg
+        className="h-16 w-16 text-slate-300"
+        viewBox="0 0 24 24"
+        fill="none"
+        stroke="currentColor"
+        strokeWidth="1.5"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      >
+        <rect x="3" y="3" width="7" height="7" />
+        <rect x="14" y="3" width="7" height="7" />
+        <rect x="14" y="14" width="7" height="7" />
+        <rect x="3" y="14" width="7" height="7" />
+      </svg>
+      <p className="mt-4 text-sm font-semibold text-slate-900">{message}</p>
     </div>
   );
 }

@@ -284,10 +284,24 @@ function KPICard({ label, value, sub, icon, accent }: {
 function EmptyState({ message, hint }: { message: string; hint?: string }) {
   return (
     <div className="rounded-xl border border-slate-200 bg-white shadow-sm p-10 text-center">
-      <p className="text-base text-slate-500">⏳ {message}</p>
-      {hint && <p className="text-xs text-slate-400 mt-2 font-mono">{hint}</p>}
+      <svg
+        className="mx-auto h-16 w-16 text-slate-300"
+        viewBox="0 0 24 24"
+        fill="none"
+        stroke="currentColor"
+        strokeWidth="1.5"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      >
+        <rect x="3" y="3" width="7" height="7" />
+        <rect x="14" y="3" width="7" height="7" />
+        <rect x="14" y="14" width="7" height="7" />
+        <rect x="3" y="14" width="7" height="7" />
+      </svg>
+      <p className="mt-4 text-sm font-semibold text-slate-900">{message}</p>
+      {hint && <p className="mt-2 text-xs text-slate-400 font-mono">{hint}</p>}
     </div>
-  )
+  );
 }
 
 // ─── Optimization Panel ───────────────────────────────────────────────────────

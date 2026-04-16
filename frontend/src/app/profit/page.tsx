@@ -236,8 +236,24 @@ function DashboardTab() {
         </div>
 
         {items.length === 0 ? (
-          <div className="py-16 text-center text-[hsl(var(--muted-foreground))]">
-            暂无数据 — 请先在 COGS Editor 录入产品成本
+          <div className="flex flex-col items-center justify-center py-16 text-center">
+            <svg
+              className="h-16 w-16 text-slate-300"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="1.5"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+            >
+              <rect x="3" y="3" width="7" height="7" />
+              <rect x="14" y="3" width="7" height="7" />
+              <rect x="14" y="14" width="7" height="7" />
+              <rect x="3" y="14" width="7" height="7" />
+            </svg>
+            <p className="mt-4 text-sm font-semibold text-[hsl(var(--muted-foreground))]">
+              暂无数据 — 请先在 COGS Editor 录入产品成本
+            </p>
           </div>
         ) : (
           <div className="overflow-x-auto">
