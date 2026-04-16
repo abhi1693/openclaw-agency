@@ -332,6 +332,24 @@ def _build_keyword_entry(
     }
 
 
+def _keyword_text(entry: dict[str, Any]) -> str:
+    return str(entry.get("keyword") or entry.get("keyword_text") or entry.get("term") or "").strip()
+
+
+def _keyword_search_volume(entry: dict[str, Any]) -> int:
+    raw = (
+        entry.get("search_volume")
+        or entry.get("impressions")
+        or entry.get("exact_monthly_searches")
+        or entry.get("monthly_search_volume")
+        or 0
+    )
+    try:
+        return int(raw)
+    except (TypeError, ValueError):
+        return 0
+
+
 # ---------------------------------------------------------------------------
 # Campaign plan builder
 # ---------------------------------------------------------------------------
@@ -359,9 +377,9 @@ def _build_campaign_list(
         core_kws += [k for k in search_term_kws if k not in core_kws][:20 - len(core_kws)]
 
     # H10 keywords — sorted by search volume
-    h10_sorted = sorted(h10_kws, key=lambda x: x.get("search_volume", 0), reverse=True)
-    h10_core = [k for k in h10_sorted if k.get("search_volume", 0) > 1000][:20]
-    h10_longtail = [k for k in h10_sorted if k.get("search_volume", 0) <= 1000][:20]
+    h10_sorted = sorted(h10_kws, key=_keyword_search_volume, reverse=True)
+    h10_core = [k for k in h10_sorted if _keyword_search_volume(k) > 1000][:20]
+    h10_longtail = [k for k in h10_sorted if _keyword_search_volume(k) <= 1000][:20]
 
     # Merge all keywords, dedup
     all_kw_texts: set[str] = set()
@@ -369,7 +387,7 @@ def _build_campaign_list(
 
     def add_kws(kws: list[dict[str, Any]], source_override: str | None = None) -> None:
         for k in kws:
-            text_key = k.get("keyword", k.get("keyword_text", "")).strip().lower()
+            text_key = _keyword_text(k).lower()
             if text_key and text_key not in all_kw_texts:
                 all_kw_texts.add(text_key)
                 kw_copy = dict(k)
@@ -383,12 +401,13 @@ def _build_campaign_list(
 
     # Assign categories and bids
     def make_kw(k: dict[str, Any], match_type: str, bid: float) -> dict[str, Any]:
-        sv = int(k.get("search_volume", k.get("impressions", 0)))
+        keyword = _keyword_text(k)
+        sv = _keyword_search_volume(k)
         src = k.get("source", "search_term_reports")
-        cat = _classify_keyword(k["keyword"], sv, src)
+        cat = _classify_keyword(keyword, sv, src)
         comp = _competition_level(sv)
         return _build_keyword_entry(
-            k["keyword"], match_type, bid, src, sv, comp, cat, k.get("acos")
+            keyword, match_type, bid, src, sv, comp, cat, k.get("acos")
         )
 
     # Proven keywords (have conversion data)
