@@ -123,6 +123,7 @@ export function LocalAuthLogin({ onAuthenticated }: LocalAuthLoginProps) {
               <Input
                 id="local-auth-token"
                 type="password"
+                autoComplete="off"
                 value={token}
                 onChange={(event) => setToken(event.target.value)}
                 placeholder="Paste token"
