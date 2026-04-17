@@ -335,7 +335,7 @@ def _build_connect_params(
         "client": {
             "id": CONTROL_UI_CLIENT_ID if use_control_ui else DEFAULT_GATEWAY_CLIENT_ID,
             "version": "1.0.0",
-            "platform": platform.system(),
+            "platform": platform.system().lower(),
             "mode": CONTROL_UI_CLIENT_MODE if use_control_ui else DEFAULT_GATEWAY_CLIENT_MODE,
         },
     }

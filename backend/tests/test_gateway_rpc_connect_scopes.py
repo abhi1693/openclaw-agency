@@ -58,7 +58,7 @@ def test_build_connect_params_defaults_to_device_pairing(
     assert params["scopes"] == list(GATEWAY_OPERATOR_SCOPES)
     assert params["client"]["id"] == DEFAULT_GATEWAY_CLIENT_ID
     assert params["client"]["mode"] == DEFAULT_GATEWAY_CLIENT_MODE
-    assert params["client"]["platform"] == "Darwin"
+    assert params["client"]["platform"] == "darwin"
     assert params["device"] == expected_device_payload
     assert "auth" not in params
     assert captured["client_id"] == DEFAULT_GATEWAY_CLIENT_ID
@@ -86,7 +86,7 @@ def test_build_connect_params_uses_control_ui_when_pairing_disabled(
     assert params["scopes"] == list(GATEWAY_OPERATOR_SCOPES)
     assert params["client"]["id"] == CONTROL_UI_CLIENT_ID
     assert params["client"]["mode"] == CONTROL_UI_CLIENT_MODE
-    assert params["client"]["platform"] == "Linux"
+    assert params["client"]["platform"] == "linux"
     assert "device" not in params
 
 
