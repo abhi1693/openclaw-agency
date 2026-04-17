@@ -46,6 +46,13 @@ function getModelLabel(id: string) {
   return MODEL_LABELS[id] ?? id.split('/').pop() ?? id;
 }
 
+function getModelProvider(id: string) {
+  if (id.startsWith("anthropic/")) return "anthropic";
+  if (id.startsWith("openai-codex/")) return "openai";
+  if (id.startsWith("minimax-portal/")) return "minimax";
+  return "other";
+}
+
 interface LocalAgent {
   id: string;
   name: string;
@@ -80,11 +87,17 @@ function LocalAgentsSection() {
   const [agents, setAgents] = useState<LocalAgent[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [modelFilter, setModelFilter] = useState("all");
   const [availableModels, setAvailableModels] = useState<string[]>([]);
   const [edits, setEdits] = useState<Record<string, EditState>>({});
   const [editingId, setEditingId] = useState<string | null>(null);
   const [applying, setApplying] = useState(false);
   const [toast, setToast] = useState<string | null>(null);
+  const { sorting, onSortingChange } = useUrlSorting({
+    allowedColumnIds: ["model"],
+    defaultSorting: [],
+    paramPrefix: "localAgents",
+  });
 
   const loadAgents = async () => {
     try {
@@ -153,6 +166,16 @@ function LocalAgentsSection() {
     setEditingId(null);
   };
 
+  const visibleAgents = useMemo(() => {
+    const filtered = modelFilter === "all"
+      ? agents
+      : agents.filter((agent) => getModelProvider(agent.modelId) === modelFilter);
+    if (sorting[0]?.id !== "model") return filtered;
+    return [...filtered].sort((a, b) =>
+      getModelLabel(a.modelId).localeCompare(getModelLabel(b.modelId)) * (sorting[0].desc ? -1 : 1),
+    );
+  }, [agents, modelFilter, sorting]);
+
   return (
     <section className="mt-8 space-y-4">
       {/* Toast notification */}
@@ -193,6 +216,20 @@ function LocalAgentsSection() {
         </p>
       </div>
 
+      <div className="flex justify-end">
+        <select
+          value={modelFilter}
+          onChange={(event) => setModelFilter(event.target.value)}
+          className="rounded-md border border-slate-300 bg-white px-3 py-2 text-sm text-slate-700"
+        >
+          <option value="all">All model providers</option>
+          <optgroup label="Anthropic"><option value="anthropic">Anthropic</option></optgroup>
+          <optgroup label="OpenAI"><option value="openai">OpenAI</option></optgroup>
+          <optgroup label="MiniMax"><option value="minimax">MiniMax</option></optgroup>
+          <optgroup label="Other"><option value="other">Other</option></optgroup>
+        </select>
+      </div>
+
       <div className="overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm">
         {loading ? (
           <div className="p-6 text-sm text-slate-500">Loading local agents…</div>
@@ -228,7 +265,14 @@ function LocalAgentsSection() {
                 <tr>
                   <th className="px-4 py-3 text-left font-medium text-slate-500">Agent</th>
                   <th className="px-4 py-3 text-left font-medium text-slate-500">Role</th>
-                  <th className="px-4 py-3 text-left font-medium text-slate-500">Model</th>
+                  <th className="px-4 py-3 text-left font-medium text-slate-500">
+                    <button
+                      type="button"
+                      onClick={() => onSortingChange((current) => current[0]?.id === "model" ? [{ id: "model", desc: !current[0].desc }] : [{ id: "model", desc: false }])}
+                    >
+                      Model {sorting[0]?.id === "model" ? (sorting[0].desc ? "↓" : "↑") : ""}
+                    </button>
+                  </th>
                   <th className="px-4 py-3 text-left font-medium text-slate-500">Skills</th>
                   <th className="px-4 py-3 text-left font-medium text-slate-500">Sessions</th>
                   <th className="px-4 py-3 text-left font-medium text-slate-500">Last active</th>
@@ -236,7 +280,7 @@ function LocalAgentsSection() {
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-100">
-                {agents.map((agent) => {
+                {visibleAgents.map((agent) => {
                   const isEditing = editingId === agent.id;
                   const edit = edits[agent.id];
                   const isDirty = !!edit;
