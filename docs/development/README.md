@@ -55,5 +55,8 @@ make check
 
 ## Related docs
 
+- [Architecture](../architecture/README.md)
+- [Amazon and skills development guide](./amazon-and-skills.md)
+- [Feature map](../reference/feature-map.md)
 - [Testing](../testing/README.md)
 - [Release checklist](../release/README.md)

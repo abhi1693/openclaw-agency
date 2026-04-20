@@ -25,6 +25,9 @@ Open:
 
 ## Next steps
 
+- [Architecture](../architecture/README.md)
 - [Authentication](../reference/authentication.md)
-- [Deployment](../deployment/README.md)
 - [Development](../development/README.md)
+- [Amazon and skills development guide](../development/amazon-and-skills.md)
+- [API notes](../reference/api.md)
+- [Deployment](../deployment/README.md)

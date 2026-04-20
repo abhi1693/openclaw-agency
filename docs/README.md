@@ -5,7 +5,9 @@ This folder is the documentation home for **OpenClaw Mission Control**.
 ## Start here
 
 - [Getting started](./getting-started/README.md)
+- [Architecture](./architecture/README.md)
 - [Development](./development/README.md)
+- [Amazon and skills development guide](./development/amazon-and-skills.md)
 - [Testing](./testing/README.md)
 - [Deployment](./deployment/README.md)
 - [Release checklist](./release/README.md)
@@ -20,6 +22,7 @@ This folder is the documentation home for **OpenClaw Mission Control**.
 - [Configuration reference](./reference/configuration.md)
 - [Authentication](./reference/authentication.md)
 - [API notes](./reference/api.md)
+- [Feature map](./reference/feature-map.md)
 
 ## Contributing to docs
 

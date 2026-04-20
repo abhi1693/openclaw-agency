@@ -156,7 +156,12 @@ Environment templates:
 
 ## Documentation
 
-Complete guides for deployment, production, troubleshooting, and testing are in [`/docs`](./docs/).
+Complete guides live in [`/docs`](./docs/), including:
+
+- [Architecture overview](./docs/architecture/README.md)
+- [Development guide](./docs/development/README.md)
+- [Amazon and skills development guide](./docs/development/amazon-and-skills.md)
+- deployment, operations, troubleshooting, and testing runbooks
 
 ## Project status
 

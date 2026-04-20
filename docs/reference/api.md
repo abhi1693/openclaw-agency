@@ -13,7 +13,25 @@ Mission Control exposes a JSON HTTP API (FastAPI) under `/api/v1/*`.
 - OpenAPI schema: `GET /openapi.json`
 - Swagger UI (FastAPI default): `GET /docs`
 
-> If you are building clients, prefer generating from `openapi.json`.
+> If you are building clients or ACP tasks, prefer the generated schema from `openapi.json` over prose docs.
+
+## High-value domain entry points
+
+These route groups are the fastest way to orient feature work:
+
+| Domain | Prefix | Main module |
+| --- | --- | --- |
+| Amazon dashboard and sync | `/api/v1/amazon/*` | `backend/app/api/amazon.py` |
+| Refund recovery | `/api/v1/amazon/refunds/*` | `backend/app/api/refunds.py` |
+| PPC automation | `/api/v1/ppc/automation/*` | `backend/app/api/ppc_automation_api.py` |
+| Amazon Marketing Stream | `/api/v1/ams/*` | `backend/app/api/ams_api.py` |
+| Shipments | `/api/v1/shipments/*` | `backend/app/api/shipments.py` |
+| Skills marketplace and packs | `/api/v1/skills/*` | `backend/app/api/skills_marketplace.py` |
+
+For architecture and boundary notes, see:
+- [Architecture overview](../architecture/README.md)
+- [Amazon and skills development guide](../development/amazon-and-skills.md)
+- [Feature map](./feature-map.md)
 
 ## API versioning
 
