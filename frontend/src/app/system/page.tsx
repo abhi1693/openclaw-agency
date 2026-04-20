@@ -143,8 +143,9 @@ function cronToHuman(expr: string): string {
 
 // ─── CronTimeline — 24-hour dot timeline ─────────────────────────────────────
 
-function CronTimeline({ jobs }: { jobs: CronJob[] }) {
-  const now = Date.now()
+function CronTimeline({ jobs, nowMs }: { jobs: CronJob[]; nowMs: number | null }) {
+  if (nowMs === null) return null
+
   const W = 960, H = 60, PAD_L = 28, PAD_R = 12
   const plotW = W - PAD_L - PAD_R
   const AXIS_Y = 36, DOT_BASE_Y = 26
@@ -156,7 +157,7 @@ function CronTimeline({ jobs }: { jobs: CronJob[] }) {
     if (!ms) return []
     const d = new Date(ms)
     const fraction = (d.getHours() + d.getMinutes() / 60) / 24
-    const diffMin = Math.round((ms - now) / 60000)
+    const diffMin = Math.round((ms - nowMs) / 60000)
     const color = diffMin < 0 ? '#ef4444' : diffMin < 30 ? '#f59e0b' : '#22c55e'
     const label = diffMin < 0
       ? `${j.name} — overdue`
@@ -180,7 +181,7 @@ function CronTimeline({ jobs }: { jobs: CronJob[] }) {
     }
   }
 
-  const nowD = new Date(now)
+  const nowD = new Date(nowMs)
   const nowFrac = (nowD.getHours() + nowD.getMinutes() / 60) / 24
 
   return (
@@ -495,15 +496,17 @@ function SystemPageContent({ forceRefresh, onAutoRefresh, cronRefreshRef }: { fo
 
   const [memHistory, setMemHistory] = useState<number[]>([])
   const [pm2Info, setPm2Info] = useState<{ restarts: number; uptime_sec: number } | null>(null)
+  const [currentTimeMs, setCurrentTimeMs] = useState<number | null>(null)
   const BANNER_TTL_MS = 15 * 60 * 1000
-  function readDismissed(key: string): boolean {
+  const OVERDUE_GRACE_MS = 5 * 60 * 1000
+  const readDismissed = useCallback((key: string): boolean => {
     try {
       const ts = Number(localStorage.getItem(key))
       return ts > 0 && Date.now() - ts < BANNER_TTL_MS
     } catch { return false }
-  }
-  const [crashBannerDismissed, setCrashBannerDismissed] = useState(() => readDismissed('mc:crash-banner-dismissed'))
-  const [overdueJobsBannerDismissed, setOverdueJobsBannerDismissed] = useState(() => readDismissed('mc:overdue-banner-dismissed'))
+  }, [BANNER_TTL_MS])
+  const [crashBannerDismissed, setCrashBannerDismissed] = useState<boolean | null>(null)
+  const [overdueJobsBannerDismissed, setOverdueJobsBannerDismissed] = useState<boolean | null>(null)
   const [healthTimestamp, setHealthTimestamp] = useState<string | null>(null)
 
   // Hydrate sparkline from persisted backend history on first mount
@@ -516,6 +519,19 @@ function SystemPageContent({ forceRefresh, onAutoRefresh, cronRefreshRef }: { fo
         }
       })
       .catch(() => { /* ignore */ })
+  }, [])
+
+  useEffect(() => {
+    setCrashBannerDismissed(readDismissed('mc:crash-banner-dismissed'))
+    setOverdueJobsBannerDismissed(readDismissed('mc:overdue-banner-dismissed'))
+  }, [readDismissed])
+
+  useEffect(() => {
+    setCurrentTimeMs(Date.now())
+    const t = setInterval(() => {
+      setCurrentTimeMs(Date.now())
+    }, 60_000)
+    return () => clearInterval(t)
   }, [])
 
   const loadBackendMemory = useCallback(async () => {
@@ -667,12 +683,12 @@ function SystemPageContent({ forceRefresh, onAutoRefresh, cronRefreshRef }: { fo
     : null
 
   const overdueJobs = (cronJobs?.jobs ?? []).filter(
-    j => j.enabled && j.state?.nextRunAtMs !== undefined && j.state.nextRunAtMs < Date.now() - 5 * 60 * 1000,
+    j => currentTimeMs !== null && j.enabled && j.state?.nextRunAtMs !== undefined && j.state.nextRunAtMs < currentTimeMs - OVERDUE_GRACE_MS,
   )
 
   return (
     <div className="space-y-6 max-w-6xl mx-auto">
-      {bannerLevel && !crashBannerDismissed && (
+      {bannerLevel && crashBannerDismissed === false && (
         <div className={`flex items-start gap-3 rounded-lg border px-4 py-3 text-sm ${
           bannerLevel === 'red'
             ? 'border-red-500/40 bg-red-500/10 text-red-300'
@@ -925,7 +941,7 @@ function SystemPageContent({ forceRefresh, onAutoRefresh, cronRefreshRef }: { fo
 
       {activeTab === 'cron' && (
         <section className="space-y-6">
-          {overdueJobs.length > 0 && !overdueJobsBannerDismissed && (
+          {overdueJobs.length > 0 && overdueJobsBannerDismissed === false && (
             <div className="flex items-start gap-3 rounded-lg border border-amber-500/40 bg-amber-500/10 px-4 py-3 text-sm text-amber-300">
               <AlertTriangle className="w-4 h-4 mt-0.5 flex-shrink-0" />
               <span className="flex-1">
@@ -939,7 +955,7 @@ function SystemPageContent({ forceRefresh, onAutoRefresh, cronRefreshRef }: { fo
             </div>
           )}
           {cronJobs && cronJobs.jobs.length > 0 && <CronCalendar jobs={cronJobs.jobs} onEditJob={openEdit} />}
-          {cronJobs && cronJobs.jobs.length > 0 && <CronTimeline jobs={cronJobs.jobs} />}
+          {cronJobs && cronJobs.jobs.length > 0 && <CronTimeline jobs={cronJobs.jobs} nowMs={currentTimeMs} />}
 
           <div className="space-y-4">
             <div className="flex items-center gap-2">
@@ -1019,8 +1035,7 @@ function SystemPageContent({ forceRefresh, onAutoRefresh, cronRefreshRef }: { fo
                           <span>{!job.enabled ? '⏸️' : normalizedOutcome === 'success' ? '✅' : normalizedOutcome === 'failure' ? '❌' : '—'}</span>
                         </div>
                         {(() => {
-                          const now = Date.now()
-                          const diffMs = nextRunMs ? nextRunMs - now : null
+                          const diffMs = nextRunMs && currentTimeMs !== null ? nextRunMs - currentTimeMs : null
                           const diffMin = diffMs !== null ? Math.floor(diffMs / 60000) : null
                           return diffMin !== null ? (
                             <span className={`inline-flex items-center rounded-full px-1.5 py-0.5 text-[10px] font-medium ${diffMin < 0 ? 'bg-red-500/15 text-red-400' : diffMin < 30 ? 'bg-amber-500/15 text-amber-400' : 'bg-green-500/15 text-green-500'}`}>
