@@ -842,8 +842,8 @@ function SystemPageContent({ forceRefresh, onAutoRefresh, cronRefreshRef }: { fo
                 <div className="rounded-xl border border-[hsl(var(--border))] bg-[hsl(var(--card))] shadow-sm overflow-hidden">
                   <div className="overflow-x-auto"><div className="min-w-[640px]">
                   <div className="grid grid-cols-[2fr_80px_1fr_1fr_1fr_1fr_110px] gap-3 px-4 py-2.5 border-b border-[hsl(var(--border))] bg-[hsl(var(--secondary)/0.5)]">
-                    {['模型', 'Provider', '输入', '输出', '总计', '会话', '占比'].map(h => (
-                      <span key={h} className="text-[10px] font-semibold uppercase tracking-wider text-[hsl(var(--muted-foreground))]">{h}</span>
+                    {['模型', 'Provider', '输入', '输出', '总计', '会话', '占比'].map((h, idx) => (
+                      <span key={h} className={`text-[10px] font-semibold uppercase tracking-wider text-[hsl(var(--muted-foreground))]${idx === 0 ? ' sticky left-0 z-10 bg-[hsl(var(--secondary)/0.5)]' : ''}${idx >= 5 ? ' hidden md:table-cell' : ''}`}>{h}</span>
                     ))}
                   </div>
 
@@ -851,9 +851,11 @@ function SystemPageContent({ forceRefresh, onAutoRefresh, cronRefreshRef }: { fo
                     const used = m.totalTokens > 0
                     const pct  = used ? Math.round((m.totalTokens / maxTokens) * 100) : 0
                     const providerColor: Record<string, string> = {
-                      Anthropic: 'text-[hsl(var(--zv-amber))] bg-[hsl(var(--zv-amber)/0.1)]',
-                      Google:    'text-[hsl(217_91%_65%)] bg-[hsl(217_91%_60%/0.1)]',
-                      OpenAI:    'text-[hsl(142_71%_50%)] bg-[hsl(142_71%_45%/0.1)]',
+                      Anthropic:   'text-[hsl(var(--zv-amber))] bg-[hsl(var(--zv-amber)/0.1)]',
+                      Google:      'text-[hsl(217_91%_65%)] bg-[hsl(217_91%_60%/0.1)]',
+                      OpenAI:      'text-[hsl(142_71%_50%)] bg-[hsl(142_71%_45%/0.1)]',
+                      MiniMax:     'text-purple-600 bg-purple-50',
+                      OpenRouter:  'text-slate-600 bg-slate-100',
                     }
                     const pColor = providerColor[m.provider] ?? 'text-[hsl(var(--muted-foreground))] bg-[hsl(var(--secondary))]'
 
@@ -862,7 +864,7 @@ function SystemPageContent({ forceRefresh, onAutoRefresh, cronRefreshRef }: { fo
                         key={m.id}
                         className={`grid grid-cols-[2fr_80px_1fr_1fr_1fr_1fr_110px] gap-3 px-4 py-3 items-center transition-colors hover:bg-[hsl(var(--secondary)/0.3)] ${i < displayedModels.length - 1 ? 'border-b border-[hsl(var(--border)/0.5)]' : ''} ${!used ? 'opacity-40' : ''}`}
                       >
-                        <div className="flex items-center gap-2 min-w-0">
+                        <div className="flex items-center gap-2 min-w-0 sticky left-0 z-10 bg-[hsl(var(--card))]">
                           <div className={`w-1.5 h-1.5 rounded-full flex-shrink-0 ${used ? 'bg-[hsl(var(--primary))]' : 'bg-[hsl(var(--muted-foreground))]'}`} />
                           <span className="text-base font-medium text-[hsl(var(--foreground))] truncate">{m.name}</span>
                         </div>
@@ -874,11 +876,11 @@ function SystemPageContent({ forceRefresh, onAutoRefresh, cronRefreshRef }: { fo
                         <span className={`text-sm font-semibold tabular-nums ${used ? 'text-[hsl(var(--foreground))]' : 'text-[hsl(var(--muted-foreground))]'}`}>
                           {used ? fmt(m.totalTokens) : '—'}
                         </span>
-                        <div className="flex items-center gap-1">
+                        <div className="flex items-center gap-1 hidden md:table-cell">
                           <MessageSquare className="w-3 h-3 text-[hsl(var(--muted-foreground))]" />
                           <span className="text-sm text-[hsl(var(--muted-foreground))] tabular-nums">{used ? m.sessions : '0'}</span>
                         </div>
-                        <div className="flex items-center gap-2">
+                        <div className="flex items-center gap-2 hidden md:table-cell">
                           <div className="flex-1 bg-[hsl(var(--secondary))] rounded-full h-1.5 overflow-hidden">
                             <div
                               className="h-full bg-[hsl(var(--primary))] rounded-full transition-all duration-700"
