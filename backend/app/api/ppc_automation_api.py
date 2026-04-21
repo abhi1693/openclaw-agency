@@ -37,6 +37,7 @@ from app.schemas.ppc_automation import (
     PpcEntitySnapshotsResponse,
     PpcFreshnessResponse,
     PpcProposalResponse,
+    ProposalReviewResponse,
     ProposalDiffResponse,
     PpcSyncStatusResponse,
     BulkResolveAdGroupRequest,
@@ -458,8 +459,7 @@ async def get_proposal_readiness(
     return ProposalReadinessResponse(**result)  # type: ignore[arg-type]
 
 
-# Proposal execution (locks + retries groundwork)
-# ---------------------------------------------------------------------------)
+@router.get("/proposals/{proposal_id}/executions")
 async def list_proposal_executions(
     proposal_id: UUID,
     limit: int = Query(default=10, ge=1, le=50),
@@ -472,6 +472,73 @@ async def list_proposal_executions(
         "total": len(rows),
         "proposal_id": str(proposal_id),
     }
+
+
+@router.get(
+    "/proposals/{proposal_id}/review",
+    response_model=ProposalReviewResponse,
+)
+async def get_proposal_review(
+    proposal_id: UUID,
+    session: AsyncSession = SESSION_DEP,
+) -> ProposalReviewResponse:
+    """Unified review endpoint: proposal + readiness + diff + execution history.
+
+    One call that gives the operator everything needed to make an approve/reject
+    decision without hitting multiple endpoints.
+
+    This is a pure read-only diagnostic scan - no Amazon Ads API calls,
+    no recommendation mutations.
+    """
+    from app.services.ppc_proposals import run_readiness_check
+
+    try:
+        proposal, items = await get_proposal_with_items(session, proposal_id)
+    except ValueError as exc:
+        raise HTTPException(status_code=404, detail="Proposal not found") from exc
+
+    try:
+        readiness = await run_readiness_check(session, proposal_id, persist=False)
+        readiness["checked_at"] = utcnow().isoformat()
+    except Exception:  # noqa: BLE001
+        readiness = None
+
+    try:
+        diff = await compute_proposal_diff(session, proposal_id)
+        diff_dict = diff.model_dump()
+    except Exception:  # noqa: BLE001
+        diff_dict = None
+
+    executions_raw = await get_execution(session, proposal_id, limit=5)
+    executions: list[dict[str, Any]] = []
+    for execution in executions_raw:
+        execution_dict = execution.model_dump()
+        try:
+            execution_items = await get_execution_items(session, execution.id)
+            execution_dict["_items"] = [
+                {
+                    "id": str(item.id),
+                    "proposal_item_id": str(item.proposal_item_id),
+                    "recommendation_type": item.recommendation_type,
+                    "status": item.status,
+                    "attempt": item.attempt,
+                    "error_detail": item.error_detail,
+                    "applied_at": item.applied_at.isoformat() if item.applied_at else None,
+                }
+                for item in execution_items
+            ]
+        except Exception:  # noqa: BLE001
+            execution_dict["_items"] = []
+        executions.append(execution_dict)
+
+    return ProposalReviewResponse(
+        proposal=proposal.model_dump(),
+        items=[item.model_dump() for item in items],
+        readiness=readiness,
+        diff=diff_dict,
+        executions=executions,
+        feature_flag_live_writes=FEATURE_PPC_LIVE_WRITES,
+    )
 
 
 @router.get("/proposals/{proposal_id}/execution/latest")

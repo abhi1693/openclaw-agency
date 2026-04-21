@@ -190,3 +190,17 @@ class AutoResolveAdGroupResponse(SQLModel):
     campaigns_checked: int
     campaigns_skipped: int  # had multiple or zero ad group candidates
     skipped_recommendations: list[dict[str, str]]  # [{rec_id, campaign_id, reason}]
+
+
+class ProposalReviewResponse(SQLModel):
+    """Unified review response - one call to get everything for proposal approval.
+
+    Combines: proposal metadata + items, readiness check, diff, and execution history.
+    """
+
+    proposal: dict
+    items: list[dict]
+    readiness: dict | None
+    diff: dict | None
+    executions: list[dict]
+    feature_flag_live_writes: bool
