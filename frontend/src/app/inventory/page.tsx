@@ -12,7 +12,6 @@ import {
   Archive, Truck, BoxIcon, Activity,
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
-// @ts-expect-error react-simple-maps lacks TypeScript declarations
 import { ComposableMap, Geographies, Geography, Marker } from 'react-simple-maps'
 import { DashboardPageLayout } from '@/components/templates/DashboardPageLayout'
 

@@ -51,6 +51,7 @@
     "@types/node": "^20",
     "@types/react": "^19",
     "@types/react-dom": "^19",
+    "@types/react-simple-maps": "^3.0.6",
     "@vitest/coverage-v8": "^4.0.18",
     "autoprefixer": "^10.4.24",
     "class-variance-authority": "^0.7.1",
