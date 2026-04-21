@@ -22,6 +22,7 @@ from app.models.ppc_automation import (
 )
 
 
+from tests.aiosqlite_fixtures import register_async_engine
 async def _make_engine() -> AsyncEngine:
     engine = create_async_engine("sqlite+aiosqlite:///:memory:")
     async with engine.connect() as conn, conn.begin():
@@ -104,6 +105,7 @@ async def _seed_proposal_with_items(
 async def test_proposal_review_returns_proposal_and_items() -> None:
     """GET /proposals/{id}/review returns proposal, items, readiness, diff, executions."""
     engine = await _make_engine()
+    register_async_engine(engine)
     session_maker = await _make_session_maker(engine)
     app = _build_test_app(session_maker)
 
@@ -130,6 +132,7 @@ async def test_proposal_review_returns_proposal_and_items() -> None:
 async def test_proposal_review_404_for_unknown_proposal() -> None:
     """Unknown proposal ID returns 404."""
     engine = await _make_engine()
+    register_async_engine(engine)
     session_maker = await _make_session_maker(engine)
     app = _build_test_app(session_maker)
 
@@ -143,6 +146,7 @@ async def test_proposal_review_404_for_unknown_proposal() -> None:
 async def test_proposal_review_includes_execution_items() -> None:
     """Review endpoint includes per-execution-item details when executions exist."""
     engine = await _make_engine()
+    register_async_engine(engine)
     session_maker = await _make_session_maker(engine)
     app = _build_test_app(session_maker)
 
@@ -169,6 +173,7 @@ async def test_proposal_review_includes_execution_items() -> None:
 async def test_list_proposal_executions_endpoint() -> None:
     """GET /proposals/{id}/executions returns execution list."""
     engine = await _make_engine()
+    register_async_engine(engine)
     session_maker = await _make_session_maker(engine)
     app = _build_test_app(session_maker)
 

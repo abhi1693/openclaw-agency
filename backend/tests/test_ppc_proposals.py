@@ -32,6 +32,7 @@ from app.services.ppc_proposals import (
 )
 
 
+from tests.aiosqlite_fixtures import register_async_engine
 async def _make_engine() -> AsyncEngine:
     engine = create_async_engine("sqlite+aiosqlite:///:memory:")
     async with engine.connect() as conn, conn.begin():
@@ -83,6 +84,7 @@ def _keyword_recommendation() -> KeywordRecommendation:
 @pytest.mark.asyncio
 async def test_create_proposal_with_items() -> None:
     engine = await _make_engine()
+    register_async_engine(engine)
     sm = await _make_session_maker(engine)
     async with sm() as session:
         bid = _bid_recommendation()
@@ -114,6 +116,7 @@ async def test_create_proposal_with_items() -> None:
 @pytest.mark.asyncio
 async def test_list_proposals_empty() -> None:
     engine = await _make_engine()
+    register_async_engine(engine)
     sm = await _make_session_maker(engine)
     async with sm() as session:
         rows, total = await list_proposals(session)
@@ -124,6 +127,7 @@ async def test_list_proposals_empty() -> None:
 @pytest.mark.asyncio
 async def test_list_proposals_with_data() -> None:
     engine = await _make_engine()
+    register_async_engine(engine)
     sm = await _make_session_maker(engine)
     async with sm() as session:
         await create_proposal(session, "One", {}, created_by="tester")
@@ -139,6 +143,7 @@ async def test_list_proposals_with_data() -> None:
 @pytest.mark.asyncio
 async def test_compute_proposal_diff_bid() -> None:
     engine = await _make_engine()
+    register_async_engine(engine)
     sm = await _make_session_maker(engine)
     async with sm() as session:
         bid = _bid_recommendation(keyword_id="KW-DIFF")
@@ -170,6 +175,7 @@ async def test_compute_proposal_diff_bid() -> None:
 @pytest.mark.asyncio
 async def test_compute_proposal_diff_no_snapshot() -> None:
     engine = await _make_engine()
+    register_async_engine(engine)
     sm = await _make_session_maker(engine)
     async with sm() as session:
         bid = _bid_recommendation(keyword_id="KW-MISSING")
@@ -188,6 +194,7 @@ async def test_compute_proposal_diff_no_snapshot() -> None:
 @pytest.mark.asyncio
 async def test_compute_proposal_diff_budget() -> None:
     engine = await _make_engine()
+    register_async_engine(engine)
     sm = await _make_session_maker(engine)
     async with sm() as session:
         budget = BudgetAllocation(
@@ -215,6 +222,7 @@ async def test_compute_proposal_diff_budget() -> None:
 @pytest.mark.asyncio
 async def test_approve_proposal() -> None:
     engine = await _make_engine()
+    register_async_engine(engine)
     sm = await _make_session_maker(engine)
     async with sm() as session:
         proposal = await create_proposal(session, "Approve me", {})
@@ -230,6 +238,7 @@ async def test_approve_proposal() -> None:
 @pytest.mark.asyncio
 async def test_reject_proposal() -> None:
     engine = await _make_engine()
+    register_async_engine(engine)
     sm = await _make_session_maker(engine)
     async with sm() as session:
         proposal = await create_proposal(session, "Reject me", {})
@@ -243,6 +252,7 @@ async def test_reject_proposal() -> None:
 @pytest.mark.asyncio
 async def test_api_list_proposals_empty() -> None:
     engine = await _make_engine()
+    register_async_engine(engine)
     sm = await _make_session_maker(engine)
     app = _build_test_app(sm)
     async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as ac:
@@ -254,6 +264,7 @@ async def test_api_list_proposals_empty() -> None:
 @pytest.mark.asyncio
 async def test_api_create_get_diff_approve_reject_proposal() -> None:
     engine = await _make_engine()
+    register_async_engine(engine)
     sm = await _make_session_maker(engine)
     async with sm() as session:
         bid = _bid_recommendation(keyword_id="KW-API")
@@ -310,6 +321,7 @@ async def test_compute_proposal_diff_uses_snapshot_name_not_stored() -> None:
     PpcEntitySnapshot exists, diff must use the snapshot name.
     """
     engine = await _make_engine()
+    register_async_engine(engine)
     sm = await _make_session_maker(engine)
     async with sm() as session:
         rec = PlacementRecommendation(
@@ -349,6 +361,7 @@ async def test_compute_proposal_diff_uses_snapshot_name_not_stored() -> None:
 async def test_compute_proposal_diff_resolved_campaign_name() -> None:
     """Bid diff should include resolved campaign name from snapshot."""
     engine = await _make_engine()
+    register_async_engine(engine)
     sm = await _make_session_maker(engine)
     async with sm() as session:
         bid = _bid_recommendation(keyword_id="KW-CAMP")

@@ -29,6 +29,7 @@ from app.services.ppc_proposals import (
 )
 
 
+from tests.aiosqlite_fixtures import register_async_engine
 async def _make_engine() -> AsyncEngine:
     engine = create_async_engine("sqlite+aiosqlite:///:memory:")
     async with engine.connect() as conn, conn.begin():
@@ -64,6 +65,7 @@ def _build_test_app(
 class TestCheckBidReadiness:
     async def test_ready_bid_has_keyword_id_and_ad_group_id(self) -> None:
         engine = await _make_engine()
+        register_async_engine(engine)
         sm = await _make_session_maker(engine)
         async with sm() as session:
             bid = BidRecommendation(
@@ -87,6 +89,7 @@ class TestCheckBidReadiness:
 
     async def test_bid_missing_keyword_id(self) -> None:
         engine = await _make_engine()
+        register_async_engine(engine)
         sm = await _make_session_maker(engine)
         async with sm() as session:
             bid = BidRecommendation(
@@ -110,6 +113,7 @@ class TestCheckBidReadiness:
 
     async def test_bid_missing_ad_group_id(self) -> None:
         engine = await _make_engine()
+        register_async_engine(engine)
         sm = await _make_session_maker(engine)
         async with sm() as session:
             bid = BidRecommendation(
@@ -132,6 +136,7 @@ class TestCheckBidReadiness:
 
     async def test_bid_not_pending(self) -> None:
         engine = await _make_engine()
+        register_async_engine(engine)
         sm = await _make_session_maker(engine)
         async with sm() as session:
             bid = BidRecommendation(
@@ -158,6 +163,7 @@ class TestCheckBidReadiness:
 class TestCheckKeywordReadiness:
     async def test_ready_keyword_add_negative(self) -> None:
         engine = await _make_engine()
+        register_async_engine(engine)
         sm = await _make_session_maker(engine)
         async with sm() as session:
             kw = KeywordRecommendation(
@@ -179,6 +185,7 @@ class TestCheckKeywordReadiness:
 
     async def test_add_keyword_missing_target_campaign_id(self) -> None:
         engine = await _make_engine()
+        register_async_engine(engine)
         sm = await _make_session_maker(engine)
         async with sm() as session:
             kw = KeywordRecommendation(
@@ -201,6 +208,7 @@ class TestCheckKeywordReadiness:
 
     async def test_add_keyword_unresolved_ad_group_id(self) -> None:
         engine = await _make_engine()
+        register_async_engine(engine)
         sm = await _make_session_maker(engine)
         async with sm() as session:
             kw = KeywordRecommendation(
@@ -225,6 +233,7 @@ class TestCheckKeywordReadiness:
 
     async def test_add_keyword_fully_resolved(self) -> None:
         engine = await _make_engine()
+        register_async_engine(engine)
         sm = await _make_session_maker(engine)
         async with sm() as session:
             kw = KeywordRecommendation(
@@ -251,6 +260,7 @@ class TestCheckKeywordReadiness:
 class TestCheckPlacementBudgetReadiness:
     async def test_ready_placement_pending(self) -> None:
         engine = await _make_engine()
+        register_async_engine(engine)
         sm = await _make_session_maker(engine)
         async with sm() as session:
             rec = PlacementRecommendation(
@@ -272,6 +282,7 @@ class TestCheckPlacementBudgetReadiness:
 
     async def test_placement_not_pending(self) -> None:
         engine = await _make_engine()
+        register_async_engine(engine)
         sm = await _make_session_maker(engine)
         async with sm() as session:
             rec = PlacementRecommendation(
@@ -294,6 +305,7 @@ class TestCheckPlacementBudgetReadiness:
 
     async def test_ready_budget_pending(self) -> None:
         engine = await _make_engine()
+        register_async_engine(engine)
         sm = await _make_session_maker(engine)
         async with sm() as session:
             rec = BudgetAllocation(
@@ -323,6 +335,7 @@ class TestCheckPlacementBudgetReadiness:
 class TestCheckUnknownRecommendationType:
     async def test_unknown_type(self) -> None:
         engine = await _make_engine()
+        register_async_engine(engine)
         sm = await _make_session_maker(engine)
         async with sm() as session:
             item = PpcProposalItem(
@@ -345,6 +358,7 @@ class TestCheckUnknownRecommendationType:
 class TestRunReadinessCheck:
     async def test_all_ready_returns_true(self) -> None:
         engine = await _make_engine()
+        register_async_engine(engine)
         sm = await _make_session_maker(engine)
         async with sm() as session:
             bid = BidRecommendation(
@@ -369,6 +383,7 @@ class TestRunReadinessCheck:
 
     async def test_mixed_readiness(self) -> None:
         engine = await _make_engine()
+        register_async_engine(engine)
         sm = await _make_session_maker(engine)
         async with sm() as session:
             # Ready bid
@@ -409,6 +424,7 @@ class TestRunReadinessCheck:
 
     async def test_persist_writes_back_to_rows(self) -> None:
         engine = await _make_engine()
+        register_async_engine(engine)
         sm = await _make_session_maker(engine)
         async with sm() as session:
             unresolved_kw = KeywordRecommendation(
@@ -449,6 +465,7 @@ class TestRunReadinessCheck:
 class TestReadinessAPI:
     async def test_readiness_endpoint_returns_200(self) -> None:
         engine = await _make_engine()
+        register_async_engine(engine)
         sm = await _make_session_maker(engine)
         app = _build_test_app(sm)
 
@@ -468,6 +485,7 @@ class TestReadinessAPI:
 
     async def test_readiness_endpoint_unknown_proposal_returns_404(self) -> None:
         engine = await _make_engine()
+        register_async_engine(engine)
         sm = await _make_session_maker(engine)
         app = _build_test_app(sm)
 
@@ -478,6 +496,7 @@ class TestReadinessAPI:
 
     async def test_readiness_endpoint_with_persist_false_does_not_write(self) -> None:
         engine = await _make_engine()
+        register_async_engine(engine)
         sm = await _make_session_maker(engine)
         app = _build_test_app(sm)
 
@@ -513,6 +532,7 @@ class TestReadinessAPI:
 
     async def test_readiness_endpoint_with_persist_true_writes_rows(self) -> None:
         engine = await _make_engine()
+        register_async_engine(engine)
         sm = await _make_session_maker(engine)
         app = _build_test_app(sm)
 

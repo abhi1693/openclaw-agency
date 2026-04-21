@@ -42,6 +42,7 @@ from app.services.ppc_proposals import approve_proposal
 # ---------------------------------------------------------------------------
 
 
+from tests.aiosqlite_fixtures import register_async_engine
 async def _make_engine() -> AsyncEngine:
     engine = create_async_engine("sqlite+aiosqlite:///:memory:")
     async with engine.connect() as conn, conn.begin():
@@ -109,6 +110,7 @@ async def _seed_approved_proposal(session: AsyncSession) -> PpcProposal:
 @pytest.mark.asyncio
 async def test_create_execution_record():
     engine = await _make_engine()
+    register_async_engine(engine)
     maker = await _make_session_maker(engine)
 
     async with maker() as session:
@@ -127,6 +129,7 @@ async def test_create_execution_record():
 @pytest.mark.asyncio
 async def test_find_existing_execution_idempotency():
     engine = await _make_engine()
+    register_async_engine(engine)
     maker = await _make_session_maker(engine)
 
     async with maker() as session:
@@ -152,6 +155,7 @@ async def test_find_existing_execution_idempotency():
 @pytest.mark.asyncio
 async def test_get_execution_returns_recent_first():
     engine = await _make_engine()
+    register_async_engine(engine)
     maker = await _make_session_maker(engine)
 
     async with maker() as session:
@@ -176,6 +180,7 @@ async def test_get_execution_returns_recent_first():
 @pytest.mark.asyncio
 async def test_get_latest_execution():
     engine = await _make_engine()
+    register_async_engine(engine)
     maker = await _make_session_maker(engine)
 
     async with maker() as session:
@@ -198,6 +203,7 @@ async def test_get_latest_execution():
 @pytest.mark.asyncio
 async def test_get_latest_execution_none_when_empty():
     engine = await _make_engine()
+    register_async_engine(engine)
     maker = await _make_session_maker(engine)
 
     async with maker() as session:
@@ -213,6 +219,7 @@ async def test_get_latest_execution_none_when_empty():
 @pytest.mark.asyncio
 async def test_execute_proposal_requires_approved():
     engine = await _make_engine()
+    register_async_engine(engine)
     maker = await _make_session_maker(engine)
 
     async with maker() as session:
@@ -228,6 +235,7 @@ async def test_execute_proposal_requires_approved():
 @pytest.mark.asyncio
 async def test_execute_proposal_not_found():
     engine = await _make_engine()
+    register_async_engine(engine)
     maker = await _make_session_maker(engine)
 
     async with maker() as session:
@@ -238,6 +246,7 @@ async def test_execute_proposal_not_found():
 @pytest.mark.asyncio
 async def test_execute_proposal_idempotency_same_key():
     engine = await _make_engine()
+    register_async_engine(engine)
     maker = await _make_session_maker(engine)
     key = uuid4()
 
@@ -256,6 +265,7 @@ async def test_execute_proposal_idempotency_same_key():
 @pytest.mark.asyncio
 async def test_execute_proposal_different_key_creates_new_record():
     engine = await _make_engine()
+    register_async_engine(engine)
     maker = await _make_session_maker(engine)
 
     async with maker() as session:
@@ -271,6 +281,7 @@ async def test_execute_proposal_different_key_creates_new_record():
 async def test_execute_proposal_skips_items_when_feature_flag_false():
     """When FEATURE_PPC_LIVE_WRITES=False, items are marked skipped."""
     engine = await _make_engine()
+    register_async_engine(engine)
     maker = await _make_session_maker(engine)
 
     assert FEATURE_PPC_LIVE_WRITES is False, "Sanity: live writes must be disabled"
@@ -288,6 +299,7 @@ async def test_execute_proposal_skips_items_when_feature_flag_false():
 @pytest.mark.asyncio
 async def test_execute_proposal_creates_execution_items():
     engine = await _make_engine()
+    register_async_engine(engine)
     maker = await _make_session_maker(engine)
 
     async with maker() as session:
@@ -302,6 +314,7 @@ async def test_execute_proposal_creates_execution_items():
 @pytest.mark.asyncio
 async def test_execute_proposal_runs_multiple_items():
     engine = await _make_engine()
+    register_async_engine(engine)
     maker = await _make_session_maker(engine)
 
     async with maker() as session:
@@ -342,6 +355,7 @@ async def test_execute_proposal_runs_multiple_items():
 @pytest.mark.asyncio
 async def test_execute_proposal_respects_max_item_retries():
     engine = await _make_engine()
+    register_async_engine(engine)
     maker = await _make_session_maker(engine)
 
     async with maker() as session:
@@ -362,6 +376,7 @@ async def test_execute_proposal_respects_max_item_retries():
 @pytest.mark.asyncio
 async def test_execute_proposal_endpoint_returns_200():
     engine = await _make_engine()
+    register_async_engine(engine)
     maker = await _make_session_maker(engine)
     app = _build_test_app(maker)
 
@@ -387,6 +402,7 @@ async def test_execute_proposal_endpoint_returns_200():
 @pytest.mark.asyncio
 async def test_execute_proposal_endpoint_idempotency():
     engine = await _make_engine()
+    register_async_engine(engine)
     maker = await _make_session_maker(engine)
     app = _build_test_app(maker)
 
@@ -416,6 +432,7 @@ async def test_execute_proposal_endpoint_idempotency():
 @pytest.mark.asyncio
 async def test_list_proposal_executions():
     engine = await _make_engine()
+    register_async_engine(engine)
     maker = await _make_session_maker(engine)
     app = _build_test_app(maker)
 
@@ -442,6 +459,7 @@ async def test_list_proposal_executions():
 @pytest.mark.asyncio
 async def test_get_latest_execution_endpoint():
     engine = await _make_engine()
+    register_async_engine(engine)
     maker = await _make_session_maker(engine)
     app = _build_test_app(maker)
 
@@ -467,6 +485,7 @@ async def test_get_latest_execution_endpoint():
 @pytest.mark.asyncio
 async def test_execute_proposal_endpoint_rejects_unapproved():
     engine = await _make_engine()
+    register_async_engine(engine)
     maker = await _make_session_maker(engine)
     app = _build_test_app(maker)
 
@@ -500,6 +519,7 @@ async def test_apply_keyword_recs_requires_target_ad_group_id():
     from unittest.mock import AsyncMock, patch
 
     engine = await _make_engine()
+    register_async_engine(engine)
     maker = await _make_session_maker(engine)
     app = _build_test_app(maker)
 
@@ -551,6 +571,7 @@ async def test_apply_keyword_recs_with_target_ad_group_id_succeeds():
     from unittest.mock import AsyncMock, patch
 
     engine = await _make_engine()
+    register_async_engine(engine)
     maker = await _make_session_maker(engine)
     app = _build_test_app(maker)
 

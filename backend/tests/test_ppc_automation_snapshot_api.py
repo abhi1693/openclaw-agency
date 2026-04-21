@@ -30,6 +30,7 @@ from app.api.ppc_automation_api import router as ppc_router
 # ---------------------------------------------------------------------------
 
 
+from tests.aiosqlite_fixtures import register_async_engine
 async def _make_engine() -> AsyncEngine:
     engine = create_async_engine("sqlite+aiosqlite:///:memory:")
     async with engine.connect() as conn, conn.begin():
@@ -64,6 +65,7 @@ async def _make_session_maker(
 @pytest.mark.asyncio
 async def test_list_entity_snapshots_empty() -> None:
     engine = await _make_engine()
+    register_async_engine(engine)
     sm = await _make_session_maker(engine)
     async with sm() as session:
         result = await list_entity_snapshots(session)
@@ -74,6 +76,7 @@ async def test_list_entity_snapshots_empty() -> None:
 @pytest.mark.asyncio
 async def test_list_entity_snapshots_with_snapshots() -> None:
     engine = await _make_engine()
+    register_async_engine(engine)
     sm = await _make_session_maker(engine)
     async with sm() as session:
         c1 = Campaign(
@@ -101,6 +104,7 @@ async def test_list_entity_snapshots_with_snapshots() -> None:
 @pytest.mark.asyncio
 async def test_list_entity_snapshots_filter_by_state() -> None:
     engine = await _make_engine()
+    register_async_engine(engine)
     sm = await _make_session_maker(engine)
     async with sm() as session:
         c1 = Campaign(
@@ -124,6 +128,7 @@ async def test_list_entity_snapshots_filter_by_state() -> None:
 @pytest.mark.asyncio
 async def test_list_entity_snapshots_pagination() -> None:
     engine = await _make_engine()
+    register_async_engine(engine)
     sm = await _make_session_maker(engine)
     async with sm() as session:
         for i in range(3):
@@ -149,6 +154,7 @@ async def test_list_entity_snapshots_pagination() -> None:
 @pytest.mark.asyncio
 async def test_get_entity_freshness_empty() -> None:
     engine = await _make_engine()
+    register_async_engine(engine)
     sm = await _make_session_maker(engine)
     async with sm() as session:
         result = await get_entity_freshness(session, stale_after_seconds=3600)
@@ -159,6 +165,7 @@ async def test_get_entity_freshness_empty() -> None:
 @pytest.mark.asyncio
 async def test_get_entity_freshness_with_data() -> None:
     engine = await _make_engine()
+    register_async_engine(engine)
     sm = await _make_session_maker(engine)
     async with sm() as session:
         c = Campaign(
@@ -182,6 +189,7 @@ async def test_get_entity_freshness_with_data() -> None:
 @pytest.mark.asyncio
 async def test_get_sync_status_empty() -> None:
     engine = await _make_engine()
+    register_async_engine(engine)
     sm = await _make_session_maker(engine)
     async with sm() as session:
         result = await get_sync_status(session)
@@ -192,6 +200,7 @@ async def test_get_sync_status_empty() -> None:
 @pytest.mark.asyncio
 async def test_get_sync_status_with_data() -> None:
     engine = await _make_engine()
+    register_async_engine(engine)
     sm = await _make_session_maker(engine)
     async with sm() as session:
         c = Campaign(
@@ -214,6 +223,7 @@ async def test_get_sync_status_with_data() -> None:
 @pytest.mark.asyncio
 async def test_sync_campaign_snapshots_empty() -> None:
     engine = await _make_engine()
+    register_async_engine(engine)
     sm = await _make_session_maker(engine)
     async with sm() as session:
         result = await sync_campaign_entity_snapshots(session)
@@ -223,6 +233,7 @@ async def test_sync_campaign_snapshots_empty() -> None:
 @pytest.mark.asyncio
 async def test_sync_campaign_snapshots_creates() -> None:
     engine = await _make_engine()
+    register_async_engine(engine)
     sm = await _make_session_maker(engine)
     async with sm() as session:
         c = Campaign(
@@ -241,6 +252,7 @@ async def test_sync_campaign_snapshots_creates() -> None:
 @pytest.mark.asyncio
 async def test_sync_campaign_snapshots_idempotent() -> None:
     engine = await _make_engine()
+    register_async_engine(engine)
     sm = await _make_session_maker(engine)
     async with sm() as session:
         c = Campaign(
@@ -261,6 +273,7 @@ async def test_sync_campaign_snapshots_idempotent() -> None:
 async def test_sync_campaign_snapshots_skips_when_campaign_id_is_empty_string() -> None:
     """A campaign with an empty-string campaign_id is skipped during snapshot sync."""
     engine = await _make_engine()
+    register_async_engine(engine)
     sm = await _make_session_maker(engine)
     async with sm() as session:
         c = Campaign(
@@ -283,6 +296,7 @@ async def test_sync_campaign_snapshots_skips_when_campaign_id_is_empty_string() 
 @pytest.mark.asyncio
 async def test_api_list_snapshots_empty() -> None:
     engine = await _make_engine()
+    register_async_engine(engine)
     sm = await _make_session_maker(engine)
     app = _build_test_app(sm)
     async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as ac:
@@ -296,6 +310,7 @@ async def test_api_list_snapshots_empty() -> None:
 @pytest.mark.asyncio
 async def test_api_list_snapshots_with_data() -> None:
     engine = await _make_engine()
+    register_async_engine(engine)
     sm = await _make_session_maker(engine)
     async with sm() as session:
         c1 = Campaign(
@@ -322,6 +337,7 @@ async def test_api_list_snapshots_with_data() -> None:
 @pytest.mark.asyncio
 async def test_api_list_snapshots_filter_by_entity_type() -> None:
     engine = await _make_engine()
+    register_async_engine(engine)
     sm = await _make_session_maker(engine)
     async with sm() as session:
         c = Campaign(
@@ -344,6 +360,7 @@ async def test_api_list_snapshots_filter_by_entity_type() -> None:
 @pytest.mark.asyncio
 async def test_api_list_snapshots_filter_by_state() -> None:
     engine = await _make_engine()
+    register_async_engine(engine)
     sm = await _make_session_maker(engine)
     async with sm() as session:
         c = Campaign(
@@ -364,6 +381,7 @@ async def test_api_list_snapshots_filter_by_state() -> None:
 @pytest.mark.asyncio
 async def test_api_list_snapshots_pagination() -> None:
     engine = await _make_engine()
+    register_async_engine(engine)
     sm = await _make_session_maker(engine)
     async with sm() as session:
         for i in range(3):
@@ -387,6 +405,7 @@ async def test_api_list_snapshots_pagination() -> None:
 @pytest.mark.asyncio
 async def test_api_list_snapshots_limit_validation() -> None:
     engine = await _make_engine()
+    register_async_engine(engine)
     sm = await _make_session_maker(engine)
     app = _build_test_app(sm)
     async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as ac:
@@ -403,6 +422,7 @@ async def test_api_list_snapshots_limit_validation() -> None:
 @pytest.mark.asyncio
 async def test_api_freshness_empty() -> None:
     engine = await _make_engine()
+    register_async_engine(engine)
     sm = await _make_session_maker(engine)
     app = _build_test_app(sm)
     async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as ac:
@@ -415,6 +435,7 @@ async def test_api_freshness_empty() -> None:
 @pytest.mark.asyncio
 async def test_api_freshness_with_data() -> None:
     engine = await _make_engine()
+    register_async_engine(engine)
     sm = await _make_session_maker(engine)
     async with sm() as session:
         c = Campaign(
@@ -435,6 +456,7 @@ async def test_api_freshness_with_data() -> None:
 @pytest.mark.asyncio
 async def test_api_freshness_stale_param() -> None:
     engine = await _make_engine()
+    register_async_engine(engine)
     sm = await _make_session_maker(engine)
     async with sm() as session:
         c = Campaign(
@@ -459,6 +481,7 @@ async def test_api_freshness_stale_param() -> None:
 @pytest.mark.asyncio
 async def test_api_sync_status_empty() -> None:
     engine = await _make_engine()
+    register_async_engine(engine)
     sm = await _make_session_maker(engine)
     app = _build_test_app(sm)
     async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as ac:
@@ -470,6 +493,7 @@ async def test_api_sync_status_empty() -> None:
 @pytest.mark.asyncio
 async def test_api_sync_status_with_data() -> None:
     engine = await _make_engine()
+    register_async_engine(engine)
     sm = await _make_session_maker(engine)
     async with sm() as session:
         c = Campaign(
@@ -496,6 +520,7 @@ async def test_api_sync_status_with_data() -> None:
 @pytest.mark.asyncio
 async def test_api_manual_sync_triggers_materialization() -> None:
     engine = await _make_engine()
+    register_async_engine(engine)
     sm = await _make_session_maker(engine)
     async with sm() as session:
         c = Campaign(
@@ -522,6 +547,7 @@ async def test_api_manual_sync_triggers_materialization() -> None:
 @pytest.mark.asyncio
 async def test_api_manual_sync_idempotent() -> None:
     engine = await _make_engine()
+    register_async_engine(engine)
     sm = await _make_session_maker(engine)
     async with sm() as session:
         c = Campaign(

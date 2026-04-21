@@ -21,6 +21,7 @@ from app.models.ppc_automation import (
 )
 
 
+from tests.aiosqlite_fixtures import register_async_engine
 async def _make_engine() -> AsyncEngine:
     engine = create_async_engine("sqlite+aiosqlite:///:memory:")
     async with engine.connect() as conn, conn.begin():
@@ -93,6 +94,7 @@ AC_CAMPAIGN_ID = "CAMP-ADG"
 @pytest.mark.asyncio
 async def test_list_campaign_ad_groups_empty() -> None:
     engine = await _make_engine()
+    register_async_engine(engine)
     sm = await _make_session_maker(engine)
     app = _build_test_app(sm)
 
@@ -111,6 +113,7 @@ async def test_list_campaign_ad_groups_empty() -> None:
 @pytest.mark.asyncio
 async def test_list_campaign_ad_groups_returns_matching_groups() -> None:
     engine = await _make_engine()
+    register_async_engine(engine)
     sm = await _make_session_maker(engine)
     async with sm() as session:
         session.add(_ad_group_snapshot(AC_GROUP_ID_1, AC_CAMPAIGN_ID, name="Exact Match AG"))
@@ -136,6 +139,7 @@ async def test_list_campaign_ad_groups_returns_matching_groups() -> None:
 @pytest.mark.asyncio
 async def test_list_campaign_ad_groups_includes_snapshot_fields() -> None:
     engine = await _make_engine()
+    register_async_engine(engine)
     sm = await _make_session_maker(engine)
     async with sm() as session:
         session.add(_ad_group_snapshot(AC_GROUP_ID_1, AC_CAMPAIGN_ID, name="My AG", state="enabled"))
@@ -166,6 +170,7 @@ RESOLVE_CAMPAIGN_ID = "CAMP-RESOLVE"
 @pytest.mark.asyncio
 async def test_resolve_ad_group_sets_target_ad_group_id() -> None:
     engine = await _make_engine()
+    register_async_engine(engine)
     sm = await _make_session_maker(engine)
     async with sm() as session:
         # Add a matching ad-group snapshot so the campaign membership check passes
@@ -195,6 +200,7 @@ async def test_resolve_ad_group_sets_target_ad_group_id() -> None:
 @pytest.mark.asyncio
 async def test_resolve_ad_group_writes_change_log() -> None:
     engine = await _make_engine()
+    register_async_engine(engine)
     sm = await _make_session_maker(engine)
     async with sm() as session:
         session.add(_ad_group_snapshot("AG-LOG", RESOLVE_CAMPAIGN_ID))
@@ -231,6 +237,7 @@ async def test_resolve_ad_group_writes_change_log() -> None:
 @pytest.mark.asyncio
 async def test_resolve_ad_group_validates_campaign_membership() -> None:
     engine = await _make_engine()
+    register_async_engine(engine)
     sm = await _make_session_maker(engine)
     async with sm() as session:
         # Ad group belongs to CAMP-A but the recommendation targets CAMP-B
@@ -263,6 +270,7 @@ async def test_resolve_ad_group_validates_campaign_membership() -> None:
 async def test_resolve_ad_group_allows_any_ad_group_when_no_target_campaign() -> None:
     """When target_campaign_id is null, skip campaign validation (user must choose wisely)."""
     engine = await _make_engine()
+    register_async_engine(engine)
     sm = await _make_session_maker(engine)
     async with sm() as session:
         rec = KeywordRecommendation(
@@ -293,6 +301,7 @@ async def test_resolve_ad_group_allows_any_ad_group_when_no_target_campaign() ->
 @pytest.mark.asyncio
 async def test_resolve_ad_group_rejects_add_negative_action() -> None:
     engine = await _make_engine()
+    register_async_engine(engine)
     sm = await _make_session_maker(engine)
     async with sm() as session:
         rec = _keyword_rec(action="add_negative")
@@ -317,6 +326,7 @@ async def test_resolve_ad_group_rejects_add_negative_action() -> None:
 @pytest.mark.asyncio
 async def test_resolve_ad_group_returns_404_for_unknown_rec() -> None:
     engine = await _make_engine()
+    register_async_engine(engine)
     sm = await _make_session_maker(engine)
     app = _build_test_app(sm)
 
@@ -339,6 +349,7 @@ BULK_CAMPAIGN_ID = "CAMP-BULK"
 @pytest.mark.asyncio
 async def test_bulk_resolve_resolves_multiple_unresolved_recs() -> None:
     engine = await _make_engine()
+    register_async_engine(engine)
     sm = await _make_session_maker(engine)
     async with sm() as session:
         session.add(_ad_group_snapshot("AG-BULK-1", BULK_CAMPAIGN_ID))
@@ -372,6 +383,7 @@ async def test_bulk_resolve_resolves_multiple_unresolved_recs() -> None:
 @pytest.mark.asyncio
 async def test_bulk_resolve_writes_change_log() -> None:
     engine = await _make_engine()
+    register_async_engine(engine)
     sm = await _make_session_maker(engine)
     async with sm() as session:
         session.add(_ad_group_snapshot("AG-BULK-LOG", BULK_CAMPAIGN_ID))
@@ -408,6 +420,7 @@ async def test_bulk_resolve_writes_change_log() -> None:
 @pytest.mark.asyncio
 async def test_bulk_resolve_skips_already_resolved_recs() -> None:
     engine = await _make_engine()
+    register_async_engine(engine)
     sm = await _make_session_maker(engine)
     async with sm() as session:
         session.add(_ad_group_snapshot("AG-BULK-2", BULK_CAMPAIGN_ID))
@@ -448,6 +461,7 @@ async def test_bulk_resolve_skips_already_resolved_recs() -> None:
 @pytest.mark.asyncio
 async def test_bulk_resolve_rejects_ad_group_not_in_campaign() -> None:
     engine = await _make_engine()
+    register_async_engine(engine)
     sm = await _make_session_maker(engine)
     async with sm() as session:
         # Ad group belongs to OTHER-CAMP, not BULK_CAMPAIGN_ID
@@ -476,6 +490,7 @@ async def test_bulk_resolve_rejects_ad_group_not_in_campaign() -> None:
 @pytest.mark.asyncio
 async def test_bulk_resolve_returns_empty_when_no_matching_recs() -> None:
     engine = await _make_engine()
+    register_async_engine(engine)
     sm = await _make_session_maker(engine)
     async with sm() as session:
         session.add(_ad_group_snapshot("AG-BULK-3", BULK_CAMPAIGN_ID))
@@ -513,6 +528,7 @@ AUTO_AG_ID = "AG-AUTO-1"
 async def test_auto_resolve_resolves_single_ad_group_campaign() -> None:
     """When exactly one enabled ad group exists for a campaign, recs auto-resolve."""
     engine = await _make_engine()
+    register_async_engine(engine)
     sm = await _make_session_maker(engine)
     async with sm() as session:
         session.add(_ad_group_snapshot(AUTO_AG_ID, AUTO_CAMPAIGN_ID))
@@ -540,6 +556,7 @@ async def test_auto_resolve_resolves_single_ad_group_campaign() -> None:
 @pytest.mark.asyncio
 async def test_auto_resolve_writes_change_log() -> None:
     engine = await _make_engine()
+    register_async_engine(engine)
     sm = await _make_session_maker(engine)
     async with sm() as session:
         session.add(_ad_group_snapshot(AUTO_AG_ID, AUTO_CAMPAIGN_ID))
@@ -570,6 +587,7 @@ async def test_auto_resolve_writes_change_log() -> None:
 async def test_auto_resolve_skips_multiple_ad_group_campaigns() -> None:
     """When multiple enabled ad groups exist, recs are skipped (requires user judgment)."""
     engine = await _make_engine()
+    register_async_engine(engine)
     sm = await _make_session_maker(engine)
     async with sm() as session:
         session.add(_ad_group_snapshot("AG-MULTI-1", AUTO_CAMPAIGN_ID, name="AG One"))
@@ -597,6 +615,7 @@ async def test_auto_resolve_skips_multiple_ad_group_campaigns() -> None:
 async def test_auto_resolve_skips_zero_ad_group_campaigns() -> None:
     """Campaigns with no ad groups in snapshot are skipped."""
     engine = await _make_engine()
+    register_async_engine(engine)
     sm = await _make_session_maker(engine)
     async with sm() as session:
         # Ad group belongs to a DIFFERENT campaign only
@@ -623,6 +642,7 @@ async def test_auto_resolve_skips_zero_ad_group_campaigns() -> None:
 async def test_auto_resolve_ignores_disabled_ad_groups() -> None:
     """Only ENABLED ad groups count toward the single-candidate check."""
     engine = await _make_engine()
+    register_async_engine(engine)
     sm = await _make_session_maker(engine)
     async with sm() as session:
         # Disabled ad group — should NOT be considered a candidate
@@ -648,6 +668,7 @@ async def test_auto_resolve_ignores_disabled_ad_groups() -> None:
 async def test_auto_resolve_counts_already_resolved() -> None:
     """already_resolved is a running count across all campaigns."""
     engine = await _make_engine()
+    register_async_engine(engine)
     sm = await _make_session_maker(engine)
     async with sm() as session:
         session.add(_ad_group_snapshot(AUTO_AG_ID, AUTO_CAMPAIGN_ID))

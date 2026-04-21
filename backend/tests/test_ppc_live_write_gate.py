@@ -24,6 +24,7 @@ from app.models.ppc_automation import (
 from app.services.ppc_execution import FEATURE_PPC_LIVE_WRITES
 from app.services.ppc_live_write_gate import get_live_write_gate, get_pilot_policy
 from app.config.ams_config import get_ams_profile_id
+from tests.aiosqlite_fixtures import register_async_engine
 
 
 async def _make_engine() -> AsyncEngine:
@@ -128,6 +129,7 @@ async def test_gate_flag_is_false():
 async def test_gate_reports_enabled_false():
     """Gate always reports enabled=False when feature flag is False."""
     engine = await _make_engine()
+    register_async_engine(engine)
     session_maker = await _make_session_maker(engine)
 
     async with session_maker() as session:
@@ -141,6 +143,7 @@ async def test_gate_reports_enabled_false():
 async def test_gate_reports_can_enable_false_when_no_data():
     """Gate reports can_enable=False when no proposals or executions exist."""
     engine = await _make_engine()
+    register_async_engine(engine)
     session_maker = await _make_session_maker(engine)
 
     async with session_maker() as session:
@@ -160,6 +163,7 @@ async def test_gate_reports_can_enable_false_when_no_data():
 async def test_gate_blocks_when_no_approved_proposals():
     """Gate adds no_approved_proposals blocker when no proposals are approved."""
     engine = await _make_engine()
+    register_async_engine(engine)
     session_maker = await _make_session_maker(engine)
 
     async with session_maker() as session:
@@ -175,6 +179,7 @@ async def test_gate_blocks_when_no_approved_proposals():
 async def test_gate_blocks_when_no_observation_runs():
     """Gate adds no_observation_runs blocker when no executions have run."""
     engine = await _make_engine()
+    register_async_engine(engine)
     session_maker = await _make_session_maker(engine)
 
     async with session_maker() as session:
@@ -195,6 +200,7 @@ async def test_gate_passes_when_approved_proposal_and_execution_exists():
     reports can_enable=True. The ads_profile_id_missing blocker is environment-specific.
     """
     engine = await _make_engine()
+    register_async_engine(engine)
     session_maker = await _make_session_maker(engine)
 
     async with session_maker() as session:
@@ -213,6 +219,7 @@ async def test_gate_passes_when_approved_proposal_and_execution_exists():
 async def test_gate_returns_pilot_policy():
     """Gate report includes pilot_policy with approved_types."""
     engine = await _make_engine()
+    register_async_engine(engine)
     session_maker = await _make_session_maker(engine)
 
     async with session_maker() as session:
@@ -230,6 +237,7 @@ async def test_gate_blockers_summary_accurate():
     The "credentials" category only appears when AMAZON_ADS_PROFILE_ID is absent.
     """
     engine = await _make_engine()
+    register_async_engine(engine)
     session_maker = await _make_session_maker(engine)
 
     async with session_maker() as session:
@@ -278,6 +286,7 @@ async def test_pilot_policy_message_describes_restriction():
 async def test_live_write_gate_endpoint_returns_200():
     """GET /ppc/automation/live-write-gate returns 200 with structured report."""
     engine = await _make_engine()
+    register_async_engine(engine)
     session_maker = await _make_session_maker(engine)
     app = _build_test_app(session_maker)
 
@@ -302,6 +311,7 @@ async def test_live_write_gate_endpoint_returns_200():
 async def test_live_write_gate_endpoint_no_approved_proposals():
     """Gate endpoint shows no_approved_proposals blocker when none exist."""
     engine = await _make_engine()
+    register_async_engine(engine)
     session_maker = await _make_session_maker(engine)
     app = _build_test_app(session_maker)
 
@@ -321,6 +331,7 @@ async def test_live_write_gate_endpoint_no_approved_proposals():
 async def test_pilot_policy_endpoint_returns_200():
     """GET /ppc/automation/pilot-policy returns 200 with approved types."""
     engine = await _make_engine()
+    register_async_engine(engine)
     session_maker = await _make_session_maker(engine)
     app = _build_test_app(session_maker)
 
@@ -337,6 +348,7 @@ async def test_pilot_policy_endpoint_returns_200():
 async def test_proposal_review_includes_gate_report():
     """Proposal review endpoint still works with Phase 4 additions."""
     engine = await _make_engine()
+    register_async_engine(engine)
     session_maker = await _make_session_maker(engine)
     app = _build_test_app(session_maker)
 
