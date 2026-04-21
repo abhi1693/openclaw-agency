@@ -371,17 +371,39 @@ function SkuDetailTable({ items }: { items: InventoryItem[] }) {
           <thead>
             <tr className="border-b border-slate-200 bg-slate-50/80">
               <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-slate-500">#</th>
-              <Th col="sku" label="SKU / ASIN" />
-              <Th col="productName" label="Product" />
-              <Th col="yourPrice" label="Price" right />
-              <Th col="afnFulfillableQuantity" label="Fulfillable" right />
-              <Th col="afnReservedQuantity" label="Reserved" right />
-              <Th col="afnUnsellableQuantity" label="Unsellable" right />
-              <Th col="afnTotalQuantity" label="Total" right />
-              <Th col="afnInboundWorkingQuantity" label="Working" right />
-              <Th col="afnInboundShippedQuantity" label="Shipped" right />
-              <Th col="afnInboundReceivingQuantity" label="Receiving" right />
-              <Th col="afnResearchingQuantity" label="Research" right />
+              <th className="px-4 py-3 text-xs font-semibold uppercase tracking-wider text-slate-500 cursor-pointer hover:text-slate-900 transition-colors select-none" onClick={() => handleSort('sku')}>
+                <span className="flex items-center gap-1">SKU / ASIN <ArrowUpDown className="w-3 h-3 opacity-40" /></span>
+              </th>
+              <th className="px-4 py-3 text-xs font-semibold uppercase tracking-wider text-slate-500 cursor-pointer hover:text-slate-900 transition-colors select-none" onClick={() => handleSort('productName')}>
+                <span className="flex items-center gap-1">Product <ArrowUpDown className="w-3 h-3 opacity-40" /></span>
+              </th>
+              <th className="px-4 py-3 text-xs font-semibold uppercase tracking-wider text-slate-500 cursor-pointer hover:text-slate-900 transition-colors select-none text-right" onClick={() => handleSort('yourPrice')}>
+                <span className="flex items-center gap-1 justify-end">Price <ArrowUpDown className="w-3 h-3 opacity-40" /></span>
+              </th>
+              <th className="px-4 py-3 text-xs font-semibold uppercase tracking-wider text-slate-500 cursor-pointer hover:text-slate-900 transition-colors select-none text-right" onClick={() => handleSort('afnFulfillableQuantity')}>
+                <span className="flex items-center gap-1 justify-end">Fulfillable <ArrowUpDown className="w-3 h-3 opacity-40" /></span>
+              </th>
+              <th className="px-4 py-3 text-xs font-semibold uppercase tracking-wider text-slate-500 cursor-pointer hover:text-slate-900 transition-colors select-none text-right" onClick={() => handleSort('afnReservedQuantity')}>
+                <span className="flex items-center gap-1 justify-end">Reserved <ArrowUpDown className="w-3 h-3 opacity-40" /></span>
+              </th>
+              <th className="px-4 py-3 text-xs font-semibold uppercase tracking-wider text-slate-500 cursor-pointer hover:text-slate-900 transition-colors select-none text-right" onClick={() => handleSort('afnUnsellableQuantity')}>
+                <span className="flex items-center gap-1 justify-end">Unsellable <ArrowUpDown className="w-3 h-3 opacity-40" /></span>
+              </th>
+              <th className="px-4 py-3 text-xs font-semibold uppercase tracking-wider text-slate-500 cursor-pointer hover:text-slate-900 transition-colors select-none text-right" onClick={() => handleSort('afnTotalQuantity')}>
+                <span className="flex items-center gap-1 justify-end">Total <ArrowUpDown className="w-3 h-3 opacity-40" /></span>
+              </th>
+              <th className="px-4 py-3 text-xs font-semibold uppercase tracking-wider text-slate-500 cursor-pointer hover:text-slate-900 transition-colors select-none text-right" onClick={() => handleSort('afnInboundWorkingQuantity')}>
+                <span className="flex items-center gap-1 justify-end">Working <ArrowUpDown className="w-3 h-3 opacity-40" /></span>
+              </th>
+              <th className="px-4 py-3 text-xs font-semibold uppercase tracking-wider text-slate-500 cursor-pointer hover:text-slate-900 transition-colors select-none text-right" onClick={() => handleSort('afnInboundShippedQuantity')}>
+                <span className="flex items-center gap-1 justify-end">Shipped <ArrowUpDown className="w-3 h-3 opacity-40" /></span>
+              </th>
+              <th className="px-4 py-3 text-xs font-semibold uppercase tracking-wider text-slate-500 cursor-pointer hover:text-slate-900 transition-colors select-none text-right" onClick={() => handleSort('afnInboundReceivingQuantity')}>
+                <span className="flex items-center gap-1 justify-end">Receiving <ArrowUpDown className="w-3 h-3 opacity-40" /></span>
+              </th>
+              <th className="px-4 py-3 text-xs font-semibold uppercase tracking-wider text-slate-500 cursor-pointer hover:text-slate-900 transition-colors select-none text-right" onClick={() => handleSort('afnResearchingQuantity')}>
+                <span className="flex items-center gap-1 justify-end">Research <ArrowUpDown className="w-3 h-3 opacity-40" /></span>
+              </th>
             </tr>
           </thead>
           <tbody className="divide-y divide-slate-100">
@@ -839,7 +861,6 @@ function FCRegionDashboard({ bySku, fcDetails, skuFilter }: {
     else { setTableSortKey(key); setTableSortDir('desc') }
   }
 
-  const totalForDonut = regionChartData.reduce((s, d) => s + d.units, 0)
 
   return (
     <div className="space-y-6">

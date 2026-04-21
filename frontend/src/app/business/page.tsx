@@ -20,7 +20,6 @@ import {
   Lightbulb,
   Wallet,
   RotateCcw,
-  CheckCircle2,
   Target,
   CalendarClock,
   ExternalLink,
