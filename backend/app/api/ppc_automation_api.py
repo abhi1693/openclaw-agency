@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import json
 from datetime import date, datetime
 from decimal import Decimal
 from typing import Any
@@ -845,6 +846,23 @@ async def resolve_keyword_ad_group(
             )
 
     rec.target_ad_group_id = body.ad_group_id
+    session.add(
+        PpcChangeLog(
+            change_type="resolve",
+            entity_type="keyword_recommendation",
+            entity_id=str(rec.id),
+            old_value=None,
+            new_value=json.dumps(
+                {
+                    "target_ad_group_id": body.ad_group_id,
+                    "target_campaign_id": rec.target_campaign_id,
+                }
+            ),
+            reason="manual ad-group resolution",
+            triggered_by="manual",
+            created_at=utcnow(),
+        )
+    )
     await session.commit()
 
     return KeywordRecommendationResolvedResponse(
@@ -903,6 +921,23 @@ async def bulk_resolve_keyword_ad_group(
 
     for rec in recs:
         rec.target_ad_group_id = body.ad_group_id
+        session.add(
+            PpcChangeLog(
+                change_type="bulk_resolve",
+                entity_type="keyword_recommendation",
+                entity_id=str(rec.id),
+                old_value=None,
+                new_value=json.dumps(
+                    {
+                        "target_ad_group_id": body.ad_group_id,
+                        "target_campaign_id": rec.target_campaign_id,
+                    }
+                ),
+                reason="bulk ad-group resolution",
+                triggered_by="manual",
+                created_at=utcnow(),
+            )
+        )
         resolved.append(
             KeywordRecommendationResolvedResponse(
                 id=rec.id,
@@ -1023,6 +1058,23 @@ async def auto_resolve_keyword_ad_group(
         recs = recs_result.all()
         for rec in recs:
             rec.target_ad_group_id = ad_group_id
+            session.add(
+                PpcChangeLog(
+                    change_type="auto_resolve",
+                    entity_type="keyword_recommendation",
+                    entity_id=str(rec.id),
+                    old_value=None,
+                    new_value=json.dumps(
+                        {
+                            "target_ad_group_id": ad_group_id,
+                            "target_campaign_id": rec.target_campaign_id,
+                        }
+                    ),
+                    reason="auto ad-group resolution",
+                    triggered_by="system",
+                    created_at=utcnow(),
+                )
+            )
             auto_resolved += 1
 
         already_resolved += pre_resolved_count

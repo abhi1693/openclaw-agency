@@ -16,6 +16,7 @@ from app.api.ppc_automation_api import router as ppc_router
 from app.db.session import get_session
 from app.models.ppc_automation import (
     KeywordRecommendation,
+    PpcChangeLog,
     PpcEntitySnapshot,
 )
 
@@ -192,6 +193,42 @@ async def test_resolve_ad_group_sets_target_ad_group_id() -> None:
 
 
 @pytest.mark.asyncio
+async def test_resolve_ad_group_writes_change_log() -> None:
+    engine = await _make_engine()
+    sm = await _make_session_maker(engine)
+    async with sm() as session:
+        session.add(_ad_group_snapshot("AG-LOG", RESOLVE_CAMPAIGN_ID))
+        rec = _keyword_rec(target_campaign_id=RESOLVE_CAMPAIGN_ID)
+        session.add(rec)
+        await session.commit()
+        rec_id = rec.id
+
+    app = _build_test_app(sm)
+    async with AsyncClient(
+        transport=ASGITransport(app=app),
+        base_url="http://test",
+    ) as ac:
+        resp = await ac.patch(
+            f"/ppc/automation/keyword-recommendations/{rec_id}/resolve-ad-group",
+            json={"ad_group_id": "AG-LOG"},
+        )
+
+    assert resp.status_code == 200
+    async with sm() as session:
+        result = await session.exec(select(PpcChangeLog))
+        logs = result.all()
+
+    assert len(logs) == 1
+    log = logs[0]
+    assert log.change_type == "resolve"
+    assert log.entity_type == "keyword_recommendation"
+    assert log.entity_id == str(rec_id)
+    assert log.triggered_by == "manual"
+    assert log.reason == "manual ad-group resolution"
+    assert '"target_ad_group_id": "AG-LOG"' in (log.new_value or "")
+
+
+@pytest.mark.asyncio
 async def test_resolve_ad_group_validates_campaign_membership() -> None:
     engine = await _make_engine()
     sm = await _make_session_maker(engine)
@@ -333,6 +370,42 @@ async def test_bulk_resolve_resolves_multiple_unresolved_recs() -> None:
 
 
 @pytest.mark.asyncio
+async def test_bulk_resolve_writes_change_log() -> None:
+    engine = await _make_engine()
+    sm = await _make_session_maker(engine)
+    async with sm() as session:
+        session.add(_ad_group_snapshot("AG-BULK-LOG", BULK_CAMPAIGN_ID))
+        for _ in range(2):
+            session.add(_keyword_rec(target_campaign_id=BULK_CAMPAIGN_ID))
+        await session.commit()
+
+    app = _build_test_app(sm)
+    async with AsyncClient(
+        transport=ASGITransport(app=app),
+        base_url="http://test",
+    ) as ac:
+        resp = await ac.post(
+            "/ppc/automation/keyword-recommendations/bulk-resolve-ad-group",
+            json={
+                "campaign_id": "AG-BULK-LOG",
+                "ad_group_id": "AG-BULK-LOG",
+                "match_target_campaign_id": BULK_CAMPAIGN_ID,
+            },
+        )
+
+    assert resp.status_code == 200
+    async with sm() as session:
+        result = await session.exec(select(PpcChangeLog))
+        logs = result.all()
+
+    assert len(logs) == 2
+    assert {log.change_type for log in logs} == {"bulk_resolve"}
+    assert {log.entity_type for log in logs} == {"keyword_recommendation"}
+    assert {log.triggered_by for log in logs} == {"manual"}
+    assert all('"target_ad_group_id": "AG-BULK-LOG"' in (log.new_value or "") for log in logs)
+
+
+@pytest.mark.asyncio
 async def test_bulk_resolve_skips_already_resolved_recs() -> None:
     engine = await _make_engine()
     sm = await _make_session_maker(engine)
@@ -465,6 +538,35 @@ async def test_auto_resolve_resolves_single_ad_group_campaign() -> None:
 
 
 @pytest.mark.asyncio
+async def test_auto_resolve_writes_change_log() -> None:
+    engine = await _make_engine()
+    sm = await _make_session_maker(engine)
+    async with sm() as session:
+        session.add(_ad_group_snapshot(AUTO_AG_ID, AUTO_CAMPAIGN_ID))
+        session.add(_keyword_rec(target_campaign_id=AUTO_CAMPAIGN_ID))
+        session.add(_keyword_rec(target_campaign_id=AUTO_CAMPAIGN_ID))
+        await session.commit()
+
+    app = _build_test_app(sm)
+    async with AsyncClient(
+        transport=ASGITransport(app=app),
+        base_url="http://test",
+    ) as ac:
+        resp = await ac.post("/ppc/automation/keyword-recommendations/auto-resolve-ad-group")
+
+    assert resp.status_code == 200
+    async with sm() as session:
+        result = await session.exec(select(PpcChangeLog))
+        logs = result.all()
+
+    assert len(logs) == 2
+    assert {log.change_type for log in logs} == {"auto_resolve"}
+    assert {log.entity_type for log in logs} == {"keyword_recommendation"}
+    assert {log.triggered_by for log in logs} == {"system"}
+    assert all(f'"target_ad_group_id": "{AUTO_AG_ID}"' in (log.new_value or "") for log in logs)
+
+
+@pytest.mark.asyncio
 async def test_auto_resolve_skips_multiple_ad_group_campaigns() -> None:
     """When multiple enabled ad groups exist, recs are skipped (requires user judgment)."""
     engine = await _make_engine()
@@ -564,4 +666,3 @@ async def test_auto_resolve_counts_already_resolved() -> None:
     data = resp.json()
     assert data["auto_resolved"] == 1
     assert data["already_resolved"] == 1
-

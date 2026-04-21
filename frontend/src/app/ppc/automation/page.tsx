@@ -628,6 +628,36 @@ async function apiFetch(path: string, init?: RequestInit) {
   return res.json()
 }
 
+export async function resolveAdGroup(recId: string, adGroupId: string) {
+  const res = await fetch(`/api/ppc/automation/keyword-recommendations/${recId}/resolve-ad-group`, {
+    method: 'PATCH',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ target_ad_group_id: adGroupId }),
+  })
+  if (!res.ok) throw new Error(`HTTP ${res.status}`)
+  return res.json()
+}
+
+export async function bulkResolveAdGroup(campaignId: string, adGroupId: string) {
+  const res = await fetch('/api/ppc/automation/keyword-recommendations/bulk-resolve-ad-group', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      campaign_id: adGroupId,
+      ad_group_id: adGroupId,
+      match_target_campaign_id: campaignId,
+    }),
+  })
+  if (!res.ok) throw new Error(`HTTP ${res.status}`)
+  return res.json()
+}
+
+export async function autoResolveAdGroup() {
+  return apiFetch('/api/ppc/automation/keyword-recommendations/auto-resolve-ad-group', {
+    method: 'POST',
+  }) as Promise<AutoResolveResult>
+}
+
 // ─── Tabs ────────────────────────────────────────────────────────────────────────
 
 const TABS = ['📡 实时监控', '📋 Campaign 诊断', '💰 Bid 建议', '🔑 关键词建议', '📍 Placement 优化', '🏗️ Campaign 构建器', '🌾 关键词收割', '📊 预算节奏', '🎯 智能优化', '⏰ 分时投放', '📸 Campaign Snapshots', '⚙️ 设置'] as const
@@ -1632,35 +1662,23 @@ function KeywordRecommendationsTab() {
     }
   }
 
-  async function resolveAdGroup(recId: string, adGroupId: string) {
+  async function handleResolveAdGroup(recId: string, adGroupId: string) {
     setResolvingId(recId)
     try {
-      const res = await fetch(`/api/ppc/automation/keyword-recommendations/${recId}/resolve-ad-group`, {
-        method: 'PATCH',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ target_ad_group_id: adGroupId }),
-      })
-      if (res.ok) {
-        await refetch()
-      }
+      await resolveAdGroup(recId, adGroupId)
+      await refetch()
     } finally {
       setResolvingId(null)
     }
   }
 
-  async function bulkResolveAdGroup(campaignId: string) {
+  async function handleBulkResolveAdGroup(campaignId: string) {
     const adGroupId = bulkAdGroup[campaignId]
     if (!adGroupId) return
     setBulkResolving(true)
     try {
-      const res = await fetch('/api/ppc/automation/keyword-recommendations/bulk-resolve-ad-group', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ campaign_id: adGroupId, ad_group_id: adGroupId, match_target_campaign_id: campaignId }),
-      })
-      if (res.ok) {
-        await refetch()
-      }
+      await bulkResolveAdGroup(campaignId, adGroupId)
+      await refetch()
     } finally {
       setBulkResolving(false)
     }
@@ -1682,10 +1700,7 @@ function KeywordRecommendationsTab() {
   })
 
   const autoResolveMutation = useMutation({
-    mutationFn: () =>
-      apiFetch('/api/ppc/automation/keyword-recommendations/auto-resolve-ad-group', {
-        method: 'POST',
-      }) as Promise<AutoResolveResult>,
+    mutationFn: autoResolveAdGroup,
     onSuccess: async (result) => {
       setAutoResolveResult(result)
       await refetch()
@@ -1934,7 +1949,7 @@ function KeywordRecommendationsTab() {
                                 </select>
                                 {bulkAdGroup[displayCampaignId] && (
                                   <button
-                                    onClick={() => void bulkResolveAdGroup(displayCampaignId!)}
+                                    onClick={() => void handleBulkResolveAdGroup(displayCampaignId!)}
                                     disabled={bulkResolving}
                                     className="rounded bg-indigo-600 px-2 py-0.5 text-xs font-medium text-white hover:bg-indigo-700 disabled:opacity-50"
                                   >
@@ -1974,7 +1989,7 @@ function KeywordRecommendationsTab() {
                             )}
                             {selectedAdGroup[rec.id] && (
                               <button
-                                onClick={() => void resolveAdGroup(rec.id, selectedAdGroup[rec.id])}
+                                onClick={() => void handleResolveAdGroup(rec.id, selectedAdGroup[rec.id])}
                                 disabled={resolvingId === rec.id}
                                 className="rounded bg-emerald-700 px-2 py-1 text-xs font-medium text-white hover:bg-emerald-800 disabled:opacity-50"
                               >
@@ -4007,7 +4022,7 @@ function CampaignBuilderTab() {
 
 // ─── Change Log Panel ──────────────────────────────────────────────────────────
 
-function ChangeLogPanel() {
+export function ChangeLogPanel() {
   const { data, isLoading } = useQuery({
     queryKey: ['change-log'],
     queryFn: () => apiFetch('/api/ppc/automation/change-log?limit=50'),
@@ -4020,6 +4035,9 @@ function ChangeLogPanel() {
     keyword: 'bg-emerald-100 text-emerald-700',
     negative: 'bg-rose-100 text-rose-700',
     budget: 'bg-purple-100 text-purple-700',
+    resolve: 'bg-amber-100 text-amber-700',
+    bulk_resolve: 'bg-cyan-100 text-cyan-700',
+    auto_resolve: 'bg-teal-100 text-teal-700',
   }
 
   return (
