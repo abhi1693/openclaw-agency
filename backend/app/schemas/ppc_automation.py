@@ -147,6 +147,27 @@ class ResolveAdGroupIdRequest(SQLModel):
     target_campaign_id: str | None = None
 
 
+class BulkResolveAdGroupRequest(SQLModel):
+    """Request to bulk-resolve target_ad_group_id for multiple add_keyword recommendations.
+
+    All resolutions use the same ad_group_id. Only recommendations where
+    target_campaign_id matches the provided campaign_id (or is null) are resolved.
+    """
+
+    campaign_id: str
+    ad_group_id: str
+    # Only resolve recommendations whose target_campaign_id equals this, or is null
+    # (null means the recommendation's campaign was unknown at creation time)
+    match_target_campaign_id: str
+
+
+class BulkResolveAdGroupResponse(SQLModel):
+    """Result of a bulk resolve operation."""
+
+    resolved: list[KeywordRecommendationResolvedResponse]
+    skipped: list[dict[str, str]]  # [{rec_id, reason}]
+
+
 class KeywordRecommendationResolvedResponse(SQLModel):
     """Result of resolving target_ad_group_id on a KeywordRecommendation."""
 

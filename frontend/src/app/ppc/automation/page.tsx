@@ -1558,6 +1558,9 @@ function KeywordRecommendationsTab() {
   const [loadingAdGroups, setLoadingAdGroups] = useState<Record<string, boolean>>({})
   const [resolvingId, setResolvingId] = useState<string | null>(null)
   const [selectedAdGroup, setSelectedAdGroup] = useState<Record<string, string>>({})
+  // Bulk-resolve state: one ad group selection per unique target_campaign_id
+  const [bulkAdGroup, setBulkAdGroup] = useState<Record<string, string>>({})
+  const [bulkResolving, setBulkResolving] = useState<boolean>(false)
   const queryClient = useQueryClient()
 
   const confParam = confidenceMin ? `&confidence_min=${confidenceMin}` : ''
@@ -1629,6 +1632,24 @@ function KeywordRecommendationsTab() {
       }
     } finally {
       setResolvingId(null)
+    }
+  }
+
+  async function bulkResolveAdGroup(campaignId: string) {
+    const adGroupId = bulkAdGroup[campaignId]
+    if (!adGroupId) return
+    setBulkResolving(true)
+    try {
+      const res = await fetch('/api/ppc/automation/keyword-recommendations/bulk-resolve-ad-group', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ campaign_id: adGroupId, ad_group_id: adGroupId, match_target_campaign_id: campaignId }),
+      })
+      if (res.ok) {
+        await refetch()
+      }
+    } finally {
+      setBulkResolving(false)
     }
   }
 
@@ -1802,43 +1823,101 @@ function KeywordRecommendationsTab() {
                 {unresolvedCount} keyword {unresolvedCount === 1 ? 'recommendation needs' : 'recommendations need'} ad group assignment
               </div>
               <div className="space-y-2">
-                {unresolvedRecs.map((rec) => {
-                  const campaignId = rec.target_campaign_id
-                  return (
-                    <div key={rec.id} className="flex flex-wrap items-center gap-2 rounded bg-white/70 p-2">
-                      <code className="min-w-[160px] flex-1 font-mono text-xs text-slate-800">{rec.search_term}</code>
-                      <span className="font-mono text-xs text-amber-700">Campaign: {campaignId ?? '—'}</span>
-                      <button
-                        onClick={() => { if (campaignId) void fetchAdGroups(campaignId) }}
-                        disabled={!campaignId || loadingAdGroups[campaignId]}
-                        className="rounded border border-amber-300 bg-white px-2 py-1 text-xs font-medium text-amber-800 hover:bg-amber-100 disabled:cursor-not-allowed disabled:opacity-50"
-                      >
-                        {campaignId && loadingAdGroups[campaignId] ? 'Loading...' : 'Load Ad Groups'}
-                      </button>
-                      {campaignId && adGroupOptions[campaignId] && (
-                        <select
-                          value={selectedAdGroup[rec.id] || ''}
-                          onChange={(e) => setSelectedAdGroup((prev) => ({ ...prev, [rec.id]: e.target.value }))}
-                          className="rounded border border-slate-200 bg-white px-2 py-1 text-xs text-slate-700 focus:outline-none focus:ring-2 focus:ring-blue-500"
-                        >
-                          <option value="">Select ad group...</option>
-                          {adGroupOptions[campaignId].map((ag) => (
-                            <option key={ag.ad_group_id} value={ag.ad_group_id}>{ag.name}</option>
-                          ))}
-                        </select>
-                      )}
-                      {selectedAdGroup[rec.id] && (
-                        <button
-                          onClick={() => void resolveAdGroup(rec.id, selectedAdGroup[rec.id])}
-                          disabled={resolvingId === rec.id}
-                          className="rounded bg-emerald-700 px-2 py-1 text-xs font-medium text-white hover:bg-emerald-800 disabled:opacity-50"
-                        >
-                          {resolvingId === rec.id ? 'Resolving...' : 'Resolve'}
-                        </button>
-                      )}
-                    </div>
-                  )
-                })}
+                {/* Group unresolved recs by campaign for bulk-resolve UX */}
+                {(() => {
+                  const byCampaign: Record<string, typeof unresolvedRecs> = {}
+                  for (const rec of unresolvedRecs) {
+                    const cid = rec.target_campaign_id || '__null__'
+                    if (!byCampaign[cid]) byCampaign[cid] = []
+                    byCampaign[cid].push(rec)
+                  }
+                  return Object.entries(byCampaign).map(([campaignId, recs]) => {
+                    const isNull = campaignId === '__null__'
+                    const displayCampaignId = isNull ? null : campaignId
+                    const hasBulk = recs.length > 1 && !isNull
+                    return (
+                      <div key={campaignId}>
+                        {hasBulk && (
+                          <div className="mb-1 flex items-center gap-2 rounded bg-indigo-50 border border-indigo-200 p-2">
+                            <span className="text-xs font-semibold text-indigo-700">
+                              Bulk resolve {recs.length} items for {campaignId}
+                            </span>
+                            {displayCampaignId && !adGroupOptions[displayCampaignId] && (
+                              <button
+                                onClick={() => { void fetchAdGroups(displayCampaignId!) }}
+                                disabled={!displayCampaignId || loadingAdGroups[displayCampaignId]}
+                                className="rounded border border-indigo-300 bg-white px-2 py-0.5 text-xs font-medium text-indigo-700 hover:bg-indigo-100 disabled:opacity-50"
+                              >
+                                {loadingAdGroups[displayCampaignId] ? 'Loading...' : 'Load Ad Groups'}
+                              </button>
+                            )}
+                            {displayCampaignId && adGroupOptions[displayCampaignId] && (
+                              <>
+                                <select
+                                  value={bulkAdGroup[displayCampaignId] || ''}
+                                  onChange={(e) => setBulkAdGroup((prev) => ({ ...prev, [displayCampaignId!]: e.target.value }))}
+                                  className="rounded border border-slate-200 bg-white px-2 py-0.5 text-xs text-slate-700 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                                >
+                                  <option value="">Select ad group...</option>
+                                  {adGroupOptions[displayCampaignId].map((ag) => (
+                                    <option key={ag.ad_group_id} value={ag.ad_group_id}>{ag.name}</option>
+                                  ))}
+                                </select>
+                                {bulkAdGroup[displayCampaignId] && (
+                                  <button
+                                    onClick={() => void bulkResolveAdGroup(displayCampaignId!)}
+                                    disabled={bulkResolving}
+                                    className="rounded bg-indigo-600 px-2 py-0.5 text-xs font-medium text-white hover:bg-indigo-700 disabled:opacity-50"
+                                  >
+                                    {bulkResolving ? 'Resolving...' : 'Apply to all'}
+                                  </button>
+                                )}
+                              </>
+                            )}
+                          </div>
+                        )}
+                        {recs.map((rec) => (
+                          <div key={rec.id} className="flex flex-wrap items-center gap-2 rounded bg-white/70 p-2">
+                            <code className="min-w-[160px] flex-1 font-mono text-xs text-slate-800">{rec.search_term}</code>
+                            <span className="font-mono text-xs text-amber-700">
+                              Campaign: {rec.target_campaign_id ?? '—'}
+                            </span>
+                            {rec.target_campaign_id && !adGroupOptions[rec.target_campaign_id] && (
+                              <button
+                                onClick={() => { void fetchAdGroups(rec.target_campaign_id!) }}
+                                disabled={!rec.target_campaign_id || loadingAdGroups[rec.target_campaign_id]}
+                                className="rounded border border-amber-300 bg-white px-2 py-1 text-xs font-medium text-amber-800 hover:bg-amber-100 disabled:cursor-not-allowed disabled:opacity-50"
+                              >
+                                {rec.target_campaign_id && loadingAdGroups[rec.target_campaign_id] ? 'Loading...' : 'Load Ad Groups'}
+                              </button>
+                            )}
+                            {rec.target_campaign_id && adGroupOptions[rec.target_campaign_id] && (
+                              <select
+                                value={selectedAdGroup[rec.id] || ''}
+                                onChange={(e) => setSelectedAdGroup((prev) => ({ ...prev, [rec.id]: e.target.value }))}
+                                className="rounded border border-slate-200 bg-white px-2 py-1 text-xs text-slate-700 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                              >
+                                <option value="">Select ad group...</option>
+                                {adGroupOptions[rec.target_campaign_id].map((ag) => (
+                                  <option key={ag.ad_group_id} value={ag.ad_group_id}>{ag.name}</option>
+                                ))}
+                              </select>
+                            )}
+                            {selectedAdGroup[rec.id] && (
+                              <button
+                                onClick={() => void resolveAdGroup(rec.id, selectedAdGroup[rec.id])}
+                                disabled={resolvingId === rec.id}
+                                className="rounded bg-emerald-700 px-2 py-1 text-xs font-medium text-white hover:bg-emerald-800 disabled:opacity-50"
+                              >
+                                {resolvingId === rec.id ? 'Resolving...' : 'Resolve'}
+                              </button>
+                            )}
+                          </div>
+                        ))}
+                      </div>
+                    )
+                  })
+                })()}
               </div>
             </div>
           )}

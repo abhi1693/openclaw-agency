@@ -294,3 +294,136 @@ async def test_resolve_ad_group_returns_404_for_unknown_rec() -> None:
         )
 
     assert resp.status_code == 404
+
+
+BULK_CAMPAIGN_ID = "CAMP-BULK"
+
+
+@pytest.mark.asyncio
+async def test_bulk_resolve_resolves_multiple_unresolved_recs() -> None:
+    engine = await _make_engine()
+    sm = await _make_session_maker(engine)
+    async with sm() as session:
+        session.add(_ad_group_snapshot("AG-BULK-1", BULK_CAMPAIGN_ID))
+        # Three unresolved recommendations for the same campaign
+        for _ in range(3):
+            session.add(_keyword_rec(target_campaign_id=BULK_CAMPAIGN_ID))
+        await session.commit()
+
+    app = _build_test_app(sm)
+    async with AsyncClient(
+        transport=ASGITransport(app=app),
+        base_url="http://test",
+    ) as ac:
+        resp = await ac.post(
+            "/ppc/automation/keyword-recommendations/bulk-resolve-ad-group",
+            json={
+                "campaign_id": "AG-BULK-1",
+                "ad_group_id": "AG-BULK-1",
+                "match_target_campaign_id": BULK_CAMPAIGN_ID,
+            },
+        )
+
+    assert resp.status_code == 200
+    data = resp.json()
+    assert len(data["resolved"]) == 3
+    assert data["skipped"] == []
+    for r in data["resolved"]:
+        assert r["target_ad_group_id"] == "AG-BULK-1"
+
+
+@pytest.mark.asyncio
+async def test_bulk_resolve_skips_already_resolved_recs() -> None:
+    engine = await _make_engine()
+    sm = await _make_session_maker(engine)
+    async with sm() as session:
+        session.add(_ad_group_snapshot("AG-BULK-2", BULK_CAMPAIGN_ID))
+        # One already resolved, one unresolved
+        rec_resolved = KeywordRecommendation(
+            source_campaign_id="CAMP-BULK",
+            search_term="already resolved term",
+            match_type="exact",
+            action="add_keyword",
+            target_campaign_id=BULK_CAMPAIGN_ID,
+            target_ad_group_id="AG-BULK-2",
+        )
+        rec_unresolved = _keyword_rec(target_campaign_id=BULK_CAMPAIGN_ID)
+        session.add(rec_resolved)
+        session.add(rec_unresolved)
+        await session.commit()
+
+    app = _build_test_app(sm)
+    async with AsyncClient(
+        transport=ASGITransport(app=app),
+        base_url="http://test",
+    ) as ac:
+        resp = await ac.post(
+            "/ppc/automation/keyword-recommendations/bulk-resolve-ad-group",
+            json={
+                "campaign_id": "AG-BULK-2",
+                "ad_group_id": "AG-BULK-2",
+                "match_target_campaign_id": BULK_CAMPAIGN_ID,
+            },
+        )
+
+    assert resp.status_code == 200
+    data = resp.json()
+    assert len(data["resolved"]) == 1
+    assert data["resolved"][0]["target_ad_group_id"] == "AG-BULK-2"
+
+
+@pytest.mark.asyncio
+async def test_bulk_resolve_rejects_ad_group_not_in_campaign() -> None:
+    engine = await _make_engine()
+    sm = await _make_session_maker(engine)
+    async with sm() as session:
+        # Ad group belongs to OTHER-CAMP, not BULK_CAMPAIGN_ID
+        session.add(_ad_group_snapshot("AG-OTHER-CAMP", "OTHER-CAMP"))
+        session.add(_keyword_rec(target_campaign_id=BULK_CAMPAIGN_ID))
+        await session.commit()
+
+    app = _build_test_app(sm)
+    async with AsyncClient(
+        transport=ASGITransport(app=app),
+        base_url="http://test",
+    ) as ac:
+        resp = await ac.post(
+            "/ppc/automation/keyword-recommendations/bulk-resolve-ad-group",
+            json={
+                "campaign_id": "AG-OTHER-CAMP",
+                "ad_group_id": "AG-OTHER-CAMP",
+                "match_target_campaign_id": BULK_CAMPAIGN_ID,
+            },
+        )
+
+    assert resp.status_code == 400
+    assert "does not belong to campaign" in resp.json()["detail"]
+
+
+@pytest.mark.asyncio
+async def test_bulk_resolve_returns_empty_when_no_matching_recs() -> None:
+    engine = await _make_engine()
+    sm = await _make_session_maker(engine)
+    async with sm() as session:
+        session.add(_ad_group_snapshot("AG-BULK-3", BULK_CAMPAIGN_ID))
+        # No recommendations exist for this campaign
+        await session.commit()
+
+    app = _build_test_app(sm)
+    async with AsyncClient(
+        transport=ASGITransport(app=app),
+        base_url="http://test",
+    ) as ac:
+        resp = await ac.post(
+            "/ppc/automation/keyword-recommendations/bulk-resolve-ad-group",
+            json={
+                "campaign_id": "AG-BULK-3",
+                "ad_group_id": "AG-BULK-3",
+                "match_target_campaign_id": BULK_CAMPAIGN_ID,
+            },
+        )
+
+    assert resp.status_code == 200
+    data = resp.json()
+    assert data["resolved"] == []
+    assert data["skipped"] == []

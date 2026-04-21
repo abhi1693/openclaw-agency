@@ -38,6 +38,8 @@ from app.schemas.ppc_automation import (
     PpcProposalResponse,
     ProposalDiffResponse,
     PpcSyncStatusResponse,
+    BulkResolveAdGroupRequest,
+    BulkResolveAdGroupResponse,
     ResolveAdGroupIdRequest,
     KeywordRecommendationResolvedResponse,
 )
@@ -112,7 +114,7 @@ class AutomationSettingsUpsert(BaseModel):
     launch_mode_until: date | None = None
     exploration_pct: float = 0.15
     # Phase 6: TACoS target mode
-    target_mode: str = "acos"   # 'acos' | 'tacos'
+    target_mode: str = "acos"  # 'acos' | 'tacos'
     target_tacos: float | None = None
     # Safety: protected keywords (JSON array as string, e.g. '["sanitizer","wipes"]')
     protected_keywords: str | None = None
@@ -145,7 +147,7 @@ class GenerateCampaignPlanRequest(BaseModel):
     # v2 fields (strategy-based)
     asin: str | None = None
     daily_budget: float | None = None
-    strategy: str = "launch"          # launch | grow | defend | harvest | test
+    strategy: str = "launch"  # launch | grow | defend | harvest | test
     target_acos: float = 25.0
     competitor_asins: list[str] | None = None
     # legacy field (still accepted)
@@ -194,8 +196,6 @@ class ExecuteProposalRequest(BaseModel):
     idempotency_key: UUID | None = None
     triggered_by: str = "manual"
     max_item_retries: int = Field(default=2, ge=0, le=5)
-
-
 
 
 # ---------------------------------------------------------------------------
@@ -301,9 +301,7 @@ async def list_proposals(
     offset: int = Query(default=0, ge=0),
     session: AsyncSession = SESSION_DEP,
 ) -> PpcProposalResponse:
-    rows, total = await list_ppc_proposals(
-        session, status=status, limit=limit, offset=offset
-    )
+    rows, total = await list_ppc_proposals(session, status=status, limit=limit, offset=offset)
     return PpcProposalResponse(
         items=[row.model_dump() for row in rows],
         total=total,
@@ -378,9 +376,7 @@ async def approve_proposal(
     session: AsyncSession = SESSION_DEP,
 ) -> dict[str, Any]:
     try:
-        proposal = await approve_ppc_proposal(
-            session, proposal_id, approved_by=body.approved_by
-        )
+        proposal = await approve_ppc_proposal(session, proposal_id, approved_by=body.approved_by)
     except ValueError as exc:
         raise HTTPException(status_code=404, detail="Proposal not found") from exc
 
@@ -495,7 +491,9 @@ async def get_automation_settings(
     )
     settings = result.first()
     if not settings:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="No settings found for this ASIN")
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND, detail="No settings found for this ASIN"
+        )
     return settings.model_dump()
 
 
@@ -542,7 +540,12 @@ async def list_bid_recommendations(
     )
     result = await session.exec(query)
     recs = result.all()
-    return {"items": [r.model_dump() for r in recs], "total": len(recs), "offset": offset, "limit": limit}
+    return {
+        "items": [r.model_dump() for r in recs],
+        "total": len(recs),
+        "offset": offset,
+        "limit": limit,
+    }
 
 
 @router.post("/bid-recommendations/apply")
@@ -555,9 +558,7 @@ async def apply_bid_recommendations(
     errors: list[dict[str, str]] = []
 
     for rec_id in body.recommendation_ids:
-        result = await session.exec(
-            select(BidRecommendation).where(BidRecommendation.id == rec_id)
-        )
+        result = await session.exec(select(BidRecommendation).where(BidRecommendation.id == rec_id))
         rec = result.first()
         if rec is None:
             errors.append({"id": str(rec_id), "error": "not found"})
@@ -621,7 +622,12 @@ async def list_keyword_recommendations(
     query = query.offset(offset).limit(limit)
     result = await session.exec(query)
     recs = result.all()
-    return {"items": [r.model_dump() for r in recs], "total": len(recs), "offset": offset, "limit": limit}
+    return {
+        "items": [r.model_dump() for r in recs],
+        "total": len(recs),
+        "offset": offset,
+        "limit": limit,
+    }
 
 
 @router.get("/negative-patterns")
@@ -706,7 +712,9 @@ async def apply_keyword_recommendations(
                 if rec.target_campaign_id is None:
                     raise ValueError("target_campaign_id required for add_keyword")
                 if rec.target_ad_group_id is None:
-                    raise ValueError("target_ad_group_id required for add_keyword (resolve from campaign)")
+                    raise ValueError(
+                        "target_ad_group_id required for add_keyword (resolve from campaign)"
+                    )
                 # Default bid to $0.50 — real logic will derive from settings
                 await ads.create_keyword(
                     campaign_id=rec.target_campaign_id,
@@ -805,7 +813,9 @@ async def resolve_keyword_ad_group(
     )
     rec = result.first()
     if rec is None:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Recommendation not found")
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND, detail="Recommendation not found"
+        )
 
     if rec.action != "add_keyword":
         raise HTTPException(
@@ -845,6 +855,67 @@ async def resolve_keyword_ad_group(
     )
 
 
+@router.post(
+    "/keyword-recommendations/bulk-resolve-ad-group",
+    response_model=BulkResolveAdGroupResponse,
+)
+async def bulk_resolve_keyword_ad_group(
+    body: BulkResolveAdGroupRequest,
+    session: AsyncSession = SESSION_DEP,
+) -> BulkResolveAdGroupResponse:
+    """Bulk-resolve ``target_ad_group_id`` for multiple add_keyword recommendations at once.
+
+    Resolves every ``add_keyword`` recommendation whose ``target_campaign_id`` matches
+    ``match_target_campaign_id`` (or is null) and whose ``target_ad_group_id`` is currently null.
+    Validates the ad group belongs to the campaign via snapshot before applying.
+    """
+    # Validate the ad group belongs to the target campaign via snapshot
+    snapshot_result = await session.exec(
+        select(PpcEntitySnapshot).where(
+            PpcEntitySnapshot.entity_type == "ad_group",
+            PpcEntitySnapshot.entity_id == body.ad_group_id,
+            PpcEntitySnapshot.campaign_id == body.match_target_campaign_id,
+        )
+    )
+    snapshot = snapshot_result.first()
+    if snapshot is None:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=(
+                f"Ad group {body.ad_group_id} does not belong to campaign "
+                f"{body.match_target_campaign_id}"
+            ),
+        )
+
+    # Find all unresolved add_keyword recommendations for this target campaign
+    result = await session.exec(
+        select(KeywordRecommendation).where(
+            KeywordRecommendation.action == "add_keyword",
+            KeywordRecommendation.target_ad_group_id.is_(None),
+            KeywordRecommendation.target_campaign_id == body.match_target_campaign_id,
+        )
+    )
+    recs = result.all()
+
+    resolved: list[KeywordRecommendationResolvedResponse] = []
+    skipped: list[dict[str, str]] = []
+
+    for rec in recs:
+        rec.target_ad_group_id = body.ad_group_id
+        resolved.append(
+            KeywordRecommendationResolvedResponse(
+                id=rec.id,
+                target_campaign_id=rec.target_campaign_id,
+                target_ad_group_id=rec.target_ad_group_id,
+                status=rec.status,
+                action=rec.action,
+            )
+        )
+
+    await session.commit()
+    return BulkResolveAdGroupResponse(resolved=resolved, skipped=skipped)
+
+
 # ---------------------------------------------------------------------------
 # Change log (audit trail)
 # ---------------------------------------------------------------------------
@@ -867,7 +938,12 @@ async def get_change_log(
 
     result = await session.exec(query)
     entries = result.all()
-    return {"items": [e.model_dump() for e in entries], "total": len(entries), "offset": offset, "limit": limit}
+    return {
+        "items": [e.model_dump() for e in entries],
+        "total": len(entries),
+        "offset": offset,
+        "limit": limit,
+    }
 
 
 # (run-optimizer endpoint defined below with Phase 6 placement support)
@@ -922,9 +998,7 @@ async def apply_budget_allocations(
     errors: list[dict[str, str]] = []
 
     for alloc_id in body.allocation_ids:
-        result = await session.exec(
-            select(BudgetAllocation).where(BudgetAllocation.id == alloc_id)
-        )
+        result = await session.exec(select(BudgetAllocation).where(BudgetAllocation.id == alloc_id))
         alloc = result.first()
         if alloc is None:
             errors.append({"id": str(alloc_id), "error": "not found"})
@@ -1078,11 +1152,7 @@ async def list_campaign_plans(
     limit: int = Query(default=20, le=100),
     session: AsyncSession = SESSION_DEP,
 ) -> dict[str, Any]:
-    query = (
-        select(CampaignPlan)
-        .order_by(col(CampaignPlan.created_at).desc())
-        .limit(limit)
-    )
+    query = select(CampaignPlan).order_by(col(CampaignPlan.created_at).desc()).limit(limit)
     if status_filter:
         query = query.where(CampaignPlan.status == status_filter)
     result = await session.exec(query)
@@ -1119,7 +1189,9 @@ async def approve_campaign_plan(
     if plan is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Plan not found")
     if plan.status not in ("draft",):
-        raise HTTPException(status_code=400, detail=f"Plan status is '{plan.status}', cannot approve")
+        raise HTTPException(
+            status_code=400, detail=f"Plan status is '{plan.status}', cannot approve"
+        )
     plan.status = "approved"
     plan.approved_at = utcnow()
     plan.applied_by = body.approved_by
@@ -1438,17 +1510,19 @@ async def get_ad_summary(
     for r in daily_rows.all():
         spend = float(r[5] or 0)
         sales = float(r[6] or 0)
-        items.append({
-            "date": str(r[0]),
-            "campaigns": int(r[1] or 0),
-            "impressions": int(r[2] or 0),
-            "clicks": int(r[3] or 0),
-            "orders": int(r[4] or 0),
-            "spend": round(spend, 2),
-            "sales": round(sales, 2),
-            "acos": round(spend / sales, 4) if sales > 0 else None,
-            "roas": round(sales / spend, 2) if spend > 0 else None,
-        })
+        items.append(
+            {
+                "date": str(r[0]),
+                "campaigns": int(r[1] or 0),
+                "impressions": int(r[2] or 0),
+                "clicks": int(r[3] or 0),
+                "orders": int(r[4] or 0),
+                "spend": round(spend, 2),
+                "sales": round(sales, 2),
+                "acos": round(spend / sales, 4) if sales > 0 else None,
+                "roas": round(sales / spend, 2) if spend > 0 else None,
+            }
+        )
 
     # Top campaigns by spend (most recent report date)
     top_rows = await session.exec(  # type: ignore[call-overload]
@@ -1470,15 +1544,17 @@ async def get_ad_summary(
     for r in top_rows.all():
         spend = float(r[1] or 0)
         sales = float(r[2] or 0)
-        top_campaigns.append({
-            "campaign_id": r[0],
-            "spend": round(spend, 2),
-            "sales": round(sales, 2),
-            "clicks": int(r[3] or 0),
-            "impressions": int(r[4] or 0),
-            "orders": int(r[5] or 0),
-            "acos": round(spend / sales, 4) if sales > 0 else None,
-        })
+        top_campaigns.append(
+            {
+                "campaign_id": r[0],
+                "spend": round(spend, 2),
+                "sales": round(sales, 2),
+                "clicks": int(r[3] or 0),
+                "impressions": int(r[4] or 0),
+                "orders": int(r[5] or 0),
+                "acos": round(spend / sales, 4) if sales > 0 else None,
+            }
+        )
 
     return {"items": items, "top_campaigns": top_campaigns, "days": days}
 
@@ -1520,7 +1596,9 @@ async def get_pending_summary(
         "placement_recommendations": int(place_count or 0),
         "budget_allocations": int(budget_count or 0),
         "bid_tiers": bid_tiers,
-        "total_pending": int((bid_count or 0) + (kw_count or 0) + (place_count or 0) + (budget_count or 0)),
+        "total_pending": int(
+            (bid_count or 0) + (kw_count or 0) + (place_count or 0) + (budget_count or 0)
+        ),
     }
 
 
@@ -1539,12 +1617,21 @@ async def realtime_today(session: AsyncSession = SESSION_DEP) -> dict:
     """))).first()
     if not r or r[0] is None:
         return {
-            "date": str(date.today()), "empty": True,
+            "date": str(date.today()),
+            "empty": True,
             "message": "今日暂无 AMS 实时数据",
-            "impressions": 0, "clicks": 0, "orders": 0,
-            "cost": 0.0, "sales": 0.0,
-            "acos": None, "roas": None, "cpc": None, "ctr": None,
-            "campaigns": 0, "latest_hour": None, "source": "ams_realtime",
+            "impressions": 0,
+            "clicks": 0,
+            "orders": 0,
+            "cost": 0.0,
+            "sales": 0.0,
+            "acos": None,
+            "roas": None,
+            "cpc": None,
+            "ctr": None,
+            "campaigns": 0,
+            "latest_hour": None,
+            "source": "ams_realtime",
         }
     impr = int(r[0] or 0)
     clicks = int(r[1] or 0)
@@ -1580,15 +1667,17 @@ async def realtime_hourly(session: AsyncSession = SESSION_DEP) -> dict:
     hours = []
     for r in rows:
         cost, sales = float(r[4] or 0), float(r[5] or 0)
-        hours.append({
-            "hour": int(r[0]),
-            "impressions": int(r[1] or 0),
-            "clicks": int(r[2] or 0),
-            "orders": int(r[3] or 0),
-            "cost": round(cost, 2),
-            "sales": round(sales, 2),
-            "acos": round(cost / sales * 100, 1) if sales > 0 else None,
-        })
+        hours.append(
+            {
+                "hour": int(r[0]),
+                "impressions": int(r[1] or 0),
+                "clicks": int(r[2] or 0),
+                "orders": int(r[3] or 0),
+                "cost": round(cost, 2),
+                "sales": round(sales, 2),
+                "acos": round(cost / sales * 100, 1) if sales > 0 else None,
+            }
+        )
     return {"date": str(date.today()), "hours": hours}
 
 
@@ -1610,17 +1699,19 @@ async def realtime_campaigns(session: AsyncSession = SESSION_DEP) -> dict:
         cost = float(r[5] or 0)
         sales = float(r[6] or 0)
         clicks = int(r[3] or 0)
-        campaigns.append({
-            "campaignId": r[0],
-            "name": r[1] or r[0],
-            "impressions": int(r[2] or 0),
-            "clicks": clicks,
-            "orders": int(r[4] or 0),
-            "cost": round(cost, 2),
-            "sales": round(sales, 2),
-            "acos": round(cost / sales * 100, 1) if sales > 0 else None,
-            "cpc": round(cost / clicks, 2) if clicks > 0 else None,
-        })
+        campaigns.append(
+            {
+                "campaignId": r[0],
+                "name": r[1] or r[0],
+                "impressions": int(r[2] or 0),
+                "clicks": clicks,
+                "orders": int(r[4] or 0),
+                "cost": round(cost, 2),
+                "sales": round(sales, 2),
+                "acos": round(cost / sales * 100, 1) if sales > 0 else None,
+                "cpc": round(cost / clicks, 2) if clicks > 0 else None,
+            }
+        )
     return {"date": str(date.today()), "campaigns": campaigns}
 
 
@@ -1637,15 +1728,17 @@ async def realtime_placements(session: AsyncSession = SESSION_DEP) -> dict:
     placements = []
     for r in rows:
         cost, sales = float(r[3] or 0), float(r[4] or 0)
-        placements.append({
-            "placement": r[0],
-            "impressions": int(r[1] or 0),
-            "clicks": int(r[2] or 0),
-            "cost": round(cost, 2),
-            "sales": round(sales, 2),
-            "acos": round(cost / sales * 100, 1) if sales > 0 else None,
-            "sharePct": round(cost / total_cost * 100, 1) if total_cost > 0 else 0,
-        })
+        placements.append(
+            {
+                "placement": r[0],
+                "impressions": int(r[1] or 0),
+                "clicks": int(r[2] or 0),
+                "cost": round(cost, 2),
+                "sales": round(sales, 2),
+                "acos": round(cost / sales * 100, 1) if sales > 0 else None,
+                "sharePct": round(cost / total_cost * 100, 1) if total_cost > 0 else 0,
+            }
+        )
     return {"date": str(date.today()), "placements": placements}
 
 
@@ -1673,9 +1766,12 @@ async def list_keyword_suggestions(
         query = query.where(KeywordHarvestSuggestion.action == action)
     result = await session.exec(query)
     items = result.all()
-    return {"items": [i.model_dump() for i in items], "total": len(items), "offset": offset, "limit": limit}
-
-
+    return {
+        "items": [i.model_dump() for i in items],
+        "total": len(items),
+        "offset": offset,
+        "limit": limit,
+    }
 
 
 # ---------------------------------------------------------------------------
@@ -1690,8 +1786,6 @@ async def list_budget_pacing(session: AsyncSession = SESSION_DEP) -> dict[str, A
     return {"items": items, "total": len(items)}
 
 
-
-
 # ---------------------------------------------------------------------------
 # Campaign Goals & Bid Suggestions (Goal-Based Optimizer)
 # ---------------------------------------------------------------------------
@@ -1704,7 +1798,10 @@ async def list_campaign_goals(
     session: AsyncSession = SESSION_DEP,
 ) -> dict[str, Any]:
     result = await session.exec(
-        select(CampaignGoal).order_by(col(CampaignGoal.updated_at).desc()).offset(offset).limit(limit)
+        select(CampaignGoal)
+        .order_by(col(CampaignGoal.updated_at).desc())
+        .offset(offset)
+        .limit(limit)
     )
     goals = result.all()
     return {"items": [g.model_dump() for g in goals], "total": len(goals)}
@@ -1727,8 +1824,6 @@ async def list_bid_suggestions(
     result = await session.exec(query)
     items = result.all()
     return {"items": [i.model_dump() for i in items], "total": len(items)}
-
-
 
 
 # ---------------------------------------------------------------------------
