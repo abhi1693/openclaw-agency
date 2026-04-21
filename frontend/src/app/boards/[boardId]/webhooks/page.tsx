@@ -12,7 +12,6 @@ import {
 import type { BoardWebhookRead } from "@/api/generated/model";
 import { DashboardShell } from "@/components/templates/DashboardShell";
 import { Button } from "@/components/ui/button";
-import { useQuery } from "@tanstack/react-query";
 
 export default function WebhooksPage() {
   const params = useParams();
