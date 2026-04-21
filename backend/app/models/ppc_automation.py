@@ -427,3 +427,56 @@ class PpcRunHistory(QueryModel, table=True):
     metadata_json: dict[str, object] | None = Field(
         default=None, sa_column=Column(JSON, nullable=True)
     )
+
+
+class PpcProposalExecution(QueryModel, table=True):
+    """Tracks a single execution attempt of a PPC proposal.
+
+    Provides idempotency (via idempotency_key) and concurrency safety
+    (via advisory lock) for the proposal apply path.
+    """
+
+    __tablename__ = "ppc_proposal_executions"  # pyright: ignore[reportAssignmentType]
+    __table_args__ = (
+        UniqueConstraint("proposal_id", "idempotency_key", name="uq_ppc_proposal_executions_proposal_idempotency"),
+    )
+
+    id: UUID = Field(default_factory=uuid4, primary_key=True)
+    proposal_id: UUID = Field(index=True)
+    # Idempotency key passed by caller; re-submitting the same key returns the existing execution
+    idempotency_key: UUID = Field(index=True)
+    status: str = Field(
+        default="pending",
+        index=True,  # pending | running | completed | failed | cancelled
+    )
+    triggered_by: str = Field(default="system")
+    started_at: datetime = Field(default_factory=utcnow, index=True)
+    finished_at: datetime | None = Field(default=None)
+    duration_ms: int | None = None
+    items_total: int | None = None
+    items_applied: int | None = None
+    items_failed: int | None = None
+    retry_count: int | None = None
+    error_detail: str | None = None
+    metadata_json: dict[str, object] | None = Field(
+        default=None, sa_column=Column(JSON, nullable=True)
+    )
+
+
+class PpcExecutionItem(QueryModel, table=True):
+    """Tracks per-recommendation execution outcome within a proposal execution."""
+
+    __tablename__ = "ppc_execution_items"  # pyright: ignore[reportAssignmentType]
+
+    id: UUID = Field(default_factory=uuid4, primary_key=True)
+    execution_id: UUID = Field(index=True)
+    proposal_item_id: UUID = Field(index=True)
+    recommendation_type: str = Field(index=True)  # bid | keyword | placement | budget
+    recommendation_id: UUID = Field(index=True)
+    status: str = Field(
+        default="pending",
+        index=True,  # pending | applied | failed | skipped
+    )
+    attempt: int = Field(default=0)
+    error_detail: str | None = None
+    applied_at: datetime | None = None

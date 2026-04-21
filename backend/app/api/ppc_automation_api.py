@@ -5,10 +5,10 @@ from __future__ import annotations
 from datetime import date, datetime
 from decimal import Decimal
 from typing import Any
-from uuid import UUID
+from uuid import UUID, uuid4
 
 from fastapi import APIRouter, Depends, HTTPException, Query, status
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 from sqlmodel import col, select, text
 from sqlmodel.ext.asyncio.session import AsyncSession
 
@@ -55,9 +55,16 @@ from app.services.ppc_proposals import (
     list_proposals as list_ppc_proposals,
     reject_proposal as reject_ppc_proposal,
 )
+from app.services.ppc_execution import (
+    execute_proposal,
+    get_execution,
+    get_latest_execution,
+    get_execution_items,
+    FEATURE_PPC_LIVE_WRITES,
+)
 from app.services.ads_api import AmazonAdsAPI
 from app.services.budget_allocator import generate_budget_allocations
-from app.services.ad_metrics_sync import sync_ad_metrics_from_api, sync_ad_metrics_from_search_terms
+from app.services.ad_metrics_sync import sync_ad_metrics_from_api
 from app.services.campaign_builder import (
     generate_v2_campaign_plan,
     get_campaign_structure,
@@ -177,6 +184,11 @@ class CreateProposalRequest(BaseModel):
 class ApproveProposalRequest(BaseModel):
     approved_by: str = "system"
 
+
+class ExecuteProposalRequest(BaseModel):
+    idempotency_key: UUID | None = None
+    triggered_by: str = "manual"
+    max_item_retries: int = Field(default=2, ge=0, le=5)
 
 
 
@@ -385,6 +397,87 @@ async def reject_proposal(
     await session.commit()
     await session.refresh(proposal)
     return proposal.model_dump()
+
+
+# ---------------------------------------------------------------------------
+# Proposal execution (locks + retries groundwork)
+# ---------------------------------------------------------------------------
+
+
+@router.get("/proposals/{proposal_id}/executions")
+async def list_proposal_executions(
+    proposal_id: UUID,
+    limit: int = Query(default=10, ge=1, le=50),
+    session: AsyncSession = SESSION_DEP,
+) -> dict[str, Any]:
+    """Return execution history for a specific proposal."""
+    rows = await get_execution(session, proposal_id, limit=limit)
+    return {
+        "items": [r.model_dump() for r in rows],
+        "total": len(rows),
+        "proposal_id": str(proposal_id),
+    }
+
+
+@router.get("/proposals/{proposal_id}/execution/latest")
+async def get_latest_proposal_execution(
+    proposal_id: UUID,
+    session: AsyncSession = SESSION_DEP,
+) -> dict[str, Any]:
+    """Return the most recent execution for a proposal with its item details."""
+    execution = await get_latest_execution(session, proposal_id)
+    if execution is None:
+        raise HTTPException(status_code=404, detail="No execution found for this proposal")
+    items = await get_execution_items(session, execution.id)
+    return {
+        "execution": execution.model_dump(),
+        "items": [i.model_dump() for i in items],
+        "feature_flag_live_writes": FEATURE_PPC_LIVE_WRITES,
+    }
+
+
+@router.post("/proposals/{proposal_id}/execute")
+async def execute_proposal_endpoint(
+    proposal_id: UUID,
+    body: ExecuteProposalRequest,
+    session: AsyncSession = SESSION_DEP,
+) -> dict[str, Any]:
+    """Execute an approved proposal with locking, idempotency, and retry.
+
+    This endpoint:
+    - Acquires an advisory lock so the same proposal cannot run concurrently
+    - Uses the idempotency_key to return an existing execution if the same key is re-submitted
+    - Retries transient Ads API failures per-item with exponential backoff
+    - Is currently read-only against Amazon (FEATURE_PPC_LIVE_WRITES=False)
+    """
+    try:
+        key = body.idempotency_key or uuid4()
+        execution, items = await execute_proposal(
+            session,
+            proposal_id,
+            idempotency_key=key,
+            triggered_by=body.triggered_by,
+            max_item_retries=body.max_item_retries,
+        )
+        return {
+            "id": str(execution.id),
+            "proposal_id": str(proposal_id),
+            "idempotency_key": str(key),
+            "status": execution.status,
+            "items_total": execution.items_total,
+            "items_applied": execution.items_applied,
+            "items_failed": execution.items_failed,
+            "started_at": execution.started_at.isoformat() if execution.started_at else None,
+            "finished_at": execution.finished_at.isoformat() if execution.finished_at else None,
+            "duration_ms": execution.duration_ms,
+            "error_detail": execution.error_detail,
+            "feature_flag_live_writes": FEATURE_PPC_LIVE_WRITES,
+            "items": [i.model_dump() for i in items],
+        }
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+    except RuntimeError as exc:
+        raise HTTPException(status_code=409, detail=str(exc)) from exc
 
 
 @router.get("/settings/{parent_asin}")
