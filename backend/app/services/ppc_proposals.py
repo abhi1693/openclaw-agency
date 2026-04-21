@@ -1,0 +1,325 @@
+"""PPC proposal staging and read-only dry-run diffs."""
+
+from __future__ import annotations
+
+from decimal import Decimal, InvalidOperation
+from uuid import UUID
+
+from sqlalchemy import func
+from sqlmodel import col, select
+from sqlmodel.ext.asyncio.session import AsyncSession
+
+from app.core.time import utcnow
+from app.models.ppc_automation import (
+    BidRecommendation,
+    BudgetAllocation,
+    KeywordRecommendation,
+    PlacementRecommendation,
+    PpcEntitySnapshot,
+    PpcProposal,
+    PpcProposalItem,
+)
+from app.schemas.ppc_automation import ProposalDiffItem, ProposalDiffResponse
+
+RECOMMENDATION_TYPES = ("bid", "keyword", "placement", "budget")
+
+
+def _string_value(value: object | None) -> str | None:
+    if value is None:
+        return None
+    return str(value)
+
+
+def _change_pct(current: object | None, recommended: object | None) -> float | None:
+    if current is None or recommended is None:
+        return None
+    try:
+        current_decimal = Decimal(str(current))
+        recommended_decimal = Decimal(str(recommended))
+    except (InvalidOperation, ValueError):
+        return None
+    if current_decimal == 0:
+        return None
+    return round(float(((recommended_decimal - current_decimal) / current_decimal) * 100), 2)
+
+
+async def create_proposal(
+    session: AsyncSession,
+    name: str,
+    recommendation_ids_by_type: dict[str, list[UUID]],
+    created_by: str = "system",
+    description: str | None = None,
+) -> PpcProposal:
+    """Create a proposal and item rows without committing."""
+    now = utcnow()
+    proposal = PpcProposal(
+        name=name,
+        description=description,
+        created_by=created_by,
+        created_at=now,
+    )
+    session.add(proposal)
+
+    for recommendation_type in RECOMMENDATION_TYPES:
+        for recommendation_id in recommendation_ids_by_type.get(recommendation_type, []):
+            session.add(
+                PpcProposalItem(
+                    proposal_id=proposal.id,
+                    recommendation_type=recommendation_type,
+                    recommendation_id=recommendation_id,
+                    created_at=now,
+                )
+            )
+
+    return proposal
+
+
+async def list_proposals(
+    session: AsyncSession,
+    status: str | None = None,
+    limit: int = 50,
+    offset: int = 0,
+) -> tuple[list[PpcProposal], int]:
+    """Return paginated proposal rows with total count."""
+    query = select(PpcProposal)
+    count_query = select(func.count()).select_from(PpcProposal)
+
+    if status:
+        query = query.where(PpcProposal.status == status)
+        count_query = count_query.where(PpcProposal.status == status)
+
+    query = (
+        query.order_by(col(PpcProposal.created_at).desc())
+        .offset(offset)
+        .limit(limit)
+    )
+    rows = list(await session.exec(query))
+    total = (await session.exec(count_query)).one()
+    return rows, int(total)
+
+
+async def get_proposal_with_items(
+    session: AsyncSession,
+    proposal_id: UUID,
+) -> tuple[PpcProposal, list[PpcProposalItem]]:
+    """Fetch a proposal and its attached recommendation items."""
+    result = await session.exec(
+        select(PpcProposal).where(PpcProposal.id == proposal_id)
+    )
+    proposal = result.first()
+    if proposal is None:
+        raise ValueError("Proposal not found")
+
+    items = list(
+        await session.exec(
+            select(PpcProposalItem)
+            .where(PpcProposalItem.proposal_id == proposal_id)
+            .order_by(col(PpcProposalItem.created_at).asc())
+        )
+    )
+    return proposal, items
+
+
+async def _snapshot_for_entity(
+    session: AsyncSession,
+    entity_type: str,
+    entity_id: str,
+) -> PpcEntitySnapshot | None:
+    result = await session.exec(
+        select(PpcEntitySnapshot)
+        .where(PpcEntitySnapshot.entity_type == entity_type)
+        .where(PpcEntitySnapshot.entity_id == entity_id)
+    )
+    return result.first()
+
+
+async def _placement_snapshot(
+    session: AsyncSession,
+    campaign_id: str,
+    placement: str,
+) -> PpcEntitySnapshot | None:
+    result = await session.exec(
+        select(PpcEntitySnapshot)
+        .where(PpcEntitySnapshot.entity_type == "placement")
+        .where(PpcEntitySnapshot.campaign_id == campaign_id)
+        .where(PpcEntitySnapshot.placement == placement)
+    )
+    return result.first()
+
+
+async def _bid_diff(
+    session: AsyncSession,
+    recommendation_id: UUID,
+) -> ProposalDiffItem | None:
+    rec = (await session.exec(select(BidRecommendation).where(BidRecommendation.id == recommendation_id))).first()
+    if rec is None:
+        return None
+
+    entity_id = rec.keyword_id or rec.ad_group_id or rec.campaign_id
+    entity_type = "keyword" if rec.keyword_id else "ad_group" if rec.ad_group_id else "campaign"
+    snapshot = await _snapshot_for_entity(session, entity_type, entity_id)
+    current_bid = snapshot.bid if snapshot else None
+    current_value = _string_value(current_bid) if snapshot else "unknown"
+
+    return ProposalDiffItem(
+        recommendation_type="bid",
+        recommendation_id=rec.id,
+        entity_name=snapshot.name if snapshot else None,
+        entity_id=entity_id,
+        field="bid",
+        current_value=current_value,
+        recommended_value=str(rec.recommended_bid),
+        change_pct=_change_pct(current_bid, rec.recommended_bid),
+    )
+
+
+async def _keyword_diff(
+    session: AsyncSession,
+    recommendation_id: UUID,
+) -> ProposalDiffItem | None:
+    rec = (
+        await session.exec(
+            select(KeywordRecommendation).where(KeywordRecommendation.id == recommendation_id)
+        )
+    ).first()
+    if rec is None:
+        return None
+
+    campaign_id = rec.target_campaign_id or rec.source_campaign_id
+    snapshot = await _snapshot_for_entity(session, "campaign", campaign_id)
+    current_value = snapshot.state if snapshot else "unknown"
+
+    return ProposalDiffItem(
+        recommendation_type="keyword",
+        recommendation_id=rec.id,
+        entity_name=snapshot.name if snapshot else None,
+        entity_id=campaign_id,
+        field="keyword_action",
+        current_value=current_value,
+        recommended_value=f"{rec.action}:{rec.search_term}:{rec.match_type}",
+        change_pct=None,
+    )
+
+
+async def _placement_diff(
+    session: AsyncSession,
+    recommendation_id: UUID,
+) -> ProposalDiffItem | None:
+    rec = (
+        await session.exec(
+            select(PlacementRecommendation).where(PlacementRecommendation.id == recommendation_id)
+        )
+    ).first()
+    if rec is None:
+        return None
+
+    snapshot = await _placement_snapshot(session, rec.campaign_id, rec.placement)
+    current_modifier = snapshot.placement_modifier_pct if snapshot else None
+    current_value = _string_value(current_modifier) if snapshot else "unknown"
+    recommended = rec.recommended_modifier_pct
+
+    return ProposalDiffItem(
+        recommendation_type="placement",
+        recommendation_id=rec.id,
+        entity_name=snapshot.name if snapshot else rec.campaign_name,
+        entity_id=f"{rec.campaign_id}:{rec.placement}",
+        field="placement_modifier_pct",
+        current_value=current_value,
+        recommended_value=str(recommended),
+        change_pct=_change_pct(current_modifier, recommended),
+    )
+
+
+async def _budget_diffs(
+    session: AsyncSession,
+    recommendation_id: UUID,
+) -> list[ProposalDiffItem]:
+    rec = (
+        await session.exec(
+            select(BudgetAllocation).where(BudgetAllocation.id == recommendation_id)
+        )
+    ).first()
+    if rec is None:
+        return []
+
+    fields = (
+        ("sp_pct", rec.sp_pct, rec.recommended_sp_pct),
+        ("sb_pct", rec.sb_pct, rec.recommended_sb_pct),
+        ("sd_pct", rec.sd_pct, rec.recommended_sd_pct),
+        ("sbv_pct", rec.sbv_pct, rec.recommended_sbv_pct),
+    )
+    return [
+        ProposalDiffItem(
+            recommendation_type="budget",
+            recommendation_id=rec.id,
+            entity_name=rec.parent_asin,
+            entity_id=rec.parent_asin,
+            field=field,
+            current_value=_string_value(current),
+            recommended_value=str(recommended),
+            change_pct=_change_pct(current, recommended),
+        )
+        for field, current, recommended in fields
+        if recommended is not None
+    ]
+
+
+async def compute_proposal_diff(
+    session: AsyncSession,
+    proposal_id: UUID,
+) -> ProposalDiffResponse:
+    """Return a read-only diff between snapshots/current rows and recommendations."""
+    proposal, items = await get_proposal_with_items(session, proposal_id)
+    diff_items: list[ProposalDiffItem] = []
+    summary = {"bids": 0, "keywords": 0, "placements": 0, "budgets": 0}
+
+    for item in items:
+        if item.recommendation_type == "bid":
+            summary["bids"] += 1
+            diff = await _bid_diff(session, item.recommendation_id)
+            if diff:
+                diff_items.append(diff)
+        elif item.recommendation_type == "keyword":
+            summary["keywords"] += 1
+            diff = await _keyword_diff(session, item.recommendation_id)
+            if diff:
+                diff_items.append(diff)
+        elif item.recommendation_type == "placement":
+            summary["placements"] += 1
+            diff = await _placement_diff(session, item.recommendation_id)
+            if diff:
+                diff_items.append(diff)
+        elif item.recommendation_type == "budget":
+            summary["budgets"] += 1
+            diff_items.extend(await _budget_diffs(session, item.recommendation_id))
+
+    return ProposalDiffResponse(
+        proposal_id=proposal.id,
+        proposal_name=proposal.name,
+        status=proposal.status,
+        items=diff_items,
+        summary=summary,
+    )
+
+
+async def approve_proposal(
+    session: AsyncSession,
+    proposal_id: UUID,
+    approved_by: str = "system",
+) -> PpcProposal:
+    """Mark a staged proposal approved without applying any recommendation."""
+    proposal, _ = await get_proposal_with_items(session, proposal_id)
+    proposal.status = "approved"
+    proposal.approved_by = approved_by
+    proposal.approved_at = utcnow()
+    return proposal
+
+
+async def reject_proposal(
+    session: AsyncSession,
+    proposal_id: UUID,
+) -> PpcProposal:
+    """Mark a proposal rejected without applying any recommendation."""
+    proposal, _ = await get_proposal_with_items(session, proposal_id)
+    proposal.status = "rejected"
+    return proposal

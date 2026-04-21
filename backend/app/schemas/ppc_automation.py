@@ -69,3 +69,50 @@ class PpcSyncStatusResponse(SQLModel):
     alert: str | None = None
     critical_threshold_seconds: int | None = None
     read_only: bool = True
+
+
+class PpcProposalRead(SQLModel):
+    id: UUID
+    name: str
+    description: str | None = None
+    status: str
+    created_by: str
+    created_at: datetime
+    approved_at: datetime | None = None
+    approved_by: str | None = None
+    applied_at: datetime | None = None
+    applied_by: str | None = None
+
+
+class PpcProposalItemRead(SQLModel):
+    id: UUID
+    proposal_id: UUID
+    recommendation_type: str
+    recommendation_id: UUID
+    created_at: datetime
+
+
+class PpcProposalResponse(SQLModel):
+    items: list[PpcProposalRead]
+    total: int
+    limit: int
+    offset: int
+
+
+class ProposalDiffItem(SQLModel):
+    recommendation_type: str
+    recommendation_id: UUID
+    entity_name: str | None = None
+    entity_id: str
+    field: str
+    current_value: str | None = None
+    recommended_value: str
+    change_pct: float | None = None
+
+
+class ProposalDiffResponse(SQLModel):
+    proposal_id: UUID
+    proposal_name: str
+    status: str
+    items: list[ProposalDiffItem]
+    summary: dict[str, int]

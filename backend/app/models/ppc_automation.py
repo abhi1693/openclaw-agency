@@ -73,6 +73,35 @@ class PpcEntitySnapshot(QueryModel, table=True):
     updated_at: datetime = Field(default_factory=utcnow)
 
 
+class PpcProposal(QueryModel, table=True):
+    """A named, versioned set of PPC recommendations staged for review."""
+
+    __tablename__ = "ppc_proposals"  # pyright: ignore[reportAssignmentType]
+
+    id: UUID = Field(default_factory=uuid4, primary_key=True)
+    name: str
+    description: str | None = None
+    status: str = Field(default="staged", index=True)  # staged | approved | rejected | applied
+    created_by: str = "system"
+    created_at: datetime = Field(default_factory=utcnow, index=True)
+    approved_at: datetime | None = None
+    approved_by: str | None = None
+    applied_at: datetime | None = None
+    applied_by: str | None = None
+
+
+class PpcProposalItem(QueryModel, table=True):
+    """A single recommendation attached to a proposal."""
+
+    __tablename__ = "ppc_proposal_items"  # pyright: ignore[reportAssignmentType]
+
+    id: UUID = Field(default_factory=uuid4, primary_key=True)
+    proposal_id: UUID = Field(index=True)
+    recommendation_type: str = Field(index=True)  # bid | keyword | placement | budget
+    recommendation_id: UUID = Field(index=True)
+    created_at: datetime = Field(default_factory=utcnow, index=True)
+
+
 class BidRecommendation(QueryModel, table=True):
     """Automated bid change recommendations pending approval."""
 

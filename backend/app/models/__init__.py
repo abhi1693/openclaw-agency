@@ -52,6 +52,8 @@ from app.models.ppc_automation import (
     PpcAutomationSettings,
     PpcChangeLog,
     PpcEntitySnapshot,
+    PpcProposal,
+    PpcProposalItem,
     PpcRunHistory,
 )
 from app.models.shipments import Shipment, ShipmentEvent
@@ -92,6 +94,8 @@ __all__ = [
     "PpcAutomationSettings",
     "PpcChangeLog",
     "PpcEntitySnapshot",
+    "PpcProposal",
+    "PpcProposalItem",
     "PpcRunHistory",
     "PricingSnapshot",
     "ProductSales",

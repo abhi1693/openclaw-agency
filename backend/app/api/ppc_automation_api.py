@@ -32,6 +32,8 @@ from app.models.ppc_automation import (
 from app.schemas.ppc_automation import (
     PpcEntitySnapshotsResponse,
     PpcFreshnessResponse,
+    PpcProposalResponse,
+    ProposalDiffResponse,
     PpcSyncStatusResponse,
 )
 from app.services.ppc_entity_snapshots import (
@@ -44,6 +46,14 @@ from app.services.ppc_run_history import (
     list_run_history,
     log_run_end,
     log_run_start,
+)
+from app.services.ppc_proposals import (
+    approve_proposal as approve_ppc_proposal,
+    compute_proposal_diff,
+    create_proposal as create_ppc_proposal,
+    get_proposal_with_items,
+    list_proposals as list_ppc_proposals,
+    reject_proposal as reject_ppc_proposal,
 )
 from app.services.ads_api import AmazonAdsAPI
 from app.services.budget_allocator import generate_budget_allocations
@@ -154,6 +164,20 @@ class ApplyBudgetAllocRequest(BaseModel):
     triggered_by: str = "manual"
 
 
+class CreateProposalRequest(BaseModel):
+    name: str
+    description: str | None = None
+    bids: list[UUID] = []
+    keywords: list[UUID] = []
+    placements: list[UUID] = []
+    budgets: list[UUID] = []
+    created_by: str = "system"
+
+
+class ApproveProposalRequest(BaseModel):
+    approved_by: str = "system"
+
+
 
 
 
@@ -251,6 +275,116 @@ async def get_run_history(
         "limit": limit,
         "offset": offset,
     }
+
+
+@router.get("/proposals", response_model=PpcProposalResponse)
+async def list_proposals(
+    status: str | None = Query(default=None),
+    limit: int = Query(default=50, ge=1, le=200),
+    offset: int = Query(default=0, ge=0),
+    session: AsyncSession = SESSION_DEP,
+) -> PpcProposalResponse:
+    rows, total = await list_ppc_proposals(
+        session, status=status, limit=limit, offset=offset
+    )
+    return PpcProposalResponse(
+        items=[row.model_dump() for row in rows],
+        total=total,
+        limit=limit,
+        offset=offset,
+    )
+
+
+@router.post("/proposals")
+async def create_proposal(
+    body: CreateProposalRequest,
+    session: AsyncSession = SESSION_DEP,
+) -> dict[str, Any]:
+    proposal = await create_ppc_proposal(
+        session,
+        body.name,
+        {
+            "bid": body.bids,
+            "keyword": body.keywords,
+            "placement": body.placements,
+            "budget": body.budgets,
+        },
+        created_by=body.created_by,
+        description=body.description,
+    )
+    await session.commit()
+    await session.refresh(proposal)
+    _, items = await get_proposal_with_items(session, proposal.id)
+    return {
+        "id": str(proposal.id),
+        "name": proposal.name,
+        "description": proposal.description,
+        "status": proposal.status,
+        "created_by": proposal.created_by,
+        "created_at": proposal.created_at.isoformat(),
+        "item_count": len(items),
+    }
+
+
+@router.get("/proposals/{proposal_id}")
+async def get_proposal(
+    proposal_id: UUID,
+    session: AsyncSession = SESSION_DEP,
+) -> dict[str, Any]:
+    try:
+        proposal, items = await get_proposal_with_items(session, proposal_id)
+    except ValueError as exc:
+        raise HTTPException(status_code=404, detail="Proposal not found") from exc
+
+    return {
+        "proposal": proposal.model_dump(),
+        "items": [item.model_dump() for item in items],
+        "item_count": len(items),
+    }
+
+
+@router.get("/proposals/{proposal_id}/diff", response_model=ProposalDiffResponse)
+async def get_proposal_diff(
+    proposal_id: UUID,
+    session: AsyncSession = SESSION_DEP,
+) -> ProposalDiffResponse:
+    try:
+        return await compute_proposal_diff(session, proposal_id)
+    except ValueError as exc:
+        raise HTTPException(status_code=404, detail="Proposal not found") from exc
+
+
+@router.post("/proposals/{proposal_id}/approve")
+async def approve_proposal(
+    proposal_id: UUID,
+    body: ApproveProposalRequest,
+    session: AsyncSession = SESSION_DEP,
+) -> dict[str, Any]:
+    try:
+        proposal = await approve_ppc_proposal(
+            session, proposal_id, approved_by=body.approved_by
+        )
+    except ValueError as exc:
+        raise HTTPException(status_code=404, detail="Proposal not found") from exc
+
+    await session.commit()
+    await session.refresh(proposal)
+    return proposal.model_dump()
+
+
+@router.post("/proposals/{proposal_id}/reject")
+async def reject_proposal(
+    proposal_id: UUID,
+    session: AsyncSession = SESSION_DEP,
+) -> dict[str, Any]:
+    try:
+        proposal = await reject_ppc_proposal(session, proposal_id)
+    except ValueError as exc:
+        raise HTTPException(status_code=404, detail="Proposal not found") from exc
+
+    await session.commit()
+    await session.refresh(proposal)
+    return proposal.model_dump()
 
 
 @router.get("/settings/{parent_asin}")
