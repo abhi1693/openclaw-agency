@@ -103,6 +103,7 @@ class ProposalDiffItem(SQLModel):
     recommendation_type: str
     recommendation_id: UUID
     entity_name: str | None = None
+    resolved_campaign_name: str | None = None
     entity_id: str
     field: str
     current_value: str | None = None

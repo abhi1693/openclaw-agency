@@ -19,6 +19,7 @@ from app.models.ppc_automation import (
     BidRecommendation,
     BudgetAllocation,
     KeywordRecommendation,
+    PlacementRecommendation,
     PpcEntitySnapshot,
     PpcProposalItem,
 )
@@ -301,3 +302,78 @@ async def test_api_create_get_diff_approve_reject_proposal() -> None:
         reject_resp = await ac.post(f"/ppc/automation/proposals/{proposal_id}/reject")
         assert reject_resp.status_code == 200
         assert reject_resp.json()["status"] == "rejected"
+
+
+@pytest.mark.asyncio
+async def test_compute_proposal_diff_uses_snapshot_name_not_stored() -> None:
+    """When a PlacementRecommendation has a stale campaign_name but a fresh
+    PpcEntitySnapshot exists, diff must use the snapshot name.
+    """
+    engine = await _make_engine()
+    sm = await _make_session_maker(engine)
+    async with sm() as session:
+        rec = PlacementRecommendation(
+            campaign_id="CAMP-STALE",
+            campaign_name="Stale Name (wrong)",
+            placement="top_of_search",
+            current_modifier_pct=0.0,
+            recommended_modifier_pct=25.0,
+        )
+        snapshot = PpcEntitySnapshot(
+            entity_type="placement",
+            entity_id="CAMP-STALE:top_of_search",
+            campaign_id="CAMP-STALE",
+            name="Campaign Fresh Name",
+            placement="top_of_search",
+            placement_modifier_pct=Decimal("0"),
+        )
+        session.add(rec)
+        session.add(snapshot)
+        await session.commit()
+        proposal = await create_proposal(session, "Placement diff", {"placement": [rec.id]})
+        await session.commit()
+
+        diff = await compute_proposal_diff(session, proposal.id)
+
+        assert len(diff.items) == 1
+        item = diff.items[0]
+        assert item.entity_name == "Campaign Fresh Name", (
+            "Must use snapshot name, not stored campaign_name"
+        )
+        assert item.resolved_campaign_name == "Campaign Fresh Name"
+        assert item.current_value == "0"
+        assert item.recommended_value == "25.0"
+
+
+@pytest.mark.asyncio
+async def test_compute_proposal_diff_resolved_campaign_name() -> None:
+    """Bid diff should include resolved campaign name from snapshot."""
+    engine = await _make_engine()
+    sm = await _make_session_maker(engine)
+    async with sm() as session:
+        bid = _bid_recommendation(keyword_id="KW-CAMP")
+        keyword_snapshot = PpcEntitySnapshot(
+            entity_type="keyword",
+            entity_id="KW-CAMP",
+            campaign_id="CAMP-NAME-TEST",
+            name="my keyword exact",
+            bid=Decimal("1.00"),
+        )
+        campaign_snapshot = PpcEntitySnapshot(
+            entity_type="campaign",
+            entity_id="CAMP-NAME-TEST",
+            name="Resolved Campaign Name",
+        )
+        session.add(bid)
+        session.add(keyword_snapshot)
+        session.add(campaign_snapshot)
+        await session.commit()
+        proposal = await create_proposal(session, "Bid with campaign", {"bid": [bid.id]})
+        await session.commit()
+
+        diff = await compute_proposal_diff(session, proposal.id)
+
+        assert len(diff.items) == 1
+        item = diff.items[0]
+        assert item.entity_name == "my keyword exact"
+        assert item.resolved_campaign_name == "Resolved Campaign Name"

@@ -133,6 +133,25 @@ async def _snapshot_for_entity(
     return result.first()
 
 
+async def _resolve_entity_name(
+    session: AsyncSession,
+    entity_type: str,
+    entity_id: str,
+) -> str | None:
+    """Look up the canonical entity name from the latest PpcEntitySnapshot.
+
+    Returns None when no snapshot exists -- callers must NOT fall back to
+    a stale text name; the absence of a snapshot is itself an alert signal.
+    """
+    result = await session.exec(
+        select(PpcEntitySnapshot.name).where(
+            PpcEntitySnapshot.entity_type == entity_type,
+            PpcEntitySnapshot.entity_id == entity_id,
+        )
+    )
+    return result.first()
+
+
 async def _placement_snapshot(
     session: AsyncSession,
     campaign_id: str,
@@ -160,11 +179,15 @@ async def _bid_diff(
     snapshot = await _snapshot_for_entity(session, entity_type, entity_id)
     current_bid = snapshot.bid if snapshot else None
     current_value = _string_value(current_bid) if snapshot else "unknown"
+    campaign_name = None
+    if snapshot and snapshot.campaign_id:
+        campaign_name = await _resolve_entity_name(session, "campaign", snapshot.campaign_id)
 
     return ProposalDiffItem(
         recommendation_type="bid",
         recommendation_id=rec.id,
         entity_name=snapshot.name if snapshot else None,
+        resolved_campaign_name=campaign_name,
         entity_id=entity_id,
         field="bid",
         current_value=current_value,
@@ -188,11 +211,15 @@ async def _keyword_diff(
     campaign_id = rec.target_campaign_id or rec.source_campaign_id
     snapshot = await _snapshot_for_entity(session, "campaign", campaign_id)
     current_value = snapshot.state if snapshot else "unknown"
+    campaign_name = None
+    if campaign_id:
+        campaign_name = await _resolve_entity_name(session, "campaign", campaign_id)
 
     return ProposalDiffItem(
         recommendation_type="keyword",
         recommendation_id=rec.id,
         entity_name=snapshot.name if snapshot else None,
+        resolved_campaign_name=campaign_name,
         entity_id=campaign_id,
         field="keyword_action",
         current_value=current_value,
@@ -221,7 +248,8 @@ async def _placement_diff(
     return ProposalDiffItem(
         recommendation_type="placement",
         recommendation_id=rec.id,
-        entity_name=snapshot.name if snapshot else rec.campaign_name,
+        entity_name=snapshot.name if snapshot else None,
+        resolved_campaign_name=snapshot.name if snapshot else None,
         entity_id=f"{rec.campaign_id}:{rec.placement}",
         field="placement_modifier_pct",
         current_value=current_value,
