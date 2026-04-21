@@ -72,6 +72,8 @@ from app.services.ppc_execution import (
     get_execution_items,
     FEATURE_PPC_LIVE_WRITES,
 )
+from app.services.ppc_live_write_gate import get_live_write_gate
+from app.schemas.ppc_automation import LiveWriteGateReport, PilotPolicySchema
 from app.services.ads_api import AmazonAdsAPI
 from app.services.budget_allocator import generate_budget_allocations
 from app.services.ad_metrics_sync import sync_ad_metrics_from_api
@@ -556,6 +558,35 @@ async def get_latest_proposal_execution(
         "items": [i.model_dump() for i in items],
         "feature_flag_live_writes": FEATURE_PPC_LIVE_WRITES,
     }
+
+
+@router.get("/live-write-gate", response_model=LiveWriteGateReport)
+async def get_live_write_gate_endpoint(
+    session: AsyncSession = SESSION_DEP,
+) -> LiveWriteGateReport:
+    """Live-write readiness gate — check every blocker before any pilot.
+
+    Returns a structured report listing every condition that must be satisfied
+    before FEATURE_PPC_LIVE_WRITES can be set to True.
+
+    Always returns enabled=False (live writes are not enabled) and can_enable=False
+    in Phase 4. The blockers array tells the operator exactly what must be resolved.
+
+    This endpoint is a pure read — it never calls the Amazon Ads API and never
+    modifies any data.
+    """
+    return await get_live_write_gate(session, checked_at=utcnow().isoformat())
+
+
+@router.get("/pilot-policy", response_model=PilotPolicySchema)
+async def get_pilot_policy_endpoint() -> PilotPolicySchema:
+    """Return the current pilot policy — which recommendation types are approved
+    for live-write execution once the gate passes.
+
+    Phase 4: only 'bid' type is approved. Other types require additional review.
+    """
+    from app.services.ppc_live_write_gate import get_pilot_policy as _get_pilot_policy
+    return PilotPolicySchema(**_get_pilot_policy())
 
 
 @router.post("/proposals/{proposal_id}/execute")

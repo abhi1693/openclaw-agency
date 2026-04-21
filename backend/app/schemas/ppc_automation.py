@@ -204,3 +204,48 @@ class ProposalReviewResponse(SQLModel):
     diff: dict | None
     executions: list[dict]
     feature_flag_live_writes: bool
+
+
+# ── Live-write gate (Phase 4) ──────────────────────────────────────────────────
+
+
+class BlockerCategory(str):
+    FEATURE_FLAG = "feature_flag"
+    PILOT_POLICY = "pilot_policy"
+    CREDENTIALS = "credentials"
+    OBSERVATION_RUNS = "observation_runs"
+
+
+class Blocker(SQLModel):
+    category: str
+    code: str
+    message: str
+    hint: str
+    blocking: bool
+
+
+class PilotPolicySchema(SQLModel):
+    approved_types: list[str]
+    message: str
+
+
+class LiveWriteGateReport(SQLModel):
+    """Structured readiness gate report for PPC live-write enablement.
+
+    Summarises every blocking condition that must be resolved before
+    FEATURE_PPC_LIVE_WRITES can be set to True.
+
+    In Phase 4:
+    - enabled is always False
+    - can_enable is False (gate has not passed)
+    - blockers lists every unresolved precondition
+    """
+
+    enabled: bool  # current FEATURE_PPC_LIVE_WRITES value
+    can_enable: bool  # True only when all blocking checkers pass
+    blockers: list[Blocker]
+    blockers_summary: dict[str, int]  # category → count
+    pilot_policy: PilotPolicySchema
+    feature_flag_value: bool
+    ads_profile_id: str
+    checked_at: str
