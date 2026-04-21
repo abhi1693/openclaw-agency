@@ -508,7 +508,7 @@ export default function BusinessPage() {
 
   // ── Fetch sales + inventory on period change ──────────────────────────────
   useEffect(() => {
-    setSalesLoading(true);
+    let ignore = false;
     const days = period * 2;
 
     Promise.all([
@@ -516,7 +516,9 @@ export default function BusinessPage() {
       fetch("/api/amazon/inventory").then((r) => r.json()).catch(() => ({ items: [] })),
       fetch(`/api/amazon/top-products?days=${period}`).then((r) => r.json()).catch(() => ({ products: [] })),
     ]).then(([salesData, invData, topData]) => {
-      if (salesData.mock || invData.mock) setIsMock(true);
+      if (ignore) return;
+
+      setIsMock(Boolean(salesData.mock || invData.mock || topData.mock));
 
       // Map metrics to SalesDay
       const metrics: SalesDay[] = (salesData.metrics ?? []).map(
@@ -544,41 +546,43 @@ export default function BusinessPage() {
       }
 
       // Inventory
-      if (invData.items?.length) setInventory(invData.items);
+      setInventory(invData.items ?? []);
 
       // Top products — map API snake_case fields + deduplicate by ASIN
-      if (topData.products?.length) {
-        const mapped: TopProduct[] = (topData.products as Record<string, unknown>[]).map((p) => ({
-          asin: String(p.asin ?? ""),
-          sku: p.sku ? String(p.sku) : undefined,
-          title: p.title ? String(p.title) : (p.name ? String(p.name) : undefined),
-          revenue: parseFloat(String(p.revenue ?? 0)) || 0,
-          orderCount: Number(p.order_count ?? p.orderCount ?? 0),
-          quantityOrdered: Number(p.quantity_sold ?? p.quantityOrdered ?? p.units ?? 0),
-        }));
+      const mapped: TopProduct[] = ((topData.products ?? []) as Record<string, unknown>[]).map((p) => ({
+        asin: String(p.asin ?? ""),
+        sku: p.sku ? String(p.sku) : undefined,
+        title: p.title ? String(p.title) : (p.name ? String(p.name) : undefined),
+        revenue: parseFloat(String(p.revenue ?? 0)) || 0,
+        orderCount: Number(p.order_count ?? p.orderCount ?? 0),
+        quantityOrdered: Number(p.quantity_sold ?? p.quantityOrdered ?? p.units ?? 0),
+      }));
 
-        const deduped = new Map<string, TopProduct>();
-        for (const p of mapped) {
-          const key = p.asin;
-          if (deduped.has(key)) {
-            const existing = deduped.get(key)!;
-            deduped.set(key, {
-              ...existing,
-              quantityOrdered: existing.quantityOrdered + p.quantityOrdered,
-              revenue: existing.revenue + p.revenue,
-              orderCount: existing.orderCount + p.orderCount,
-            });
-          } else {
-            deduped.set(key, { ...p });
-          }
+      const deduped = new Map<string, TopProduct>();
+      for (const p of mapped) {
+        const key = p.asin;
+        if (deduped.has(key)) {
+          const existing = deduped.get(key)!;
+          deduped.set(key, {
+            ...existing,
+            quantityOrdered: existing.quantityOrdered + p.quantityOrdered,
+            revenue: existing.revenue + p.revenue,
+            orderCount: existing.orderCount + p.orderCount,
+          });
+        } else {
+          deduped.set(key, { ...p });
         }
-        setTopProducts(
-          Array.from(deduped.values()).sort((a, b) => b.revenue - a.revenue)
-        );
       }
+      setTopProducts(
+        Array.from(deduped.values()).sort((a, b) => b.revenue - a.revenue)
+      );
 
       setSalesLoading(false);
     });
+
+    return () => {
+      ignore = true;
+    };
   }, [period]);
 
   // ── Fetch ops data once ───────────────────────────────────────────────────
@@ -682,6 +686,12 @@ export default function BusinessPage() {
     returns?.alerts?.critical ?? returns?.alerts?.high ?? [];
   const totalReturns = returns?.total ?? returnAlerts.length ?? 0;
 
+  const handlePeriodChange = (nextPeriod: Period) => {
+    if (nextPeriod === period) return;
+    setSalesLoading(true);
+    setPeriod(nextPeriod);
+  };
+
   // ─────────────────────────────────────────────────────────────────────────
 
   return (
@@ -706,7 +716,7 @@ export default function BusinessPage() {
               模拟数据
             </Badge>
           )}
-          <PeriodSelector value={period} onChange={setPeriod} />
+          <PeriodSelector value={period} onChange={handlePeriodChange} />
         </div>
       </div>
 
