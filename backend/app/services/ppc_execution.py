@@ -255,9 +255,11 @@ async def _apply_keyword(
     if rec.action == "add_keyword":
         if rec.target_campaign_id is None:
             return "failed", "target_campaign_id required for add_keyword"
+        if rec.target_ad_group_id is None:
+            return "failed", "target_ad_group_id required for add_keyword (resolve from campaign)"
         await ads.create_keyword(
             campaign_id=rec.target_campaign_id,
-            ad_group_id=rec.target_campaign_id,
+            ad_group_id=rec.target_ad_group_id,
             keyword_text=rec.search_term,
             match_type=rec.match_type,
             bid=Decimal("0.50"),

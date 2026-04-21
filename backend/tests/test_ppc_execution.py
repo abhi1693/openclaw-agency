@@ -487,3 +487,112 @@ async def test_execute_proposal_endpoint_rejects_unapproved():
         )
     assert resp.status_code == 400
     assert "approved" in resp.json()["detail"]
+
+
+@pytest.mark.asyncio
+async def test_apply_keyword_recs_requires_target_ad_group_id():
+    """apply_keyword_recommendations must reject add_keyword when target_ad_group_id is null.
+
+    This is a critical canonical-ID safety guard: the Amazon Ads create_keyword API
+    requires both campaign_id AND ad_group_id.  Using campaign_id as a placeholder
+    for ad_group_id (pre-fix behaviour) silently creates an incorrect API call.
+    """
+    from unittest.mock import AsyncMock, patch
+
+    engine = await _make_engine()
+    maker = await _make_session_maker(engine)
+    app = _build_test_app(maker)
+
+    # Create a keyword recommendation: add_keyword with campaign but no ad_group
+    async with maker() as session:
+        rec = KeywordRecommendation(
+            source_campaign_id="CAMP-1",
+            target_campaign_id="CAMP-1",
+            target_ad_group_id=None,  # canonical ID missing — the bug scenario
+            search_term="running shoes",
+            match_type="exact",
+            action="add_keyword",
+            status="pending",
+        )
+        session.add(rec)
+        await session.commit()
+        await session.refresh(rec)
+        rec_id = str(rec.id)
+
+    # Patch AmazonAdsAPI so the validation path is exercised without real API calls
+    with patch("app.api.ppc_automation_api.AmazonAdsAPI") as mock_api_cls:
+        mock_api = AsyncMock()
+        mock_api.create_keyword = AsyncMock()
+        mock_api.create_negative_keyword = AsyncMock()
+        mock_api_cls.return_value = mock_api
+
+        async with AsyncClient(
+            transport=ASGITransport(app=app),
+            base_url="http://test",
+        ) as client:
+            resp = await client.post(
+                "/ppc/automation/keyword-recommendations/apply",
+                json={"recommendation_ids": [rec_id], "triggered_by": "test"},
+            )
+
+    # Must fail with a clear error before any Amazon API call is attempted
+    assert resp.status_code == 200  # endpoint returns 200; errors are per-item
+    data = resp.json()
+    errors = data.get("errors", [])
+    assert len(errors) == 1
+    assert "target_ad_group_id required" in errors[0]["error"]
+    # create_keyword must NOT have been called (no silent wrong API call)
+    mock_api.create_keyword.assert_not_called()
+
+
+@pytest.mark.asyncio
+async def test_apply_keyword_recs_with_target_ad_group_id_succeeds():
+    """When target_ad_group_id is provided, the recommendation applies cleanly."""
+    from unittest.mock import AsyncMock, patch
+
+    engine = await _make_engine()
+    maker = await _make_session_maker(engine)
+    app = _build_test_app(maker)
+
+    async with maker() as session:
+        rec = KeywordRecommendation(
+            source_campaign_id="CAMP-1",
+            target_campaign_id="CAMP-1",
+            target_ad_group_id="AG-1",  # canonical ad group ID present
+            search_term="trail boots",
+            match_type="exact",
+            action="add_keyword",
+            status="pending",
+        )
+        session.add(rec)
+        await session.commit()
+        await session.refresh(rec)
+        rec_id = str(rec.id)
+
+    with patch("app.api.ppc_automation_api.AmazonAdsAPI") as mock_api_cls:
+        mock_api = AsyncMock()
+        mock_api.create_keyword = AsyncMock(return_value={"keywordId": "KW-NEW"})
+        mock_api.create_negative_keyword = AsyncMock()
+        mock_api_cls.return_value = mock_api
+
+        async with AsyncClient(
+            transport=ASGITransport(app=app),
+            base_url="http://test",
+        ) as client:
+            resp = await client.post(
+                "/ppc/automation/keyword-recommendations/apply",
+                json={"recommendation_ids": [rec_id], "triggered_by": "test"},
+            )
+
+    assert resp.status_code == 200
+    data = resp.json()
+    # No errors — keyword was accepted and applied
+    assert data.get("applied", []) == [rec_id]
+    assert data.get("errors", []) == []
+    # Verify correct IDs were passed to the API
+    mock_api.create_keyword.assert_called_once()
+    call_kwargs = mock_api.create_keyword.call_args.kwargs
+    assert call_kwargs["campaign_id"] == "CAMP-1"
+    assert call_kwargs["ad_group_id"] == "AG-1"  # not target_campaign_id
+    assert call_kwargs["keyword_text"] == "trail boots"
+    assert call_kwargs["match_type"] == "exact"

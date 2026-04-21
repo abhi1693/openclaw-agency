@@ -700,10 +700,12 @@ async def apply_keyword_recommendations(
             if rec.action == "add_keyword":
                 if rec.target_campaign_id is None:
                     raise ValueError("target_campaign_id required for add_keyword")
+                if rec.target_ad_group_id is None:
+                    raise ValueError("target_ad_group_id required for add_keyword (resolve from campaign)")
                 # Default bid to $0.50 — real logic will derive from settings
                 await ads.create_keyword(
                     campaign_id=rec.target_campaign_id,
-                    ad_group_id=rec.target_campaign_id,  # placeholder; UI should supply
+                    ad_group_id=rec.target_ad_group_id,
                     keyword_text=rec.search_term,
                     match_type=rec.match_type,
                     bid=Decimal("0.50"),

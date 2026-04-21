@@ -141,6 +141,9 @@ class KeywordRecommendation(QueryModel, table=True):
     acos: Decimal | None = Field(default=None, sa_column=Column(Numeric(8, 4), nullable=True))
     action: str = Field(index=True)  # add_keyword / add_negative
     target_campaign_id: str | None = Field(default=None, index=True)
+    # target_ad_group_id is required for add_keyword; discoverer leaves it null because
+    # search-term reports don't include ad group IDs — UI/execution must resolve it.
+    target_ad_group_id: str | None = Field(default=None, index=True)
     status: str = Field(default="pending", index=True)  # pending/approved/rejected/applied
     created_at: datetime = Field(default_factory=utcnow, index=True)
     applied_at: datetime | None = None
