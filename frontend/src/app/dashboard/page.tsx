@@ -99,6 +99,8 @@ const DASH = "—";
 const DASHBOARD_RANGE = "7d";
 const DASHBOARD_RANGE_DAYS = 7;
 const DASHBOARD_RANGE_LABEL = "7 days";
+const DASHBOARD_REFETCH_INTERVAL_MS = 15_000;
+const DASHBOARD_STALE_AFTER_MS = 30_000;
 
 const numberFormatter = new Intl.NumberFormat("en-US");
 const SESSION_ID_KEYS = ["key", "id", "session_key", "sessionKey", "sessionId"];
@@ -666,7 +668,7 @@ export default function DashboardPage() {
     {
       query: {
         enabled: Boolean(isSignedIn),
-        refetchInterval: 15_000,
+        refetchInterval: DASHBOARD_REFETCH_INTERVAL_MS,
         refetchOnMount: "always",
         retry: 3,
         retryDelay: (attempt) => Math.min(1000 * 2 ** attempt, 5000),
@@ -703,15 +705,34 @@ export default function DashboardPage() {
 
   const metrics = metricsQuery.data?.status === 200 ? metricsQuery.data.data : null;
 
-  const effectiveUpdatedAt = metricsQuery.dataUpdatedAt
-  const [nowMs, setNowMs] = useState(() => Date.now())
+  const effectiveUpdatedAt = metricsQuery.dataUpdatedAt;
+  const [nowMs, setNowMs] = useState(() => Date.now());
   useEffect(() => {
-    const id = setInterval(() => setNowMs(Date.now()), 1000)
-    return () => clearInterval(id)
-  }, [])
-  const secondsSince = effectiveUpdatedAt
-    ? Math.max(0, Math.floor((nowMs - effectiveUpdatedAt) / 1000))
-    : 0
+    const id = setInterval(() => setNowMs(Date.now()), 1000);
+    return () => clearInterval(id);
+  }, []);
+  const isMetricsStale =
+    !effectiveUpdatedAt || nowMs - effectiveUpdatedAt >= DASHBOARD_STALE_AFTER_MS;
+  const metricsStatus = metricsQuery.isError
+    ? {
+        dot: "✕",
+        label: "Disconnected",
+        className: "border-rose-200 bg-rose-50 text-rose-700",
+        dotClassName: "text-rose-600",
+      }
+    : isMetricsStale
+      ? {
+          dot: "○",
+          label: "Stale (30s+)",
+          className: "border-amber-200 bg-amber-50 text-amber-700",
+          dotClassName: "text-amber-600",
+        }
+      : {
+          dot: "●",
+          label: "Live",
+          className: "border-emerald-200 bg-emerald-50 text-emerald-700",
+          dotClassName: "animate-pulse text-emerald-500",
+        };
 
   const onlineAgents = useMemo(
     () => agents.filter((agent) => (agent.status ?? "").toLowerCase() === "online").length,
@@ -1110,6 +1131,18 @@ export default function DashboardPage() {
               </div>
             ) : null}
 
+            <div className="mb-3 flex justify-end">
+              <span
+                className={cn(
+                  "inline-flex items-center gap-1.5 rounded-full border px-2.5 py-1 text-xs font-medium",
+                  metricsStatus.className,
+                )}
+              >
+                <span className={metricsStatus.dotClassName}>{metricsStatus.dot}</span>
+                {metricsStatus.label}
+              </span>
+            </div>
+
             <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-4">
               <TopMetricCard
                 title="Online Agents"
@@ -1141,9 +1174,6 @@ export default function DashboardPage() {
                 accent="emerald"
               />
             </div>
-            <p className="mt-1.5 text-right text-xs text-slate-400">
-              {effectiveUpdatedAt ? `数据更新于 ${secondsSince} 秒前` : '数据更新于 —'}
-            </p>
 
             <div className="mt-4 grid grid-cols-1 gap-4 xl:grid-cols-3">
               <InfoBlock
