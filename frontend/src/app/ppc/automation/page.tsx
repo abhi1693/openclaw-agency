@@ -46,6 +46,7 @@ interface KeywordRec {
   acos: number | null
   action: string
   target_campaign_id: string | null
+  target_ad_group_id?: string | null
   status: string
   created_at: string
   // Phase 3 fields
@@ -56,8 +57,13 @@ interface KeywordRec {
   pattern_group: string | null
 }
 
-interface NegativePatternRec extends KeywordRec {
-  // pattern_group and evidence are always set for pattern recs
+// pattern_group and evidence are always set for pattern recs
+type NegativePatternRec = KeywordRec
+
+interface AdGroupOption {
+  ad_group_id: string
+  name: string
+  campaign_id: string
 }
 
 interface EvidenceData {
@@ -1548,6 +1554,10 @@ function KeywordRecommendationsTab() {
   const [expandedEvidence, setExpandedEvidence] = useState<Set<string>>(new Set())
   const [sort, setSort] = useState<{ field: string; dir: 'asc' | 'desc' }>({ field: 'confidence', dir: 'desc' })
   const [patternsOpen, setPatternsOpen] = useState(true)
+  const [adGroupOptions, setAdGroupOptions] = useState<Record<string, AdGroupOption[]>>({})
+  const [loadingAdGroups, setLoadingAdGroups] = useState<Record<string, boolean>>({})
+  const [resolvingId, setResolvingId] = useState<string | null>(null)
+  const [selectedAdGroup, setSelectedAdGroup] = useState<Record<string, string>>({})
   const queryClient = useQueryClient()
 
   const confParam = confidenceMin ? `&confidence_min=${confidenceMin}` : ''
@@ -1567,7 +1577,9 @@ function KeywordRecommendationsTab() {
   const patternItems: NegativePatternRec[] = patternData?.items ?? []
 
   // Split into add_keyword (non-pattern) and individual negatives (source != pattern_detector)
-  const addItems = items.filter((r) => r.action === 'add_keyword')
+  const unresolvedRecs = items.filter((r) => r.action === 'add_keyword' && !r.target_ad_group_id)
+  const resolvedRecs = items.filter((r) => r.action === 'add_keyword' && r.target_ad_group_id)
+  const unresolvedCount = unresolvedRecs.length
   const negItems = items.filter((r) => r.action === 'add_negative' && r.source !== 'pattern_detector')
 
   function handleSort(field: string) {
@@ -1591,6 +1603,33 @@ function KeywordRecommendationsTab() {
 
   function toggleEvidence(id: string) {
     setExpandedEvidence((s) => { const n = new Set(s); n.has(id) ? n.delete(id) : n.add(id); return n })
+  }
+
+  async function fetchAdGroups(campaignId: string) {
+    if (adGroupOptions[campaignId]) return
+    setLoadingAdGroups((prev) => ({ ...prev, [campaignId]: true }))
+    try {
+      const data = await apiFetch(`/api/ppc/automation/campaigns/${campaignId}/ad-groups`)
+      setAdGroupOptions((prev) => ({ ...prev, [campaignId]: data.items || [] }))
+    } finally {
+      setLoadingAdGroups((prev) => ({ ...prev, [campaignId]: false }))
+    }
+  }
+
+  async function resolveAdGroup(recId: string, adGroupId: string) {
+    setResolvingId(recId)
+    try {
+      const res = await fetch(`/api/ppc/automation/keyword-recommendations/${recId}/resolve-ad-group`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ target_ad_group_id: adGroupId }),
+      })
+      if (res.ok) {
+        await refetch()
+      }
+    } finally {
+      setResolvingId(null)
+    }
   }
 
   const applyMutation = useMutation({
@@ -1757,7 +1796,53 @@ function KeywordRecommendationsTab() {
         <div className="py-12 text-center text-sm text-slate-400">Loading…</div>
       ) : (
         <>
-          <KwTable recs={addItems} title="新增关键词" badgeColor="bg-emerald-500" showOrders />
+          {unresolvedCount > 0 && (
+            <div className="mx-4 mb-4 mt-4 rounded-lg border border-amber-200 bg-amber-50 p-3">
+              <div className="mb-2 text-sm font-semibold text-amber-800">
+                {unresolvedCount} keyword {unresolvedCount === 1 ? 'recommendation needs' : 'recommendations need'} ad group assignment
+              </div>
+              <div className="space-y-2">
+                {unresolvedRecs.map((rec) => {
+                  const campaignId = rec.target_campaign_id
+                  return (
+                    <div key={rec.id} className="flex flex-wrap items-center gap-2 rounded bg-white/70 p-2">
+                      <code className="min-w-[160px] flex-1 font-mono text-xs text-slate-800">{rec.search_term}</code>
+                      <span className="font-mono text-xs text-amber-700">Campaign: {campaignId ?? '—'}</span>
+                      <button
+                        onClick={() => { if (campaignId) void fetchAdGroups(campaignId) }}
+                        disabled={!campaignId || loadingAdGroups[campaignId]}
+                        className="rounded border border-amber-300 bg-white px-2 py-1 text-xs font-medium text-amber-800 hover:bg-amber-100 disabled:cursor-not-allowed disabled:opacity-50"
+                      >
+                        {campaignId && loadingAdGroups[campaignId] ? 'Loading...' : 'Load Ad Groups'}
+                      </button>
+                      {campaignId && adGroupOptions[campaignId] && (
+                        <select
+                          value={selectedAdGroup[rec.id] || ''}
+                          onChange={(e) => setSelectedAdGroup((prev) => ({ ...prev, [rec.id]: e.target.value }))}
+                          className="rounded border border-slate-200 bg-white px-2 py-1 text-xs text-slate-700 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                        >
+                          <option value="">Select ad group...</option>
+                          {adGroupOptions[campaignId].map((ag) => (
+                            <option key={ag.ad_group_id} value={ag.ad_group_id}>{ag.name}</option>
+                          ))}
+                        </select>
+                      )}
+                      {selectedAdGroup[rec.id] && (
+                        <button
+                          onClick={() => void resolveAdGroup(rec.id, selectedAdGroup[rec.id])}
+                          disabled={resolvingId === rec.id}
+                          className="rounded bg-emerald-700 px-2 py-1 text-xs font-medium text-white hover:bg-emerald-800 disabled:opacity-50"
+                        >
+                          {resolvingId === rec.id ? 'Resolving...' : 'Resolve'}
+                        </button>
+                      )}
+                    </div>
+                  )
+                })}
+              </div>
+            </div>
+          )}
+          <KwTable recs={resolvedRecs} title="新增关键词" badgeColor="bg-emerald-500" showOrders />
           <KwTable recs={negItems} title="单独否定词" badgeColor="bg-rose-500" showOrders={false} />
         </>
       )}
