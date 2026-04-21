@@ -66,6 +66,18 @@ interface AdGroupOption {
   campaign_id: string
 }
 
+interface AutoResolveResult {
+  auto_resolved: number
+  already_resolved: number
+  campaigns_checked: number
+  campaigns_skipped: number
+  skipped_recommendations: Array<{
+    rec_id: string
+    campaign_id: string
+    reason: string
+  }>
+}
+
 interface EvidenceData {
   campaign_name?: string
   impressions?: number
@@ -1561,6 +1573,7 @@ function KeywordRecommendationsTab() {
   // Bulk-resolve state: one ad group selection per unique target_campaign_id
   const [bulkAdGroup, setBulkAdGroup] = useState<Record<string, string>>({})
   const [bulkResolving, setBulkResolving] = useState<boolean>(false)
+  const [autoResolveResult, setAutoResolveResult] = useState<AutoResolveResult | null>(null)
   const queryClient = useQueryClient()
 
   const confParam = confidenceMin ? `&confidence_min=${confidenceMin}` : ''
@@ -1665,6 +1678,19 @@ function KeywordRecommendationsTab() {
       queryClient.invalidateQueries({ queryKey: ['negative-patterns'] })
       queryClient.invalidateQueries({ queryKey: ['change-log'] })
       setSelected(new Set())
+    },
+  })
+
+  const autoResolveMutation = useMutation({
+    mutationFn: () =>
+      apiFetch('/api/ppc/automation/keyword-recommendations/auto-resolve-ad-group', {
+        method: 'POST',
+      }) as Promise<AutoResolveResult>,
+    onSuccess: async (result) => {
+      setAutoResolveResult(result)
+      await refetch()
+      queryClient.invalidateQueries({ queryKey: ['kw-recs'] })
+      queryClient.invalidateQueries({ queryKey: ['change-log'] })
     },
   })
 
@@ -1805,6 +1831,15 @@ function KeywordRecommendationsTab() {
         </div>
         <div className="flex items-center gap-2">
           <button
+            onClick={() => autoResolveMutation.mutate()}
+            disabled={autoResolveMutation.isPending || statusFilter !== 'pending'}
+            title="Auto-resolve add_keyword recommendations when a campaign has exactly one enabled local ad group"
+            className="inline-flex items-center gap-1.5 rounded-lg border border-emerald-200 bg-emerald-50 px-2.5 py-1.5 text-xs font-medium text-emerald-700 hover:bg-emerald-100 disabled:cursor-not-allowed disabled:opacity-50"
+          >
+            <Bot className="h-3.5 w-3.5" />
+            {autoResolveMutation.isPending ? 'Resolving...' : 'Auto-resolve'}
+          </button>
+          <button
             onClick={() => { refetch(); refetchPatterns() }}
             className="rounded-lg p-1.5 text-slate-400 hover:bg-slate-100 hover:text-slate-600"
           >
@@ -1812,6 +1847,40 @@ function KeywordRecommendationsTab() {
           </button>
         </div>
       </div>
+
+      {autoResolveMutation.isError && (
+        <div className="mx-4 mt-4 rounded-lg border border-rose-200 bg-rose-50 px-3 py-2 text-xs text-rose-700">
+          Auto-resolve failed: {autoResolveMutation.error instanceof Error ? autoResolveMutation.error.message : 'unknown error'}
+        </div>
+      )}
+
+      {autoResolveResult && (
+        <div className="mx-4 mt-4 rounded-lg border border-emerald-200 bg-emerald-50 p-3">
+          <div className="flex flex-wrap items-center gap-2 text-xs">
+            <span className="font-semibold text-emerald-800">Auto-resolve summary</span>
+            <span className="rounded bg-white px-2 py-0.5 font-medium text-emerald-700">
+              auto_resolved: {autoResolveResult.auto_resolved}
+            </span>
+            <span className="rounded bg-white px-2 py-0.5 font-medium text-slate-700">
+              campaigns_checked: {autoResolveResult.campaigns_checked}
+            </span>
+            <span className="rounded bg-white px-2 py-0.5 font-medium text-amber-700">
+              campaigns_skipped: {autoResolveResult.campaigns_skipped}
+            </span>
+          </div>
+          {autoResolveResult.skipped_recommendations.length > 0 && (
+            <div className="mt-2 max-h-28 overflow-auto rounded border border-emerald-100 bg-white">
+              {autoResolveResult.skipped_recommendations.map((skip) => (
+                <div key={skip.rec_id} className="flex flex-wrap items-center gap-x-3 gap-y-1 border-b border-slate-100 px-2 py-1 last:border-b-0">
+                  <code className="font-mono text-[11px] text-slate-500">{skip.rec_id}</code>
+                  <span className="font-mono text-[11px] text-slate-600">Campaign: {skip.campaign_id}</span>
+                  <span className="text-[11px] font-medium text-amber-700">{skip.reason}</span>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      )}
 
       {isLoading ? (
         <div className="py-12 text-center text-sm text-slate-400">Loading…</div>
