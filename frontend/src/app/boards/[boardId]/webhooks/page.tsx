@@ -6,7 +6,10 @@ import { useParams } from "next/navigation";
 
 import { SignInButton, SignedIn, SignedOut } from "@/auth/clerk";
 
-import { boardWebhooks } from "@/api/generated/board-webhooks/board-webhooks";
+import {
+  useListBoardWebhooksApiV1BoardsBoardIdWebhooksGet,
+} from "@/api/generated/board-webhooks/board-webhooks";
+import type { BoardWebhookRead } from "@/api/generated/model";
 import { DashboardShell } from "@/components/templates/DashboardShell";
 import { Button } from "@/components/ui/button";
 import { useQuery } from "@tanstack/react-query";
@@ -46,10 +49,11 @@ export default function WebhooksPage() {
 }
 
 function WebhooksPanel({ boardId }: { boardId: string }) {
-  const { data: webhooks, isLoading } = useQuery({
-    queryKey: ["webhooks", boardId],
-    queryFn: () => boardWebhooks({ boardId }),
-  });
+  const { data, isLoading } =
+    useListBoardWebhooksApiV1BoardsBoardIdWebhooksGet(boardId);
+
+  const webhooks: BoardWebhookRead[] =
+    data?.status === 200 ? data.data?.items ?? [] : [];
 
   if (isLoading) {
     return (
@@ -66,11 +70,12 @@ function WebhooksPanel({ boardId }: { boardId: string }) {
         <p className="text-xs text-muted">
           Add a webhook to receive real-time event notifications for this board.
         </p>
-        <Button asChild>
-          <a href={`/boards/${boardId}/edit?tab=webhooks`} className="mt-2">
-            Add webhook
-          </a>
-        </Button>
+        <a
+          href={`/boards/${boardId}/edit?tab=webhooks`}
+          className="mt-2 inline-flex items-center justify-center gap-2 rounded-xl bg-[color:var(--accent)] px-4 py-2 text-sm font-semibold text-white shadow-sm hover:bg-[color:var(--accent-strong)]"
+        >
+          Add webhook
+        </a>
       </div>
     );
   }
@@ -79,12 +84,15 @@ function WebhooksPanel({ boardId }: { boardId: string }) {
     <div className="space-y-4">
       <div className="flex items-center justify-between">
         <h2 className="text-lg font-semibold">Webhooks</h2>
-        <Button asChild size="sm">
-          <a href={`/boards/${boardId}/edit?tab=webhooks`}>Add webhook</a>
-        </Button>
+        <a
+          href={`/boards/${boardId}/edit?tab=webhooks`}
+          className="inline-flex items-center justify-center gap-2 rounded-xl border border-[color:var(--border-strong)] px-4 py-2 text-sm font-semibold text-strong hover:border-[color:var(--accent)] hover:text-[color:var(--accent)]"
+        >
+          Add webhook
+        </a>
       </div>
       <div className="space-y-2">
-        {webhooks.map((wh) => (
+        {webhooks.map((wh: BoardWebhookRead) => (
           <div
             key={wh.id}
             className="flex items-center justify-between rounded-lg border border-slate-200 bg-white p-4 shadow-sm"
@@ -93,11 +101,12 @@ function WebhooksPanel({ boardId }: { boardId: string }) {
               <p className="font-medium">{wh.description || "Unnamed webhook"}</p>
               <p className="text-xs text-muted">{wh.id}</p>
             </div>
-            <Button asChild variant="outline" size="sm">
-              <a href={`/boards/${boardId}/webhooks/${wh.id}/payloads`}>
-                View payloads
-              </a>
-            </Button>
+            <a
+              href={`/boards/${boardId}/webhooks/${wh.id}/payloads`}
+              className="inline-flex items-center justify-center gap-2 rounded-xl border border-[color:var(--border-strong)] px-4 py-1.5 text-sm font-semibold text-strong hover:border-[color:var(--accent)] hover:text-[color:var(--accent)]"
+            >
+              View payloads
+            </a>
           </div>
         ))}
       </div>
