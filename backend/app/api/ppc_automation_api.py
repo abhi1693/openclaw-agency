@@ -29,6 +29,17 @@ from app.models.ppc_automation import (
     PpcAutomationSettings,
     PpcChangeLog,
 )
+from app.schemas.ppc_automation import (
+    PpcEntitySnapshotsResponse,
+    PpcFreshnessResponse,
+    PpcSyncStatusResponse,
+)
+from app.services.ppc_entity_snapshots import (
+    get_entity_freshness,
+    get_sync_status,
+    list_entity_snapshots,
+    sync_campaign_entity_snapshots,
+)
 from app.services.ads_api import AmazonAdsAPI
 from app.services.budget_allocator import generate_budget_allocations
 from app.services.ad_metrics_sync import sync_ad_metrics_from_api, sync_ad_metrics_from_search_terms
@@ -144,6 +155,48 @@ class ApplyBudgetAllocRequest(BaseModel):
 # ---------------------------------------------------------------------------
 # Automation settings
 # ---------------------------------------------------------------------------
+
+
+@router.get("/snapshots", response_model=PpcEntitySnapshotsResponse)
+async def list_ppc_entity_snapshots(
+    entity_type: str | None = Query(default=None),
+    campaign_id: str | None = Query(default=None),
+    state: str | None = Query(default=None),
+    limit: int = Query(default=100, ge=1, le=500),
+    offset: int = Query(default=0, ge=0),
+    session: AsyncSession = SESSION_DEP,
+) -> PpcEntitySnapshotsResponse:
+    return await list_entity_snapshots(
+        session,
+        entity_type=entity_type,
+        campaign_id=campaign_id,
+        state=state,
+        limit=limit,
+        offset=offset,
+    )
+
+
+@router.get("/freshness", response_model=PpcFreshnessResponse)
+async def get_ppc_entity_freshness(
+    stale_after_seconds: int = Query(default=3600, ge=60, le=604800),
+    session: AsyncSession = SESSION_DEP,
+) -> PpcFreshnessResponse:
+    return await get_entity_freshness(session, stale_after_seconds=stale_after_seconds)
+
+
+@router.post("/snapshots/sync")
+async def sync_ppc_entity_snapshots(
+    session: AsyncSession = SESSION_DEP,
+) -> dict[str, Any]:
+    return await sync_campaign_entity_snapshots(session)
+
+
+@router.get("/sync/status", response_model=PpcSyncStatusResponse)
+async def get_ppc_sync_status(
+    stale_after_seconds: int = Query(default=3600, ge=60, le=604800),
+    session: AsyncSession = SESSION_DEP,
+) -> PpcSyncStatusResponse:
+    return await get_sync_status(session, stale_after_seconds=stale_after_seconds)
 
 
 @router.get("/settings/{parent_asin}")
@@ -778,6 +831,36 @@ async def sync_ad_metrics_endpoint(
 
 
 # ---------------------------------------------------------------------------
+# Snapshot sync (read-only, no Amazon writeback)
+# ---------------------------------------------------------------------------
+
+
+@router.post("/sync/snapshots", tags=["ppc-automation"])
+async def trigger_snapshot_sync(
+    session: AsyncSession = SESSION_DEP,
+) -> dict[str, object]:
+    """Manually trigger campaign entity snapshot materialization.
+
+    This is a READ-ONLY operation — it snapshots state from already-synced
+    Amazon Ads data into the ppc_entity_snapshots table.
+    No Amazon writeback occurs.
+    """
+    from app.services.ppc_entity_snapshots import sync_campaign_entity_snapshots
+
+    result = await sync_campaign_entity_snapshots(session)
+    return {
+        "source": result.source,
+        "entity_type": result.entity_type,
+        "scanned": result.scanned,
+        "created": result.created,
+        "updated": result.updated,
+        "skipped": result.skipped,
+        "synced_at": result.synced_at.isoformat(),
+        "read_only": True,
+    }
+
+
+# ---------------------------------------------------------------------------
 # Backfill search terms (re-run SP search term sync for fresh data)
 # ---------------------------------------------------------------------------
 
@@ -1268,5 +1351,3 @@ async def get_dayparting_heatmap(
         "recommended_multipliers": recommended_multipliers,
         "schedule": schedule.model_dump() if schedule else None,
     }
-
-

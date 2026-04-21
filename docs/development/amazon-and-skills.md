@@ -214,6 +214,12 @@ cd frontend && npm run lint -- <target>
 cd frontend && npm run build
 ```
 
+Hard acceptance requirement for ACP-1:
+- after implementation, run tests that prove the affected Mission Control functionality still works normally
+- at minimum, validate the impacted backend endpoints, the PPC automation page/load path, and any new sync, snapshot, or freshness endpoints added by the task
+- report test coverage and outcomes clearly in the Build section
+- explicitly call out regressions and any areas that remain unverified
+
 ### 6) Update docs with the boundary you just changed
 At minimum, document:
 - the canonical route or module

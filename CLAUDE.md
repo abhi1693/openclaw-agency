@@ -108,6 +108,11 @@ After every task, output exactly this format:
 ### Build
 ✅ `next build` passed (or ❌ with error details)
 
+For ACP-1, this section must also report testing coverage and outcomes for the affected
+Mission Control functionality. At minimum, include validation for impacted backend
+endpoints, the PPC automation page/load path, and any new sync/snapshot/freshness
+endpoints added. Call out regressions and any unverified areas explicitly.
+
 ### PR
 PR #XX: title — merged ✅ (or: no PR needed — reason)
 

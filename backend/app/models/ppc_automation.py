@@ -7,7 +7,7 @@ from datetime import datetime
 from decimal import Decimal
 from uuid import UUID, uuid4
 
-from sqlalchemy import Boolean, Column, Date, Float, Numeric
+from sqlalchemy import JSON, Boolean, Column, Date, Float, Numeric, UniqueConstraint
 from sqlmodel import Field
 
 from app.core.time import utcnow
@@ -33,6 +33,44 @@ class HourlyCampaignMetric(QueryModel, table=True):
     sales: Decimal = Field(default=Decimal("0"), sa_column=Column(Numeric(14, 2), nullable=False, server_default="0"))
     orders: int = Field(default=0)
     created_at: datetime = Field(default_factory=utcnow)
+
+
+class PpcEntitySnapshot(QueryModel, table=True):
+    """Canonical latest read-only Amazon Ads entity state snapshot."""
+
+    __tablename__ = "ppc_entity_snapshots"  # pyright: ignore[reportAssignmentType]
+    __table_args__ = (
+        UniqueConstraint("entity_type", "entity_id", name="uq_ppc_entity_snapshots_identity"),
+    )
+
+    id: UUID = Field(default_factory=uuid4, primary_key=True)
+    entity_type: str = Field(index=True)  # campaign / ad_group / keyword / placement
+    entity_id: str = Field(index=True)
+    campaign_id: str | None = Field(default=None, index=True)
+    ad_group_id: str | None = Field(default=None, index=True)
+    parent_entity_id: str | None = Field(default=None, index=True)
+    name: str | None = Field(default=None, index=True)
+    state: str | None = Field(default=None, index=True)
+    serving_status: str | None = Field(default=None, index=True)
+    campaign_type: str | None = Field(default=None, index=True)
+    targeting_type: str | None = Field(default=None)
+    match_type: str | None = Field(default=None, index=True)
+    bid: Decimal | None = Field(default=None, sa_column=Column(Numeric(10, 4), nullable=True))
+    budget_amount: Decimal | None = Field(
+        default=None, sa_column=Column(Numeric(12, 2), nullable=True)
+    )
+    budget_type: str | None = Field(default=None)
+    placement: str | None = Field(default=None, index=True)
+    placement_modifier_pct: Decimal | None = Field(
+        default=None, sa_column=Column(Numeric(8, 4), nullable=True)
+    )
+    raw_payload: dict[str, object] | None = Field(
+        default=None, sa_column=Column(JSON, nullable=True)
+    )
+    observed_at: datetime = Field(default_factory=utcnow, index=True)
+    synced_at: datetime = Field(default_factory=utcnow, index=True)
+    created_at: datetime = Field(default_factory=utcnow)
+    updated_at: datetime = Field(default_factory=utcnow)
 
 
 class BidRecommendation(QueryModel, table=True):

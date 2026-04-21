@@ -134,6 +134,29 @@ interface ChangeLogEntry {
   created_at: string
 }
 
+interface CampaignSnapshot {
+  entity_type: string
+  entity_id: string
+  name: string | null
+  state: string | null
+  synced_at: string
+  observed_at: string | null
+}
+
+interface SnapshotFreshness {
+  snapshot_count: number
+  stale_after_seconds: number
+  generated_at: string
+  entity_types: Array<{
+    entity_type: string
+    total: number
+    last_synced_at: string | null
+    last_observed_at: string | null
+    age_seconds: number | null
+    stale: boolean
+  }>
+}
+
 interface AutomationSettings {
   parent_asin: string
   target_acos: number
@@ -589,7 +612,7 @@ async function apiFetch(path: string, init?: RequestInit) {
 
 // ─── Tabs ────────────────────────────────────────────────────────────────────────
 
-const TABS = ['📡 实时监控', '📋 Campaign 诊断', '💰 Bid 建议', '🔑 关键词建议', '📍 Placement 优化', '🏗️ Campaign 构建器', '🌾 关键词收割', '📊 预算节奏', '🎯 智能优化', '⏰ 分时投放', '⚙️ 设置'] as const
+const TABS = ['📡 实时监控', '📋 Campaign 诊断', '💰 Bid 建议', '🔑 关键词建议', '📍 Placement 优化', '🏗️ Campaign 构建器', '🌾 关键词收割', '📊 预算节奏', '🎯 智能优化', '⏰ 分时投放', '📸 Campaign Snapshots', '⚙️ 设置'] as const
 type Tab = typeof TABS[number]
 
 // ─── Main Page ────────────────────────────────────────────────────────────────
@@ -638,6 +661,7 @@ export default function PpcAutomationPage() {
         {activeTab === '📊 预算节奏' && <BudgetPacingTab />}
         {activeTab === '🎯 智能优化' && <GoalOptimizerTab />}
         {activeTab === '⏰ 分时投放' && <DaypartingTab />}
+        {activeTab === '📸 Campaign Snapshots' && <CampaignSnapshotsTab />}
         {activeTab === '⚙️ 设置' && <SettingsTab />}
       </div>
 
@@ -4007,6 +4031,126 @@ function BudgetPacingTab() {
             )}
           </tbody>
         </table>
+      </div>
+    </div>
+  )
+}
+
+// ─── Campaign Snapshots Tab ──────────────────────────────────────────────────
+
+function FreshnessBadge({ stale }: { stale: boolean }) {
+  return (
+    <span
+      className={cn(
+        'inline-flex items-center rounded-full px-2 py-0.5 text-[10px] font-semibold uppercase',
+        stale ? 'bg-red-100 text-red-700' : 'bg-green-100 text-green-700',
+      )}
+    >
+      {stale ? 'stale' : 'fresh'}
+    </span>
+  )
+}
+
+function CampaignSnapshotsTab() {
+  const queryClient = useQueryClient()
+
+  const { data: freshness, isLoading: freshnessLoading } = useQuery({
+    queryKey: ['campaign-snapshot-freshness'],
+    queryFn: () => apiFetch('/api/ppc/automation/freshness') as Promise<SnapshotFreshness>,
+    refetchInterval: 60_000,
+  })
+
+  const { data: snapshotsData, isLoading: snapshotsLoading } = useQuery({
+    queryKey: ['campaign-snapshots'],
+    queryFn: async () => {
+      const res = await apiFetch('/api/ppc/automation/snapshots?limit=200')
+      return res as { items?: CampaignSnapshot[]; snapshots?: CampaignSnapshot[]; total?: number }
+    },
+    refetchInterval: 60_000,
+  })
+
+  const syncMutation = useMutation({
+    mutationFn: () => apiFetch('/api/ppc/automation/snapshots/sync', { method: 'POST' }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['campaign-snapshot-freshness'] })
+      queryClient.invalidateQueries({ queryKey: ['campaign-snapshots'] })
+    },
+  })
+
+  const snapshots = snapshotsData?.items ?? snapshotsData?.snapshots ?? []
+  const snapshotCount = freshness?.snapshot_count ?? snapshotsData?.total ?? snapshots.length
+  const isStale = freshness?.entity_types?.some(e => e.stale) ?? false
+  const lastSyncedAt = freshness?.entity_types
+    ?.map(e => e.last_synced_at)
+    .filter((value): value is string => Boolean(value))
+    .sort()
+    .at(-1) ?? null
+
+  return (
+    <div className="space-y-4">
+      <div className="flex items-center justify-between rounded-xl border border-slate-200 bg-white px-4 py-3 shadow-sm">
+        <div className="flex items-center gap-3">
+          <span className="text-sm font-semibold text-slate-700">Campaign entity snapshots</span>
+          <FreshnessBadge stale={isStale} />
+          <span className="text-xs text-slate-400">
+            {freshnessLoading ? '加载中...' : `${snapshotCount} snapshots`}
+            {lastSyncedAt ? ` · synced ${fmtDate(lastSyncedAt)}` : ''}
+          </span>
+        </div>
+        <button
+          onClick={() => syncMutation.mutate()}
+          disabled={syncMutation.isPending}
+          className={cn(
+            'inline-flex items-center gap-2 rounded-lg px-3 py-1.5 text-sm font-medium transition',
+            syncMutation.isPending
+              ? 'bg-slate-100 text-slate-400 cursor-not-allowed'
+              : 'bg-blue-600 text-white hover:bg-blue-700',
+          )}
+        >
+          <RefreshCw className={cn('h-4 w-4', syncMutation.isPending && 'animate-spin')} />
+          {syncMutation.isPending ? 'Syncing...' : 'Sync Now'}
+        </button>
+      </div>
+
+      <div className="rounded-xl border border-slate-200 bg-white shadow-sm overflow-hidden">
+        <div className="overflow-x-auto">
+          <table className="w-full text-sm">
+            <thead className="bg-slate-50 text-xs font-semibold text-slate-500 uppercase tracking-wide">
+              <tr>
+                <th className="px-4 py-3 text-left">entity_type</th>
+                <th className="px-4 py-3 text-left">entity_id</th>
+                <th className="px-4 py-3 text-left">name</th>
+                <th className="px-4 py-3 text-center">state</th>
+                <th className="px-4 py-3 text-left">synced_at</th>
+                <th className="px-4 py-3 text-left">observed_at</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-slate-100">
+              {snapshotsLoading ? (
+                <tr><td colSpan={6} className="px-4 py-8 text-center text-slate-400">加载中...</td></tr>
+              ) : snapshots.length === 0 ? (
+                <tr><td colSpan={6} className="px-4 py-8 text-center text-slate-400">暂无 snapshot 数据</td></tr>
+              ) : (
+                snapshots.map((snapshot) => (
+                  <tr key={`${snapshot.entity_type}-${snapshot.entity_id}`} className="hover:bg-slate-50">
+                    <td className="px-4 py-2.5 text-xs font-mono text-slate-700">{snapshot.entity_type}</td>
+                    <td className="px-4 py-2.5 text-xs font-mono text-slate-600">{snapshot.entity_id}</td>
+                    <td className="px-4 py-2.5 text-slate-700 max-w-[260px] truncate" title={snapshot.name ?? snapshot.entity_id}>
+                      {snapshot.name ?? '—'}
+                    </td>
+                    <td className="px-4 py-2.5 text-center">
+                      <span className="inline-flex items-center rounded-full px-2 py-0.5 text-[10px] font-semibold bg-slate-100 text-slate-600 uppercase">
+                        {snapshot.state ?? 'unknown'}
+                      </span>
+                    </td>
+                    <td className="px-4 py-2.5 text-slate-500">{fmtDate(snapshot.synced_at)}</td>
+                    <td className="px-4 py-2.5 text-slate-500">{snapshot.observed_at ? fmtDate(snapshot.observed_at) : '—'}</td>
+                  </tr>
+                ))
+              )}
+            </tbody>
+          </table>
+        </div>
       </div>
     </div>
   )

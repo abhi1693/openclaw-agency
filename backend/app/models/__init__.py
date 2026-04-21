@@ -51,6 +51,7 @@ from app.models.ppc_automation import (
     KeywordRecommendation,
     PpcAutomationSettings,
     PpcChangeLog,
+    PpcEntitySnapshot,
 )
 from app.models.shipments import Shipment, ShipmentEvent
 from app.models.users import User
@@ -89,6 +90,7 @@ __all__ = [
     "PpcAnalysisSnapshot",
     "PpcAutomationSettings",
     "PpcChangeLog",
+    "PpcEntitySnapshot",
     "PricingSnapshot",
     "ProductSales",
     "RefundClaim",
