@@ -10,7 +10,7 @@ from uuid import UUID, uuid4
 
 from fastapi import APIRouter, Depends, HTTPException, Query, status
 from pydantic import BaseModel, Field
-from sqlmodel import col, select, text
+from sqlmodel import col, select, text, SQLModel
 from sqlmodel.ext.asyncio.session import AsyncSession
 
 from app.api.deps import get_session
@@ -403,11 +403,63 @@ async def reject_proposal(
 
 
 # ---------------------------------------------------------------------------
-# Proposal execution (locks + retries groundwork)
+# Proposal readiness check (Phase 2 — no-write, observation-period safe)
 # ---------------------------------------------------------------------------
 
 
-@router.get("/proposals/{proposal_id}/executions")
+class ProposalReadinessResponse(SQLModel):
+    proposal_id: str
+    proposal_name: str
+    proposal_status: str
+    total: int
+    ready: int
+    not_ready: int
+    all_ready: bool
+    by_type: dict[str, dict[str, int]]
+    items: list[dict[str, Any]]
+    checked_at: datetime
+
+
+class ProposalReadinessCheckRequest(BaseModel):
+    persist: bool = False  # if True, write readiness_check field back to DB rows
+
+
+@router.get(
+    "/proposals/{proposal_id}/readiness",
+    response_model=ProposalReadinessResponse,
+)
+async def get_proposal_readiness(
+    proposal_id: UUID,
+    persist: bool = Query(default=False, description="Write results back to DB rows"),
+    session: AsyncSession = SESSION_DEP,
+) -> ProposalReadinessResponse:
+    """Check readiness of every recommendation in a proposal.
+
+    This is a pure read-only diagnostic scan — it never calls the Amazon Ads API
+    and never modifies any recommendation or proposal row unless persist=True.
+
+    Readiness checks:
+    - bid    : needs keyword_id + ad_group_id, status=pending
+    - keyword: needs target_campaign_id (+ target_ad_group_id for add_keyword), status=pending
+    - placement: status=pending
+    - budget : status=pending
+
+    Returns a structured readiness report showing which items are safe to execute
+    and which have preconditions that must be resolved first.
+    """
+    from app.services.ppc_proposals import run_readiness_check
+
+    try:
+        result = await run_readiness_check(session, proposal_id, persist=persist)
+    except ValueError as exc:
+        raise HTTPException(status_code=404, detail="Proposal not found") from exc
+
+    result["checked_at"] = utcnow().isoformat()
+    return ProposalReadinessResponse(**result)  # type: ignore[arg-type]
+
+
+# Proposal execution (locks + retries groundwork)
+# ---------------------------------------------------------------------------)
 async def list_proposal_executions(
     proposal_id: UUID,
     limit: int = Query(default=10, ge=1, le=50),

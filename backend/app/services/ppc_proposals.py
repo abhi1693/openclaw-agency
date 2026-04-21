@@ -351,3 +351,142 @@ async def reject_proposal(
     proposal, _ = await get_proposal_with_items(session, proposal_id)
     proposal.status = "rejected"
     return proposal
+
+
+# ---------------------------------------------------------------------------
+# Proposal-item readiness checks
+# ---------------------------------------------------------------------------
+
+
+async def check_item_readiness(
+    session: AsyncSession,
+    item: PpcProposalItem,
+) -> tuple[str, str | None]:
+    """Return (readiness_check, readiness_detail) for a proposal item.
+
+    readiness_check is one of:
+      ready                  — item can be executed as-is
+      missing_ad_group_id    — bid/keyword needs ad_group_id
+      missing_target_campaign_id — keyword (add_keyword) needs target_campaign_id
+      missing_keyword_id     — bid needs keyword_id
+      unresolved             — keyword add_keyword has no target_ad_group_id yet
+      status_not_pending    — recommendation is not in pending status
+      unknown               — recommendation type not recognised
+    """
+    rec_type = item.recommendation_type
+
+    if rec_type == "bid":
+        result = await session.exec(
+            select(BidRecommendation).where(BidRecommendation.id == item.recommendation_id)
+        )
+        rec = result.first()
+        if rec is None:
+            return "unknown", f"BidRecommendation {item.recommendation_id} not found"
+        if rec.status != "pending":
+            return "status_not_pending", f"status is {rec.status}, must be pending"
+        if rec.keyword_id is None:
+            return "missing_keyword_id", "keyword_id is null"
+        if rec.ad_group_id is None:
+            return "missing_ad_group_id", "ad_group_id is null"
+        return "ready", None
+
+    elif rec_type == "keyword":
+        result = await session.exec(
+            select(KeywordRecommendation).where(KeywordRecommendation.id == item.recommendation_id)
+        )
+        rec = result.first()
+        if rec is None:
+            return "unknown", f"KeywordRecommendation {item.recommendation_id} not found"
+        if rec.status != "pending":
+            return "status_not_pending", f"status is {rec.status}, must be pending"
+        if rec.action == "add_keyword":
+            if rec.target_campaign_id is None:
+                return "missing_target_campaign_id", "target_campaign_id is null"
+            if rec.target_ad_group_id is None:
+                return "unresolved", "target_ad_group_id not yet resolved"
+            return "ready", None
+        # add_negative does not need ad_group_id
+        return "ready", None
+
+    elif rec_type == "placement":
+        result = await session.exec(
+            select(PlacementRecommendation).where(PlacementRecommendation.id == item.recommendation_id)
+        )
+        rec = result.first()
+        if rec is None:
+            return "unknown", f"PlacementRecommendation {item.recommendation_id} not found"
+        if rec.status != "pending":
+            return "status_not_pending", f"status is {rec.status}, must be pending"
+        return "ready", None
+
+    elif rec_type == "budget":
+        result = await session.exec(
+            select(BudgetAllocation).where(BudgetAllocation.id == item.recommendation_id)
+        )
+        rec = result.first()
+        if rec is None:
+            return "unknown", f"BudgetAllocation {item.recommendation_id} not found"
+        if rec.status != "pending":
+            return "status_not_pending", f"status is {rec.status}, must be pending"
+        return "ready", None
+
+    return "unknown", f"unrecognised recommendation_type: {rec_type}"
+
+
+async def run_readiness_check(
+    session: AsyncSession,
+    proposal_id: UUID,
+    persist: bool = False,
+) -> dict[str, object]:
+    """Check readiness of every item in a proposal.
+
+    Does NOT mutate any data unless persist=True, in which case the
+    readiness_check and readiness_detail fields on each PpcProposalItem
+    are written back so the UI can cache the result.
+
+    Returns a dict with:
+      proposal_id, total, ready, not_ready, by_type, items, all_ready
+    """
+    proposal, items = await get_proposal_with_items(session, proposal_id)
+
+    ready_items: list[PpcProposalItem] = []
+    not_ready_items: list[PpcProposalItem] = []
+
+    for item in items:
+        check, detail = await check_item_readiness(session, item)
+        if persist:
+            item.readiness_check = check
+            item.readiness_detail = detail
+        if check == "ready":
+            ready_items.append(item)
+        else:
+            not_ready_items.append(item)
+
+    if persist:
+        await session.commit()
+
+    by_type: dict[str, dict[str, int]] = {}
+    for item in not_ready_items:
+        by_type.setdefault(item.recommendation_type, {})
+        by_type[item.recommendation_type][check] = by_type[item.recommendation_type].get(check, 0) + 1
+
+    return {
+        "proposal_id": str(proposal_id),
+        "proposal_name": proposal.name,
+        "proposal_status": proposal.status,
+        "total": len(items),
+        "ready": len(ready_items),
+        "not_ready": len(not_ready_items),
+        "all_ready": len(not_ready_items) == 0,
+        "by_type": by_type,
+        "items": [
+            {
+                "item_id": str(item.id),
+                "recommendation_type": item.recommendation_type,
+                "recommendation_id": str(item.recommendation_id),
+                "readiness_check": item.readiness_check,
+                "readiness_detail": item.readiness_detail,
+            }
+            for item in (*ready_items, *not_ready_items)
+        ],
+    }

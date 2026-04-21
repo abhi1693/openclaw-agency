@@ -99,6 +99,14 @@ class PpcProposalItem(QueryModel, table=True):
     proposal_id: UUID = Field(index=True)
     recommendation_type: str = Field(index=True)  # bid | keyword | placement | budget
     recommendation_id: UUID = Field(index=True)
+    readiness_check: str | None = Field(
+        default=None,
+        index=True,
+        # One of: ready | missing_ad_group_id | missing_target_campaign_id |
+        #           missing_keyword_id | unresolved | status_not_pending | unknown
+        # Populated by the readiness-check endpoint; null means not yet checked.
+    )
+    readiness_detail: str | None = Field(default=None)
     created_at: datetime = Field(default_factory=utcnow, index=True)
 
 
