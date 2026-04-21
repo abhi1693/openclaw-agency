@@ -1664,7 +1664,7 @@ function StrategyContent({ file, onMarkRead, onContent }: { file: StrategyFile; 
       .then(d => { if (d.error) throw new Error(d.error); setContent(d.content); onMarkRead(file.filename); onContent?.(d.content) })
       .catch(e => setError(e.message))
       .finally(() => setLoading(false))
-  }, [file.filename]) // eslint-disable-line react-hooks/exhaustive-deps
+  }, [file.filename, onMarkRead, onContent])
 
   if (loading) return <div className="space-y-3">{[1,2,3,4,5].map(i => <Skeleton key={i} className="h-4"/>)}</div>
   if (error) return <div className="flex items-center gap-2 text-destructive"><X className="w-4 h-4"/><span>{error}</span></div>
@@ -1688,8 +1688,10 @@ function StrategyTab({ tabId, initialReport, deepLinkReport, onCountChange, onHi
   const [search, setSearch] = useState('')
   const [filterLabel, setFilterLabel] = useState('all')
   const [readSet, setReadSet] = useState<Set<string>>(new Set())
+  const [isMounted, setIsMounted] = useState(false)
 
   useEffect(() => { setReadSet(loadReadSet(STRATEGY_READ_KEY)) }, [])
+  useEffect(() => { setIsMounted(true) }, [])
 
   const markRead = useCallback((filename: string) => {
     setReadSet(prev => { const next = new Set(prev); next.add(filename); saveReadSet(STRATEGY_READ_KEY, next); return next })
@@ -1705,10 +1707,11 @@ function StrategyTab({ tabId, initialReport, deepLinkReport, onCountChange, onHi
   useEffect(() => { load() }, [load])
 
   useEffect(() => {
+    if (!isMounted) return
     if (!initialReport || !files.length) return
     const f = files.find(x => x.filename === initialReport)
     if (f && !selected) setSelected(f)
-  }, [initialReport, files]) // eslint-disable-line react-hooks/exhaustive-deps
+  }, [isMounted, initialReport, files, selected])
 
   // Deep link from Highlights backlink
   useEffect(() => {
