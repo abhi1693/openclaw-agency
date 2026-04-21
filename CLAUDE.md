@@ -128,3 +128,11 @@ This format is required. The orchestrating agent (Jarvis) uses it to route repor
 - Tailwind CSS, no external UI libraries except what's already installed
 - Chinese labels in sidebar, English in code
 - Dark slate theme with status badges (green/blue/yellow/red)
+PPC ACP-1 Entity Snapshot + Freshness Foundation
+
+Completed: 2026-04-21
+Status: merged (trunk model)
+Scope: read-only ppc_entity_snapshots table, freshness APIs, Campaign Snapshots tab
+
+Stacked on: origin/nightly-r4-dashboard-live-status (PR #226)
+
