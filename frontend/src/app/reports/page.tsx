@@ -1129,14 +1129,28 @@ function ListingContent({ file, onMarkRead, onContent }: { file: ListingReportFi
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
 
+  // Stable refs so the effect dep array stays clean without stale closures
+  const onMarkReadRef = useRef(onMarkRead)
+  const onContentRef = useRef(onContent)
+  onMarkReadRef.current = onMarkRead
+  onContentRef.current = onContent
+
   useEffect(() => {
+    let cancelled = false
     setLoading(true); setError(null)
     fetch(`/api/listing/reports?file=${encodeURIComponent(file.filename)}`)
       .then(r => r.json())
-      .then(d => { if (d.error) throw new Error(d.error); setContent(d.content); onMarkRead(file.filename); onContent?.(d.content) })
-      .catch(e => setError(e.message))
-      .finally(() => setLoading(false))
-  }, [file.filename]) // eslint-disable-line react-hooks/exhaustive-deps
+      .then(d => {
+        if (cancelled) return
+        if (d.error) throw new Error(d.error)
+        setContent(d.content)
+        onMarkReadRef.current(file.filename)
+        onContentRef.current?.(d.content)
+      })
+      .catch(e => { if (!cancelled) setError(e.message) })
+      .finally(() => { if (!cancelled) setLoading(false) })
+    return () => { cancelled = true }
+  }, [file.filename])
 
   if (loading) return <div className="space-y-3">{[1,2,3,4,5].map(i => <Skeleton key={i} className="h-4"/>)}</div>
   if (error) return <div className="flex items-center gap-2 text-destructive"><X className="w-4 h-4"/><span>{error}</span></div>
