@@ -419,7 +419,7 @@ interface SeasonalWindow {
 }
 
 function SeasonalWindowsCard() {
-  const today = new Date();
+  const [now] = useState(() => Date.now());
   const windows = seasonalWindows as SeasonalWindow[];
 
   return (
@@ -434,11 +434,11 @@ function SeasonalWindowsCard() {
         <div className="space-y-2">
           {windows.map((w, i) => {
             const daysLeft = w.deadline
-              ? Math.ceil((new Date(w.deadline).getTime() - Date.now()) / 86_400_000)
+              ? Math.ceil((new Date(w.deadline).getTime() - now) / 86_400_000)
               : w.prepDeadlineDays;
             const urgencyDot =
               daysLeft < 30 ? "🔴" : daysLeft <= 90 ? "🟡" : "⚪";
-            const peakLabel = new Date(today.getFullYear(), w.peakMonth - 1, 1)
+            const peakLabel = new Date(new Date(now).getFullYear(), w.peakMonth - 1, 1)
               .toLocaleString("en-US", { month: "long" });
             const absoluteLabel = w.deadline
               ? new Date(w.deadline).toLocaleDateString("en-US", { month: "short", day: "numeric" })

@@ -12,7 +12,7 @@ import {
   Archive, Truck, BoxIcon, Activity,
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
-// @ts-ignore
+// @ts-expect-error react-simple-maps lacks TypeScript declarations
 import { ComposableMap, Geographies, Geography, Marker } from 'react-simple-maps'
 import { DashboardPageLayout } from '@/components/templates/DashboardPageLayout'
 
@@ -317,24 +317,6 @@ function SkuDetailTable({ items }: { items: InventoryItem[] }) {
     }
   }
 
-  const SortIcon = ({ col }: { col: SortKey }) => {
-    if (sortKey !== col) return <ArrowUpDown className="w-3 h-3 opacity-40" />
-    return sortDir === 'asc' ? <ChevronUp className="w-3 h-3" /> : <ChevronDown className="w-3 h-3" />
-  }
-
-  const Th = ({ col, label, right }: { col: SortKey; label: string; right?: boolean }) => (
-    <th
-      className={cn(
-        'px-4 py-3 text-xs font-semibold uppercase tracking-wider text-slate-500 cursor-pointer hover:text-slate-900 transition-colors select-none',
-        right ? 'text-right' : 'text-left'
-      )}
-      onClick={() => handleSort(col)}
-    >
-      <span className={cn('flex items-center gap-1', right && 'justify-end')}>
-        {label} <SortIcon col={col} />
-      </span>
-    </th>
-  )
 
   return (
     <div className="overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm">
