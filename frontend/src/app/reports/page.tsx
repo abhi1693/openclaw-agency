@@ -1183,20 +1183,23 @@ function ListingTab({ tabId, initialReport, deepLinkReport, onCountChange, onHig
   }, [])
 
   useEffect(() => { load() }, [load])
+  // Track first mount to guard URL-restore and deep-link effects against stale closures
+  const [isMounted, setIsMounted] = useState(false)
+  useEffect(() => { setIsMounted(true) }, [])
 
   // Restore modal from URL on load
   useEffect(() => {
-    if (!initialReport || !files.length) return
+    if (!isMounted || !initialReport || !files.length) return
     const f = files.find(x => x.filename === initialReport)
     if (f && !selected) setSelected(f)
-  }, [initialReport, files]) // eslint-disable-line react-hooks/exhaustive-deps
+  }, [isMounted, initialReport, files, selected])
 
   // Deep link from Highlights backlink
   useEffect(() => {
-    if (!deepLinkReport || !files.length) return
+    if (!isMounted || !deepLinkReport || !files.length) return
     const f = files.find(x => x.filename === deepLinkReport)
     if (f) { setSelected(f); setSelectedContent(null) }
-  }, [deepLinkReport, files]) // eslint-disable-line react-hooks/exhaustive-deps
+  }, [isMounted, deepLinkReport, files])
 
   useEffect(() => { onCountChangeRef.current?.(files.length, !loading) }, [files.length, loading])
 
