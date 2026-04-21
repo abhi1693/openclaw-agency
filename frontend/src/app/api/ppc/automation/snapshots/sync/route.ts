@@ -1,10 +1,10 @@
 import { NextRequest, NextResponse } from 'next/server'
 
-const BACKEND = process.env.NEXT_PUBLIC_BACKEND_URL ?? 'http://localhost:8000'
+import { fetchBackend } from '../../../../amazon/_backend'
 
 export async function POST(req: NextRequest) {
   try {
-    const res = await fetch(`${BACKEND}/ppc/automation/snapshots/sync`, {
+    const res = await fetchBackend('/api/v1/ppc/automation/snapshots/sync', {
       method: 'POST',
       headers: { Authorization: req.headers.get('authorization') ?? '', 'Content-Type': 'application/json' },
     })

@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 
-const BACKEND = process.env.NEXT_PUBLIC_BACKEND_URL ?? 'http://localhost:8000'
+import { fetchBackend } from '../../../amazon/_backend'
 
 export async function GET(req: NextRequest) {
   const { searchParams } = req.nextUrl
@@ -11,7 +11,7 @@ export async function GET(req: NextRequest) {
   if (searchParams.get('limit')) params.set('limit', searchParams.get('limit')!)
   if (searchParams.get('offset')) params.set('offset', searchParams.get('offset')!)
   try {
-    const res = await fetch(`${BACKEND}/ppc/automation/snapshots?${params}`, {
+    const res = await fetchBackend(`/api/v1/ppc/automation/snapshots?${params}`, {
       headers: { Authorization: req.headers.get('authorization') ?? '' },
     })
     if (!res.ok) return NextResponse.json({ error: res.statusText }, { status: res.status })
