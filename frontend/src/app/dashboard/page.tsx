@@ -5,7 +5,7 @@ export const dynamic = "force-dynamic";
 import { type KeyboardEvent, type MouseEvent, useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 
 import { SignedIn, SignedOut, useAuth } from "@/auth/clerk";
 import {
@@ -13,6 +13,7 @@ import {
   AlertTriangle,
   ArrowUpRight,
   Bot,
+  Eye,
   Info,
   LayoutGrid,
   Shield,
@@ -26,12 +27,13 @@ import { DashboardSidebar } from "@/components/organisms/DashboardSidebar";
 import { DashboardShell } from "@/components/templates/DashboardShell";
 import { Markdown } from "@/components/atoms/Markdown";
 import { SignedOutPanel } from "@/components/auth/SignedOutPanel";
-import { ApiError } from "@/api/mutator";
+import { ApiError, customFetch } from "@/api/mutator";
 import {
   type dashboardMetricsApiV1MetricsDashboardGetResponse,
   useDashboardMetricsApiV1MetricsDashboardGet,
 } from "@/api/generated/metrics/metrics";
 import {
+  getGatewaySessionApiV1GatewaysSessionsSessionIdGet,
   gatewaysStatusApiV1GatewaysStatusGet,
 } from "@/api/generated/gateways/gateways";
 import type { GatewaysStatusResponse } from "@/api/generated/model/gatewaysStatusResponse";
@@ -58,10 +60,15 @@ import { cn } from "@/lib/utils";
 
 type SessionSummary = {
   key: string;
+  sessionId: string;
+  boardId: string | null;
   title: string;
   subtitle: string;
   usage: string;
   lastSeenAt: string | null;
+  provider: string | null;
+  model: string | null;
+  health: "active" | "idle" | "error";
   isMain: boolean;
 };
 
@@ -95,6 +102,63 @@ const DASHBOARD_RANGE_LABEL = "7 days";
 
 const numberFormatter = new Intl.NumberFormat("en-US");
 const SESSION_ID_KEYS = ["key", "id", "session_key", "sessionKey", "sessionId"];
+const SESSION_IDLE_MS = 5 * 60 * 1000;
+
+const PROVIDER_BADGE_CLASS_BY_PROVIDER: Record<string, string> = {
+  anthropic: "bg-amber-100 text-amber-700",
+  google: "bg-blue-100 text-blue-700",
+  minimax: "bg-purple-100 text-purple-700",
+  openai: "bg-emerald-100 text-emerald-700",
+  "openai-codex": "bg-emerald-100 text-emerald-700",
+  openrouter: "bg-slate-100 text-slate-700",
+};
+
+const providerFromModel = (model: string | null): string | null => {
+  if (!model) return null;
+  const [prefix] = model.split("/");
+  if (!prefix) return null;
+  if (prefix === "openai-codex") return "openai";
+  if (prefix === "minimax-portal") return "minimax";
+  return prefix;
+};
+
+const providerBadgeClass = (provider: string | null): string =>
+  provider
+    ? PROVIDER_BADGE_CLASS_BY_PROVIDER[provider.toLowerCase()] ??
+      "bg-slate-100 text-slate-700"
+    : "bg-slate-100 text-slate-700";
+
+const providerLabel = (provider: string | null): string =>
+  provider ? provider.replace(/[-_]/g, " ") : "Provider";
+
+const modelLabel = (model: string | null): string | null => {
+  if (!model) return null;
+  return model.split("/").pop() ?? model;
+};
+
+const deriveSessionHealth = (
+  status: string | null,
+  lastSeenAt: string | null,
+): SessionSummary["health"] => {
+  const normalized = (status ?? "").trim().toLowerCase();
+  if (
+    normalized.includes("error") ||
+    normalized.includes("failed") ||
+    normalized.includes("fail")
+  ) {
+    return "error";
+  }
+  if (normalized.includes("idle")) return "idle";
+  const lastSeen = lastSeenAt ? parseTimestamp(lastSeenAt) : null;
+  if (lastSeen && Date.now() - lastSeen.getTime() > SESSION_IDLE_MS) return "idle";
+  return "active";
+};
+
+const sessionHealthDotClass: Record<SessionSummary["health"], string> = {
+  active: "bg-emerald-500",
+  idle: "bg-amber-500",
+  error: "bg-rose-500",
+};
 
 const pendingSinceBadgeClass = (createdAt?: string | null) => {
   const tone = getPendingSinceTone(createdAt);
@@ -281,7 +345,16 @@ const toSessionSummaries = (
       "chatType",
     ]);
     const model = readString(entry, ["model", "model_name", "provider", "engine"]);
-    const modelProvider = readString(entry, ["modelProvider", "model_provider", "provider"]);
+    const modelProvider =
+      readString(entry, ["modelProvider", "model_provider", "provider"]) ??
+      providerFromModel(model);
+    const sessionStatus = readString(entry, [
+      "status",
+      "state",
+      "health",
+      "lifecycle",
+      "phase",
+    ]);
     const lastSeenAt = readTimestampFromRecords(candidateRecords, [
       "updated_at",
       "updatedAt",
@@ -356,10 +429,15 @@ const toSessionSummaries = (
 
     return {
       key,
+      sessionId: key,
+      boardId: null,
       title: label,
       subtitle: subtitleWithProvider || subtitle,
       usage,
       lastSeenAt,
+      provider: modelProvider,
+      model,
+      health: deriveSessionHealth(sessionStatus, lastSeenAt),
       isMain:
         mainIdentifiers.length > 0 &&
         sharesSessionIdentity(identifiers, mainIdentifiers),
@@ -499,19 +577,18 @@ interface SeasonalWindow {
 }
 
 function SeasonalBanner() {
-  const now = Date.now()
+  const [now] = useState(() => Date.now())
   const FOURTEEN_DAYS = 14 * 24 * 60 * 60 * 1000
-  const [dismissed, setDismissed] = useState<Record<string, boolean>>({})
-
-  useEffect(() => {
+  const [dismissed, setDismissed] = useState<Record<string, boolean>>(() => {
+    if (typeof window === "undefined") return {}
     const initial: Record<string, boolean> = {}
     for (const w of seasonalWindows as SeasonalWindow[]) {
       if (!w.id || !w.deadline) continue
       const key = `mc:shimmer-banner-dismissed-${w.id}`
       if (localStorage.getItem(key) === "1") initial[w.id] = true
     }
-    setDismissed(initial)
-  }, [])
+    return initial
+  })
 
   const activeWindows = (seasonalWindows as SeasonalWindow[]).filter((w) => {
     if (!w.id || !w.deadline) return false
@@ -553,7 +630,9 @@ function SeasonalBanner() {
 
 export default function DashboardPage() {
   const router = useRouter();
+  const queryClient = useQueryClient();
   const { isSignedIn } = useAuth();
+  const [sessionActionMessage, setSessionActionMessage] = useState<string | null>(null);
 
   const boardsQuery = useListBoardsApiV1BoardsGet<listBoardsApiV1BoardsGetResponse, ApiError>(
     { limit: 200 },
@@ -624,15 +703,15 @@ export default function DashboardPage() {
 
   const metrics = metricsQuery.data?.status === 200 ? metricsQuery.data.data : null;
 
-  const [lastFetchedAt, setLastFetchedAt] = useState(0)
-  useEffect(() => { if (metrics) setLastFetchedAt(Date.now()) }, [metrics])
-  const effectiveUpdatedAt = metricsQuery.dataUpdatedAt || lastFetchedAt
-  const [secondsSince, setSecondsSince] = useState(0)
-  useEffect(() => { setSecondsSince(0) }, [effectiveUpdatedAt])
+  const effectiveUpdatedAt = metricsQuery.dataUpdatedAt
+  const [nowMs, setNowMs] = useState(() => Date.now())
   useEffect(() => {
-    const id = setInterval(() => setSecondsSince(s => s + 1), 1000)
+    const id = setInterval(() => setNowMs(Date.now()), 1000)
     return () => clearInterval(id)
   }, [])
+  const secondsSince = effectiveUpdatedAt
+    ? Math.max(0, Math.floor((nowMs - effectiveUpdatedAt) / 1000))
+    : 0
 
   const onlineAgents = useMemo(
     () => agents.filter((agent) => (agent.status ?? "").toLowerCase() === "online").length,
@@ -728,6 +807,7 @@ export default function DashboardPage() {
         return toSessionSummaries(snapshot.sessions, snapshot.mainSession).map((session) => ({
           ...session,
           key: `${snapshot.gatewayId}:${session.key}`,
+          boardId: snapshot.boardId,
           subtitle: `${sourceLabel} · ${session.subtitle}`,
         }));
       }),
@@ -975,6 +1055,41 @@ export default function DashboardPage() {
     navigateToActivityFeed(href);
   };
 
+  const handleInspectSession = async (session: SessionSummary) => {
+    setSessionActionMessage(null);
+    try {
+      await getGatewaySessionApiV1GatewaysSessionsSessionIdGet(session.sessionId, {
+        board_id: session.boardId,
+      });
+      setSessionActionMessage(`Inspected ${session.title}.`);
+    } catch (error) {
+      setSessionActionMessage(
+        error instanceof Error ? `Inspect failed: ${error.message}` : "Inspect failed.",
+      );
+    }
+  };
+
+  const handleKillSession = async (session: SessionSummary) => {
+    setSessionActionMessage(null);
+    try {
+      const params = new URLSearchParams();
+      if (session.boardId) params.set("board_id", session.boardId);
+      const query = params.toString();
+      await customFetch<{ data: unknown; status: number; headers: Headers }>(
+        `/api/v1/gateways/sessions/${encodeURIComponent(session.sessionId)}${
+          query ? `?${query}` : ""
+        }`,
+        { method: "DELETE" },
+      );
+      await queryClient.invalidateQueries({ queryKey: ["dashboard", "gateway-statuses"] });
+      setSessionActionMessage(`Killed ${session.title}.`);
+    } catch (error) {
+      setSessionActionMessage(
+        error instanceof Error ? `Kill failed: ${error.message}` : "Kill failed.",
+      );
+    }
+  };
+
   return (
     <DashboardShell>
       <SignedOut>
@@ -1123,6 +1238,11 @@ export default function DashboardPage() {
                   <h3 className="text-lg font-semibold text-slate-900">Sessions</h3>
                   <span className="text-xs text-slate-500">{formatCount(activeSessions)}</span>
                 </div>
+                {sessionActionMessage ? (
+                  <div className="mb-2 rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 text-xs text-slate-600">
+                    {sessionActionMessage}
+                  </div>
+                ) : null}
                 <div className="max-h-[310px] space-y-2 overflow-x-hidden overflow-y-auto pr-1">
                   {!hasConfiguredGateways ? (
                     <div className="rounded-lg border border-slate-200 bg-slate-50 p-3 text-sm text-slate-500">
@@ -1150,15 +1270,31 @@ export default function DashboardPage() {
                             <div className="min-w-0 flex-1">
                               <p className="truncate text-sm font-medium text-slate-900">
                                 <span
-                                  className={`mr-2 inline-block h-2 w-2 rounded-full ${
-                                    session.isMain ? "bg-emerald-500" : "bg-slate-400"
-                                  }`}
+                                  className={cn(
+                                    "mr-2 inline-block h-2.5 w-2.5 rounded-full",
+                                    sessionHealthDotClass[session.health],
+                                  )}
+                                  title={session.health}
                                 />
                                 {session.title}
                               </p>
-                              <p className="mt-0.5 truncate text-xs text-slate-500">{session.subtitle}</p>
+                              <div className="mt-1 flex min-w-0 items-center gap-2">
+                                <span
+                                  className={cn(
+                                    "shrink-0 rounded-full px-2 py-0.5 text-[10px] font-semibold uppercase",
+                                    providerBadgeClass(session.provider),
+                                  )}
+                                  title={session.model ?? providerLabel(session.provider)}
+                                >
+                                  {providerLabel(session.provider)}
+                                  {session.model ? ` · ${modelLabel(session.model)}` : ""}
+                                </span>
+                                <p className="min-w-0 truncate text-xs text-slate-500">
+                                  {session.subtitle}
+                                </p>
+                              </div>
                             </div>
-                            <div className="min-w-0 max-w-[45%] text-right">
+                            <div className="min-w-0 max-w-[36%] text-right">
                               <p className="truncate text-xs font-medium text-slate-700">
                                 {session.usage === DASH ? "Usage unavailable" : session.usage}
                               </p>
@@ -1167,6 +1303,26 @@ export default function DashboardPage() {
                                   ? formatRelativeTimestamp(session.lastSeenAt)
                                   : "Activity unavailable"}
                               </p>
+                            </div>
+                            <div className="flex shrink-0 items-center gap-1">
+                              <button
+                                type="button"
+                                className="inline-flex h-8 w-8 items-center justify-center rounded-lg text-slate-500 transition hover:bg-slate-100 hover:text-slate-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-300"
+                                aria-label={`Inspect ${session.title}`}
+                                title="Inspect"
+                                onClick={() => void handleInspectSession(session)}
+                              >
+                                <Eye className="h-4 w-4" />
+                              </button>
+                              <button
+                                type="button"
+                                className="inline-flex h-8 w-8 items-center justify-center rounded-lg text-slate-500 transition hover:bg-rose-50 hover:text-rose-600 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-rose-200"
+                                aria-label={`Kill ${session.title}`}
+                                title="Kill"
+                                onClick={() => void handleKillSession(session)}
+                              >
+                                <X className="h-4 w-4" />
+                              </button>
                             </div>
                           </div>
                         </div>
