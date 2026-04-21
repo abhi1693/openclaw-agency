@@ -1999,14 +1999,28 @@ function IntelContent({ file, onMarkRead, onContent }: { file: IntelReportFile; 
   const [loading, setLoading] = useState(true)
   const [error, setError]     = useState<string | null>(null)
 
+  // Stable refs so the effect dep array stays clean without stale closures
+  const onMarkReadRef = useRef(onMarkRead)
+  const onContentRef = useRef(onContent)
+  onMarkReadRef.current = onMarkRead
+  onContentRef.current = onContent
+
   useEffect(() => {
+    let cancelled = false
     setLoading(true); setError(null)
     fetch(`/api/intel/reports?file=${encodeURIComponent(file.filename)}&type=${file.type}`)
       .then(r => r.json())
-      .then(d => { if (d.error) throw new Error(d.error); setContent(d.content); onMarkRead(file.filename); onContent?.(d.content) })
-      .catch(e => setError(e.message))
-      .finally(() => setLoading(false))
-  }, [file.filename]) // eslint-disable-line react-hooks/exhaustive-deps
+      .then(d => {
+        if (cancelled) return
+        if (d.error) throw new Error(d.error)
+        setContent(d.content)
+        onMarkReadRef.current(file.filename)
+        onContentRef.current?.(d.content)
+      })
+      .catch(e => { if (!cancelled) setError(e.message) })
+      .finally(() => { if (!cancelled) setLoading(false) })
+    return () => { cancelled = true }
+  }, [file.filename])
 
   if (loading) return <div className="space-y-3">{[1,2,3,4,5].map(i => <Skeleton key={i} className="h-4"/>)}</div>
   if (error) return <div className="flex items-center gap-2 text-destructive"><X className="w-4 h-4"/><span>{error}</span></div>
@@ -2049,11 +2063,17 @@ function IntelTab({ tabId, initialReport, deepLinkReport, onCountChange, onHighl
 
   useEffect(() => { load() }, [load])
 
+  // Guard URL-restore and deep-link effects to first mount only — prevents
+  // stale-closure bugs where selected / selectedContent snapshot the wrong version
+  const [isMounted, setIsMounted] = useState(false)
+  useEffect(() => { setIsMounted(true) }, [])
+
+  // Restore modal from URL on load
   useEffect(() => {
-    if (!initialReport || !files.length) return
+    if (!isMounted || !initialReport || !files.length) return
     const f = files.find(x => x.filename === initialReport)
     if (f && !selected) setSelected(f)
-  }, [initialReport, files]) // eslint-disable-line react-hooks/exhaustive-deps
+  }, [isMounted, initialReport, files, selected])
 
   // Deep link from Highlights backlink
   useEffect(() => {
