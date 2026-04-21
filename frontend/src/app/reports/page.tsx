@@ -1462,7 +1462,7 @@ function PpcTab({ tabId, initialReport, deepLinkReport, onCountChange, onHighlig
     if (!deepLinkReport || !files.length) return
     const f = files.find(x => x.filename === deepLinkReport)
     if (f) { setSelected(f); setSelectedContent(null) }
-  }, [deepLinkReport, files]) // eslint-disable-line react-hooks/exhaustive-deps
+  }, [deepLinkReport, files])
 
   useEffect(() => { onCountChangeRef.current?.(files.length, !loading) }, [files.length, loading])
 
@@ -1682,7 +1682,7 @@ function StrategyTab({ tabId, initialReport, deepLinkReport, onCountChange, onHi
     if (!deepLinkReport || !files.length) return
     const f = files.find(x => x.filename === deepLinkReport)
     if (f) { setSelected(f); setSelectedContent(null) }
-  }, [deepLinkReport, files]) // eslint-disable-line react-hooks/exhaustive-deps
+  }, [deepLinkReport, files])
 
   useEffect(() => { onCountChangeRef.current?.(files.length, !loading) }, [files.length, loading])
 
@@ -2024,7 +2024,7 @@ function IntelTab({ tabId, initialReport, deepLinkReport, onCountChange, onHighl
     if (!deepLinkReport || !files.length) return
     const f = files.find(x => x.filename === deepLinkReport)
     if (f) { setSelected(f); setSelectedContent(null) }
-  }, [deepLinkReport, files]) // eslint-disable-line react-hooks/exhaustive-deps
+  }, [deepLinkReport, files])
 
   useEffect(() => { onCountChangeRef.current?.(files.length, !loading) }, [files.length, loading])
 
