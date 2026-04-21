@@ -176,3 +176,17 @@ class KeywordRecommendationResolvedResponse(SQLModel):
     target_ad_group_id: str | None
     status: str
     action: str
+
+
+class AutoResolveAdGroupResponse(SQLModel):
+    """Result of auto-resolving add_keyword recommendations where exactly one ad group candidate exists.
+
+    Auto-resolution is read-only: it uses local entity-snapshot data only,
+    makes no Amazon API calls, and requires no user selection.
+    """
+
+    auto_resolved: int
+    already_resolved: int
+    campaigns_checked: int
+    campaigns_skipped: int  # had multiple or zero ad group candidates
+    skipped_recommendations: list[dict[str, str]]  # [{rec_id, campaign_id, reason}]

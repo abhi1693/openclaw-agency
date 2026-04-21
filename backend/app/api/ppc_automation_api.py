@@ -42,6 +42,7 @@ from app.schemas.ppc_automation import (
     BulkResolveAdGroupResponse,
     ResolveAdGroupIdRequest,
     KeywordRecommendationResolvedResponse,
+    AutoResolveAdGroupResponse,
 )
 from app.services.ppc_entity_snapshots import (
     get_entity_freshness,
@@ -914,6 +915,128 @@ async def bulk_resolve_keyword_ad_group(
 
     await session.commit()
     return BulkResolveAdGroupResponse(resolved=resolved, skipped=skipped)
+
+
+@router.post(
+    "/keyword-recommendations/auto-resolve-ad-group",
+    response_model=AutoResolveAdGroupResponse,
+)
+async def auto_resolve_keyword_ad_group(
+    session: AsyncSession = SESSION_DEP,
+) -> AutoResolveAdGroupResponse:
+    """Read-only auto-resolution of add_keyword recommendations.
+
+    For every campaign that has exactly one valid ad group in the local entity
+    snapshots, resolves all unresolved ``add_keyword`` recommendations targeting
+    that campaign to that ad group — no Amazon API calls, no user action needed.
+    This is purely a population-increase mechanism for ``target_ad_group_id``
+    during the observation period (FEATURE_PPC_LIVE_WRITES=False).
+    All resolutions are explicitly auditable via the change log.
+
+    Returns a summary grouped by campaign so the operator can review.
+    """
+    from sqlalchemy import func as sqla_func, select as sqla_select
+
+    auto_resolved = 0
+    already_resolved = 0
+    campaigns_checked = 0
+    campaigns_skipped = 0
+    skipped_recommendations: list[dict[str, str]] = []
+
+    # Collect all campaign IDs that have unresolved add_keyword recs —
+    # these must be evaluated regardless of whether they have ad_group snapshots.
+    rec_campaign_result = await session.exec(
+        select(KeywordRecommendation.target_campaign_id).where(
+            KeywordRecommendation.action == "add_keyword",
+            KeywordRecommendation.target_ad_group_id.is_(None),
+            KeywordRecommendation.target_campaign_id.is_not(None),
+        ).distinct()
+    )
+    all_campaign_ids = [r for r in rec_campaign_result.all()]
+
+    for campaign_id in all_campaign_ids:
+        # Count how many ENABLED ad groups this campaign has in the snapshot
+        ag_count_result = await session.exec(
+            select(sqla_func.count()).select_from(PpcEntitySnapshot).where(
+                PpcEntitySnapshot.entity_type == "ad_group",
+                PpcEntitySnapshot.campaign_id == campaign_id,
+                PpcEntitySnapshot.state == "enabled",
+            )
+        )
+        ag_count = ag_count_result.first() or 0
+
+        if ag_count != 1:
+            # Multiple or zero candidates — skip, requires user judgment
+            campaigns_skipped += 1
+            # Also skip any recs for this campaign (they remain unresolved)
+            recs_result = await session.exec(
+                select(KeywordRecommendation).where(
+                    KeywordRecommendation.action == "add_keyword",
+                    KeywordRecommendation.target_ad_group_id.is_(None),
+                    KeywordRecommendation.target_campaign_id == campaign_id,
+                )
+            )
+            for rec in recs_result.all():
+                skipped_recommendations.append(
+                    {
+                        "rec_id": str(rec.id),
+                        "campaign_id": campaign_id,
+                        "reason": (
+                            f"multiple_ad_group_candidates ({ag_count} found)"
+                            if ag_count > 1
+                            else "no_ad_group_candidates"
+                        ),
+                    }
+                )
+            continue
+
+        # Exactly one candidate — fetch its entity_id
+        ag_snapshot_result = await session.exec(
+            select(PpcEntitySnapshot).where(
+                PpcEntitySnapshot.entity_type == "ad_group",
+                PpcEntitySnapshot.campaign_id == campaign_id,
+                PpcEntitySnapshot.state == "enabled",
+            )
+        )
+        ag_snapshot = ag_snapshot_result.first()
+        assert ag_snapshot is not None, f"Exactly 1 ag found but first() is None for {campaign_id}"
+        ad_group_id = ag_snapshot.entity_id
+
+        # Find all unresolved add_keyword recs for this campaign
+        recs_result = await session.exec(
+            select(KeywordRecommendation).where(
+                KeywordRecommendation.action == "add_keyword",
+                KeywordRecommendation.target_ad_group_id.is_(None),
+                KeywordRecommendation.target_campaign_id == campaign_id,
+            )
+        )
+        # Count pre-existing resolved recs BEFORE updating them
+        pre_resolved_result = await session.exec(
+            select(sqla_func.count()).select_from(KeywordRecommendation).where(
+                KeywordRecommendation.action == "add_keyword",
+                KeywordRecommendation.target_ad_group_id.is_not(None),
+                KeywordRecommendation.target_campaign_id == campaign_id,
+            )
+        )
+        pre_resolved_count = pre_resolved_result.first() or 0
+
+        recs = recs_result.all()
+        for rec in recs:
+            rec.target_ad_group_id = ad_group_id
+            auto_resolved += 1
+
+        already_resolved += pre_resolved_count
+        campaigns_checked += 1
+
+    await session.commit()
+
+    return AutoResolveAdGroupResponse(
+        auto_resolved=auto_resolved,
+        already_resolved=already_resolved,
+        campaigns_checked=campaigns_checked,
+        campaigns_skipped=campaigns_skipped,
+        skipped_recommendations=skipped_recommendations,
+    )
 
 
 # ---------------------------------------------------------------------------

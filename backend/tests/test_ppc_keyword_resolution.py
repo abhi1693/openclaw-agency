@@ -427,3 +427,141 @@ async def test_bulk_resolve_returns_empty_when_no_matching_recs() -> None:
     data = resp.json()
     assert data["resolved"] == []
     assert data["skipped"] == []
+
+# ---------------------------------------------------------------------------
+# POST /ppc/automation/keyword-recommendations/auto-resolve-ad-group
+# ---------------------------------------------------------------------------
+
+AUTO_CAMPAIGN_ID = "CAMP-AUTO"
+AUTO_AG_ID = "AG-AUTO-1"
+
+
+@pytest.mark.asyncio
+async def test_auto_resolve_resolves_single_ad_group_campaign() -> None:
+    """When exactly one enabled ad group exists for a campaign, recs auto-resolve."""
+    engine = await _make_engine()
+    sm = await _make_session_maker(engine)
+    async with sm() as session:
+        session.add(_ad_group_snapshot(AUTO_AG_ID, AUTO_CAMPAIGN_ID))
+        # Two unresolved recs for that campaign
+        session.add(_keyword_rec(target_campaign_id=AUTO_CAMPAIGN_ID))
+        session.add(_keyword_rec(target_campaign_id=AUTO_CAMPAIGN_ID))
+        await session.commit()
+
+    app = _build_test_app(sm)
+    async with AsyncClient(
+        transport=ASGITransport(app=app),
+        base_url="http://test",
+    ) as ac:
+        resp = await ac.post("/ppc/automation/keyword-recommendations/auto-resolve-ad-group")
+
+    assert resp.status_code == 200
+    data = resp.json()
+    assert data["auto_resolved"] == 2
+    assert data["campaigns_checked"] == 1
+    assert data["campaigns_skipped"] == 0
+    assert data["already_resolved"] == 0
+    assert data["skipped_recommendations"] == []
+
+
+@pytest.mark.asyncio
+async def test_auto_resolve_skips_multiple_ad_group_campaigns() -> None:
+    """When multiple enabled ad groups exist, recs are skipped (requires user judgment)."""
+    engine = await _make_engine()
+    sm = await _make_session_maker(engine)
+    async with sm() as session:
+        session.add(_ad_group_snapshot("AG-MULTI-1", AUTO_CAMPAIGN_ID, name="AG One"))
+        session.add(_ad_group_snapshot("AG-MULTI-2", AUTO_CAMPAIGN_ID, name="AG Two"))
+        session.add(_keyword_rec(target_campaign_id=AUTO_CAMPAIGN_ID))
+        await session.commit()
+
+    app = _build_test_app(sm)
+    async with AsyncClient(
+        transport=ASGITransport(app=app),
+        base_url="http://test",
+    ) as ac:
+        resp = await ac.post("/ppc/automation/keyword-recommendations/auto-resolve-ad-group")
+
+    assert resp.status_code == 200
+    data = resp.json()
+    assert data["auto_resolved"] == 0
+    assert data["campaigns_checked"] == 0
+    assert data["campaigns_skipped"] == 1
+    assert len(data["skipped_recommendations"]) == 1
+    assert data["skipped_recommendations"][0]["reason"] == "multiple_ad_group_candidates (2 found)"
+
+
+@pytest.mark.asyncio
+async def test_auto_resolve_skips_zero_ad_group_campaigns() -> None:
+    """Campaigns with no ad groups in snapshot are skipped."""
+    engine = await _make_engine()
+    sm = await _make_session_maker(engine)
+    async with sm() as session:
+        # Ad group belongs to a DIFFERENT campaign only
+        session.add(_ad_group_snapshot("AG-OTHER", "OTHER-CAMP"))
+        session.add(_keyword_rec(target_campaign_id="ORPHAN-CAMP"))
+        await session.commit()
+
+    app = _build_test_app(sm)
+    async with AsyncClient(
+        transport=ASGITransport(app=app),
+        base_url="http://test",
+    ) as ac:
+        resp = await ac.post("/ppc/automation/keyword-recommendations/auto-resolve-ad-group")
+
+    assert resp.status_code == 200
+    data = resp.json()
+    assert data["auto_resolved"] == 0
+    assert data["campaigns_skipped"] == 1
+    assert len(data["skipped_recommendations"]) == 1
+    assert data["skipped_recommendations"][0]["reason"] == "no_ad_group_candidates"
+
+
+@pytest.mark.asyncio
+async def test_auto_resolve_ignores_disabled_ad_groups() -> None:
+    """Only ENABLED ad groups count toward the single-candidate check."""
+    engine = await _make_engine()
+    sm = await _make_session_maker(engine)
+    async with sm() as session:
+        # Disabled ad group — should NOT be considered a candidate
+        session.add(_ad_group_snapshot("AG-DISABLED", AUTO_CAMPAIGN_ID, state="paused"))
+        session.add(_keyword_rec(target_campaign_id=AUTO_CAMPAIGN_ID))
+        await session.commit()
+
+    app = _build_test_app(sm)
+    async with AsyncClient(
+        transport=ASGITransport(app=app),
+        base_url="http://test",
+    ) as ac:
+        resp = await ac.post("/ppc/automation/keyword-recommendations/auto-resolve-ad-group")
+
+    assert resp.status_code == 200
+    data = resp.json()
+    assert data["auto_resolved"] == 0
+    assert data["campaigns_skipped"] == 1
+    assert data["skipped_recommendations"][0]["reason"] == "no_ad_group_candidates"
+
+
+@pytest.mark.asyncio
+async def test_auto_resolve_counts_already_resolved() -> None:
+    """already_resolved is a running count across all campaigns."""
+    engine = await _make_engine()
+    sm = await _make_session_maker(engine)
+    async with sm() as session:
+        session.add(_ad_group_snapshot(AUTO_AG_ID, AUTO_CAMPAIGN_ID))
+        session.add(_keyword_rec(target_campaign_id=AUTO_CAMPAIGN_ID, target_ad_group_id="ALREADY-SET"))
+        session.add(_keyword_rec(target_campaign_id=AUTO_CAMPAIGN_ID))
+        await session.commit()
+
+    app = _build_test_app(sm)
+    async with AsyncClient(
+        transport=ASGITransport(app=app),
+        base_url="http://test",
+    ) as ac:
+        resp = await ac.post("/ppc/automation/keyword-recommendations/auto-resolve-ad-group")
+
+    assert resp.status_code == 200
+    data = resp.json()
+    assert data["auto_resolved"] == 1
+    assert data["already_resolved"] == 1
+
