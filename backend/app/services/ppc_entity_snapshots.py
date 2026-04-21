@@ -5,6 +5,7 @@ from __future__ import annotations
 from collections import Counter
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
+from uuid import UUID
 
 from sqlalchemy import func
 from sqlmodel import col, select
@@ -12,7 +13,7 @@ from sqlmodel.ext.asyncio.session import AsyncSession
 
 from app.core.time import utcnow
 from app.models.amazon_orders import AdMetric, Campaign
-from app.models.ppc_automation import PpcEntitySnapshot
+from app.models.ppc_automation import PpcEntitySnapshot, PpcRunHistory
 from app.schemas.ppc_automation import (
     PpcEntitySnapshotsResponse,
     PpcEntitySnapshotRead,
@@ -20,6 +21,7 @@ from app.schemas.ppc_automation import (
     PpcEntityTypeFreshness,
     PpcSyncStatusResponse,
 )
+from app.services.ppc_run_history import log_run_end
 
 CAMPAIGN_ENTITY_TYPE = "campaign"
 
@@ -43,7 +45,45 @@ def _as_utc(value: datetime | None) -> datetime | None:
     return value.astimezone(timezone.utc)
 
 
-async def sync_campaign_entity_snapshots(session: AsyncSession) -> PpcSnapshotSyncResult:
+def _freshness_state(
+    age_seconds: int | None,
+    stale_after_seconds: int,
+) -> tuple[bool, str | None]:
+    if age_seconds is None:
+        return False, None
+
+    critical_threshold_seconds = stale_after_seconds * 2
+    if age_seconds > critical_threshold_seconds:
+        return True, "critical"
+    if age_seconds > stale_after_seconds:
+        return True, "stale"
+    return False, None
+
+
+def _overall_alert(entity_types: list[PpcEntityTypeFreshness]) -> str | None:
+    alerts = {entity.alert for entity in entity_types}
+    if "critical" in alerts:
+        return "critical"
+    if "stale" in alerts:
+        return "stale"
+    return None
+
+
+async def _latest_snapshot_run_id(session: AsyncSession) -> UUID | None:
+    result = await session.exec(
+        select(PpcRunHistory.id)
+        .where(PpcRunHistory.run_type == "snapshot_sync")
+        .where(PpcRunHistory.status == "completed")
+        .order_by(col(PpcRunHistory.started_at).desc())
+        .limit(1)
+    )
+    return result.first()
+
+
+async def sync_campaign_entity_snapshots(
+    session: AsyncSession,
+    run_id: UUID | None = None,
+) -> PpcSnapshotSyncResult:
     """Materialize latest campaign entity state from persisted Amazon read tables."""
     synced_at = utcnow()
     result = PpcSnapshotSyncResult(
@@ -58,6 +98,16 @@ async def sync_campaign_entity_snapshots(session: AsyncSession) -> PpcSnapshotSy
     result.scanned = len(campaigns)
     if not campaigns:
         await session.commit()
+        if run_id:
+            await log_run_end(
+                session,
+                run_id,
+                status="completed",
+                entities_scanned=result.scanned,
+                entities_created=result.created,
+                entities_updated=result.updated,
+                errors=0,
+            )
         return result
 
     existing_rows = list(
@@ -127,6 +177,16 @@ async def sync_campaign_entity_snapshots(session: AsyncSession) -> PpcSnapshotSy
             result.updated += 1
 
     await session.commit()
+    if run_id:
+        await log_run_end(
+            session,
+            run_id,
+            status="completed",
+            entities_scanned=result.scanned,
+            entities_created=result.created,
+            entities_updated=result.updated,
+            errors=0,
+        )
     return result
 
 
@@ -204,6 +264,8 @@ async def get_entity_freshness(
     ad_metrics_last = (await session.exec(select(func.max(AdMetric.synced_at)))).one()
     _ = (campaigns_last, ad_metrics_last)  # reserved for future source-table freshness
     now = _as_utc(utcnow())
+    critical_threshold_seconds = stale_after_seconds * 2
+    latest_run_id = await _latest_snapshot_run_id(session)
 
     by_type = Counter(row.entity_type for row in snapshots)
     entity_types: list[PpcEntityTypeFreshness] = []
@@ -221,6 +283,7 @@ async def get_entity_freshness(
             if last_synced
             else None
         )
+        stale, alert = _freshness_state(age_seconds, stale_after_seconds)
         entity_types.append(
             PpcEntityTypeFreshness(
                 entity_type=etype,
@@ -228,19 +291,19 @@ async def get_entity_freshness(
                 last_synced_at=last_synced,
                 last_observed_at=oldest_observed,
                 age_seconds=age_seconds,
-                stale=(
-                    age_seconds > stale_after_seconds
-                    if age_seconds is not None
-                    else True
-                ),
+                stale=stale,
+                last_run_id=latest_run_id,
+                alert=alert,
             )
         )
 
     return PpcFreshnessResponse(
         snapshot_count=len(snapshots),
         stale_after_seconds=stale_after_seconds,
+        critical_threshold_seconds=critical_threshold_seconds,
         generated_at=now,
         entity_types=entity_types,
+        alert=_overall_alert(entity_types),
     )
 
 
@@ -252,6 +315,8 @@ async def get_sync_status(
     """Return overall snapshot sync status as typed response."""
     snapshots = list(await session.exec(select(PpcEntitySnapshot)))
     now = _as_utc(utcnow())
+    critical_threshold_seconds = stale_after_seconds * 2
+    latest_run_id = await _latest_snapshot_run_id(session)
 
     if not snapshots:
         return PpcSyncStatusResponse(
@@ -259,6 +324,8 @@ async def get_sync_status(
             latest_synced_at=None,
             latest_observed_at=None,
             entity_types=[],
+            alert=None,
+            critical_threshold_seconds=critical_threshold_seconds,
             read_only=True,
         )
 
@@ -282,6 +349,7 @@ async def get_sync_status(
             if type_last_synced
             else None
         )
+        stale, alert = _freshness_state(age_seconds, stale_after_seconds)
         entity_types.append(
             PpcEntityTypeFreshness(
                 entity_type=etype,
@@ -289,11 +357,9 @@ async def get_sync_status(
                 last_synced_at=type_last_synced,
                 last_observed_at=type_oldest_observed,
                 age_seconds=age_seconds,
-                stale=(
-                    age_seconds > stale_after_seconds
-                    if age_seconds is not None
-                    else True
-                ),
+                stale=stale,
+                last_run_id=latest_run_id,
+                alert=alert,
             )
         )
 
@@ -302,5 +368,7 @@ async def get_sync_status(
         latest_synced_at=last_synced,
         latest_observed_at=last_observed,
         entity_types=entity_types,
+        alert=_overall_alert(entity_types),
+        critical_threshold_seconds=critical_threshold_seconds,
         read_only=True,
     )

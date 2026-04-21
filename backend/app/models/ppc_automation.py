@@ -376,3 +376,25 @@ class CampaignPlan(QueryModel, table=True):
     approved_at: datetime | None = None
     applied_at: datetime | None = None
     applied_by: str | None = None
+
+
+class PpcRunHistory(QueryModel, table=True):
+    """Persisted log of PPC sync/optimizer run executions."""
+
+    __tablename__ = "ppc_run_history"  # pyright: ignore[reportAssignmentType]
+
+    id: UUID = Field(default_factory=uuid4, primary_key=True)
+    run_type: str = Field(index=True)  # snapshot_sync | ad_metrics_sync | search_terms_sync | optimizer | keyword_discovery | placement_analysis
+    status: str = Field(index=True)    # started | completed | failed
+    triggered_by: str = Field(default="system")
+    started_at: datetime = Field(default_factory=utcnow, index=True)
+    finished_at: datetime | None = Field(default=None)
+    duration_ms: int | None = None
+    entities_scanned: int | None = None
+    entities_created: int | None = None
+    entities_updated: int | None = None
+    errors: int | None = None
+    error_detail: str | None = None
+    metadata_json: dict[str, object] | None = Field(
+        default=None, sa_column=Column(JSON, nullable=True)
+    )

@@ -48,13 +48,17 @@ class PpcEntityTypeFreshness(SQLModel):
     last_observed_at: datetime | None = None
     age_seconds: int | None = None
     stale: bool
+    last_run_id: UUID | None = None
+    alert: str | None = None  # None means fresh; stale | critical
 
 
 class PpcFreshnessResponse(SQLModel):
     snapshot_count: int = 0
     stale_after_seconds: int
+    critical_threshold_seconds: int | None = None
     generated_at: datetime
     entity_types: list[PpcEntityTypeFreshness]
+    alert: str | None = None  # overall alert: None | stale | critical
 
 
 class PpcSyncStatusResponse(SQLModel):
@@ -62,5 +66,6 @@ class PpcSyncStatusResponse(SQLModel):
     latest_synced_at: datetime | None = None
     latest_observed_at: datetime | None = None
     entity_types: list[PpcEntityTypeFreshness]
+    alert: str | None = None
+    critical_threshold_seconds: int | None = None
     read_only: bool = True
-

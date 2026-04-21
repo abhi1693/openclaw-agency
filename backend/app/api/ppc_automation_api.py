@@ -40,6 +40,11 @@ from app.services.ppc_entity_snapshots import (
     list_entity_snapshots,
     sync_campaign_entity_snapshots,
 )
+from app.services.ppc_run_history import (
+    list_run_history,
+    log_run_end,
+    log_run_start,
+)
 from app.services.ads_api import AmazonAdsAPI
 from app.services.budget_allocator import generate_budget_allocations
 from app.services.ad_metrics_sync import sync_ad_metrics_from_api, sync_ad_metrics_from_search_terms
@@ -188,7 +193,20 @@ async def get_ppc_entity_freshness(
 async def sync_ppc_entity_snapshots(
     session: AsyncSession = SESSION_DEP,
 ) -> dict[str, Any]:
-    return await sync_campaign_entity_snapshots(session)
+    run = await log_run_start(session, "snapshot_sync")
+    try:
+        return await sync_campaign_entity_snapshots(session, run_id=run.id)
+    except Exception as exc:  # noqa: BLE001
+        logger.exception("sync_ppc_entity_snapshots: failed")
+        await session.rollback()
+        await log_run_end(
+            session,
+            run.id,
+            status="failed",
+            errors=1,
+            error_detail=str(exc),
+        )
+        raise HTTPException(status_code=500, detail=str(exc)) from exc
 
 
 @router.get("/sync/status", response_model=PpcSyncStatusResponse)
@@ -197,6 +215,42 @@ async def get_ppc_sync_status(
     session: AsyncSession = SESSION_DEP,
 ) -> PpcSyncStatusResponse:
     return await get_sync_status(session, stale_after_seconds=stale_after_seconds)
+
+
+@router.get("/run-history")
+async def get_run_history(
+    run_type: str | None = Query(default=None),
+    status: str | None = Query(default=None),
+    limit: int = Query(default=50, ge=1, le=200),
+    offset: int = Query(default=0, ge=0),
+    session: AsyncSession = SESSION_DEP,
+) -> dict[str, Any]:
+    rows, total = await list_run_history(
+        session, run_type=run_type, status=status, limit=limit, offset=offset
+    )
+    return {
+        "items": [
+            {
+                "id": str(r.id),
+                "run_type": r.run_type,
+                "status": r.status,
+                "triggered_by": r.triggered_by,
+                "started_at": r.started_at.isoformat() if r.started_at else None,
+                "finished_at": r.finished_at.isoformat() if r.finished_at else None,
+                "duration_ms": r.duration_ms,
+                "entities_scanned": r.entities_scanned,
+                "entities_created": r.entities_created,
+                "entities_updated": r.entities_updated,
+                "errors": r.errors,
+                "error_detail": r.error_detail,
+                "metadata_json": r.metadata_json,
+            }
+            for r in rows
+        ],
+        "total": total,
+        "limit": limit,
+        "offset": offset,
+    }
 
 
 @router.get("/settings/{parent_asin}")
@@ -845,9 +899,21 @@ async def trigger_snapshot_sync(
     Amazon Ads data into the ppc_entity_snapshots table.
     No Amazon writeback occurs.
     """
-    from app.services.ppc_entity_snapshots import sync_campaign_entity_snapshots
+    run = await log_run_start(session, "snapshot_sync")
+    try:
+        result = await sync_campaign_entity_snapshots(session, run_id=run.id)
+    except Exception as exc:  # noqa: BLE001
+        logger.exception("trigger_snapshot_sync: failed")
+        await session.rollback()
+        await log_run_end(
+            session,
+            run.id,
+            status="failed",
+            errors=1,
+            error_detail=str(exc),
+        )
+        raise HTTPException(status_code=500, detail=str(exc)) from exc
 
-    result = await sync_campaign_entity_snapshots(session)
     return {
         "source": result.source,
         "entity_type": result.entity_type,
