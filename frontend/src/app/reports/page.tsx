@@ -1418,14 +1418,28 @@ function PpcContent({ file, onMarkRead, onContent }: { file: PpcReportFile; onMa
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
 
+  // Stable refs so the effect dep array stays clean without stale closures
+  const onMarkReadRef = useRef(onMarkRead)
+  const onContentRef = useRef(onContent)
+  onMarkReadRef.current = onMarkRead
+  onContentRef.current = onContent
+
   useEffect(() => {
+    let cancelled = false
     setLoading(true); setError(null)
     fetch(`/api/ppc/reports?file=${encodeURIComponent(file.filename)}`)
       .then(r => r.json())
-      .then(d => { if (d.error) throw new Error(d.error); setContent(d.content); onMarkRead(file.filename); onContent?.(d.content) })
-      .catch(e => setError(e.message))
-      .finally(() => setLoading(false))
-  }, [file.filename]) // eslint-disable-line react-hooks/exhaustive-deps
+      .then(d => {
+        if (cancelled) return
+        if (d.error) throw new Error(d.error)
+        setContent(d.content)
+        onMarkReadRef.current(file.filename)
+        onContentRef.current?.(d.content)
+      })
+      .catch(e => { if (!cancelled) setError(e.message) })
+      .finally(() => { if (!cancelled) setLoading(false) })
+    return () => { cancelled = true }
+  }, [file.filename])
 
   if (loading) return <div className="space-y-3">{[1,2,3,4,5].map(i => <Skeleton key={i} className="h-4"/>)}</div>
   if (error) return <div className="flex items-center gap-2 text-destructive"><X className="w-4 h-4"/><span>{error}</span></div>
@@ -1465,18 +1479,23 @@ function PpcTab({ tabId, initialReport, deepLinkReport, onCountChange, onHighlig
 
   useEffect(() => { load() }, [load])
 
+  // Track first mount to guard URL-restore and deep-link effects against stale closures
+  const [isMounted, setIsMounted] = useState(false)
+  useEffect(() => { setIsMounted(true) }, [])
+
+  // Restore modal from URL on load
   useEffect(() => {
-    if (!initialReport || !files.length) return
+    if (!isMounted || !initialReport || !files.length) return
     const f = files.find(x => x.filename === initialReport)
     if (f && !selected) setSelected(f)
-  }, [initialReport, files]) // eslint-disable-line react-hooks/exhaustive-deps
+  }, [isMounted, initialReport, files, selected])
 
   // Deep link from Highlights backlink
   useEffect(() => {
-    if (!deepLinkReport || !files.length) return
+    if (!isMounted || !deepLinkReport || !files.length) return
     const f = files.find(x => x.filename === deepLinkReport)
     if (f) { setSelected(f); setSelectedContent(null) }
-  }, [deepLinkReport, files])
+  }, [isMounted, deepLinkReport, files])
 
   useEffect(() => { onCountChangeRef.current?.(files.length, !loading) }, [files.length, loading])
 
