@@ -117,3 +117,41 @@ class ProposalDiffResponse(SQLModel):
     status: str
     items: list[ProposalDiffItem]
     summary: dict[str, int]
+
+
+# ── Ad-group resolution for keyword recommendations ────────────────────────────
+
+
+class AdGroupCandidateRead(SQLModel):
+    """An ad group entity from PpcEntitySnapshot, surfaced as a resolution candidate."""
+
+    entity_id: str  # the ad_group_id
+    name: str | None = None
+    campaign_id: str | None = None
+    state: str | None = None
+    targeting_type: str | None = None
+    bid: Decimal | None = None
+
+
+class CampaignAdGroupsResponse(SQLModel):
+    campaign_id: str
+    ad_groups: list[AdGroupCandidateRead]
+    total: int
+
+
+class ResolveAdGroupIdRequest(SQLModel):
+    """Request to set or update the resolved target_ad_group_id on a keyword recommendation."""
+
+    ad_group_id: str
+    # Explicitly confirm the target campaign — validated server-side.
+    target_campaign_id: str | None = None
+
+
+class KeywordRecommendationResolvedResponse(SQLModel):
+    """Result of resolving target_ad_group_id on a KeywordRecommendation."""
+
+    id: UUID
+    target_campaign_id: str | None
+    target_ad_group_id: str | None
+    status: str
+    action: str

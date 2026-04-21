@@ -28,13 +28,18 @@ from app.models.ppc_automation import (
     PlacementRecommendation,
     PpcAutomationSettings,
     PpcChangeLog,
+    PpcEntitySnapshot,
 )
 from app.schemas.ppc_automation import (
+    AdGroupCandidateRead,
+    CampaignAdGroupsResponse,
     PpcEntitySnapshotsResponse,
     PpcFreshnessResponse,
     PpcProposalResponse,
     ProposalDiffResponse,
     PpcSyncStatusResponse,
+    ResolveAdGroupIdRequest,
+    KeywordRecommendationResolvedResponse,
 )
 from app.services.ppc_entity_snapshots import (
     get_entity_freshness,
@@ -736,6 +741,108 @@ async def apply_keyword_recommendations(
 
     await session.commit()
     return {"applied": applied, "errors": errors}
+
+
+# ---------------------------------------------------------------------------
+# Ad-group resolution for keyword recommendations
+# ---------------------------------------------------------------------------
+
+
+@router.get(
+    "/campaigns/{campaign_id}/ad-groups",
+    response_model=CampaignAdGroupsResponse,
+)
+async def list_campaign_ad_groups(
+    campaign_id: str,
+    session: AsyncSession = SESSION_DEP,
+) -> CampaignAdGroupsResponse:
+    """List ad groups belonging to a campaign, from the latest entity snapshots.
+
+    Returns candidate ad groups that can be assigned as ``target_ad_group_id``
+    on keyword recommendations whose ``target_campaign_id`` matches this campaign.
+    """
+    result = await session.exec(
+        select(PpcEntitySnapshot).where(
+            PpcEntitySnapshot.entity_type == "ad_group",
+            PpcEntitySnapshot.campaign_id == campaign_id,
+        )
+    )
+    ad_groups = result.all()
+    return CampaignAdGroupsResponse(
+        campaign_id=campaign_id,
+        ad_groups=[
+            AdGroupCandidateRead(
+                entity_id=ag.entity_id,
+                name=ag.name,
+                campaign_id=ag.campaign_id,
+                state=ag.state,
+                targeting_type=ag.targeting_type,
+                bid=ag.bid,
+            )
+            for ag in ad_groups
+        ],
+        total=len(ad_groups),
+    )
+
+
+@router.patch(
+    "/keyword-recommendations/{rec_id}/resolve-ad-group",
+    response_model=KeywordRecommendationResolvedResponse,
+)
+async def resolve_keyword_ad_group(
+    rec_id: UUID,
+    body: ResolveAdGroupIdRequest,
+    session: AsyncSession = SESSION_DEP,
+) -> KeywordRecommendationResolvedResponse:
+    """Resolve and persist the ``target_ad_group_id`` on a keyword recommendation.
+
+    Validates that the chosen ad group belongs to the recommendation's
+    ``target_campaign_id`` (when that field is already set) before persisting.
+    This is the manual-resolution step that unlocks ``add_keyword`` execution.
+    """
+    result = await session.exec(
+        select(KeywordRecommendation).where(KeywordRecommendation.id == rec_id)
+    )
+    rec = result.first()
+    if rec is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Recommendation not found")
+
+    if rec.action != "add_keyword":
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f"resolve-ad-group is only valid for add_keyword actions, got {rec.action}",
+        )
+
+    # If target_campaign_id is already set on the recommendation, validate the ad group
+    # belongs to it by checking the snapshot.
+    if rec.target_campaign_id is not None:
+        snapshot_result = await session.exec(
+            select(PpcEntitySnapshot).where(
+                PpcEntitySnapshot.entity_type == "ad_group",
+                PpcEntitySnapshot.entity_id == body.ad_group_id,
+                PpcEntitySnapshot.campaign_id == rec.target_campaign_id,
+            )
+        )
+        snapshot = snapshot_result.first()
+        if snapshot is None:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail=(
+                    f"Ad group {body.ad_group_id} does not belong to campaign "
+                    f"{rec.target_campaign_id}"
+                ),
+            )
+
+    rec.target_ad_group_id = body.ad_group_id
+    await session.commit()
+
+    return KeywordRecommendationResolvedResponse(
+        id=rec.id,
+        target_campaign_id=rec.target_campaign_id,
+        target_ad_group_id=rec.target_ad_group_id,
+        status=rec.status,
+        action=rec.action,
+    )
 
 
 # ---------------------------------------------------------------------------
