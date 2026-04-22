@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Lock } from "lucide-react";
 
 import { setLocalAuthToken } from "@/auth/localAuth";
@@ -47,13 +47,13 @@ type LocalAuthLoginProps = {
 const defaultOnAuthenticated = () => window.location.reload();
 
 export function LocalAuthLogin({ onAuthenticated }: LocalAuthLoginProps) {
-  const [mounted, setMounted] = useState(false);
+  const mountedRef = useRef(false);
   const [token, setToken] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [isValidating, setIsValidating] = useState(false);
 
   useEffect(() => {
-    setMounted(true);
+    mountedRef.current = true;
   }, []);
 
   const handleSubmit = async (event: React.FormEvent<HTMLFormElement>) => {
@@ -82,8 +82,6 @@ export function LocalAuthLogin({ onAuthenticated }: LocalAuthLoginProps) {
     setError(null);
     (onAuthenticated ?? defaultOnAuthenticated)();
   };
-
-  if (!mounted) return <div className="w-full max-w-sm mx-auto h-48 rounded-lg bg-muted animate-pulse" />;
 
   return (
     <div className="relative flex min-h-screen items-center justify-center overflow-hidden bg-app px-4 py-10">
