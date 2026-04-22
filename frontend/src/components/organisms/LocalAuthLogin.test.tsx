@@ -1,6 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
+import { renderToString } from "react-dom/server";
 
 import { LocalAuthLogin } from "./LocalAuthLogin";
 
@@ -30,6 +31,14 @@ describe("LocalAuthLogin", () => {
     vi.unstubAllGlobals();
     vi.unstubAllEnvs();
     vi.restoreAllMocks();
+  });
+
+  it("server-renders the login form instead of a mount skeleton", () => {
+    const html = renderToString(<LocalAuthLogin />);
+
+    expect(html).toContain("Local Authentication");
+    expect(html).toContain("Access token");
+    expect(html).not.toContain("animate-pulse");
   });
 
   it("requires a non-empty token", async () => {
