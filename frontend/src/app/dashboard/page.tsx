@@ -63,6 +63,7 @@ type SessionSummary = {
   sessionId: string;
   boardId: string | null;
   title: string;
+  sourceLabel: string;
   subtitle: string;
   usage: string;
   lastSeenAt: string | null;
@@ -434,6 +435,7 @@ const toSessionSummaries = (
       sessionId: key,
       boardId: null,
       title: label,
+      sourceLabel: "",
       subtitle: subtitleWithProvider || subtitle,
       usage,
       lastSeenAt,
@@ -829,7 +831,7 @@ export default function DashboardPage() {
           ...session,
           key: `${snapshot.gatewayId}:${session.key}`,
           boardId: snapshot.boardId,
-          subtitle: `${sourceLabel} · ${session.subtitle}`,
+          sourceLabel,
         }));
       }),
     [gatewaySnapshots],
@@ -1266,20 +1268,22 @@ export default function DashboardPage() {
               <section className="min-w-0 overflow-hidden rounded-xl border border-slate-200 bg-white p-4 md:p-6 shadow-sm">
                 <div className="mb-3 flex items-center justify-between gap-3">
                   <h3 className="text-lg font-semibold text-slate-900">Sessions</h3>
-                  <span className="text-xs text-slate-500">{formatCount(activeSessions)}</span>
+                  <span aria-live="polite" className="text-xs text-slate-500">
+                    {formatCount(activeSessions)}
+                  </span>
                 </div>
                 {sessionActionMessage ? (
                   <div className="mb-2 rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 text-xs text-slate-600">
                     {sessionActionMessage}
                   </div>
                 ) : null}
-                <div className="max-h-[310px] space-y-2 overflow-x-hidden overflow-y-auto pr-1">
+                <div className="min-h-[220px] max-h-[310px] space-y-2 overflow-x-hidden overflow-y-auto pr-1">
                   {!hasConfiguredGateways ? (
-                    <div className="rounded-lg border border-slate-200 bg-slate-50 p-3 text-sm text-slate-500">
+                    <div className="flex min-h-[76px] items-center rounded-lg border border-slate-200 bg-slate-50 p-3 text-sm text-slate-500">
                       No gateways are configured for any board yet.
                     </div>
                   ) : gatewayStatusesQuery.isLoading ? (
-                    <div className="rounded-lg border border-slate-200 bg-slate-50 p-3 text-sm text-slate-500">
+                    <div className="flex min-h-[76px] items-center rounded-lg border border-slate-200 bg-slate-50 p-3 text-sm text-slate-500">
                       Loading sessions...
                     </div>
                   ) : sessionSummaries.length > 0 ? (
@@ -1294,7 +1298,7 @@ export default function DashboardPage() {
                       {sessionSummaries.map((session) => (
                         <div
                           key={session.key}
-                          className="overflow-hidden rounded-lg border border-slate-200 bg-white px-3 py-2"
+                          className="min-h-[76px] overflow-hidden rounded-lg border border-slate-200 bg-white px-3 py-2"
                         >
                           <div className="flex items-center justify-between gap-3">
                             <div className="min-w-0 flex-1">
@@ -1319,9 +1323,15 @@ export default function DashboardPage() {
                                   {providerLabel(session.provider)}
                                   {session.model ? ` · ${modelLabel(session.model)}` : ""}
                                 </span>
-                                <p className="min-w-0 truncate text-xs text-slate-500">
-                                  {session.subtitle}
-                                </p>
+                                <div className="flex min-w-0 items-center gap-1 text-xs text-slate-500">
+                                  <span className="truncate" title={session.sourceLabel}>
+                                    {session.sourceLabel}
+                                  </span>
+                                  <span className="shrink-0">·</span>
+                                  <span className="truncate" title={session.subtitle}>
+                                    {session.subtitle}
+                                  </span>
+                                </div>
                               </div>
                             </div>
                             <div className="min-w-0 max-w-[36%] text-right">
@@ -1359,11 +1369,11 @@ export default function DashboardPage() {
                       ))}
                     </>
                   ) : gatewayUnavailableCount === gatewayTargets.length ? (
-                    <div className="rounded-lg border border-rose-300 bg-rose-50 p-3 text-sm text-rose-700">
+                    <div className="flex min-h-[76px] items-center rounded-lg border border-rose-300 bg-rose-50 p-3 text-sm text-rose-700">
                       Session data is unavailable for all configured gateways.
                     </div>
                   ) : (
-                    <div className="rounded-lg border border-slate-200 bg-slate-50 p-3 text-sm text-slate-500">
+                    <div className="flex min-h-[76px] items-center rounded-lg border border-slate-200 bg-slate-50 p-3 text-sm text-slate-500">
                       No active sessions detected.
                     </div>
                   )}
