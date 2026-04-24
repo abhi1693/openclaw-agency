@@ -1242,7 +1242,7 @@ export default function DashboardPage() {
                             </span>
                           </span>
                         </span>
-                        <span className="shrink-0 text-xs text-slate-500">
+                        <span className="hidden shrink-0 text-xs text-slate-500 sm:inline">
                           {formatRelativeTimestamp(item.created_at)}
                         </span>
                       </Link>
