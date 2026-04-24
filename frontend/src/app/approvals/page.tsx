@@ -175,6 +175,11 @@ function GlobalApprovalsInner() {
             isLoading={boardsQuery.isLoading || approvalsQuery.isLoading}
             error={combinedError}
             onDecision={handleDecision}
+            pendingDecisionId={
+              updateApprovalMutation.isPending
+                ? (updateApprovalMutation.variables?.approvalId ?? null)
+                : null
+            }
             scrollable
             boardLabelById={boardLabelById}
           />
