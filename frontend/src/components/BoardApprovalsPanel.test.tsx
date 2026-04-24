@@ -1,6 +1,6 @@
 import React from "react";
 import { describe, expect, it, vi } from "vitest";
-import { render, screen } from "@testing-library/react";
+import { fireEvent, render, screen } from "@testing-library/react";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 
 import type { ApprovalRead } from "@/api/generated/model";
@@ -160,5 +160,59 @@ describe("BoardApprovalsPanel", () => {
     expect(
       screen.getByRole("link", { name: "Publish release notes" }),
     ).toHaveAttribute("href", "/boards/board-1?taskId=task-b");
+  });
+
+  it("disables decision buttons, exposes busy state, and blocks a second submit while pending", () => {
+    const onDecision = vi.fn();
+    const approval = {
+      id: "approval-3",
+      board_id: "board-1",
+      action_type: "task.update",
+      confidence: 91,
+      status: "pending",
+      task_id: "task-3",
+      created_at: "2026-02-12T12:00:00Z",
+      resolved_at: null,
+      payload: {
+        title: "Approve release train",
+      },
+      rubric_scores: null,
+    } as ApprovalRead;
+
+    const PendingHarness = () => {
+      const [pendingDecisionId, setPendingDecisionId] = React.useState<string | null>(
+        null,
+      );
+
+      return (
+        <BoardApprovalsPanel
+          boardId="board-1"
+          approvals={[approval]}
+          onDecision={(approvalId, status) => {
+            onDecision(approvalId, status);
+            setPendingDecisionId(approvalId);
+          }}
+          pendingDecisionId={pendingDecisionId}
+        />
+      );
+    };
+
+    const { container } = renderWithQueryClient(
+      <PendingHarness />,
+    );
+
+    const approveButton = screen.getByRole("button", { name: /^Approve$/i });
+    const rejectButton = screen.getByRole("button", { name: /^Reject$/i });
+
+    fireEvent.click(approveButton);
+    fireEvent.click(screen.getByRole("button", { name: /^Approve$/i }));
+
+    expect(onDecision).toHaveBeenCalledTimes(1);
+    expect(onDecision).toHaveBeenCalledWith("approval-3", "approved");
+    expect(approveButton).toBeDisabled();
+    expect(rejectButton).toBeDisabled();
+    expect(approveButton).toHaveAttribute("aria-busy", "true");
+    expect(rejectButton).toHaveAttribute("aria-busy", "true");
+    expect(container.querySelectorAll("svg.animate-spin")).toHaveLength(2);
   });
 });

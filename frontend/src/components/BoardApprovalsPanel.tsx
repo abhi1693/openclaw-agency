@@ -6,7 +6,7 @@ import Link from "next/link";
 import { useAuth } from "@/auth/clerk";
 import { useQueryClient } from "@tanstack/react-query";
 
-import { Clock } from "lucide-react";
+import { Clock, Loader2 } from "lucide-react";
 import { Cell, Pie, PieChart } from "recharts";
 
 import { ApiError } from "@/api/mutator";
@@ -48,6 +48,7 @@ type BoardApprovalsPanelProps = {
   isLoading?: boolean;
   error?: string | null;
   onDecision?: (approvalId: string, status: "approved" | "rejected") => void;
+  pendingDecisionId?: string | null;
   scrollable?: boolean;
   boardLabelById?: Record<string, string>;
 };
@@ -404,6 +405,7 @@ export function BoardApprovalsPanel({
   isLoading: externalLoading,
   error: externalError,
   onDecision,
+  pendingDecisionId: externalPendingDecisionId,
   scrollable = false,
   boardLabelById,
 }: BoardApprovalsPanelProps) {
@@ -448,9 +450,11 @@ export function BoardApprovalsPanel({
   const errorState = usingExternal
     ? (externalError ?? null)
     : (error ?? approvalsQuery.error?.message ?? null);
+  const pendingDecisionId = externalPendingDecisionId ?? updatingId;
 
   const handleDecision = useCallback(
     (approvalId: string, status: "approved" | "rejected") => {
+      if (pendingDecisionId === approvalId) return;
       const pendingNext = [...approvals]
         .filter((item) => item.id !== approvalId)
         .filter((item) => item.status === "pending")
@@ -509,6 +513,7 @@ export function BoardApprovalsPanel({
       boardId,
       isSignedIn,
       onDecision,
+      pendingDecisionId,
       queryClient,
       updateApprovalMutation,
       usingExternal,
@@ -550,6 +555,8 @@ export function BoardApprovalsPanel({
       orderedApprovals.find((item) => item.id === effectiveSelectedId) ?? null
     );
   }, [effectiveSelectedId, orderedApprovals]);
+  const isDecisionPending =
+    selectedApproval !== null && pendingDecisionId === selectedApproval.id;
 
   const pendingCount = sortedApprovals.pending.length;
   const resolvedCount = sortedApprovals.resolved.length;
@@ -809,9 +816,16 @@ export function BoardApprovalsPanel({
                               onClick={() =>
                                 handleDecision(selectedApproval.id, "approved")
                               }
-                              disabled={updatingId === selectedApproval.id}
+                              disabled={isDecisionPending}
+                              aria-busy={isDecisionPending}
                               className="bg-slate-900 text-white hover:bg-slate-800"
                             >
+                              {isDecisionPending ? (
+                                <Loader2
+                                  aria-hidden="true"
+                                  className="h-4 w-4 animate-spin"
+                                />
+                              ) : null}
                               Approve
                             </Button>
                             <Button
@@ -820,9 +834,16 @@ export function BoardApprovalsPanel({
                               onClick={() =>
                                 handleDecision(selectedApproval.id, "rejected")
                               }
-                              disabled={updatingId === selectedApproval.id}
+                              disabled={isDecisionPending}
+                              aria-busy={isDecisionPending}
                               className="border-slate-300 text-slate-700 hover:bg-slate-100"
                             >
+                              {isDecisionPending ? (
+                                <Loader2
+                                  aria-hidden="true"
+                                  className="h-4 w-4 animate-spin"
+                                />
+                              ) : null}
                               Reject
                             </Button>
                           </div>
