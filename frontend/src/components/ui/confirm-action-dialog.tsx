@@ -20,6 +20,7 @@ type ConfirmActionDialogProps = {
   errorMessage?: string | null;
   confirmLabel?: string;
   confirmingLabel?: string;
+  confirmVariant?: NonNullable<ButtonProps["variant"]>;
   cancelLabel?: string;
   cancelVariant?: NonNullable<ButtonProps["variant"]>;
   errorStyle?: "text" | "panel";
@@ -36,6 +37,7 @@ export function ConfirmActionDialog({
   errorMessage,
   confirmLabel = "Delete",
   confirmingLabel = "Deleting…",
+  confirmVariant = "primary",
   cancelLabel = "Cancel",
   cancelVariant = "outline",
   errorStyle = "panel",
@@ -61,7 +63,7 @@ export function ConfirmActionDialog({
           <Button variant={cancelVariant} onClick={() => onOpenChange(false)}>
             {cancelLabel}
           </Button>
-          <Button onClick={onConfirm} disabled={isConfirming}>
+          <Button variant={confirmVariant} onClick={onConfirm} disabled={isConfirming}>
             {isConfirming ? confirmingLabel : confirmLabel}
           </Button>
         </DialogFooter>

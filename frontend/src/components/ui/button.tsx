@@ -12,6 +12,7 @@ const buttonVariants = cva(
       variant: {
         primary:
           "bg-[color:var(--accent)] text-white shadow-sm hover:bg-[color:var(--accent-strong)]",
+        destructive: "bg-rose-600 text-white shadow-sm hover:bg-rose-700 focus-visible:ring-rose-300",
         secondary:
           "border border-[color:var(--border)] bg-[color:var(--surface)] text-strong hover:border-[color:var(--accent)] hover:text-[color:var(--accent)]",
         outline:

@@ -27,6 +27,7 @@ import { DashboardSidebar } from "@/components/organisms/DashboardSidebar";
 import { DashboardShell } from "@/components/templates/DashboardShell";
 import { Markdown } from "@/components/atoms/Markdown";
 import { SignedOutPanel } from "@/components/auth/SignedOutPanel";
+import { ConfirmActionDialog } from "@/components/ui/confirm-action-dialog";
 import { ApiError, customFetch } from "@/api/mutator";
 import {
   type dashboardMetricsApiV1MetricsDashboardGetResponse,
@@ -637,6 +638,9 @@ export default function DashboardPage() {
   const queryClient = useQueryClient();
   const { isSignedIn } = useAuth();
   const [sessionActionMessage, setSessionActionMessage] = useState<string | null>(null);
+  const [killSessionTarget, setKillSessionTarget] = useState<SessionSummary | null>(null);
+  const [killSessionError, setKillSessionError] = useState<string | null>(null);
+  const [isKillingSession, setIsKillingSession] = useState(false);
 
   const boardsQuery = useListBoardsApiV1BoardsGet<listBoardsApiV1BoardsGetResponse, ApiError>(
     { limit: 200 },
@@ -1092,24 +1096,30 @@ export default function DashboardPage() {
     }
   };
 
-  const handleKillSession = async (session: SessionSummary) => {
+  const handleKillSession = async () => {
+    if (!killSessionTarget) return;
     setSessionActionMessage(null);
+    setKillSessionError(null);
+    setIsKillingSession(true);
     try {
       const params = new URLSearchParams();
-      if (session.boardId) params.set("board_id", session.boardId);
+      if (killSessionTarget.boardId) params.set("board_id", killSessionTarget.boardId);
       const query = params.toString();
       await customFetch<{ data: unknown; status: number; headers: Headers }>(
-        `/api/v1/gateways/sessions/${encodeURIComponent(session.sessionId)}${
+        `/api/v1/gateways/sessions/${encodeURIComponent(killSessionTarget.sessionId)}${
           query ? `?${query}` : ""
         }`,
         { method: "DELETE" },
       );
       await queryClient.invalidateQueries({ queryKey: ["dashboard", "gateway-statuses"] });
-      setSessionActionMessage(`Killed ${session.title}.`);
+      setSessionActionMessage(`Killed ${killSessionTarget.title}.`);
+      setKillSessionTarget(null);
     } catch (error) {
-      setSessionActionMessage(
+      setKillSessionError(
         error instanceof Error ? `Kill failed: ${error.message}` : "Kill failed.",
       );
+    } finally {
+      setIsKillingSession(false);
     }
   };
 
@@ -1359,7 +1369,10 @@ export default function DashboardPage() {
                                 className="inline-flex h-8 w-8 items-center justify-center rounded-lg text-slate-500 transition hover:bg-rose-50 hover:text-rose-600 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-rose-200"
                                 aria-label={`Kill ${session.title}`}
                                 title="Kill"
-                                onClick={() => void handleKillSession(session)}
+                                onClick={() => {
+                                  setKillSessionError(null);
+                                  setKillSessionTarget(session);
+                                }}
                               >
                                 <X className="h-4 w-4" />
                               </button>
@@ -1439,6 +1452,32 @@ export default function DashboardPage() {
                 </div>
               </section>
             </div>
+            <ConfirmActionDialog
+              open={Boolean(killSessionTarget)}
+              onOpenChange={(open) => {
+                if (!open && !isKillingSession) {
+                  setKillSessionError(null);
+                  setKillSessionTarget(null);
+                }
+              }}
+              ariaLabel="Kill session"
+              title="Kill session"
+              description={
+                <>
+                  <strong>{killSessionTarget?.title}</strong>
+                  <br />
+                  This will terminate the agent session. Continue?
+                </>
+              }
+              errorMessage={killSessionError}
+              onConfirm={() => void handleKillSession()}
+              isConfirming={isKillingSession}
+              confirmLabel="Kill"
+              confirmingLabel="Killing…"
+              confirmVariant="destructive"
+              cancelLabel="Cancel"
+              cancelVariant="secondary"
+            />
           </div>
         </main>
       </SignedIn>
