@@ -1,5 +1,7 @@
 import type { ReactNode } from "react";
 
+import { Skeleton } from "@/components/ui/skeleton";
+
 type FeedItem = {
   id: string;
 };
@@ -18,7 +20,13 @@ export function ActivityFeed<TItem extends FeedItem>({
   renderItem,
 }: ActivityFeedProps<TItem>) {
   if (isLoading && items.length === 0) {
-    return <p className="text-sm text-slate-500">Loading feed…</p>;
+    return (
+      <div className="space-y-4" aria-label="Loading feed">
+        {[0, 1, 2, 3].map((item) => (
+          <Skeleton key={item} className="h-[88px] rounded-xl border border-slate-200" />
+        ))}
+      </div>
+    );
   }
 
   const hasError = errorMessage !== null && errorMessage !== undefined;
