@@ -53,6 +53,17 @@ function getModelProvider(id: string) {
   return "other";
 }
 
+const MODEL_PROVIDER_BADGE_CLASS: Record<string, string> = {
+  anthropic: "text-[hsl(var(--zv-amber))] bg-[hsl(var(--zv-amber)/0.1)]",
+  openai: "text-[hsl(142_71%_50%)] bg-[hsl(142_71%_45%/0.1)]",
+  minimax: "text-purple-600 bg-purple-50",
+  other: "text-[hsl(var(--muted-foreground))] bg-[hsl(var(--secondary))]",
+};
+
+function getModelProviderBadgeClass(id: string) {
+  return MODEL_PROVIDER_BADGE_CLASS[getModelProvider(id)] ?? MODEL_PROVIDER_BADGE_CLASS.other;
+}
+
 interface LocalAgent {
   id: string;
   name: string;
@@ -396,8 +407,15 @@ function LocalAgentsSection() {
                         ) : (
                           <div className="flex items-center gap-2">
                             <div>
-                              <div className="text-slate-700">
-                                {isDirty ? getModelLabel(edit.primary) : agent.modelLabel}
+                              <div className="flex items-center gap-2">
+                                <span
+                                  className={`inline-flex rounded-md px-1.5 py-0.5 text-[10px] font-bold uppercase tracking-wider ${getModelProviderBadgeClass(isDirty ? edit.primary : agent.modelId)}`}
+                                >
+                                  {getModelProvider(isDirty ? edit.primary : agent.modelId)}
+                                </span>
+                                <span className="text-slate-700">
+                                  {isDirty ? getModelLabel(edit.primary) : agent.modelLabel}
+                                </span>
                               </div>
                               {isDirty && edit.fallbacks.length > 0 && (
                                 <div className="mt-0.5 text-xs text-slate-400">
