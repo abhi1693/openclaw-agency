@@ -28,6 +28,7 @@ import { DashboardShell } from "@/components/templates/DashboardShell";
 import { Markdown } from "@/components/atoms/Markdown";
 import { SignedOutPanel } from "@/components/auth/SignedOutPanel";
 import { ConfirmActionDialog } from "@/components/ui/confirm-action-dialog";
+import { Skeleton } from "@/components/ui/skeleton";
 import { ApiError, customFetch } from "@/api/mutator";
 import {
   type dashboardMetricsApiV1MetricsDashboardGetResponse,
@@ -134,6 +135,14 @@ const providerBadgeClass = (provider: string | null): string =>
 
 const providerLabel = (provider: string | null): string =>
   provider ? provider.replace(/[-_]/g, " ") : "Provider";
+
+const DashboardPanelSkeleton = ({ rows = 4 }: { rows?: number }) => (
+  <div className="space-y-2" aria-hidden="true">
+    {Array.from({ length: rows }, (_, index) => (
+      <Skeleton key={index} className="h-[76px] rounded-lg border border-slate-200" />
+    ))}
+  </div>
+);
 
 const modelLabel = (model: string | null): string | null => {
   if (!model) return null;
@@ -1293,9 +1302,7 @@ export default function DashboardPage() {
                       No gateways are configured for any board yet.
                     </div>
                   ) : gatewayStatusesQuery.isLoading ? (
-                    <div className="flex min-h-[76px] items-center rounded-lg border border-slate-200 bg-slate-50 p-3 text-sm text-slate-500">
-                      Loading sessions...
-                    </div>
+                    <DashboardPanelSkeleton />
                   ) : sessionSummaries.length > 0 ? (
                     <>
                       {gatewayUnavailableCount > 0 ? (
@@ -1405,7 +1412,9 @@ export default function DashboardPage() {
                   </Link>
                 </div>
                 <div className="max-h-[310px] space-y-2 overflow-x-hidden overflow-y-auto pr-1">
-                  {recentLogs.length > 0 ? (
+                  {activityQuery.isLoading && recentLogs.length === 0 ? (
+                    <DashboardPanelSkeleton />
+                  ) : recentLogs.length > 0 ? (
                     recentLogs.map((event) => {
                       const eventHref = buildActivityEventHref(event);
                       return (

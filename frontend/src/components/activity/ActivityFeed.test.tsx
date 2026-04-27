@@ -16,7 +16,8 @@ describe("ActivityFeed", () => {
       />,
     );
 
-    expect(screen.getByText("Loading feed…")).toBeInTheDocument();
+    expect(screen.getByLabelText("Loading feed")).toBeInTheDocument();
+    expect(document.querySelectorAll('[data-slot="skeleton"]')).toHaveLength(4);
   });
 
   it("renders error state", () => {
