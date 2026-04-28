@@ -1,6 +1,9 @@
+import { buildSessionUsageSummary } from "./session-usage";
+
 export type SessionInspectDetails = {
   title: string;
   model: string | null;
+  usage: string;
   activeToolCount: number | null;
   sessionConfig: string | null;
 };
@@ -69,7 +72,62 @@ export const buildSessionInspectDetails = (
   title: string,
 ): SessionInspectDetails => {
   const record = toRecord(session);
+  const usageRecord = toRecord(record?.usage);
+  const statsRecord = toRecord(record?.stats);
+  const metricsRecord = toRecord(record?.metrics);
+  const candidateRecords = [record, usageRecord, statsRecord, metricsRecord];
   const model = readString(record, ["model", "model_name", "provider", "engine"]);
+  const usedTokens =
+    candidateRecords
+      .map((entry) =>
+        readNumber(entry, [
+          "used",
+          "used_tokens",
+          "tokens",
+          "current",
+          "token_count",
+          "tokenCount",
+          "totalTokens",
+          "total_tokens",
+          "inputTokens",
+          "input_tokens",
+        ]),
+      )
+      .find((value) => value !== null) ?? null;
+  const maxTokens =
+    candidateRecords
+      .map((entry) =>
+        readNumber(entry, [
+          "max",
+          "limit",
+          "token_limit",
+          "capacity",
+          "max_tokens",
+          "maxTokens",
+          "context_window",
+          "contextWindow",
+          "contextTokens",
+          "context_tokens",
+          "maxContextTokens",
+          "max_context_tokens",
+        ]),
+      )
+      .find((value) => value !== null) ?? null;
+  const pctFromPayload =
+    candidateRecords
+      .map((entry) =>
+        readNumber(entry, [
+          "pct",
+          "percent",
+          "ratio_pct",
+          "ratioPct",
+          "token_pct",
+          "usage_pct",
+          "percentUsed",
+          "contextPercent",
+        ]),
+      )
+      .find((value) => value !== null) ?? null;
   const activeToolCount =
     readNumber(record, [
       "active_tool_count",
@@ -87,6 +145,7 @@ export const buildSessionInspectDetails = (
   return {
     title,
     model,
+    usage: buildSessionUsageSummary(usedTokens, maxTokens, pctFromPayload).label,
     activeToolCount,
     sessionConfig,
   };

@@ -19,6 +19,7 @@ describe("buildSessionInspectDetails", () => {
     ).toEqual({
       title: "Lead session",
       model: "openai/gpt-5.4",
+      usage: "—",
       activeToolCount: 2,
       sessionConfig: '{\n  "approvals": "never",\n  "cwd": "/workspace"\n}',
     });
@@ -37,8 +38,24 @@ describe("buildSessionInspectDetails", () => {
     ).toEqual({
       title: "Worker session",
       model: "anthropic/claude-sonnet-4",
+      usage: "—",
       activeToolCount: 3,
       sessionConfig: '{"sandbox":"workspace-write"}',
     });
+  });
+
+  it("builds a usage label from nested usage payloads", () => {
+    expect(
+      buildSessionInspectDetails(
+        {
+          usage: {
+            used_tokens: 32_100,
+            max_tokens: 128_000,
+            usage_pct: 25,
+          },
+        },
+        "Usage session",
+      ).usage,
+    ).toBe("32.1k/128.0k (25%)");
   });
 });

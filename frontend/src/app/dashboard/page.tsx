@@ -63,6 +63,7 @@ import {
   type SessionInspectDetails,
   buildSessionInspectDetails,
 } from "./session-inspect";
+import { buildSessionUsageSummary } from "./session-usage";
 
 type SessionSummary = {
   key: string;
@@ -71,7 +72,9 @@ type SessionSummary = {
   title: string;
   sourceLabel: string;
   subtitle: string;
-  usage: string;
+  usageLabel: string;
+  usagePercent: number | null;
+  usageToneClassName: string;
   lastSeenAt: string | null;
   provider: string | null;
   model: string | null;
@@ -292,17 +295,6 @@ const sessionIdentifiers = (record: Record<string, unknown> | null): string[] =>
 const sharesSessionIdentity = (left: string[], right: string[]): boolean =>
   left.some((value) => right.includes(value));
 
-const compactNumber = (value: number): string => {
-  if (!Number.isFinite(value)) return DASH;
-  if (Math.abs(value) >= 1_000_000) {
-    return `${(value / 1_000_000).toFixed(1)}m`;
-  }
-  if (Math.abs(value) >= 1_000) {
-    return `${(value / 1_000).toFixed(1)}k`;
-  }
-  return numberFormatter.format(value);
-};
-
 const formatCount = (value: number): string =>
   Number.isFinite(value) ? numberFormatter.format(Math.max(0, Math.round(value))) : "0";
 
@@ -425,18 +417,7 @@ const toSessionSummaries = (
       "percentUsed",
       "contextPercent",
     ]);
-    const usagePct = Number.isFinite(pctFromPayload ?? NaN)
-      ? Math.max(0, Math.min(100, Math.round(pctFromPayload ?? 0)))
-      : usedTokens !== null && maxTokens !== null && maxTokens > 0
-        ? Math.max(0, Math.min(100, Math.round((usedTokens / maxTokens) * 100)))
-        : 0;
-
-    const usage =
-      usedTokens !== null && maxTokens !== null
-        ? `${compactNumber(usedTokens)}/${compactNumber(maxTokens)} (${usagePct}%)`
-        : usedTokens !== null
-          ? `${compactNumber(usedTokens)} tokens`
-          : DASH;
+    const usageSummary = buildSessionUsageSummary(usedTokens, maxTokens, pctFromPayload);
 
     const subtitleBits = [channel, model].filter(Boolean) as string[];
     const subtitle = subtitleBits.length > 0 ? subtitleBits.join(" · ") : "Session";
@@ -451,7 +432,9 @@ const toSessionSummaries = (
       title: label,
       sourceLabel: "",
       subtitle: subtitleWithProvider || subtitle,
-      usage,
+      usageLabel: usageSummary.label,
+      usagePercent: usageSummary.percent,
+      usageToneClassName: usageSummary.toneClassName,
       lastSeenAt,
       provider: modelProvider,
       model,
@@ -1321,6 +1304,12 @@ export default function DashboardPage() {
                           </div>
                           <div>
                             <p className="text-[10px] font-semibold uppercase tracking-wide text-slate-500">
+                              Context usage
+                            </p>
+                            <p>{inspectedSession.usage}</p>
+                          </div>
+                          <div>
+                            <p className="text-[10px] font-semibold uppercase tracking-wide text-slate-500">
                               Active tools
                             </p>
                             <p>
@@ -1398,14 +1387,41 @@ export default function DashboardPage() {
                               </div>
                             </div>
                             <div className="min-w-0 max-w-[36%] text-right">
-                              <p className="truncate text-xs font-medium text-slate-700">
-                                {session.usage === DASH ? "Usage unavailable" : session.usage}
-                              </p>
-                              <p className="text-[11px] text-slate-500">
-                                {session.lastSeenAt
-                                  ? formatRelativeTimestamp(session.lastSeenAt)
-                                  : "Activity unavailable"}
-                              </p>
+                              <div
+                                className="group ml-auto w-full max-w-36"
+                                title={
+                                  session.usageLabel === DASH
+                                    ? "Usage unavailable"
+                                    : session.usageLabel
+                                }
+                                aria-label={
+                                  session.usageLabel === DASH
+                                    ? "Usage unavailable"
+                                    : `Context window usage ${session.usageLabel}`
+                                }
+                              >
+                                <div className="h-1.5 overflow-hidden rounded-full bg-slate-200">
+                                  <div
+                                    className={cn(
+                                      "h-full rounded-full transition-[width]",
+                                      session.usageToneClassName,
+                                    )}
+                                    style={{ width: `${session.usagePercent ?? 0}%` }}
+                                  />
+                                </div>
+                                <div className="relative mt-1 h-4 text-[11px]">
+                                  <p className="absolute inset-0 truncate text-slate-500 transition-opacity group-hover:opacity-0 group-focus-within:opacity-0">
+                                    {session.lastSeenAt
+                                      ? formatRelativeTimestamp(session.lastSeenAt)
+                                      : "Activity unavailable"}
+                                  </p>
+                                  <p className="absolute inset-0 truncate font-medium text-slate-700 opacity-0 transition-opacity group-hover:opacity-100 group-focus-within:opacity-100">
+                                    {session.usageLabel === DASH
+                                      ? "Usage unavailable"
+                                      : session.usageLabel}
+                                  </p>
+                                </div>
+                              </div>
                             </div>
                             <div className="flex shrink-0 items-center gap-1">
                               <button
