@@ -59,6 +59,10 @@ import {
   parseTimestamp,
 } from "@/lib/formatters";
 import { cn } from "@/lib/utils";
+import {
+  type SessionInspectDetails,
+  buildSessionInspectDetails,
+} from "./session-inspect";
 
 type SessionSummary = {
   key: string;
@@ -647,6 +651,7 @@ export default function DashboardPage() {
   const queryClient = useQueryClient();
   const { isSignedIn } = useAuth();
   const [sessionActionMessage, setSessionActionMessage] = useState<string | null>(null);
+  const [inspectedSession, setInspectedSession] = useState<SessionInspectDetails | null>(null);
   const [killSessionTarget, setKillSessionTarget] = useState<SessionSummary | null>(null);
   const [killSessionError, setKillSessionError] = useState<string | null>(null);
   const [isKillingSession, setIsKillingSession] = useState(false);
@@ -1094,11 +1099,18 @@ export default function DashboardPage() {
   const handleInspectSession = async (session: SessionSummary) => {
     setSessionActionMessage(null);
     try {
-      await getGatewaySessionApiV1GatewaysSessionsSessionIdGet(session.sessionId, {
+      const response = await getGatewaySessionApiV1GatewaysSessionsSessionIdGet(session.sessionId, {
         board_id: session.boardId,
       });
+      if (response.status !== 200) {
+        setInspectedSession(null);
+        setSessionActionMessage(`Inspect failed (${response.status}).`);
+        return;
+      }
+      setInspectedSession(buildSessionInspectDetails(response.data.session, session.title));
       setSessionActionMessage(`Inspected ${session.title}.`);
     } catch (error) {
+      setInspectedSession(null);
       setSessionActionMessage(
         error instanceof Error ? `Inspect failed: ${error.message}` : "Inspect failed.",
       );
@@ -1108,6 +1120,7 @@ export default function DashboardPage() {
   const handleKillSession = async () => {
     if (!killSessionTarget) return;
     setSessionActionMessage(null);
+    setInspectedSession(null);
     setKillSessionError(null);
     setIsKillingSession(true);
     try {
@@ -1293,7 +1306,40 @@ export default function DashboardPage() {
                 </div>
                 {sessionActionMessage ? (
                   <div className="mb-2 rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 text-xs text-slate-600">
-                    {sessionActionMessage}
+                    <p>{sessionActionMessage}</p>
+                    {inspectedSession ? (
+                      <div className="mt-2 rounded-md border border-slate-200 bg-white p-3 text-[11px] text-slate-700">
+                        <p className="font-semibold text-slate-900">
+                          Session payload: {inspectedSession.title}
+                        </p>
+                        <div className="mt-2 grid grid-cols-1 gap-2 sm:grid-cols-2">
+                          <div>
+                            <p className="text-[10px] font-semibold uppercase tracking-wide text-slate-500">
+                              Model
+                            </p>
+                            <p>{inspectedSession.model ?? DASH}</p>
+                          </div>
+                          <div>
+                            <p className="text-[10px] font-semibold uppercase tracking-wide text-slate-500">
+                              Active tools
+                            </p>
+                            <p>
+                              {inspectedSession.activeToolCount !== null
+                                ? formatCount(inspectedSession.activeToolCount)
+                                : DASH}
+                            </p>
+                          </div>
+                        </div>
+                        <div className="mt-2">
+                          <p className="text-[10px] font-semibold uppercase tracking-wide text-slate-500">
+                            Session config
+                          </p>
+                          <pre className="mt-1 max-h-40 overflow-auto rounded-md bg-slate-950/95 p-2 font-mono text-[10px] leading-4 text-slate-100">
+                            {inspectedSession.sessionConfig ?? DASH}
+                          </pre>
+                        </div>
+                      </div>
+                    ) : null}
                   </div>
                 ) : null}
                 <div className="min-h-[220px] max-h-[310px] space-y-2 overflow-x-hidden overflow-y-auto pr-1">
