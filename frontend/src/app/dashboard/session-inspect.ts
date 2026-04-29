@@ -2,6 +2,8 @@ import { buildSessionUsageSummary } from "./session-usage";
 
 export type SessionInspectDetails = {
   title: string;
+  sessionId: string;
+  provider: string | null;
   model: string | null;
   usage: string;
   activeToolCount: number | null;
@@ -70,6 +72,7 @@ const stringifySessionConfig = (value: unknown): string | null => {
 export const buildSessionInspectDetails = (
   session: unknown,
   title: string,
+  sessionId: string,
 ): SessionInspectDetails => {
   const record = toRecord(session);
   const usageRecord = toRecord(record?.usage);
@@ -77,6 +80,9 @@ export const buildSessionInspectDetails = (
   const metricsRecord = toRecord(record?.metrics);
   const candidateRecords = [record, usageRecord, statsRecord, metricsRecord];
   const model = readString(record, ["model", "model_name", "provider", "engine"]);
+  const provider =
+    readString(record, ["modelProvider", "model_provider", "provider"]) ??
+    (model?.split("/")[0] ?? null);
   const usedTokens =
     candidateRecords
       .map((entry) =>
@@ -144,6 +150,8 @@ export const buildSessionInspectDetails = (
 
   return {
     title,
+    sessionId,
+    provider,
     model,
     usage: buildSessionUsageSummary(usedTokens, maxTokens, pctFromPayload).label,
     activeToolCount,

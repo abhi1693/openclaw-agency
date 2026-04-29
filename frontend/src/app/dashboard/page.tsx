@@ -1090,7 +1090,9 @@ export default function DashboardPage() {
         setSessionActionMessage(`Inspect failed (${response.status}).`);
         return;
       }
-      setInspectedSession(buildSessionInspectDetails(response.data.session, session.title));
+      setInspectedSession(
+        buildSessionInspectDetails(response.data.session, session.title, session.sessionId),
+      );
       setSessionActionMessage(`Inspected ${session.title}.`);
     } catch (error) {
       setInspectedSession(null);
@@ -1292,8 +1294,22 @@ export default function DashboardPage() {
                     <p>{sessionActionMessage}</p>
                     {inspectedSession ? (
                       <div className="mt-2 rounded-md border border-slate-200 bg-white p-3 text-[11px] text-slate-700">
-                        <p className="font-semibold text-slate-900">
-                          Session payload: {inspectedSession.title}
+                        <p className="flex flex-wrap items-center gap-1 font-semibold text-slate-900">
+                          <span>Session payload:</span>
+                          <span
+                            className={cn(
+                              "inline-flex rounded-md px-1.5 py-0.5 text-[10px] font-bold uppercase tracking-wider",
+                              providerBadgeClass(inspectedSession.provider),
+                            )}
+                          >
+                            {providerLabel(inspectedSession.provider)}
+                          </span>
+                          <span className="text-slate-400">/</span>
+                          <span>{modelLabel(inspectedSession.model) ?? DASH}</span>
+                          <span className="text-slate-400">·</span>
+                          <span className="font-mono text-[11px]">
+                            {inspectedSession.sessionId}
+                          </span>
                         </p>
                         <div className="mt-2 grid grid-cols-1 gap-2 sm:grid-cols-2">
                           <div>
