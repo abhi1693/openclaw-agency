@@ -15,9 +15,12 @@ describe("buildSessionInspectDetails", () => {
           },
         },
         "Lead session",
+        "session-openai-1",
       ),
     ).toEqual({
       title: "Lead session",
+      sessionId: "session-openai-1",
+      provider: "openai",
       model: "openai/gpt-5.4",
       usage: "—",
       activeToolCount: 2,
@@ -34,9 +37,12 @@ describe("buildSessionInspectDetails", () => {
           config: '{"sandbox":"workspace-write"}',
         },
         "Worker session",
+        "session-anthropic-1",
       ),
     ).toEqual({
       title: "Worker session",
+      sessionId: "session-anthropic-1",
+      provider: "anthropic",
       model: "anthropic/claude-sonnet-4",
       usage: "—",
       activeToolCount: 3,
@@ -55,6 +61,7 @@ describe("buildSessionInspectDetails", () => {
           },
         },
         "Usage session",
+        "session-usage-1",
       ).usage,
     ).toBe("32.1k/128.0k (25%)");
   });
