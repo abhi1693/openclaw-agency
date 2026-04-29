@@ -3,15 +3,20 @@
 export const dynamic = "force-dynamic";
 
 import { useCallback, useMemo } from "react";
+import Link from "next/link";
 
 import { SignedIn, SignedOut, SignInButton, useAuth } from "@/auth/clerk";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { Inbox } from "lucide-react";
 
 import type { ApiError } from "@/api/mutator";
 import {
   listApprovalsApiV1BoardsBoardIdApprovalsGet,
   updateApprovalApiV1BoardsBoardIdApprovalsApprovalIdPatch,
 } from "@/api/generated/approvals/approvals";
+import {
+  useListBoardGroupsApiV1BoardGroupsGet,
+} from "@/api/generated/board-groups/board-groups";
 import { useListBoardsApiV1BoardsGet } from "@/api/generated/boards/boards";
 import type { ApprovalRead, BoardRead } from "@/api/generated/model";
 import { BoardApprovalsPanel } from "@/components/BoardApprovalsPanel";
@@ -27,6 +32,14 @@ type GlobalApprovalsData = {
 function GlobalApprovalsInner() {
   const { isSignedIn } = useAuth();
   const queryClient = useQueryClient();
+  const boardGroupsQuery = useListBoardGroupsApiV1BoardGroupsGet(undefined, {
+    query: {
+      enabled: Boolean(isSignedIn),
+      refetchOnMount: "always",
+      retry: false,
+    },
+    request: { cache: "no-store" },
+  });
 
   const boardsQuery = useListBoardsApiV1BoardsGet(undefined, {
     query: {
@@ -164,6 +177,33 @@ function GlobalApprovalsInner() {
     if (warnings.length > 0) parts.push(warnings.join(" "));
     return parts.length > 0 ? parts.join(" ") : null;
   }, [errorText, warnings]);
+  const boardGroups =
+    boardGroupsQuery.data?.status === 200
+      ? (boardGroupsQuery.data.data.items ?? [])
+      : [];
+
+  if (!boardGroupsQuery.isLoading && boardGroups.length === 0) {
+    return (
+      <main className="flex-1 overflow-y-auto bg-gradient-to-br from-slate-50 to-slate-100">
+        <div className="flex min-h-[calc(100vh-160px)] items-center justify-center p-4 md:p-6">
+          <div className="flex w-full max-w-md flex-col items-center gap-4 rounded-2xl surface-panel p-10 text-center">
+            <Inbox className="h-10 w-10 text-muted" />
+            <div className="space-y-2">
+              <h1 className="text-xl font-semibold text-strong">
+                No Board Groups
+              </h1>
+              <p className="text-sm text-muted">
+                Create a board group to enable approval workflows
+              </p>
+            </div>
+            <Link href="/boards">
+              <Button>Go to Boards →</Button>
+            </Link>
+          </div>
+        </div>
+      </main>
+    );
+  }
 
   return (
     <main className="flex-1 overflow-y-auto bg-gradient-to-br from-slate-50 to-slate-100">
