@@ -1168,6 +1168,7 @@ export default function BoardDetailPage() {
   const [editDueDate, setEditDueDate] = useState("");
   const [editAssigneeId, setEditAssigneeId] = useState("");
   const [editTagIds, setEditTagIds] = useState<string[]>([]);
+  const editTagIdsTaskIdRef = useRef<string | null>(null);
   const [editDependsOnTaskIds, setEditDependsOnTaskIds] = useState<string[]>(
     [],
   );
@@ -1672,6 +1673,7 @@ export default function BoardDetailPage() {
       setEditDueDate("");
       setEditAssigneeId("");
       setEditTagIds([]);
+      editTagIdsTaskIdRef.current = null;
       setEditDependsOnTaskIds([]);
       setEditCustomFieldValues(
         boardCustomFieldValues(boardCustomFieldDefinitions, {}),
@@ -1685,7 +1687,10 @@ export default function BoardDetailPage() {
     setEditPriority(selectedTask.priority);
     setEditDueDate(toLocalDateInput(selectedTask.due_at));
     setEditAssigneeId(selectedTask.assigned_agent_id ?? "");
-    setEditTagIds(selectedTask.tag_ids ?? []);
+    if (editTagIdsTaskIdRef.current !== selectedTask.id) {
+      setEditTagIds(selectedTask.tag_ids ?? []);
+      editTagIdsTaskIdRef.current = selectedTask.id;
+    }
     setEditDependsOnTaskIds(selectedTask.depends_on_task_ids ?? []);
     setEditCustomFieldValues(
       boardCustomFieldValues(
@@ -2779,6 +2784,7 @@ export default function BoardDetailPage() {
     setEditDueDate(toLocalDateInput(selectedTask.due_at));
     setEditAssigneeId(selectedTask.assigned_agent_id ?? "");
     setEditTagIds(selectedTask.tag_ids ?? []);
+    editTagIdsTaskIdRef.current = selectedTask.id;
     setEditDependsOnTaskIds(selectedTask.depends_on_task_ids ?? []);
     setEditCustomFieldValues(
       boardCustomFieldValues(
@@ -4281,7 +4287,7 @@ export default function BoardDetailPage() {
                 </p>
               ) : null}
             </div>
-            <div className="space-y-2">
+            <div key={boardId} className="space-y-2">
               <div className="flex items-center justify-between gap-2">
                 <label className="text-xs font-semibold uppercase tracking-wider text-slate-500">
                   Tags
