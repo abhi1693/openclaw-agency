@@ -627,7 +627,7 @@ function SystemPageContent({ forceRefresh, onAutoRefresh, cronRefreshRef }: { fo
         setEditJob(null)
         setToast({ msg: '✅ 保存成功', ok: true })
         setTimeout(() => setToast(null), 3000)
-        await loadCronJobs()
+        await loadCronJobs().then(() => expandedJobId === editJob.id && setCronRunsCache(({ [editJob.id]: _, ...rest }) => rest))
       }
     } catch {
       setEditError('网络错误，请重试')
