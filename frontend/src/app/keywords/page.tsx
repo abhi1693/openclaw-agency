@@ -1,7 +1,7 @@
 'use client'
 
 import seasonality from '@/config/keyword-seasonality.json'
-import { Fragment, useState, useEffect, useCallback } from 'react'
+import { Fragment, useState, useEffect, useCallback, useRef } from 'react'
 import {
   Key, TrendingUp, ChevronDown, ChevronRight,
   RefreshCw, Lightbulb, AlertTriangle, BarChart3, DollarSign, Search,
@@ -768,23 +768,60 @@ export default function KeywordsPage() {
   const [productsLoading, setProductsLoading] = useState(true)
   const [selectedAsin, setSelectedAsin] = useState(STATIC_PRODUCTS[0].asin)
   const [usingFallback, setUsingFallback] = useState(false)
+  const [liveProductCount, setLiveProductCount] = useState(0)
+  const [fallbackLogId, setFallbackLogId] = useState<string | null>(null)
+  const fallbackWarnedRef = useRef(false)
+
+  const loadProducts = useCallback(async () => {
+    setProductsLoading(true)
+    try {
+      const response = await fetch('/api/content/products', { cache: 'no-store' })
+      const data: { products?: { asin: string; name: string }[] } = await response.json()
+      const list = Array.isArray(data?.products) ? data.products : []
+      setLiveProductCount(list.length)
+
+      if (list.length > 0) {
+        const mapped = list.map(p => ({ asin: p.asin, name: p.name }))
+        setProducts(mapped)
+        setSelectedAsin(currentAsin =>
+          mapped.some(product => product.asin === currentAsin) ? currentAsin : mapped[0].asin
+        )
+        setUsingFallback(false)
+        setFallbackLogId(null)
+        return
+      }
+
+      setProducts(STATIC_PRODUCTS)
+      setUsingFallback(true)
+    } catch {
+      setLiveProductCount(0)
+      setProducts(STATIC_PRODUCTS)
+      setUsingFallback(true)
+    } finally {
+      setProductsLoading(false)
+    }
+  }, [])
 
   useEffect(() => {
-    fetch('/api/content/products')
-      .then(r => r.json())
-      .then((data: { products?: { asin: string; name: string }[] }) => {
-        const list = data?.products
-        if (Array.isArray(list) && list.length > 0) {
-          const mapped = list.map(p => ({ asin: p.asin, name: p.name }))
-          setProducts(mapped)
-          setSelectedAsin(mapped[0].asin)
-        } else {
-          setUsingFallback(true)
-        }
-      })
-      .catch(() => { setUsingFallback(true) })
-      .finally(() => setProductsLoading(false))
-  }, [])
+    loadProducts()
+  }, [loadProducts])
+
+  useEffect(() => {
+    if (!usingFallback) {
+      fallbackWarnedRef.current = false
+      return
+    }
+    if (fallbackWarnedRef.current) return
+
+    const eventId = crypto.randomUUID()
+    fallbackWarnedRef.current = true
+    setFallbackLogId(eventId)
+    console.warn(`[KeywordsPage fallback ${eventId}] Products endpoint unavailable; using static fallback products.`, {
+      eventId,
+      fallbackProductCount: STATIC_PRODUCTS.length,
+      liveProductCount,
+    })
+  }, [liveProductCount, usingFallback])
 
   // Pre-load data for AI Insights tab
   const [rankings, setRankings] = useState<KeywordRanking[]>([])
@@ -822,12 +859,17 @@ export default function KeywordsPage() {
           {usingFallback && (
             <div className="flex items-center gap-2 rounded-lg border border-yellow-400 bg-yellow-50 px-3 py-2 text-sm text-yellow-800">
               <AlertTriangle className="w-4 h-4 text-yellow-600 shrink-0" />
-              <span>产品目录不可用 — 显示缓存列表</span>
+              <span>
+                产品目录不可用 — 显示缓存列表
+                {` (${STATIC_PRODUCTS.length} fallback / ${liveProductCount} live)`}
+                {fallbackLogId ? ` · Ref ${fallbackLogId}` : ''}
+              </span>
               <button
-                onClick={() => window.location.reload()}
-                className="ml-auto text-xs underline hover:no-underline"
+                onClick={() => { void loadProducts() }}
+                disabled={productsLoading}
+                className="ml-auto text-xs underline hover:no-underline disabled:cursor-not-allowed disabled:opacity-60"
               >
-                刷新
+                {productsLoading ? 'Reloading…' : 'Reload Products'}
               </button>
             </div>
           )}
