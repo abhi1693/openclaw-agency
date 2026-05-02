@@ -11,7 +11,7 @@ import {
   DialogTitle,
 } from '@/components/ui/dialog'
 import { Input } from '@/components/ui/input'
-import { Cpu, MemoryStick, HardDrive, Clock, Monitor, Zap, RefreshCw, Bot, Coins, MessageSquare, ChevronDown, ChevronUp, AlertTriangle, X } from 'lucide-react'
+import { Cpu, MemoryStick, HardDrive, Clock, Monitor, Zap, RefreshCw, Bot, Coins, MessageSquare, ChevronDown, ChevronUp, AlertTriangle, X, Play } from 'lucide-react'
 import { DashboardPageLayout } from '@/components/templates/DashboardPageLayout'
 import MetricSparkline from '@/components/charts/metric-sparkline'
 import CronCalendar from '@/components/system/CronCalendar'
@@ -470,19 +470,32 @@ function SystemPageContent({ forceRefresh, onAutoRefresh, cronRefreshRef }: { fo
   const [expandedJobId, setExpandedJobId] = useState<string | null>(null)
   const [cronRunsCache, setCronRunsCache] = useState<Record<string, CronRun[]>>({})
   const [cronRunsLoading, setCronRunsLoading] = useState<Record<string, boolean>>({})
+  const [cronRunNowLoading, setCronRunNowLoading] = useState<Record<string, boolean>>({})
 
-  const toggleJobExpand = useCallback(async (jobId: string) => {
-    if (expandedJobId === jobId) { setExpandedJobId(null); return }
-    setExpandedJobId(jobId)
-    if (cronRunsCache[jobId]) return
+  const showToast = useCallback((msg: string, ok: boolean) => {
+    setToast({ msg, ok })
+    setTimeout(() => setToast(null), 3000)
+  }, [])
+
+  const loadCronJobRuns = useCallback(async (jobId: string) => {
     setCronRunsLoading(p => ({ ...p, [jobId]: true }))
     try {
       const res = await fetch(`/api/system/cron-jobs/${jobId}/runs`)
       const data = res.ok ? await res.json() : { runs: [] }
       setCronRunsCache(p => ({ ...p, [jobId]: data.runs ?? [] }))
-    } catch { setCronRunsCache(p => ({ ...p, [jobId]: [] })) }
-    finally { setCronRunsLoading(p => ({ ...p, [jobId]: false })) }
-  }, [expandedJobId, cronRunsCache])
+    } catch {
+      setCronRunsCache(p => ({ ...p, [jobId]: [] }))
+    } finally {
+      setCronRunsLoading(p => ({ ...p, [jobId]: false }))
+    }
+  }, [])
+
+  const toggleJobExpand = useCallback(async (jobId: string) => {
+    if (expandedJobId === jobId) { setExpandedJobId(null); return }
+    setExpandedJobId(jobId)
+    if (cronRunsCache[jobId]) return
+    await loadCronJobRuns(jobId)
+  }, [expandedJobId, cronRunsCache, loadCronJobRuns])
 
   // Unique agent IDs derived from cron jobs
   const allAgents = useMemo(() => {
@@ -625,14 +638,35 @@ function SystemPageContent({ forceRefresh, onAutoRefresh, cronRefreshRef }: { fo
         setEditError(data.error || '保存失败')
       } else {
         setEditJob(null)
-        setToast({ msg: '✅ 保存成功', ok: true })
-        setTimeout(() => setToast(null), 3000)
+        showToast('✅ 保存成功', true)
         await loadCronJobs().then(() => expandedJobId === editJob.id && setCronRunsCache(({ [editJob.id]: _, ...rest }) => rest))
       }
     } catch {
       setEditError('网络错误，请重试')
     } finally {
       setEditSaving(false)
+    }
+  }
+
+  async function runCronJobNow(jobId: string) {
+    setCronRunNowLoading(p => ({ ...p, [jobId]: true }))
+    try {
+      const res = await fetch(`/api/system/cron-jobs/${jobId}/run`, {
+        method: 'POST',
+        headers: buildAuthHeaders(),
+      })
+      const data = await res.json().catch(() => ({}))
+      if (!res.ok || data.error) {
+        showToast(data.error || '触发失败', false)
+        return
+      }
+      showToast('✅ 已触发运行', true)
+      await loadCronJobs()
+      await loadCronJobRuns(jobId)
+    } catch {
+      showToast('网络错误，请重试', false)
+    } finally {
+      setCronRunNowLoading(p => ({ ...p, [jobId]: false }))
     }
   }
 
@@ -1012,6 +1046,7 @@ function SystemPageContent({ forceRefresh, onAutoRefresh, cronRefreshRef }: { fo
                   const isExpanded = expandedJobId === job.id
                   const runs = cronRunsCache[job.id]
                   const runsLoading = cronRunsLoading[job.id]
+                  const runNowLoading = cronRunNowLoading[job.id] ?? false
                   const lastRun: CronRun | undefined = runs?.[0]
                   const runOutput = lastRun?.output ?? lastRun?.stdout ?? lastRun?.log ?? ''
                   const runDurationMs = lastRun?.durationMs ?? lastRun?.duration
@@ -1053,6 +1088,32 @@ function SystemPageContent({ forceRefresh, onAutoRefresh, cronRefreshRef }: { fo
                       </div>
                       {isExpanded && (
                         <div className="px-4 py-3 bg-[hsl(var(--secondary)/0.3)] border-t border-[hsl(var(--border)/0.5)] text-xs space-y-1.5">
+                          <div className="flex items-center justify-between gap-3 flex-wrap">
+                            <span className="text-[hsl(var(--muted-foreground))]">最近运行记录</span>
+                            <Button
+                              type="button"
+                              size="sm"
+                              variant="outline"
+                              className="h-8 gap-1.5"
+                              disabled={runNowLoading}
+                              onClick={(e) => {
+                                e.stopPropagation()
+                                void runCronJobNow(job.id)
+                              }}
+                            >
+                              {runNowLoading ? (
+                                <>
+                                  <RefreshCw className="w-3.5 h-3.5 animate-spin" />
+                                  运行中...
+                                </>
+                              ) : (
+                                <>
+                                  <Play className="w-3.5 h-3.5" />
+                                  ▶ Run Now
+                                </>
+                              )}
+                            </Button>
+                          </div>
                           {runsLoading ? (
                             <span className="text-[hsl(var(--muted-foreground))]">Loading…</span>
                           ) : (
