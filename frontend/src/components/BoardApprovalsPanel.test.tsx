@@ -38,6 +38,20 @@ const renderWithQueryClient = (ui: React.ReactNode) => {
 };
 
 describe("BoardApprovalsPanel", () => {
+  it("renders approval-card skeletons during initial loading", () => {
+    const { container } = renderWithQueryClient(
+      <BoardApprovalsPanel boardId="board-1" approvals={[]} isLoading />,
+    );
+
+    expect(screen.queryByText("Loading approvals…")).not.toBeInTheDocument();
+    expect(container.querySelectorAll(".animate-pulse").length).toBeGreaterThan(
+      0,
+    );
+    expect(
+      container.querySelectorAll("[class*='[&>*]:opacity-50']").length,
+    ).toBeGreaterThan(0);
+  });
+
   it("shows a pending since SLA indicator for stale approvals", () => {
     vi.useFakeTimers();
     vi.setSystemTime(new Date("2026-04-14T12:00:00Z"));

@@ -25,6 +25,7 @@ import {
   type ChartConfig,
 } from "@/components/charts/chart";
 import { Button } from "@/components/ui/button";
+import { Skeleton } from "@/components/ui/skeleton";
 import { apiDatetimeToMs, parseApiDatetime } from "@/lib/datetime";
 import { formatRelativeTimestamp, getPendingSinceTone } from "@/lib/formatters";
 import { cn } from "@/lib/utils";
@@ -111,6 +112,46 @@ const rubricColors = [
   "#ef4444",
   "#8b5cf6",
 ];
+
+function ApprovalCardSkeleton({
+  className,
+  itemCount = 1,
+}: {
+  className?: string;
+  itemCount?: number;
+}) {
+  return (
+    <div
+      className={cn(
+        "overflow-hidden rounded-xl border border-slate-200 bg-white [&>*]:opacity-50",
+        className,
+      )}
+    >
+      <div className="border-b border-slate-200 bg-slate-50 px-4 py-3">
+        <Skeleton className="h-3 w-32 rounded-full" />
+        <Skeleton className="mt-2 h-3 w-24 rounded-full" />
+      </div>
+      <div className="animate-pulse divide-y divide-slate-100">
+        {Array.from({ length: itemCount }).map((_, index) => (
+          <div key={index} className="px-4 py-4">
+            <div className="flex items-start justify-between gap-3">
+              <Skeleton className="h-3 w-28 rounded-full" />
+              <Skeleton className="h-5 w-20 rounded-[3px]" />
+            </div>
+            <Skeleton className="mt-3 h-4 w-3/4 rounded-full" />
+            <Skeleton className="mt-2 h-3 w-1/2 rounded-full" />
+            <div className="mt-3 flex items-center gap-2">
+              <Skeleton className="h-5 w-24 rounded-md" />
+              <Skeleton className="h-5 w-28 rounded-md" />
+              <Skeleton className="h-4 w-4 rounded-full" />
+              <Skeleton className="h-3 w-24 rounded-full" />
+            </div>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
 
 type TooltipValue = number | string | Array<number | string>;
 
@@ -569,7 +610,21 @@ export function BoardApprovalsPanel({
         </div>
       ) : null}
       {loadingState ? (
-        <p className="text-sm text-slate-500">Loading approvals…</p>
+        <div
+          className={cn(
+            "grid gap-6 xl:grid-cols-[minmax(0,1fr)_minmax(0,1fr)]",
+            scrollable && "h-full",
+          )}
+        >
+          <ApprovalCardSkeleton
+            className={scrollable ? "flex min-h-0 flex-col" : undefined}
+            itemCount={4}
+          />
+          <ApprovalCardSkeleton
+            className={scrollable ? "flex min-h-0 flex-col" : undefined}
+            itemCount={1}
+          />
+        </div>
       ) : pendingCount === 0 && resolvedCount === 0 ? (
         <div
           className={cn(
