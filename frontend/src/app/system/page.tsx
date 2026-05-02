@@ -722,6 +722,7 @@ function SystemPageContent({ forceRefresh, onAutoRefresh, cronRefreshRef }: { fo
   const overdueJobs = (cronJobs?.jobs ?? []).filter(
     j => currentTimeMs !== null && j.enabled && j.state?.nextRunAtMs !== undefined && j.state.nextRunAtMs < currentTimeMs - OVERDUE_GRACE_MS,
   )
+  const overdueJobsBadgeLabel = overdueJobs.length > 99 ? '99+' : `${overdueJobs.length}`
 
   return (
     <div className="space-y-6 max-w-6xl mx-auto">
@@ -762,7 +763,7 @@ function SystemPageContent({ forceRefresh, onAutoRefresh, cronRefreshRef }: { fo
             {label}
             {key === 'cron' && overdueJobs.length > 0 && (
               <span className="absolute -top-1 -right-1 flex h-4 min-w-4 items-center justify-center rounded-full bg-red-500 px-1 text-[10px] font-bold text-white">
-                {overdueJobs.length}
+                {overdueJobsBadgeLabel}
               </span>
             )}
           </button>
