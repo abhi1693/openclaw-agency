@@ -5,6 +5,7 @@ from __future__ import annotations
 from typing import Any
 import json
 import subprocess
+import time
 from pathlib import Path
 
 from fastapi import APIRouter, Depends
@@ -78,6 +79,32 @@ async def get_cron_job_runs(
         return JSONResponse(status_code=503, content={"error": "Gateway 不可用", "runs": []})
 
 
+@router.post("/cron-jobs/{job_id}/run")
+async def run_cron_job(
+    job_id: str,
+    session: AsyncSession = SESSION_DEP,
+    ctx: OrganizationContext = ORG_MEMBER_DEP,
+) -> JSONResponse:
+    """Trigger an immediate cron job run via the gateway cron runner."""
+    gateway = await _first_gateway(session, ctx.organization.id)
+    if gateway is None:
+        return JSONResponse(status_code=503, content={"error": "Gateway 不可用"})
+    try:
+        config = gateway_client_config(gateway)
+        triggered_at_ms = int(time.time() * 1000)
+        result = await openclaw_call("cron.run", {"id": job_id}, config=config)
+        return JSONResponse(
+            content={
+                "ok": True,
+                "jobId": job_id,
+                "triggeredAtMs": triggered_at_ms,
+                "result": result,
+            }
+        )
+    except (OpenClawGatewayError, Exception):
+        return JSONResponse(status_code=503, content={"error": "Gateway 不可用"})
+
+
 class _CronJobUpdateBody:
     def __init__(self, enabled: bool) -> None:
         self.enabled = enabled
@@ -86,7 +113,7 @@ class _CronJobUpdateBody:
 @router.patch("/cron-jobs/{job_id}")
 async def update_cron_job(
     job_id: str,
-    body: dict,
+    body: dict[str, Any],
     session: AsyncSession = SESSION_DEP,
     ctx: OrganizationContext = ORG_MEMBER_DEP,
 ) -> JSONResponse:
@@ -96,7 +123,7 @@ async def update_cron_job(
         return JSONResponse(status_code=503, content={"error": "Gateway 不可用"})
     try:
         config = gateway_client_config(gateway)
-        params: dict = {"id": job_id}
+        params: dict[str, Any] = {"id": job_id}
         if "enabled" in body:
             params["enabled"] = body["enabled"]
         if "schedule" in body:
