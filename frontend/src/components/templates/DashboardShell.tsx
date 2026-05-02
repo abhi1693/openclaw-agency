@@ -1,6 +1,14 @@
 "use client";
 
-import { useCallback, useEffect, useRef, useState } from "react";
+import {
+  createContext,
+  useCallback,
+  useContext,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+} from "react";
 import type { ReactNode } from "react";
 import { usePathname, useRouter } from "next/navigation";
 import { Menu, X } from "lucide-react";
@@ -16,6 +24,19 @@ import { BrandMark } from "@/components/atoms/BrandMark";
 import { OrgSwitcher } from "@/components/organisms/OrgSwitcher";
 import { UserMenu } from "@/components/organisms/UserMenu";
 import { isOnboardingComplete } from "@/lib/onboarding";
+
+type DashboardSidebarContextValue = {
+  sidebarOpen: boolean;
+  toggleSidebar: () => void;
+  closeSidebar: () => void;
+};
+
+const DashboardSidebarContext =
+  createContext<DashboardSidebarContextValue | null>(null);
+
+export function useDashboardSidebar() {
+  return useContext(DashboardSidebarContext);
+}
 
 export function DashboardShell({ children }: { children: ReactNode }) {
   const router = useRouter();
@@ -94,16 +115,24 @@ export function DashboardShell({ children }: { children: ReactNode }) {
     () => setSidebarState((prev) => ({ open: !prev.open, path: pathname })),
     [pathname],
   );
+  const closeSidebar = useCallback(
+    () => setSidebarState((prev) => ({ ...prev, open: false })),
+    [],
+  );
+  const sidebarContextValue = useMemo(
+    () => ({ sidebarOpen, toggleSidebar, closeSidebar }),
+    [closeSidebar, sidebarOpen, toggleSidebar],
+  );
 
   // Dismiss sidebar on Escape
   useEffect(() => {
     if (!sidebarOpen) return;
     const onKey = (e: KeyboardEvent) => {
-      if (e.key === "Escape") setSidebarState((prev) => ({ ...prev, open: false }));
+      if (e.key === "Escape") closeSidebar();
     };
     document.addEventListener("keydown", onKey);
     return () => document.removeEventListener("keydown", onKey);
-  }, [sidebarOpen]);
+  }, [closeSidebar, sidebarOpen]);
 
   if (!isLoaded) {
     if (authTimeout) {
@@ -126,56 +155,48 @@ export function DashboardShell({ children }: { children: ReactNode }) {
   }
 
   return (
-    <div className="min-h-screen bg-app text-strong" data-sidebar={sidebarOpen ? "open" : "closed"}>
-      <header className="sticky top-0 z-50 border-b border-slate-200 bg-white shadow-sm">
-        <div className="flex items-center py-3">
-          <div className="flex items-center px-4 md:px-6 md:w-[260px]">
-            {isSignedIn ? (
-              <button
-                type="button"
-                className="mr-3 rounded-lg p-2 text-slate-600 hover:bg-slate-100 md:hidden"
-                onClick={toggleSidebar}
-                aria-label="Toggle navigation"
-              >
-                {sidebarOpen ? <X className="h-5 w-5" /> : <Menu className="h-5 w-5" />}
-              </button>
-            ) : null}
-            <BrandMark />
+    <DashboardSidebarContext.Provider value={sidebarContextValue}>
+      <div className="min-h-screen bg-app text-strong">
+        <header className="sticky top-0 z-50 border-b border-slate-200 bg-white shadow-sm">
+          <div className="flex items-center py-3">
+            <div className="flex items-center px-4 md:px-6 md:w-[260px]">
+              {isSignedIn ? (
+                <button
+                  type="button"
+                  className="mr-3 rounded-lg p-2 text-slate-600 hover:bg-slate-100 md:hidden"
+                  onClick={toggleSidebar}
+                  aria-label="Toggle navigation"
+                >
+                  {sidebarOpen ? <X className="h-5 w-5" /> : <Menu className="h-5 w-5" />}
+                </button>
+              ) : null}
+              <BrandMark />
+            </div>
+            <SignedIn>
+              <div className="hidden md:flex flex-1 items-center">
+                <div className="max-w-[220px]">
+                  <OrgSwitcher />
+                </div>
+              </div>
+            </SignedIn>
+            <SignedIn>
+              <div className="ml-auto flex items-center gap-3 px-4 md:px-6">
+                <div className="hidden text-right lg:block">
+                  <p className="text-sm font-semibold text-slate-900">
+                    {displayName}
+                  </p>
+                  <p className="text-xs text-slate-500">Operator</p>
+                </div>
+                <UserMenu displayName={displayName} displayEmail={displayEmail} />
+              </div>
+            </SignedIn>
           </div>
-          <SignedIn>
-            <div className="hidden md:flex flex-1 items-center">
-              <div className="max-w-[220px]">
-                <OrgSwitcher />
-              </div>
-            </div>
-          </SignedIn>
-          <SignedIn>
-            <div className="ml-auto flex items-center gap-3 px-4 md:px-6">
-              <div className="hidden text-right lg:block">
-                <p className="text-sm font-semibold text-slate-900">
-                  {displayName}
-                </p>
-                <p className="text-xs text-slate-500">Operator</p>
-              </div>
-              <UserMenu displayName={displayName} displayEmail={displayEmail} />
-            </div>
-          </SignedIn>
+        </header>
+
+        <div className="grid min-h-[calc(100vh-64px)] grid-cols-1 md:grid-cols-[260px_1fr] bg-slate-50">
+          {children}
         </div>
-      </header>
-
-      {/* Mobile sidebar overlay */}
-      {sidebarOpen ? (
-        <div
-          className="fixed inset-0 z-40 bg-black/30 md:hidden"
-          onClick={toggleSidebar}
-          aria-hidden="true"
-          data-cy="sidebar-backdrop"
-        />
-      ) : null}
-
-      <div className="grid min-h-[calc(100vh-64px)] grid-cols-1 md:grid-cols-[260px_1fr] bg-slate-50">
-        {children}
       </div>
-    </div>
+    </DashboardSidebarContext.Provider>
   );
 }
