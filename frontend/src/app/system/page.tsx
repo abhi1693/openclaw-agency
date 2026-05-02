@@ -27,6 +27,8 @@ const PRESET_MODELS = [
   'minimax-portal/MiniMax-M2.5',
 ]
 const CUSTOM_MODEL = '__custom__'
+const RUN_OUTPUT_PREVIEW_LIMIT = 200
+const RUN_OUTPUT_PRE_BLOCK_THRESHOLD = 5000
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -468,6 +470,7 @@ function SystemPageContent({ forceRefresh, onAutoRefresh, cronRefreshRef }: { fo
   const [activeTab, setActiveTab] = useState<'system' | 'cron'>('system')
 
   const [expandedJobId, setExpandedJobId] = useState<string | null>(null)
+  const [expandedRunOutputs, setExpandedRunOutputs] = useState<Record<string, boolean>>({})
   const [cronRunsCache, setCronRunsCache] = useState<Record<string, CronRun[]>>({})
   const [cronRunsLoading, setCronRunsLoading] = useState<Record<string, boolean>>({})
   const [cronRunNowLoading, setCronRunNowLoading] = useState<Record<string, boolean>>({})
@@ -1049,6 +1052,12 @@ function SystemPageContent({ forceRefresh, onAutoRefresh, cronRefreshRef }: { fo
                   const runNowLoading = cronRunNowLoading[job.id] ?? false
                   const lastRun: CronRun | undefined = runs?.[0]
                   const runOutput = lastRun?.output ?? lastRun?.stdout ?? lastRun?.log ?? ''
+                  const isRunOutputExpanded = expandedRunOutputs[job.id] ?? false
+                  const hasLongRunOutput = runOutput.length > RUN_OUTPUT_PREVIEW_LIMIT
+                  const shouldUseRunOutputPreBlock = runOutput.length > RUN_OUTPUT_PRE_BLOCK_THRESHOLD
+                  const visibleRunOutput = hasLongRunOutput && !isRunOutputExpanded
+                    ? `${runOutput.slice(0, RUN_OUTPUT_PREVIEW_LIMIT)}…`
+                    : runOutput
                   const runDurationMs = lastRun?.durationMs ?? lastRun?.duration
                   const runStatus = lastRun?.status ?? lastRun?.exitStatus ?? (lastRun?.exitCode === 0 ? 'ok' : lastRun?.exitCode != null ? 'error' : undefined)
 
@@ -1126,8 +1135,30 @@ function SystemPageContent({ forceRefresh, onAutoRefresh, cronRefreshRef }: { fo
                                 </span>
                               </div>
                               {runOutput && (
-                                <div className="font-mono text-[10px] text-[hsl(var(--muted-foreground))] bg-[hsl(var(--background))] rounded px-2 py-1.5 break-all">
-                                  {runOutput.slice(0, 200)}{runOutput.length > 200 ? '…' : ''}
+                                <div className="space-y-2">
+                                  {shouldUseRunOutputPreBlock && isRunOutputExpanded ? (
+                                    <pre className="max-h-80 overflow-auto rounded border border-[hsl(var(--border)/0.7)] bg-[hsl(var(--background))] px-2 py-1.5 font-mono text-[10px] leading-relaxed text-[hsl(var(--muted-foreground))] whitespace-pre-wrap">
+                                      {visibleRunOutput}
+                                    </pre>
+                                  ) : (
+                                    <div className="rounded bg-[hsl(var(--background))] px-2 py-1.5 font-mono text-[10px] text-[hsl(var(--muted-foreground))] break-all whitespace-pre-wrap">
+                                      {visibleRunOutput}
+                                    </div>
+                                  )}
+                                  {hasLongRunOutput && (
+                                    <Button
+                                      type="button"
+                                      size="sm"
+                                      variant="outline"
+                                      className="h-7 px-2 text-[10px]"
+                                      onClick={(e) => {
+                                        e.stopPropagation()
+                                        setExpandedRunOutputs((prev) => ({ ...prev, [job.id]: !isRunOutputExpanded }))
+                                      }}
+                                    >
+                                      {isRunOutputExpanded ? 'Show less' : `Show all ${runOutput.length} characters`}
+                                    </Button>
+                                  )}
                                 </div>
                               )}
                               {!runOutput && !runsLoading && runs !== undefined && (
