@@ -28,6 +28,7 @@ import { DashboardShell } from "@/components/templates/DashboardShell";
 import { Markdown } from "@/components/atoms/Markdown";
 import { SignedOutPanel } from "@/components/auth/SignedOutPanel";
 import { ConfirmActionDialog } from "@/components/ui/confirm-action-dialog";
+import { CopyableId } from "@/components/ui/copyable-id";
 import { Skeleton } from "@/components/ui/skeleton";
 import { ApiError, customFetch } from "@/api/mutator";
 import {
@@ -1307,9 +1308,10 @@ export default function DashboardPage() {
                           <span className="text-slate-400">/</span>
                           <span>{modelLabel(inspectedSession.model) ?? DASH}</span>
                           <span className="text-slate-400">·</span>
-                          <span className="font-mono text-[11px]">
-                            {inspectedSession.sessionId}
-                          </span>
+                          <CopyableId
+                            value={inspectedSession.sessionId}
+                            copyLabel="Copy session ID"
+                          />
                         </p>
                         <div className="mt-2 grid grid-cols-1 gap-2 sm:grid-cols-2">
                           <div>
