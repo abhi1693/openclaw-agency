@@ -723,6 +723,7 @@ export default function DashboardPage() {
         label: "Disconnected",
         className: "border-rose-200 bg-rose-50 text-rose-700",
         dotClassName: "text-rose-600",
+        dotStyle: { animation: "none" as const },
       }
     : isMetricsStale
       ? {
@@ -730,12 +731,14 @@ export default function DashboardPage() {
           label: "Stale (30s+)",
           className: "border-amber-200 bg-amber-50 text-amber-700",
           dotClassName: "text-amber-600",
+          dotStyle: { animation: "none" as const },
         }
       : {
           dot: "●",
           label: "Live",
           className: "border-emerald-200 bg-emerald-50 text-emerald-700",
           dotClassName: "animate-pulse text-emerald-500",
+          dotStyle: undefined,
         };
 
   const onlineAgents = useMemo(
@@ -1158,7 +1161,12 @@ export default function DashboardPage() {
                   metricsStatus.className,
                 )}
               >
-                <span className={metricsStatus.dotClassName}>{metricsStatus.dot}</span>
+                <span
+                  className={metricsStatus.dotClassName}
+                  style={metricsStatus.dotStyle}
+                >
+                  {metricsStatus.dot}
+                </span>
                 {metricsStatus.label}
               </span>
             </div>
