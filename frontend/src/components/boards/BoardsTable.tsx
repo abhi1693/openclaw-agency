@@ -17,10 +17,17 @@ import {
   type DataTableEmptyState,
 } from "@/components/tables/DataTable";
 import { dateCell, linkifyCell } from "@/components/tables/cell-formatters";
+import { cn } from "@/lib/utils";
+
+export type BoardGatewayConnectionStatus =
+  | "connected"
+  | "degraded"
+  | "disconnected";
 
 type BoardsTableProps = {
   boards: BoardRead[];
   boardGroups?: BoardGroupRead[];
+  gatewayStatusById?: Partial<Record<string, BoardGatewayConnectionStatus>>;
   isLoading?: boolean;
   sorting?: SortingState;
   onSortingChange?: OnChangeFn<SortingState>;
@@ -59,6 +66,7 @@ const compactId = (value: string) =>
 export function BoardsTable({
   boards,
   boardGroups = [],
+  gatewayStatusById = {},
   isLoading = false,
   sorting,
   onSortingChange,
@@ -94,17 +102,38 @@ export function BoardsTable({
     }
     return map;
   }, [boardGroups]);
+  const boardGatewayStatusById = useMemo(
+    () => new Map(Object.entries(gatewayStatusById)),
+    [gatewayStatusById],
+  );
 
   const columns = useMemo<ColumnDef<BoardRead>[]>(() => {
     const baseColumns: ColumnDef<BoardRead>[] = [
       {
         accessorKey: "name",
         header: "Board",
-        cell: ({ row }) =>
-          linkifyCell({
+        cell: ({ row }) => {
+          const gatewayId = row.original.gateway_id;
+          const gatewayStatus = gatewayId
+            ? boardGatewayStatusById.get(gatewayId) ?? "disconnected"
+            : "disconnected";
+
+          return linkifyCell({
             href: `/boards/${row.original.id}`,
-            label: row.original.name,
-          }),
+            label: (
+              <span className="inline-flex items-center gap-2">
+                <span
+                  aria-label={`Gateway ${getGatewayStatusLabel(gatewayStatus)}`}
+                  className={cn(
+                    "h-2.5 w-2.5 rounded-full",
+                    BOARD_GATEWAY_STATUS_DOT_CLASS_NAME[gatewayStatus],
+                  )}
+                />
+                <span>{row.original.name}</span>
+              </span>
+            ),
+          });
+        },
       },
       {
         id: "group",
@@ -138,7 +167,7 @@ export function BoardsTable({
     ];
 
     return baseColumns;
-  }, [groupById]);
+  }, [boardGatewayStatusById, groupById]);
 
   // eslint-disable-next-line react-hooks/incompatible-library
   const table = useReactTable({
@@ -184,4 +213,24 @@ export function BoardsTable({
       }
     />
   );
+}
+
+const BOARD_GATEWAY_STATUS_DOT_CLASS_NAME: Record<
+  BoardGatewayConnectionStatus,
+  string
+> = {
+  connected: "bg-emerald-500",
+  degraded: "bg-amber-500",
+  disconnected: "bg-slate-300",
+};
+
+function getGatewayStatusLabel(status: BoardGatewayConnectionStatus) {
+  switch (status) {
+    case "connected":
+      return "connected";
+    case "degraded":
+      return "degraded";
+    default:
+      return "disconnected";
+  }
 }

@@ -6,7 +6,7 @@ import { useMemo, useState } from "react";
 import Link from "next/link";
 
 import { useAuth } from "@/auth/clerk";
-import { useQueryClient } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 
 import { ApiError } from "@/api/mutator";
 import {
@@ -19,11 +19,16 @@ import {
   type listBoardGroupsApiV1BoardGroupsGetResponse,
   useListBoardGroupsApiV1BoardGroupsGet,
 } from "@/api/generated/board-groups/board-groups";
+import { gatewaysStatusApiV1GatewaysStatusGet } from "@/api/generated/gateways/gateways";
+import type { GatewaysStatusResponse } from "@/api/generated/model/gatewaysStatusResponse";
 import { createOptimisticListDeleteMutation } from "@/lib/list-delete";
 import { useOrganizationMembership } from "@/lib/use-organization-membership";
 import { useUrlSorting } from "@/lib/use-url-sorting";
 import type { BoardGroupRead, BoardRead } from "@/api/generated/model";
-import { BoardsTable } from "@/components/boards/BoardsTable";
+import {
+  BoardsTable,
+  type BoardGatewayConnectionStatus,
+} from "@/components/boards/BoardsTable";
 import { DashboardPageLayout } from "@/components/templates/DashboardPageLayout";
 import { buttonVariants } from "@/components/ui/button";
 import { ConfirmActionDialog } from "@/components/ui/confirm-action-dialog";
@@ -31,6 +36,16 @@ import { ErrorBoundary } from "@/components/ui/error-boundary";
 import { Card, CardContent, CardHeader } from "@/components/ui/card";
 
 const BOARD_SORTABLE_COLUMNS = ["name", "group", "updated_at"];
+const GATEWAY_STATUS_REFETCH_INTERVAL_MS = 15_000;
+
+type GatewayStatusTarget = {
+  boardId: string;
+  gatewayId: string;
+};
+
+type BoardGatewayStatusEntry = GatewayStatusTarget & {
+  status: BoardGatewayConnectionStatus;
+};
 
 export default function BoardsPage() {
   const { isSignedIn } = useAuth();
@@ -82,6 +97,73 @@ export default function BoardsPage() {
     if (groupsQuery.data?.status !== 200) return [];
     return groupsQuery.data.data.items ?? [];
   }, [groupsQuery.data]);
+  const gatewayStatusTargets = useMemo<GatewayStatusTarget[]>(() => {
+    const targetsByGatewayId = new Map<string, GatewayStatusTarget>();
+    for (const board of boards) {
+      const gatewayId = board.gateway_id;
+      if (!gatewayId || targetsByGatewayId.has(gatewayId)) continue;
+      targetsByGatewayId.set(gatewayId, {
+        boardId: board.id,
+        gatewayId,
+      });
+    }
+    return [...targetsByGatewayId.values()].sort((left, right) =>
+      left.gatewayId.localeCompare(right.gatewayId),
+    );
+  }, [boards]);
+
+  const gatewayStatusesQuery = useQuery<BoardGatewayStatusEntry[], ApiError>({
+    queryKey: [
+      "boards",
+      "gateway-statuses",
+      gatewayStatusTargets.map((target) => `${target.gatewayId}:${target.boardId}`),
+    ],
+    enabled: Boolean(isSignedIn && gatewayStatusTargets.length > 0),
+    refetchInterval: GATEWAY_STATUS_REFETCH_INTERVAL_MS,
+    refetchOnMount: "always",
+    queryFn: async ({ signal }) => {
+      return Promise.all(
+        gatewayStatusTargets.map(async (target) => {
+          try {
+            const response = await gatewaysStatusApiV1GatewaysStatusGet(
+              { board_id: target.boardId },
+              { signal },
+            );
+
+            if (response.status !== 200) {
+              return { ...target, status: "degraded" as const };
+            }
+
+            const payload: GatewaysStatusResponse = response.data;
+            const hasHealthIssue = Boolean(payload.error || payload.main_session_error);
+
+            return {
+              ...target,
+              status: payload.connected
+                ? hasHealthIssue
+                  ? "degraded"
+                  : "connected"
+                : "disconnected",
+            };
+          } catch (error) {
+            if (signal.aborted) throw error;
+            return { ...target, status: "degraded" as const };
+          }
+        }),
+      );
+    },
+  });
+
+  const gatewayStatusById = useMemo<Record<string, BoardGatewayConnectionStatus>>(
+    () =>
+      Object.fromEntries(
+        (gatewayStatusesQuery.data ?? []).map((entry) => [
+          entry.gatewayId,
+          entry.status,
+        ]),
+      ),
+    [gatewayStatusesQuery.data],
+  );
 
   const deleteMutation = useDeleteBoardApiV1BoardsBoardIdDelete<
     ApiError,
@@ -149,6 +231,7 @@ export default function BoardsPage() {
             sorting={sorting}
             onSortingChange={onSortingChange}
             error={boardsQuery.error ?? null}
+            gatewayStatusById={gatewayStatusById}
             onDelete={setDeleteTarget}
           />
         </ErrorBoundary>
@@ -182,6 +265,7 @@ function BoardsTableSection({
   sorting,
   onSortingChange,
   error,
+  gatewayStatusById,
   onDelete,
 }: {
   boards: BoardRead[];
@@ -190,6 +274,7 @@ function BoardsTableSection({
   sorting: ReturnType<typeof useUrlSorting>["sorting"];
   onSortingChange: ReturnType<typeof useUrlSorting>["onSortingChange"];
   error: ApiError | null;
+  gatewayStatusById: Record<string, BoardGatewayConnectionStatus>;
   onDelete: (board: BoardRead) => void;
 }) {
   if (error) {
@@ -204,6 +289,7 @@ function BoardsTableSection({
         isLoading={isLoading}
         sorting={sorting}
         onSortingChange={onSortingChange}
+        gatewayStatusById={gatewayStatusById}
         showActions
         stickyHeader
         onDelete={onDelete}
