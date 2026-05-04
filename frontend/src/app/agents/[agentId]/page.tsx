@@ -37,6 +37,7 @@ import { StatusPill } from "@/components/atoms/StatusPill";
 import { DashboardSidebar } from "@/components/organisms/DashboardSidebar";
 import { DashboardShell } from "@/components/templates/DashboardShell";
 import { Button } from "@/components/ui/button";
+import { CopyableId } from "@/components/ui/copyable-id";
 import {
   Dialog,
   DialogContent,
@@ -234,15 +235,20 @@ export default function AgentDetailPage() {
                         <p className="text-xs font-semibold uppercase tracking-[0.2em] text-quiet">
                           Agent ID
                         </p>
-                        <p className="mt-1 text-sm text-muted">{agent.id}</p>
+                        <div className="mt-1 text-sm text-muted">
+                          <CopyableId value={agent.id} copyLabel="Copy agent ID" />
+                        </div>
                       </div>
                       <div>
                         <p className="text-xs font-semibold uppercase tracking-[0.2em] text-quiet">
                           Session key
                         </p>
-                        <p className="mt-1 text-sm text-muted">
-                          {agent.openclaw_session_id ?? "—"}
-                        </p>
+                        <div className="mt-1 text-sm text-muted">
+                          <CopyableId
+                            value={agent.openclaw_session_id}
+                            copyLabel="Copy session key"
+                          />
+                        </div>
                       </div>
                       <div>
                         <p className="text-xs font-semibold uppercase tracking-[0.2em] text-quiet">
