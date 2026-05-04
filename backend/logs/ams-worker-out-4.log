@@ -4673,3 +4673,4 @@
 2026-05-04 17:17:44: 2026-05-04 17:17:44,121 INFO app.services.ams_consumer ams_consumer.poll_done dataset=sp-traffic processed=10 failed=0 app=mission-control version=0.1.0
 2026-05-04 17:18:04: 2026-05-04 17:18:04,494 INFO app.services.ams_consumer ams_consumer.poll_done dataset=budget-usage processed=1 failed=0 app=mission-control version=0.1.0
 2026-05-04 17:18:29: 2026-05-04 17:18:29,995 INFO app.services.ams_consumer ams_consumer.poll_done dataset=sp-traffic processed=10 failed=0 app=mission-control version=0.1.0
+2026-05-04 17:18:50: 2026-05-04 17:18:50,357 INFO app.services.ams_consumer ams_consumer.poll_done dataset=budget-usage processed=10 failed=0 app=mission-control version=0.1.0
