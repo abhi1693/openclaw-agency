@@ -500,6 +500,18 @@ function SystemPageContent({ forceRefresh, onAutoRefresh, cronRefreshRef }: { fo
     await loadCronJobRuns(jobId)
   }, [expandedJobId, cronRunsCache, loadCronJobRuns])
 
+  const showCronJobHistory = useCallback(async (jobId: string) => {
+    setExpandedJobId(jobId)
+    if (!cronRunsCache[jobId]) {
+      await loadCronJobRuns(jobId)
+    }
+    if (typeof document !== 'undefined') {
+      window.setTimeout(() => {
+        document.getElementById(`cron-job-${jobId}`)?.scrollIntoView({ behavior: 'smooth', block: 'center' })
+      }, 50)
+    }
+  }, [cronRunsCache, loadCronJobRuns])
+
   // Unique agent IDs derived from cron jobs
   const allAgents = useMemo(() => {
     if (!cronJobs) return []
@@ -994,7 +1006,13 @@ function SystemPageContent({ forceRefresh, onAutoRefresh, cronRefreshRef }: { fo
               </button>
             </div>
           )}
-          {cronJobs && cronJobs.jobs.length > 0 && <CronCalendar jobs={cronJobs.jobs} onEditJob={openEdit} />}
+          {cronJobs && cronJobs.jobs.length > 0 && (
+            <CronCalendar
+              jobs={cronJobs.jobs}
+              activeJobId={expandedJobId}
+              onSelectJob={showCronJobHistory}
+            />
+          )}
           {cronJobs && cronJobs.jobs.length > 0 && <CronTimeline jobs={cronJobs.jobs} nowMs={currentTimeMs} />}
 
           <div className="space-y-4">
@@ -1063,7 +1081,7 @@ function SystemPageContent({ forceRefresh, onAutoRefresh, cronRefreshRef }: { fo
                   const runStatus = lastRun?.status ?? lastRun?.exitStatus ?? (lastRun?.exitCode === 0 ? 'ok' : lastRun?.exitCode != null ? 'error' : undefined)
 
                   return (
-                    <div key={job.id} className={i < cronJobs.jobs.length - 1 ? 'border-b border-[hsl(var(--border)/0.5)]' : ''}>
+                    <div id={`cron-job-${job.id}`} key={job.id} className={i < cronJobs.jobs.length - 1 ? 'border-b border-[hsl(var(--border)/0.5)]' : ''}>
                       <div onClick={() => openEdit(job)} className={`grid grid-cols-[2fr_1fr_1fr_1fr_80px_1fr_20px] gap-3 px-4 py-3 items-center cursor-pointer hover:bg-[hsl(var(--secondary)/0.3)] transition-colors ${!job.enabled ? 'opacity-60' : ''} ${consecutiveErrors >= 3 ? 'bg-red-500/5' : consecutiveErrors >= 1 ? 'bg-amber-500/5' : ''}`}>
                         <div className="flex items-center gap-2">
                           <div className="w-2 h-2 rounded-full flex-shrink-0" style={{ backgroundColor: job.enabled ? jobColor : 'hsl(var(--muted-foreground))' }} />
