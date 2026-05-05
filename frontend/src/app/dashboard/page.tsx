@@ -59,6 +59,7 @@ import {
   getPendingSinceTone,
   parseTimestamp,
 } from "@/lib/formatters";
+import { usePageActive } from "@/hooks/usePageActive";
 import { cn } from "@/lib/utils";
 import {
   type SessionInspectDetails,
@@ -634,6 +635,7 @@ export default function DashboardPage() {
   const router = useRouter();
   const queryClient = useQueryClient();
   const { isSignedIn } = useAuth();
+  const isPageActive = usePageActive();
   const [sessionActionMessage, setSessionActionMessage] = useState<string | null>(null);
   const [inspectedSession, setInspectedSession] = useState<SessionInspectDetails | null>(null);
   const [killSessionTarget, setKillSessionTarget] = useState<SessionSummary | null>(null);
@@ -672,7 +674,7 @@ export default function DashboardPage() {
     {
       query: {
         enabled: Boolean(isSignedIn),
-        refetchInterval: DASHBOARD_REFETCH_INTERVAL_MS,
+        refetchInterval: isPageActive ? DASHBOARD_REFETCH_INTERVAL_MS : false,
         refetchOnMount: "always",
         retry: 3,
         retryDelay: (attempt) => Math.min(1000 * 2 ** attempt, 5000),
