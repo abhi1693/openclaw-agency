@@ -10,9 +10,21 @@ export type SessionInspectDetails = {
   sessionConfig: string | null;
 };
 
+const parseJsonField = (value: unknown): unknown => {
+  if (typeof value !== "string") return value;
+  const trimmed = value.trim();
+  if (!trimmed) return null;
+  try {
+    return JSON.parse(trimmed);
+  } catch {
+    return value;
+  }
+};
+
 const toRecord = (value: unknown): Record<string, unknown> | null => {
-  if (!value || Array.isArray(value) || typeof value !== "object") return null;
-  return value as Record<string, unknown>;
+  const parsed = parseJsonField(value);
+  if (!parsed || Array.isArray(parsed) || typeof parsed !== "object") return null;
+  return parsed as Record<string, unknown>;
 };
 
 const readString = (
@@ -21,7 +33,7 @@ const readString = (
 ): string | null => {
   if (!record) return null;
   for (const key of keys) {
-    const value = record[key];
+    const value = parseJsonField(record[key]);
     if (typeof value === "string" && value.trim()) return value.trim();
   }
   return null;
@@ -33,7 +45,7 @@ const readNumber = (
 ): number | null => {
   if (!record) return null;
   for (const key of keys) {
-    const value = record[key];
+    const value = parseJsonField(record[key]);
     if (typeof value === "number" && Number.isFinite(value)) return value;
     if (typeof value === "string") {
       const cleaned = value.replace(/[^0-9.-]/g, "");
@@ -50,7 +62,7 @@ const readArrayLength = (
 ): number | null => {
   if (!record) return null;
   for (const key of keys) {
-    const value = record[key];
+    const value = parseJsonField(record[key]);
     if (Array.isArray(value)) return value.length;
   }
   return null;
@@ -60,7 +72,10 @@ const stringifySessionConfig = (value: unknown): string | null => {
   if (value == null) return null;
   if (typeof value === "string") {
     const trimmed = value.trim();
-    return trimmed || null;
+    if (!trimmed) return null;
+    const parsed = parseJsonField(trimmed);
+    if (parsed !== trimmed) value = parsed;
+    else return trimmed;
   }
   try {
     return JSON.stringify(value, null, 2);
