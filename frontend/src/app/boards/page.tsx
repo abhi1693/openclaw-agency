@@ -36,7 +36,7 @@ import { ErrorBoundary } from "@/components/ui/error-boundary";
 import { Card, CardContent, CardHeader } from "@/components/ui/card";
 
 const BOARD_SORTABLE_COLUMNS = ["name", "group", "updated_at"];
-const GATEWAY_STATUS_REFETCH_INTERVAL_MS = 15_000;
+const GATEWAY_STATUS_REFETCH_INTERVAL_MS = 10_000;
 
 type GatewayStatusTarget = {
   boardId: string;
