@@ -56,14 +56,7 @@ export function DashboardShell({ children }: { children: ReactNode }) {
       if (authTimerRef.current) clearTimeout(authTimerRef.current);
     };
   }, [isLoaded]);
-  const [sidebarState, setSidebarState] = useState({ open: false, path: pathname });
-  // Close sidebar on navigation using React's "store info from previous
-  // renders" pattern — conditional setState during render resets immediately
-  // without extra commits, avoiding both set-state-in-effect and refs rules.
-  if (sidebarState.path !== pathname) {
-    setSidebarState({ open: false, path: pathname });
-  }
-  const sidebarOpen = sidebarState.open;
+  const [sidebarOpen, setSidebarOpen] = useState(false);
 
   const meQuery = useGetMeApiV1UsersMeGet<
     getMeApiV1UsersMeGetResponse,
@@ -111,12 +104,16 @@ export function DashboardShell({ children }: { children: ReactNode }) {
     };
   }, []);
 
+  useEffect(() => {
+    setSidebarOpen(false);
+  }, [pathname]);
+
   const toggleSidebar = useCallback(
-    () => setSidebarState((prev) => ({ open: !prev.open, path: pathname })),
-    [pathname],
+    () => setSidebarOpen((prev) => !prev),
+    [],
   );
   const closeSidebar = useCallback(
-    () => setSidebarState((prev) => ({ ...prev, open: false })),
+    () => setSidebarOpen(false),
     [],
   );
   const sidebarContextValue = useMemo(
