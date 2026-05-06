@@ -271,6 +271,38 @@ function generateCronFromState(s: CronScheduleState): string {
   return s.customExpr
 }
 
+function estimateNextRunAtMs(schedule: CronJob['schedule'], fromMs = Date.now()): number | undefined {
+  const expr = typeof schedule === 'string' ? schedule : schedule?.expr
+  if (!expr) return undefined
+  const parts = expr.trim().split(/\s+/)
+  if (parts.length !== 5) return undefined
+  const [minStr, hourStr, dom, mon, dow] = parts
+  const minute = Number(minStr), hour = Number(hourStr)
+  if ([minute, hour].some(Number.isNaN) || mon !== '*') return undefined
+  const now = new Date(fromMs)
+  const candidate = new Date(fromMs)
+  candidate.setSeconds(0, 0)
+  const setTime = (date: Date) => { date.setHours(hour, minute, 0, 0); return date }
+  if (dom === '*' && dow === '*') {
+    setTime(candidate)
+    if (candidate.getTime() <= fromMs) candidate.setDate(candidate.getDate() + 1)
+    return candidate.getTime()
+  }
+  if (dom === '*' && /^[0-6](,[0-6])*$/.test(dow)) {
+    const days = dow.split(',').map(Number).sort((a, b) => a - b)
+    for (let offset = 0; offset < 7; offset += 1) {
+      const date = setTime(new Date(now))
+      date.setDate(now.getDate() + offset)
+      if (days.includes(date.getDay()) && date.getTime() > fromMs) return date.getTime()
+    }
+  }
+  if (/^\d+$/.test(dom) && dow === '*') {
+    const date = setTime(new Date(now.getFullYear(), now.getMonth(), Number(dom)))
+    if (date.getTime() <= fromMs) date.setMonth(date.getMonth() + 1, Number(dom))
+    return date.getTime()
+  }
+}
+
 const FREQ_LABELS: { key: CronFrequency; label: string }[] = [
   { key: 'daily',   label: '每天' },
   { key: 'weekly',  label: '每周' },
@@ -675,9 +707,14 @@ function SystemPageContent({ forceRefresh, onAutoRefresh, cronRefreshRef }: { fo
         showToast(data.error || '触发失败', false)
         return
       }
+      setCronJobs(prev => prev ? ({
+        jobs: prev.jobs.map(job => job.id === jobId ? {
+          ...job,
+          state: { ...job.state, nextRunAtMs: estimateNextRunAtMs(job.schedule) ?? job.state?.nextRunAtMs },
+        } : job),
+      }) : prev)
       showToast('✅ 已触发运行', true)
-      await loadCronJobs()
-      await loadCronJobRuns(jobId)
+      await Promise.all([loadCronJobs(), loadCronJobRuns(jobId)])
     } catch {
       showToast('网络错误，请重试', false)
     } finally {
