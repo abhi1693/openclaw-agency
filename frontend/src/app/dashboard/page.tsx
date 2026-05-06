@@ -2,7 +2,14 @@
 
 export const dynamic = "force-dynamic";
 
-import { type KeyboardEvent, type MouseEvent, useEffect, useMemo, useState } from "react";
+import {
+  type KeyboardEvent,
+  type MouseEvent,
+  useCallback,
+  useEffect,
+  useMemo,
+  useState,
+} from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
@@ -157,6 +164,9 @@ const modelLabel = (model: string | null): string | null => {
   if (!model) return null;
   return model.split("/").pop() ?? model;
 };
+
+const sessionOptionId = (sessionKey: string): string =>
+  `session-option-${sessionKey.replace(/[^a-zA-Z0-9_-]/g, "-")}`;
 
 const deriveSessionHealth = (
   status: string | null,
@@ -638,6 +648,7 @@ export default function DashboardPage() {
   const isPageActive = usePageActive();
   const [sessionActionMessage, setSessionActionMessage] = useState<string | null>(null);
   const [inspectedSession, setInspectedSession] = useState<SessionInspectDetails | null>(null);
+  const [activeSessionIndex, setActiveSessionIndex] = useState(-1);
   const [killSessionTarget, setKillSessionTarget] = useState<SessionSummary | null>(null);
   const [killSessionError, setKillSessionError] = useState<string | null>(null);
   const [isKillingSession, setIsKillingSession] = useState(false);
@@ -906,6 +917,17 @@ export default function DashboardPage() {
   );
   const activeSessions = Math.max(countedSessions, sessionSummaries.length);
 
+  useEffect(() => {
+    if (sessionSummaries.length === 0) {
+      setActiveSessionIndex(-1);
+      return;
+    }
+    setActiveSessionIndex((currentIndex) => {
+      if (currentIndex < 0) return 0;
+      return Math.min(currentIndex, sessionSummaries.length - 1);
+    });
+  }, [sessionSummaries]);
+
   const gatewayStatusLabel = !hasConfiguredGateways
     ? "Not configured"
     : gatewayStatusesQuery.isLoading
@@ -1020,7 +1042,9 @@ export default function DashboardPage() {
 
   const shouldIgnoreRowNavigation = (target: EventTarget | null): boolean => {
     if (!(target instanceof HTMLElement)) return false;
-    return Boolean(target.closest("a"));
+    return Boolean(
+      target.closest('a, button, input, select, textarea, [role="button"]'),
+    );
   };
 
   const buildActivityEventHref = (event: ActivityEventRead): string => {
@@ -1085,7 +1109,7 @@ export default function DashboardPage() {
     navigateToActivityFeed(href);
   };
 
-  const handleInspectSession = async (session: SessionSummary) => {
+  const handleInspectSession = useCallback(async (session: SessionSummary) => {
     setSessionActionMessage(null);
     try {
       const response = await getGatewaySessionApiV1GatewaysSessionsSessionIdGet(session.sessionId, {
@@ -1106,7 +1130,62 @@ export default function DashboardPage() {
         error instanceof Error ? `Inspect failed: ${error.message}` : "Inspect failed.",
       );
     }
-  };
+  }, []);
+
+  const closeSessionInspect = useCallback(() => {
+    setInspectedSession(null);
+    setSessionActionMessage(null);
+  }, []);
+
+  const handleSessionsKeyDown = useCallback(
+    (event: KeyboardEvent<HTMLUListElement>) => {
+      if (!isPageActive || sessionSummaries.length === 0) return;
+
+      if (event.key === "ArrowDown") {
+        event.preventDefault();
+        setActiveSessionIndex((currentIndex) =>
+          currentIndex < 0 ? 0 : Math.min(currentIndex + 1, sessionSummaries.length - 1),
+        );
+        return;
+      }
+
+      if (event.key === "ArrowUp") {
+        event.preventDefault();
+        setActiveSessionIndex((currentIndex) =>
+          currentIndex < 0 ? sessionSummaries.length - 1 : Math.max(currentIndex - 1, 0),
+        );
+        return;
+      }
+
+      if (event.key === "Enter") {
+        const activeSession = sessionSummaries[activeSessionIndex];
+        if (!activeSession) return;
+        event.preventDefault();
+        void handleInspectSession(activeSession);
+        return;
+      }
+
+      if (event.key === "Escape") {
+        if (!inspectedSession && !killSessionTarget) return;
+        event.preventDefault();
+        closeSessionInspect();
+        if (!isKillingSession) {
+          setKillSessionError(null);
+          setKillSessionTarget(null);
+        }
+      }
+    },
+    [
+      activeSessionIndex,
+      closeSessionInspect,
+      handleInspectSession,
+      inspectedSession,
+      isKillingSession,
+      isPageActive,
+      killSessionTarget,
+      sessionSummaries,
+    ],
+  );
 
   const handleKillSession = async () => {
     if (!killSessionTarget) return;
@@ -1359,26 +1438,53 @@ export default function DashboardPage() {
                     ) : null}
                   </div>
                 ) : null}
-                <div className="min-h-[220px] max-h-[310px] space-y-2 overflow-x-hidden overflow-y-auto pr-1">
+                <ul
+                  role="listbox"
+                  tabIndex={0}
+                  aria-label="Sessions"
+                  aria-activedescendant={
+                    activeSessionIndex >= 0 && sessionSummaries[activeSessionIndex]
+                      ? sessionOptionId(sessionSummaries[activeSessionIndex].key)
+                      : undefined
+                  }
+                  onKeyDown={handleSessionsKeyDown}
+                  className="min-h-[220px] max-h-[310px] list-none space-y-2 overflow-x-hidden overflow-y-auto pr-1 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-300"
+                >
                   {!hasConfiguredGateways ? (
-                    <div className="flex min-h-[76px] items-center rounded-lg border border-slate-200 bg-slate-50 p-3 text-sm text-slate-500">
+                    <li
+                      role="presentation"
+                      className="flex min-h-[76px] items-center rounded-lg border border-slate-200 bg-slate-50 p-3 text-sm text-slate-500"
+                    >
                       No gateways are configured for any board yet.
-                    </div>
+                    </li>
                   ) : gatewayStatusesQuery.isLoading ? (
-                    <DashboardPanelSkeleton />
+                    <li role="presentation">
+                      <DashboardPanelSkeleton />
+                    </li>
                   ) : sessionSummaries.length > 0 ? (
                     <>
                       {gatewayUnavailableCount > 0 ? (
-                        <div className="rounded-lg border border-amber-300 bg-amber-50 p-3 text-sm text-amber-800">
+                        <li
+                          role="presentation"
+                          className="rounded-lg border border-amber-300 bg-amber-50 p-3 text-sm text-amber-800"
+                        >
                           {formatCount(gatewayUnavailableCount)} gateway
                           {gatewayUnavailableCount === 1 ? "" : "s"} unavailable; showing sessions
                           from reachable gateways.
-                        </div>
+                        </li>
                       ) : null}
-                      {sessionSummaries.map((session) => (
-                        <div
+                      {sessionSummaries.map((session, index) => (
+                        <li
                           key={session.key}
-                          className="min-h-[76px] overflow-hidden rounded-lg border border-slate-200 bg-white px-3 py-2"
+                          id={sessionOptionId(session.key)}
+                          role="option"
+                          aria-selected={index === activeSessionIndex}
+                          className={cn(
+                            "min-h-[76px] overflow-hidden rounded-lg border bg-white px-3 py-2",
+                            index === activeSessionIndex
+                              ? "border-slate-400 ring-2 ring-slate-200"
+                              : "border-slate-200",
+                          )}
                         >
                           <div className="flex items-center justify-between gap-3">
                             <div className="min-w-0 flex-1">
@@ -1475,19 +1581,25 @@ export default function DashboardPage() {
                               </button>
                             </div>
                           </div>
-                        </div>
+                        </li>
                       ))}
                     </>
                   ) : gatewayUnavailableCount === gatewayTargets.length ? (
-                    <div className="flex min-h-[76px] items-center rounded-lg border border-rose-300 bg-rose-50 p-3 text-sm text-rose-700">
+                    <li
+                      role="presentation"
+                      className="flex min-h-[76px] items-center rounded-lg border border-rose-300 bg-rose-50 p-3 text-sm text-rose-700"
+                    >
                       Session data is unavailable for all configured gateways.
-                    </div>
+                    </li>
                   ) : (
-                    <div className="flex min-h-[76px] items-center rounded-lg border border-slate-200 bg-slate-50 p-3 text-sm text-slate-500">
+                    <li
+                      role="presentation"
+                      className="flex min-h-[76px] items-center rounded-lg border border-slate-200 bg-slate-50 p-3 text-sm text-slate-500"
+                    >
                       No active sessions detected.
-                    </div>
+                    </li>
                   )}
-                </div>
+                </ul>
               </section>
 
               <section className="min-w-0 overflow-hidden rounded-xl border border-slate-200 bg-white p-4 md:p-6 shadow-sm">
