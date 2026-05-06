@@ -24,6 +24,7 @@ import {
   PopoverContent,
   PopoverTrigger,
 } from "@/components/ui/popover";
+import { ThemeToggle } from "@/components/organisms/ThemeToggle";
 import { cn } from "@/lib/utils";
 
 type UserMenuProps = {
@@ -176,6 +177,10 @@ export function UserMenu({
               {item.label}
             </Link>
           ))}
+
+          <div className="my-2 h-px bg-[color:var(--neutral-200,var(--border))]" />
+
+          <ThemeToggle />
 
           <div className="my-2 h-px bg-[color:var(--neutral-200,var(--border))]" />
 
