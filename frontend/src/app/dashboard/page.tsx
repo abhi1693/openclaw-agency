@@ -78,6 +78,7 @@ type SessionSummary = {
   key: string;
   sessionId: string;
   boardId: string | null;
+  boardName: string | null;
   title: string;
   sourceLabel: string;
   subtitle: string;
@@ -441,6 +442,7 @@ const toSessionSummaries = (
       key,
       sessionId: key,
       boardId: null,
+      boardName: null,
       title: label,
       sourceLabel: "",
       subtitle: subtitleWithProvider || subtitle,
@@ -849,6 +851,7 @@ export default function DashboardPage() {
           ...session,
           key: `${snapshot.gatewayId}:${session.key}`,
           boardId: snapshot.boardId,
+          boardName: snapshot.boardName,
           sourceLabel,
         }));
       }),
@@ -1510,9 +1513,19 @@ export default function DashboardPage() {
                                   {session.model ? ` · ${modelLabel(session.model)}` : ""}
                                 </span>
                                 <div className="flex min-w-0 items-center gap-1 text-xs text-slate-500">
-                                  <span className="truncate" title={session.sourceLabel}>
-                                    {session.sourceLabel}
-                                  </span>
+                                  {session.boardId ? (
+                                    <Link
+                                      href={`/boards/${encodeURIComponent(session.boardId)}`}
+                                      className="truncate text-slate-600 underline decoration-slate-300 underline-offset-2 transition hover:text-slate-900"
+                                      title={session.boardName ?? session.boardId}
+                                    >
+                                      {session.boardName ?? session.boardId}
+                                    </Link>
+                                  ) : (
+                                    <span className="truncate" title="Board unavailable">
+                                      {DASH}
+                                    </span>
+                                  )}
                                   <span className="shrink-0">·</span>
                                   <span className="truncate" title={session.subtitle}>
                                     {session.subtitle}
