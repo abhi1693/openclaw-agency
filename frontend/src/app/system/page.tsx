@@ -11,7 +11,7 @@ import {
   DialogTitle,
 } from '@/components/ui/dialog'
 import { Input } from '@/components/ui/input'
-import { Cpu, MemoryStick, HardDrive, Clock, Monitor, Zap, RefreshCw, Bot, Coins, MessageSquare, ChevronDown, ChevronUp, AlertTriangle, X, Play } from 'lucide-react'
+import { Cpu, MemoryStick, HardDrive, Clock, Monitor, Zap, RefreshCw, Bot, Coins, MessageSquare, ChevronDown, ChevronUp, AlertTriangle, X, Play, Loader2 } from 'lucide-react'
 import { DashboardPageLayout } from '@/components/templates/DashboardPageLayout'
 import MetricSparkline from '@/components/charts/metric-sparkline'
 import CronCalendar from '@/components/system/CronCalendar'
@@ -1105,7 +1105,7 @@ function SystemPageContent({ forceRefresh, onAutoRefresh, cronRefreshRef }: { fo
                   const isExpanded = expandedJobId === job.id
                   const runs = cronRunsCache[job.id]
                   const runsLoading = cronRunsLoading[job.id]
-                  const runNowLoading = cronRunNowLoading[job.id] ?? false
+                  const isPending = cronRunNowLoading[job.id] ?? false
                   const lastRun: CronRun | undefined = runs?.[0]
                   const runOutput = lastRun?.output ?? lastRun?.stdout ?? lastRun?.log ?? ''
                   const isRunOutputExpanded = expandedRunOutputs[job.id] ?? false
@@ -1160,15 +1160,16 @@ function SystemPageContent({ forceRefresh, onAutoRefresh, cronRefreshRef }: { fo
                               size="sm"
                               variant="outline"
                               className="h-8 gap-1.5"
-                              disabled={runNowLoading}
+                              disabled={isPending}
+                              aria-busy={isPending}
                               onClick={(e) => {
                                 e.stopPropagation()
                                 void runCronJobNow(job.id)
                               }}
                             >
-                              {runNowLoading ? (
+                              {isPending ? (
                                 <>
-                                  <RefreshCw className="w-3.5 h-3.5 animate-spin" />
+                                  <Loader2 aria-hidden="true" className="w-3.5 h-3.5 animate-spin" />
                                   运行中...
                                 </>
                               ) : (
