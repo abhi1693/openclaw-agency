@@ -23,6 +23,7 @@ import {
   Eye,
   Info,
   LayoutGrid,
+  RefreshCw,
   Shield,
   Timer,
   X,
@@ -725,11 +726,19 @@ export default function DashboardPage() {
   const metrics = metricsQuery.data?.status === 200 ? metricsQuery.data.data : null;
 
   const effectiveUpdatedAt = metricsQuery.dataUpdatedAt;
+  const [lastUpdated, setLastUpdated] = useState<number | null>(null);
   const [nowMs, setNowMs] = useState(() => Date.now());
+  useEffect(() => {
+    if (!metricsQuery.isSuccess || !effectiveUpdatedAt) return;
+    setLastUpdated(effectiveUpdatedAt);
+  }, [effectiveUpdatedAt, metricsQuery.isSuccess]);
   useEffect(() => {
     const id = setInterval(() => setNowMs(Date.now()), 1000);
     return () => clearInterval(id);
   }, []);
+  const secondsSinceLastUpdated = lastUpdated
+    ? Math.max(0, Math.floor((nowMs - lastUpdated) / 1000))
+    : null;
   const isMetricsStale =
     !effectiveUpdatedAt || nowMs - effectiveUpdatedAt >= DASHBOARD_STALE_AFTER_MS;
   const metricsStatus = metricsQuery.isError
@@ -1238,7 +1247,24 @@ export default function DashboardPage() {
               </div>
             ) : null}
 
-            <div className="mb-3 flex justify-end">
+            <div className="mb-3 flex items-center justify-end gap-3">
+              <div className="inline-flex items-center gap-2 text-xs text-slate-500">
+                <span>
+                  Updated{" "}
+                  {secondsSinceLastUpdated === null
+                    ? DASH
+                    : `${secondsSinceLastUpdated} seconds ago`}
+                </span>
+                <button
+                  type="button"
+                  onClick={() => void metricsQuery.refetch()}
+                  className="inline-flex h-7 w-7 items-center justify-center rounded-full border border-slate-200 bg-white text-slate-500 transition hover:border-slate-300 hover:text-slate-700"
+                  aria-label="Refresh dashboard metrics"
+                  title="Refresh dashboard metrics"
+                >
+                  <RefreshCw className="h-3.5 w-3.5" />
+                </button>
+              </div>
               <span
                 className={cn(
                   "inline-flex items-center gap-1.5 rounded-full border px-2.5 py-1 text-xs font-medium",
