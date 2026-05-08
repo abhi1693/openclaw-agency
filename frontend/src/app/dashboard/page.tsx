@@ -170,6 +170,12 @@ const modelLabel = (model: string | null): string | null => {
 const sessionOptionId = (sessionKey: string): string =>
   `session-option-${sessionKey.replace(/[^a-zA-Z0-9_-]/g, "-")}`;
 
+const normalizeBoardId = (boardId: string | null | undefined): string | null => {
+  if (typeof boardId !== "string") return null;
+  const trimmed = boardId.trim();
+  return trimmed.length > 0 ? trimmed : null;
+};
+
 const deriveSessionHealth = (
   status: string | null,
   lastSeenAt: string | null,
@@ -1539,13 +1545,19 @@ export default function DashboardPage() {
                                   {session.model ? ` · ${modelLabel(session.model)}` : ""}
                                 </span>
                                 <div className="flex min-w-0 items-center gap-1 text-xs text-slate-500">
-                                  {session.boardId ? (
+                                  {normalizeBoardId(session.boardId) ? (
                                     <Link
-                                      href={`/boards/${encodeURIComponent(session.boardId)}`}
+                                      href={`/boards/${encodeURIComponent(
+                                        normalizeBoardId(session.boardId) ?? "",
+                                      )}`}
                                       className="truncate text-slate-600 underline decoration-slate-300 underline-offset-2 transition hover:text-slate-900"
-                                      title={session.boardName ?? session.boardId}
+                                      title={
+                                        session.boardName ??
+                                        normalizeBoardId(session.boardId) ??
+                                        "Board unavailable"
+                                      }
                                     >
-                                      {session.boardName ?? session.boardId}
+                                      {session.boardName ?? normalizeBoardId(session.boardId)}
                                     </Link>
                                   ) : (
                                     <span className="truncate" title="Board unavailable">
