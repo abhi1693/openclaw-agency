@@ -736,9 +736,14 @@ export default function DashboardPage() {
     const id = setInterval(() => setNowMs(Date.now()), 1000);
     return () => clearInterval(id);
   }, []);
-  const secondsSinceLastUpdated = lastUpdated
-    ? Math.max(0, Math.floor((nowMs - lastUpdated) / 1000))
-    : null;
+  const lastUpdatedLabel =
+    lastUpdated === null
+      ? DASH
+      : new Date(lastUpdated).toLocaleTimeString(undefined, {
+          hour: "2-digit",
+          minute: "2-digit",
+          second: "2-digit",
+        });
   const isMetricsStale =
     !effectiveUpdatedAt || nowMs - effectiveUpdatedAt >= DASHBOARD_STALE_AFTER_MS;
   const metricsStatus = metricsQuery.isError
@@ -1249,12 +1254,7 @@ export default function DashboardPage() {
 
             <div className="mb-3 flex items-center justify-end gap-3">
               <div className="inline-flex items-center gap-2 text-xs text-slate-500">
-                <span>
-                  Updated{" "}
-                  {secondsSinceLastUpdated === null
-                    ? DASH
-                    : `${secondsSinceLastUpdated} seconds ago`}
-                </span>
+                <span>{`Updated ${lastUpdatedLabel}`}</span>
                 <button
                   type="button"
                   onClick={() => void metricsQuery.refetch()}
