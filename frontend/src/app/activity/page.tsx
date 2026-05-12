@@ -331,7 +331,7 @@ const FeedCard = memo(function FeedCard({
             <div className="mt-1 flex flex-wrap items-center gap-x-2 gap-y-1 text-[11px] text-slate-500">
               <span
                 className={cn(
-                  "rounded-full border px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide",
+                  "rounded-full border px-2 py-0.5 text-xs font-semibold",
                   eventPillClass(item.event_type),
                 )}
               >
