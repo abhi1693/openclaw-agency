@@ -565,6 +565,8 @@ function SystemPageContent({ forceRefresh, onAutoRefresh, cronRefreshRef }: { fo
       return ts > 0 && Date.now() - ts < BANNER_TTL_MS
     } catch { return false }
   }, [BANNER_TTL_MS])
+  const RESTART_THRESHOLD = 3 // configurable threshold for mc-backend restart warning banner
+  const [restartBannerDismissed, setRestartBannerDismissed] = useState<boolean | null>(null)
   const [crashBannerDismissed, setCrashBannerDismissed] = useState<boolean | null>(null)
   const [overdueJobsBannerDismissed, setOverdueJobsBannerDismissed] = useState<boolean | null>(null)
   const [healthTimestamp, setHealthTimestamp] = useState<string | null>(null)
@@ -582,6 +584,7 @@ function SystemPageContent({ forceRefresh, onAutoRefresh, cronRefreshRef }: { fo
   }, [])
 
   useEffect(() => {
+    setRestartBannerDismissed(readDismissed('mc:restart-banner-dismissed'))
     setCrashBannerDismissed(readDismissed('mc:crash-banner-dismissed'))
     setOverdueJobsBannerDismissed(readDismissed('mc:overdue-banner-dismissed'))
   }, [readDismissed])
@@ -773,9 +776,23 @@ function SystemPageContent({ forceRefresh, onAutoRefresh, cronRefreshRef }: { fo
   )
   const overdueJobsBadgeLabel = overdueJobs.length > 99 ? '99+' : `${overdueJobs.length}`
 
+  const showRestartBanner = pm2Info && pm2Info.restarts >= RESTART_THRESHOLD && restartBannerDismissed === false
+  const showCrashBanner = bannerLevel && crashBannerDismissed === false
+
   return (
     <div className="space-y-6 max-w-6xl mx-auto">
-      {bannerLevel && crashBannerDismissed === false && (
+      {showRestartBanner && (
+        <div className="flex items-start gap-3 rounded-lg border border-amber-500/40 bg-amber-500/10 px-4 py-3 text-sm text-amber-300">
+          <AlertTriangle className="w-4 h-4 mt-0.5 flex-shrink-0" />
+          <span className="flex-1">
+            ⚠ mc-backend 重启 {pm2Info!.restarts} 次（阈值 {RESTART_THRESHOLD}）— 进程已意外重启 {pm2Info!.restarts} 次，请检查 PM2 日志了解详情。
+          </span>
+          <button onClick={() => { try { localStorage.setItem('mc:restart-banner-dismissed', Date.now().toString()) } catch {} setRestartBannerDismissed(true) }} className="flex-shrink-0 opacity-60 hover:opacity-100 transition-opacity">
+            <X className="w-3.5 h-3.5" />
+          </button>
+        </div>
+      )}
+      {showCrashBanner && (
         <div className={`flex items-start gap-3 rounded-lg border px-4 py-3 text-sm ${
           bannerLevel === 'red'
             ? 'border-red-500/40 bg-red-500/10 text-red-300'
