@@ -2,7 +2,7 @@
 
 export const dynamic = "force-dynamic";
 
-import { useMemo, useState } from "react";
+import { memo, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 
 import { useAuth } from "@/auth/clerk";
@@ -46,6 +46,70 @@ type GatewayStatusTarget = {
 type BoardGatewayStatusEntry = GatewayStatusTarget & {
   status: BoardGatewayConnectionStatus;
 };
+
+type BoardsTableSectionProps = {
+  boards: BoardRead[];
+  groups: BoardGroupRead[];
+  isLoading: boolean;
+  sorting: ReturnType<typeof useUrlSorting>["sorting"];
+  onSortingChange: ReturnType<typeof useUrlSorting>["onSortingChange"];
+  error: ApiError | null;
+  gatewayStatusById: Record<string, BoardGatewayConnectionStatus>;
+  onDelete: (board: BoardRead) => void;
+};
+
+const EMPTY_GATEWAY_STATUS_BY_ID: Record<string, BoardGatewayConnectionStatus> =
+  {};
+
+function areGatewayStatusesEqual(
+  left: Record<string, BoardGatewayConnectionStatus>,
+  right: Record<string, BoardGatewayConnectionStatus>,
+) {
+  const leftKeys = Object.keys(left);
+  const rightKeys = Object.keys(right);
+
+  if (leftKeys.length !== rightKeys.length) {
+    return false;
+  }
+
+  for (const key of leftKeys) {
+    if (left[key] !== right[key]) {
+      return false;
+    }
+  }
+
+  return true;
+}
+
+function useStableGatewayStatusById(
+  entries: BoardGatewayStatusEntry[] | undefined,
+) {
+  const previousMapRef = useRef<Record<string, BoardGatewayConnectionStatus>>(
+    EMPTY_GATEWAY_STATUS_BY_ID,
+  );
+
+  return useMemo<Record<string, BoardGatewayConnectionStatus>>(() => {
+    if (!entries?.length) {
+      if (Object.keys(previousMapRef.current).length === 0) {
+        return previousMapRef.current;
+      }
+
+      previousMapRef.current = EMPTY_GATEWAY_STATUS_BY_ID;
+      return previousMapRef.current;
+    }
+
+    const nextMap = Object.fromEntries(
+      entries.map((entry) => [entry.gatewayId, entry.status]),
+    ) as Record<string, BoardGatewayConnectionStatus>;
+
+    if (areGatewayStatusesEqual(previousMapRef.current, nextMap)) {
+      return previousMapRef.current;
+    }
+
+    previousMapRef.current = nextMap;
+    return nextMap;
+  }, [entries]);
+}
 
 export default function BoardsPage() {
   const { isSignedIn } = useAuth();
@@ -154,15 +218,8 @@ export default function BoardsPage() {
     },
   });
 
-  const gatewayStatusById = useMemo<Record<string, BoardGatewayConnectionStatus>>(
-    () =>
-      Object.fromEntries(
-        (gatewayStatusesQuery.data ?? []).map((entry) => [
-          entry.gatewayId,
-          entry.status,
-        ]),
-      ),
-    [gatewayStatusesQuery.data],
+  const gatewayStatusById = useStableGatewayStatusById(
+    gatewayStatusesQuery.data,
   );
 
   const deleteMutation = useDeleteBoardApiV1BoardsBoardIdDelete<
@@ -258,7 +315,7 @@ export default function BoardsPage() {
   );
 }
 
-function BoardsTableSection({
+const BoardsTableSection = memo(function BoardsTableSection({
   boards,
   groups,
   isLoading,
@@ -267,16 +324,7 @@ function BoardsTableSection({
   error,
   gatewayStatusById,
   onDelete,
-}: {
-  boards: BoardRead[];
-  groups: BoardGroupRead[];
-  isLoading: boolean;
-  sorting: ReturnType<typeof useUrlSorting>["sorting"];
-  onSortingChange: ReturnType<typeof useUrlSorting>["onSortingChange"];
-  error: ApiError | null;
-  gatewayStatusById: Record<string, BoardGatewayConnectionStatus>;
-  onDelete: (board: BoardRead) => void;
-}) {
+}: BoardsTableSectionProps) {
   if (error) {
     throw error;
   }
@@ -303,7 +351,9 @@ function BoardsTableSection({
       />
     </div>
   );
-}
+});
+
+BoardsTableSection.displayName = "BoardsTableSection";
 
 function BoardsTableErrorCard({ message }: { message: string }) {
   return (
