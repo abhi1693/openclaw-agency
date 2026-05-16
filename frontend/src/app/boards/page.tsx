@@ -4,7 +4,6 @@ export const dynamic = "force-dynamic";
 
 import { memo, useMemo, useRef, useState } from "react";
 import Link from "next/link";
-
 import { useAuth } from "@/auth/clerk";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 
@@ -37,6 +36,42 @@ import { Card, CardContent, CardHeader } from "@/components/ui/card";
 
 const BOARD_SORTABLE_COLUMNS = ["name", "group", "updated_at"];
 const GATEWAY_STATUS_REFETCH_INTERVAL_MS = 10_000;
+const GATEWAY_STATUS_DEBOUNCE_MS = 200;
+
+/** Ensures only one in-flight request per board_id within the debounce window. */
+function createGatewayStatusRequestCache() {
+  const inflight = new Map<string, Promise<BoardGatewayConnectionStatus>>();
+  const pending = new Map<string, ReturnType<typeof setTimeout>>();
+
+  return {
+      schedule(boardId: string, fn: () => Promise<BoardGatewayConnectionStatus>): Promise<BoardGatewayConnectionStatus> {
+        // Return existing in-flight promise if already running
+        const existing = inflight.get(boardId);
+        if (existing) return existing;
+
+        // Debounce: cancel any previously scheduled run for this boardId
+        const queued = pending.get(boardId);
+        if (queued) {
+          clearTimeout(queued);
+          pending.delete(boardId);
+        }
+
+        return new Promise<BoardGatewayConnectionStatus>((resolve) => {
+          const timer = setTimeout(async () => {
+            pending.delete(boardId);
+            const promise = fn();
+            inflight.set(boardId, promise);
+            try {
+              resolve(await promise);
+            } finally {
+              inflight.delete(boardId);
+            }
+          }, GATEWAY_STATUS_DEBOUNCE_MS);
+          pending.set(boardId, timer);
+        });
+      },
+    };
+}
 
 type GatewayStatusTarget = {
   boardId: string;
@@ -176,6 +211,8 @@ export default function BoardsPage() {
     );
   }, [boards]);
 
+  const statusRequestCache = useMemo(() => createGatewayStatusRequestCache(), []);
+
   const gatewayStatusesQuery = useQuery<BoardGatewayStatusEntry[], ApiError>({
     queryKey: [
       "boards",
@@ -189,26 +226,23 @@ export default function BoardsPage() {
       return Promise.all(
         gatewayStatusTargets.map(async (target) => {
           try {
-            const response = await gatewaysStatusApiV1GatewaysStatusGet(
-              { board_id: target.boardId },
-              { signal },
-            );
+            const response = await statusRequestCache.schedule(target.boardId, async () => {
+              const res = await gatewaysStatusApiV1GatewaysStatusGet(
+                { board_id: target.boardId },
+                { signal },
+              );
 
-            if (response.status !== 200) {
-              return { ...target, status: "degraded" as const };
-            }
+              if (res.status !== 200) return "degraded" as const;
 
-            const payload: GatewaysStatusResponse = response.data;
-            const hasHealthIssue = Boolean(payload.error || payload.main_session_error);
+              const payload: GatewaysStatusResponse = res.data;
+              const hasHealthIssue = Boolean(payload.error || payload.main_session_error);
 
-            return {
-              ...target,
-              status: payload.connected
-                ? hasHealthIssue
-                  ? "degraded"
-                  : "connected"
-                : "disconnected",
-            };
+              return payload.connected
+                ? (hasHealthIssue ? "degraded" : "connected")
+                : "disconnected";
+            });
+
+            return { ...target, status: response };
           } catch (error) {
             if (signal.aborted) throw error;
             return { ...target, status: "degraded" as const };
