@@ -316,19 +316,28 @@ function CronScheduleEditor({
   value, onChange
 }: {
   value: CronScheduleState
-  onChange: (s: CronScheduleState) => void
+  onChange: React.Dispatch<React.SetStateAction<CronScheduleState>>
 }) {
   const expr = generateCronFromState(value)
 
-  function set(patch: Partial<CronScheduleState>) {
-    onChange({ ...value, ...patch })
+  function set(patch: Partial<CronScheduleState> | ((prev: CronScheduleState) => Partial<CronScheduleState>)) {
+    onChange(prev => ({
+      ...prev,
+      ...(typeof patch === 'function' ? patch(prev) : patch),
+    }))
+  }
+
+  function setFrequency(frequency: CronFrequency) {
+    set(prev => ({ frequency, customExpr: prev.customExpr }))
   }
 
   function toggleDay(d: number) {
-    const days = value.weekDays.includes(d)
-      ? value.weekDays.filter(x => x !== d)
-      : [...value.weekDays, d].sort((a, b) => a - b)
-    set({ weekDays: days.length ? days : [d] })
+    set(prev => {
+      const days = prev.weekDays.includes(d)
+        ? prev.weekDays.filter(x => x !== d)
+        : [...prev.weekDays, d].sort((a, b) => a - b)
+      return { weekDays: days.length ? days : [d] }
+    })
   }
 
   const inputCls = "w-full rounded-lg border border-[hsl(var(--border))] bg-[hsl(var(--background))] px-3 py-2 text-sm text-[hsl(var(--foreground))] focus:outline-none focus:border-[hsl(var(--primary))]"
@@ -344,7 +353,7 @@ function CronScheduleEditor({
             <button
               key={key}
               type="button"
-              onClick={() => set({ frequency: key })}
+              onClick={() => setFrequency(key)}
               className={`px-3 py-1.5 rounded-lg text-xs font-medium border transition-colors ${
                 value.frequency === key
                   ? 'bg-[hsl(var(--primary))] text-[hsl(var(--primary-foreground))] border-[hsl(var(--primary))]'
