@@ -284,6 +284,28 @@ export default function BoardsPage() {
     deleteMutation.mutate({ boardId: deleteTarget.id });
   };
 
+  const sortedBoards = useMemo(() => {
+    if (!sorting.length) return boards;
+    const [{ id, desc }] = sorting;
+    return [...boards].sort((a, b) => {
+      let cmp = 0;
+      switch (id) {
+        case "name":
+          cmp = (a.name ?? "").localeCompare(b.name ?? "");
+          break;
+        case "group":
+          cmp = (a.board_group_id ?? "").localeCompare(b.board_group_id ?? "");
+          break;
+        case "updated_at":
+          cmp = new Date(a.updated_at ?? 0).getTime() - new Date(b.updated_at ?? 0).getTime();
+          break;
+        default:
+          return 0;
+      }
+      return desc ? -cmp : cmp;
+    });
+  }, [boards, sorting]);
+
   return (
     <>
       <DashboardPageLayout
@@ -316,7 +338,7 @@ export default function BoardsPage() {
           )}
         >
           <BoardsTableSection
-            boards={boards}
+            boards={sortedBoards}
             groups={groups}
             isLoading={boardsQuery.isLoading}
             sorting={sorting}
