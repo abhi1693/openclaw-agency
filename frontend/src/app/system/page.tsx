@@ -66,6 +66,7 @@ interface CronJob {
     nextRunAtMs?: number
     consecutiveErrors?: number
   }
+  running?: boolean
 }
 
 interface CronJobsData {
@@ -1122,11 +1123,14 @@ function SystemPageContent({ forceRefresh, onAutoRefresh, cronRefreshRef }: { fo
                     : 'bg-amber-500/15 text-amber-400'
                   const fmtTime = (ms?: number) => ms ? new Date(ms).toLocaleString('zh-CN', { month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit' }) : '—'
                   const jobColor = getJobColor(job, cronJobs.jobs)
-                  const outcomeDot = normalizedOutcome === 'success'
-                    ? '🟢'
-                    : normalizedOutcome === 'failure'
-                      ? '🔴'
-                      : '⚪'
+                  const isRunning = (job as { running?: boolean }).running ?? false
+                  const outcomeDot = isRunning
+                    ? '🟡'
+                    : normalizedOutcome === 'success'
+                      ? '🟢'
+                      : normalizedOutcome === 'failure'
+                        ? '🔴'
+                        : '⚪'
 
                   const isExpanded = expandedJobId === job.id
                   const runs = cronRunsCache[job.id]
@@ -1147,10 +1151,20 @@ function SystemPageContent({ forceRefresh, onAutoRefresh, cronRefreshRef }: { fo
                     <div id={`cron-job-${job.id}`} key={job.id} className={i < cronJobs.jobs.length - 1 ? 'border-b border-[hsl(var(--border)/0.5)]' : ''}>
                       <div onClick={() => openEdit(job)} className={`grid grid-cols-[2fr_1fr_1fr_1fr_80px_1fr_20px] gap-3 px-4 py-3 items-center cursor-pointer hover:bg-[hsl(var(--secondary)/0.3)] transition-colors ${!job.enabled ? 'opacity-60' : ''} ${consecutiveErrors >= 3 ? 'bg-red-500/5' : consecutiveErrors >= 1 ? 'bg-amber-500/5' : ''}`}>
                         <div className="flex items-center gap-2">
-                          <div className="w-2 h-2 rounded-full flex-shrink-0" style={{ backgroundColor: job.enabled ? jobColor : 'hsl(var(--muted-foreground))' }} />
+                          {isRunning ? (
+                            <span className="relative flex h-2 w-2 flex-shrink-0">
+                              <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-yellow-400 opacity-75" />
+                              <span className="relative inline-flex h-2 w-2 rounded-full bg-yellow-400" />
+                            </span>
+                          ) : (
+                            <div className="w-2 h-2 rounded-full flex-shrink-0" style={{ backgroundColor: job.enabled ? jobColor : 'hsl(var(--muted-foreground))' }} />
+                          )}
                           <span className="text-sm leading-none flex-shrink-0" aria-hidden="true">{outcomeDot}</span>
                           <span className="text-sm font-medium text-[hsl(var(--foreground))] truncate">{job.name}</span>
-                          {consecutiveErrors > 0 && (
+                          {isRunning && (
+                            <span className="ml-1 inline-flex items-center rounded-full bg-yellow-500/20 px-1.5 py-0.5 text-[10px] font-medium text-yellow-500 animate-pulse">Running</span>
+                          )}
+                          {!isRunning && consecutiveErrors > 0 && (
                             <span className={`inline-flex flex-shrink-0 items-center rounded-full px-2 py-0.5 text-[10px] font-medium ${errorBadgeColor}`}>
                               ({consecutiveErrors} errors)
                             </span>
