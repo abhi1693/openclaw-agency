@@ -135,6 +135,22 @@ const readBool = (record: Record<string, unknown>, keys: string[]): boolean | nu
   return null;
 };
 
+const readStringArray = (record: Record<string, unknown>, keys: string[]): string[] => {
+  for (const key of keys) {
+    const value = record[key];
+    if (Array.isArray(value)) {
+      return value.filter((item): item is string => typeof item === "string" && item.trim().length > 0);
+    }
+    if (typeof value === "string" && value.trim()) {
+      return value
+        .split(",")
+        .map((item) => item.trim())
+        .filter(Boolean);
+    }
+  }
+  return [];
+};
+
 const sanitizeTask = (task: Record<string, unknown>) => {
   const fields = toRecord(task.custom_field_values);
   return {
@@ -169,6 +185,58 @@ const sanitizeTask = (task: Record<string, unknown>) => {
   };
 };
 
+const sanitizeOffer = (task: Record<string, unknown>, revenue: Record<string, unknown>) => {
+  const fields = toRecord(task.custom_field_values);
+  const offerId = readString(fields, ["offer_id"]);
+  if (!offerId) return null;
+
+  const hubPastDueCount = readNumber(revenue, ["past_due_count"]);
+  const hubPastDueEur = readNumber(revenue, ["past_due_eur", "past_due_eur_total"]);
+  const subsCount =
+    offerId === "past_due_recovery"
+      ? hubPastDueCount ?? readNumber(fields, ["subs_count"])
+      : readNumber(fields, ["subs_count"]);
+  const subsProof =
+    offerId === "past_due_recovery" && hubPastDueCount !== null
+      ? `Hub Iron read-only HTTP 200: past_due_count=${hubPastDueCount}, past_due_eur=${hubPastDueEur ?? "UNKNOWN"}.`
+      : readString(fields, ["subs_count_last_proof"]) ?? "UNPROVED_THIS_PHASE";
+
+  return {
+    id: readString(task, ["id"]) ?? "UNKNOWN",
+    taskTitle: readString(task, ["title"]) ?? "UNKNOWN",
+    offerId,
+    offerName: readString(fields, ["offer_name"]) ?? readString(task, ["title"]) ?? "UNKNOWN",
+    priceEur: readNumber(fields, ["price_eur"]),
+    priceLabel: readString(fields, ["price_label"]) ?? "UNKNOWN",
+    billingPeriod: readString(fields, ["billing_period"]) ?? "UNKNOWN",
+    stripeLink: readString(fields, ["stripe_link"]) ?? "UNKNOWN",
+    stripeLinks: readStringArray(fields, ["stripe_links"]),
+    statusCanon: readString(fields, ["status_canon"]) ?? "UNKNOWN",
+    subsCount,
+    subsCountLastProof: subsProof,
+    publicUseBlockedAlias: readBool(fields, ["public_use_blocked_alias"]) ?? false,
+    homeHouseCanon: readString(fields, ["home_house_canon"]) ?? "UNKNOWN",
+    arrImpact: readString(fields, ["arr_impact"]) ?? "UNKNOWN",
+    nextAction: readString(fields, ["next_action"]) ?? "UNKNOWN",
+    sourceTag: "OFFER_FACTORY_PHASE6_STRIPE_READ_20260525",
+    lastRunAt: readString(fields, ["last_run_at"]),
+    lastProof: readString(fields, ["last_proof"]) ?? "UNKNOWN",
+  };
+};
+
+const offerOrder = new Map(
+  [
+    "vip_standard",
+    "academy",
+    "premium_dashboard",
+    "elite_1on1",
+    "katikaan_paliers",
+    "corsikaan_paliers",
+    "setup_broker_help",
+    "past_due_recovery",
+  ].map((offerId, index) => [offerId, index]),
+);
+
 export async function GET() {
   const [revenueResult, housesResult, publisherResult, ackResult, rtkResult, boardsResult, agentsResult, fieldsResult] =
     await Promise.all([
@@ -193,6 +261,8 @@ export async function GET() {
   const customFields = pageItems(fieldsResult.data);
   const garageBoard = boards.find((board) => readString(board, ["slug"]) === "garage-trucks");
   const garageBoardId = garageBoard ? readString(garageBoard, ["id"]) : null;
+  const offerBoard = boards.find((board) => readString(board, ["slug"]) === "offer-factory");
+  const offerBoardId = offerBoard ? readString(offerBoard, ["id"]) : null;
   const proofBoard = boards.find((board) => readString(board, ["slug"]) === "proof-ledger");
   const boardTaskResults = await Promise.all(
     boards.slice(0, 60).map(async (board) => {
@@ -213,6 +283,22 @@ export async function GET() {
         error: "GARAGE_TRUCKS_BOARD_NOT_FOUND",
       };
   const garageTasks = pageItems(garageTasksResult.data).map(sanitizeTask);
+  const offerTasksResult = offerBoardId
+    ? await readOpenClaw(`/boards/${offerBoardId}/tasks`)
+    : {
+        ok: false,
+        status: null,
+        data: null,
+        error: "OFFER_FACTORY_BOARD_NOT_FOUND",
+      };
+  const offers = pageItems(offerTasksResult.data)
+    .map((task) => sanitizeOffer(task, revenue))
+    .filter(Boolean)
+    .sort((left, right) => {
+      const leftOrder = offerOrder.get(left?.offerId ?? "") ?? 999;
+      const rightOrder = offerOrder.get(right?.offerId ?? "") ?? 999;
+      return leftOrder - rightOrder;
+    });
   const hasOpenClaw = boardsResult.ok && Boolean(garageBoardId) && garageTasksResult.ok;
   const proofApprovals = proofBoard
     ? pageItems((await readOpenClaw(`/boards/${readString(proofBoard, ["id"])}/approvals`)).data)
@@ -250,10 +336,12 @@ export async function GET() {
         openclawAgents: { ok: agentsResult.ok, status: agentsResult.status },
         openclawCustomFields: { ok: fieldsResult.ok, status: fieldsResult.status },
         openclawGarageTrucks: { ok: garageTasksResult.ok, status: garageTasksResult.status },
+        openclawOffers: { ok: offerTasksResult.ok, status: offerTasksResult.status },
       },
       has_openclaw: hasOpenClaw,
       hasOpenClaw,
       garageTrucks: garageTasks,
+      offers,
       revenue: {
         sourceTag: readString(revenue, ["source_tag"]),
         currentMrrEur: readNumber(revenue, ["mrr_eur", "mrr_active_eur"]),

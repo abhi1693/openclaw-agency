@@ -46,6 +46,7 @@ type Snapshot = {
     outputDirCount: number | null;
   };
   services: Array<{ id: string; label: string; ok: boolean; status: number | null }>;
+  offers: OfferRecord[];
   openclaw?: {
     sourceTag: string;
     boards: Array<{ id: string; name: string; slug: string }>;
@@ -106,6 +107,28 @@ type OpenClawTruck = {
   owner: string;
   proofRequired: string;
   oldCityFlag: boolean;
+};
+
+type OfferRecord = {
+  id: string;
+  taskTitle: string;
+  offerId: string;
+  offerName: string;
+  priceEur: number | null;
+  priceLabel: string;
+  billingPeriod: string;
+  stripeLink: string;
+  stripeLinks: string[];
+  statusCanon: string;
+  subsCount: number | null;
+  subsCountLastProof: string;
+  publicUseBlockedAlias: boolean;
+  homeHouseCanon: string;
+  arrImpact: string;
+  nextAction: string;
+  sourceTag: string;
+  lastRunAt: string | null;
+  lastProof: string;
 };
 
 type Status = "LIVE" | "AMBER" | "UNKNOWN" | "PAUSED" | "QUARANTINE" | "LOCKED";
@@ -200,6 +223,18 @@ const normalizeStatus = (status: string | null | undefined): Status => {
   }
   return "UNKNOWN";
 };
+
+const normalizeOfferStatus = (status: string | null | undefined): Status => {
+  const upper = (status ?? "").toUpperCase();
+  if (upper.includes("NEEDS")) return "AMBER";
+  if (upper.includes("CANON_ACTIVE")) return "LIVE";
+  if (upper.includes("LOCKED")) return "LOCKED";
+  return "UNKNOWN";
+};
+
+const offerHref = (offer: OfferRecord) =>
+  offer.stripeLinks.find((link) => link.startsWith("https://")) ??
+  (offer.stripeLink.startsWith("https://") ? offer.stripeLink.split(",")[0].trim() : null);
 
 const coreTrucks: TruckRow[] = [
   {
@@ -600,6 +635,7 @@ export function WorldControl() {
   const [selectedTruckName, setSelectedTruckName] = useState<string | null>(null);
   const [drawerTruckName, setDrawerTruckName] = useState<string | null>(null);
   const [selectedHouseId, setSelectedHouseId] = useState<HouseId | null>(null);
+  const [selectedOfferId, setSelectedOfferId] = useState<string | null>(null);
   const [stripeRefreshStatus, setStripeRefreshStatus] = useState<string | null>(null);
   const [refreshingStripeProof, setRefreshingStripeProof] = useState(false);
 
@@ -645,6 +681,7 @@ export function WorldControl() {
     return total > 0 ? `${live}/${total}` : "UNKNOWN";
   }, [snapshot]);
   const openclawTrucks = snapshot?.openclaw?.garageTrucks ?? [];
+  const offers = snapshot?.offers ?? [];
   const truckRows: TruckRow[] =
     openclawTrucks.length > 0
       ? openclawTrucks.map((truck) => ({
@@ -716,16 +753,26 @@ export function WorldControl() {
   }, [snapshot]);
 
   const selectedHouse = houses.find((house) => house.id === selectedHouseId) ?? null;
+  const selectedOffer = offers.find((offer) => offer.offerId === selectedOfferId) ?? null;
 
   const openTruckDrawer = (truckName: string) => {
     setSelectedTruckName(truckName);
     setDrawerTruckName(truckName);
     setSelectedHouseId(null);
+    setSelectedOfferId(null);
     setStripeRefreshStatus(null);
   };
 
   const openHouseDrawer = (houseId: HouseId) => {
     setSelectedHouseId(houseId);
+    setDrawerTruckName(null);
+    setSelectedOfferId(null);
+    setStripeRefreshStatus(null);
+  };
+
+  const openOfferDrawer = (offerId: string) => {
+    setSelectedOfferId(offerId);
+    setSelectedHouseId(null);
     setDrawerTruckName(null);
     setStripeRefreshStatus(null);
   };
@@ -828,6 +875,7 @@ export function WorldControl() {
               ]}
             />
           </Panel>
+          <OfferFactoryPanel offers={offers} onSelect={openOfferDrawer} />
           <Panel title="15 maisons habitées" tone="cyan">
             <div className="max-h-[310px] space-y-2 overflow-auto pr-1">
               {houses.map((house) => (
@@ -946,6 +994,8 @@ export function WorldControl() {
             )}
           </Panel>
 
+          <OfferFactoryPanel offers={offers} onSelect={openOfferDrawer} />
+
           <Panel title="15 maisons SSOT peuplées" tone="cyan">
             <div className="grid gap-2 sm:grid-cols-2">
               {houses.map((house) => (
@@ -1043,7 +1093,7 @@ export function WorldControl() {
             <ul className="space-y-2 text-sm text-slate-300">
               {[
                 "Old hub visual UI",
-                "AOKIJI / KAIDO public names",
+                "Old internal strategy aliases blocked from public UI",
                 "Old prices and fake dashboards",
                 "Old renders not tagged",
                 "Auto-publish not audited",
@@ -1069,6 +1119,7 @@ export function WorldControl() {
         />
       ) : null}
       {selectedHouse ? <HouseDrawer house={selectedHouse} onClose={() => setSelectedHouseId(null)} /> : null}
+      {selectedOffer ? <OfferDrawer offer={selectedOffer} onClose={() => setSelectedOfferId(null)} /> : null}
     </div>
   );
 }
@@ -1374,6 +1425,159 @@ function TruckCard({
         </span>
       </div>
     </button>
+  );
+}
+
+function OfferFactoryPanel({
+  offers,
+  onSelect,
+}: {
+  offers: OfferRecord[];
+  onSelect: (offerId: string) => void;
+}) {
+  return (
+    <Panel title="Offer Factory — 8 offres canon" tone="gold">
+      {offers.length === 8 ? (
+        <div className="grid gap-2 sm:grid-cols-2 xl:grid-cols-2">
+          {offers.map((offer) => {
+            const href = offerHref(offer);
+            const status = normalizeOfferStatus(offer.statusCanon);
+            return (
+              <article
+                key={offer.offerId}
+                className="rounded-md border border-slate-800 bg-slate-950/75 p-2 text-xs"
+              >
+                <button
+                  type="button"
+                  onClick={() => onSelect(offer.offerId)}
+                  className="block w-full text-left"
+                >
+                  <div className="flex items-start justify-between gap-2">
+                    <span className="min-w-0 truncate font-semibold text-white">
+                      {offer.offerName}
+                    </span>
+                    <span className={`shrink-0 rounded border px-1.5 py-0.5 text-[9px] ${statusClass[status]}`}>
+                      {offer.statusCanon}
+                    </span>
+                  </div>
+                  <p className="mt-1 truncate text-[11px] text-slate-400">
+                    {offer.priceLabel} · {offer.billingPeriod}
+                  </p>
+                  <p className="mt-1 text-[11px] text-cyan-100">
+                    Subs: {offer.subsCount === null ? "UNKNOWN" : offer.subsCount}
+                  </p>
+                </button>
+                {href ? (
+                  <a
+                    href={href}
+                    target="_blank"
+                    rel="noreferrer"
+                    className="mt-2 inline-flex max-w-full truncate rounded border border-cyan-300/25 bg-cyan-300/10 px-2 py-1 text-[10px] font-semibold text-cyan-100 hover:border-cyan-200/60"
+                  >
+                    Stripe link
+                  </a>
+                ) : (
+                  <span className="mt-2 inline-flex rounded border border-slate-700 bg-slate-900/80 px-2 py-1 text-[10px] text-slate-400">
+                    No public Stripe link
+                  </span>
+                )}
+              </article>
+            );
+          })}
+        </div>
+      ) : (
+        <p className="text-sm text-slate-400">
+          UNKNOWN until snapshot.offers returns exactly 8 canon offer records.
+        </p>
+      )}
+    </Panel>
+  );
+}
+
+function OfferDrawer({ offer, onClose }: { offer: OfferRecord; onClose: () => void }) {
+  const status = normalizeOfferStatus(offer.statusCanon);
+  const links = offer.stripeLinks.length > 0 ? offer.stripeLinks : [offer.stripeLink];
+
+  return (
+    <div className="fixed inset-0 z-50 bg-black/68 backdrop-blur-sm" role="dialog" aria-modal="true">
+      <div className="absolute right-0 top-0 flex h-full w-full max-w-[560px] flex-col border-l border-amber-300/20 bg-slate-950/96 shadow-[-20px_0_55px_rgba(0,0,0,0.48)]">
+        <div className="flex items-start justify-between gap-4 border-b border-slate-800 px-5 py-4">
+          <div>
+            <p className="text-[11px] font-semibold uppercase tracking-[0.2em] text-amber-200">
+              Canon offer living record
+            </p>
+            <h2 className="mt-1 text-2xl font-black text-white">{offer.offerName}</h2>
+            <p className="mt-1 text-xs text-slate-400">{offer.offerId}</p>
+            <div className="mt-3 flex flex-wrap gap-2">
+              <span className={`rounded border px-2 py-0.5 text-[10px] font-semibold ${statusClass[status]}`}>
+                {offer.statusCanon}
+              </span>
+              <span className="rounded border border-cyan-300/30 bg-cyan-300/10 px-2 py-0.5 text-[10px] font-semibold text-cyan-100">
+                {offer.priceLabel}
+              </span>
+              <span className="rounded border border-amber-300/30 bg-amber-300/10 px-2 py-0.5 text-[10px] font-semibold text-amber-100">
+                subs {offer.subsCount === null ? "UNKNOWN" : offer.subsCount}
+              </span>
+            </div>
+          </div>
+          <button
+            type="button"
+            onClick={onClose}
+            className="rounded-md border border-slate-700 bg-slate-900/90 p-2 text-slate-300 transition hover:border-amber-300/50 hover:text-white"
+            aria-label="Close offer drawer"
+          >
+            <X className="h-5 w-5" />
+          </button>
+        </div>
+
+        <div className="flex-1 overflow-auto px-5 py-4">
+          {status === "AMBER" ? (
+            <div className="mb-4 rounded-md border border-amber-300/35 bg-amber-300/10 p-3 text-xs text-amber-100">
+              NEEDS_CONFIRMATION : l’offre reste visible mais pas GREEN tant que le proof Stripe par offre n’est pas confirmé.
+            </div>
+          ) : null}
+
+          <div className="grid gap-2">
+            <InspectorRow label="offer_id" value={offer.offerId} />
+            <InspectorRow label="offer_name" value={offer.offerName} />
+            <InspectorRow label="price_eur" value={offer.priceEur === null ? "UNKNOWN" : String(offer.priceEur)} />
+            <InspectorRow label="billing_period" value={offer.billingPeriod} />
+            <InspectorRow label="status_canon" value={offer.statusCanon} />
+            <InspectorRow label="subs_count_last_proof" value={offer.subsCountLastProof} />
+            <InspectorRow label="public_use_blocked_alias" value={String(offer.publicUseBlockedAlias)} />
+            <InspectorRow label="home_house_canon" value={offer.homeHouseCanon} />
+            <InspectorRow label="arr_impact" value={offer.arrImpact} />
+            <InspectorRow label="next_action" value={offer.nextAction} />
+            <InspectorRow label="source_tag" value={offer.sourceTag} />
+          </div>
+
+          <section className="mt-4 rounded-md border border-slate-800 bg-slate-950/70 p-3">
+            <h3 className="mb-3 text-xs font-semibold uppercase tracking-[0.18em] text-slate-300">
+              Stripe links
+            </h3>
+            <div className="space-y-2">
+              {links.map((link) =>
+                link.startsWith("https://") ? (
+                  <a
+                    key={link}
+                    href={link}
+                    target="_blank"
+                    rel="noreferrer"
+                    className="block rounded border border-cyan-300/25 bg-cyan-300/10 px-3 py-2 text-xs text-cyan-100 hover:border-cyan-200/60"
+                  >
+                    {link}
+                  </a>
+                ) : (
+                  <div key={link} className="rounded border border-slate-800 bg-slate-900/80 px-3 py-2 text-xs text-slate-400">
+                    {link || "n/a"}
+                  </div>
+                ),
+              )}
+            </div>
+          </section>
+        </div>
+      </div>
+    </div>
   );
 }
 
