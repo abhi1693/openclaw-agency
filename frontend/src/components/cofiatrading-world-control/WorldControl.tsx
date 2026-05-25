@@ -119,6 +119,44 @@ type TruckRow = {
   writeBlocked: boolean;
 };
 
+type OpenClawBoard = NonNullable<Snapshot["openclaw"]>["boards"][number];
+type OpenClawAgent = NonNullable<Snapshot["openclaw"]>["agents"][number];
+type OpenClawBuilding = NonNullable<Snapshot["openclaw"]>["buildings"][number];
+
+type HouseId =
+  | "mission_control_tower"
+  | "youtube_studio"
+  | "iron_office"
+  | "vip_gate"
+  | "mt4_signal_tower"
+  | "site_seo_lab"
+  | "openclaw_agent_barracks"
+  | "paperclip_factory"
+  | "lightrag_observatory"
+  | "obsidian_library"
+  | "calendar_tower"
+  | "compliance_port"
+  | "central_brain"
+  | "trading_academy"
+  | "assets_warehouse";
+
+type HouseDefinition = {
+  id: HouseId;
+  name: string;
+  owners: string[];
+  primaryBoardSlug: string;
+  boardAliases: string[];
+};
+
+type HouseView = HouseDefinition & {
+  boards: OpenClawBoard[];
+  buildings: OpenClawBuilding[];
+  agents: OpenClawAgent[];
+  trucks: OpenClawTruck[];
+  activeTasks: number;
+  status: Status;
+};
+
 const TARGET_ARR_EUR = 100_000_000;
 const TARGET_DATE = "2026-12-31";
 const TARGET_MRR_EQUIVALENT_EUR = 8_333_333;
@@ -437,11 +475,131 @@ const disabledActions = ["SEND", "PUBLISH", "DEPLOY", "STRIPE WRITE"];
 const northStarImage =
   "/assets/cofiatrading-world-control/cofiatrading-new-york-world-control-100m-arr.png";
 
+const ssotHouses: HouseDefinition[] = [
+  {
+    id: "mission_control_tower",
+    name: "Command Tower",
+    owners: ["Erwin", "Codex", "ChatGPT"],
+    primaryBoardSlug: "mission_control_tower",
+    boardAliases: ["investor-accountability", "investor-room"],
+  },
+  {
+    id: "youtube_studio",
+    name: "COF IA Publisher",
+    owners: ["Nova", "Copywriter", "Codex"],
+    primaryBoardSlug: "cofiapublisher-studio",
+    boardAliases: ["cofiapublisher", "social-distribution", "acquisition-engine"],
+  },
+  {
+    id: "iron_office",
+    name: "Revenue & CRM",
+    owners: ["Iron", "David", "Codex"],
+    primaryBoardSlug: "revenue-command",
+    boardAliases: ["broker-reclaim", "support-recovery", "support-ops"],
+  },
+  {
+    id: "vip_gate",
+    name: "Telegram Community",
+    owners: ["Antho", "Codex"],
+    primaryBoardSlug: "vip_gate",
+    boardAliases: ["offer-factory"],
+  },
+  {
+    id: "mt4_signal_tower",
+    name: "Trading Tower",
+    owners: ["Risk", "Quant", "Marco", "Codex"],
+    primaryBoardSlug: "mt4_signal_tower",
+    boardAliases: [],
+  },
+  {
+    id: "site_seo_lab",
+    name: "Site & SEO Lab",
+    owners: ["Atlas", "Doctor", "Codex"],
+    primaryBoardSlug: "product-new-york",
+    boardAliases: ["new-york-build", "release-gate", "site_seo_lab"],
+  },
+  {
+    id: "openclaw_agent_barracks",
+    name: "Agents Village",
+    owners: ["Jarod", "Luffy", "Codex"],
+    primaryBoardSlug: "agentops-skills",
+    boardAliases: ["agentops", "garage-trucks", "toolchain"],
+  },
+  {
+    id: "paperclip_factory",
+    name: "Paperclip Factory",
+    owners: ["Paperclip", "Steward", "Codex"],
+    primaryBoardSlug: "dispatch-queue",
+    boardAliases: ["paperclip_factory"],
+  },
+  {
+    id: "lightrag_observatory",
+    name: "LightRAG Observatory",
+    owners: ["Guardian", "Oracle", "Steward", "Codex"],
+    primaryBoardSlug: "lightrag_observatory",
+    boardAliases: [],
+  },
+  {
+    id: "obsidian_library",
+    name: "Knowledge Vault",
+    owners: ["Guardian", "Steward", "Codex"],
+    primaryBoardSlug: "obsidian_library",
+    boardAliases: ["notion-ops"],
+  },
+  {
+    id: "calendar_tower",
+    name: "Calendar Tower",
+    owners: ["Jarod", "Codex"],
+    primaryBoardSlug: "calendar_tower",
+    boardAliases: [],
+  },
+  {
+    id: "compliance_port",
+    name: "Compliance Gate",
+    owners: ["Juriste", "Fiscal", "Codex"],
+    primaryBoardSlug: "compliance-gate",
+    boardAliases: ["compliance_port"],
+  },
+  {
+    id: "central_brain",
+    name: "Central Brain",
+    owners: ["Codex", "Guardian", "Steward"],
+    primaryBoardSlug: "central_brain",
+    boardAliases: ["proof-ledger", "cost-runway", "old-city-quarantine"],
+  },
+  {
+    id: "trading_academy",
+    name: "Trading Academy",
+    owners: ["Atlas", "Brand Manager", "Marco", "Lab", "Copywriter", "Codex"],
+    primaryBoardSlug: "trading_academy",
+    boardAliases: [],
+  },
+  {
+    id: "assets_warehouse",
+    name: "Publisher Suite",
+    owners: ["Paul MKT", "Paul Réseau", "Nova", "Codex"],
+    primaryBoardSlug: "asset-factory",
+    boardAliases: ["content-factory", "assets_warehouse"],
+  },
+];
+
+const houseIdByBoardSlug: Record<string, HouseId> = ssotHouses.reduce(
+  (acc, house) => {
+    acc[house.primaryBoardSlug] = house.id;
+    house.boardAliases.forEach((slug) => {
+      acc[slug] = house.id;
+    });
+    return acc;
+  },
+  {} as Record<string, HouseId>,
+);
+
 export function WorldControl() {
   const [snapshot, setSnapshot] = useState<Snapshot | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [selectedTruckName, setSelectedTruckName] = useState<string | null>(null);
   const [drawerTruckName, setDrawerTruckName] = useState<string | null>(null);
+  const [selectedHouseId, setSelectedHouseId] = useState<HouseId | null>(null);
   const [stripeRefreshStatus, setStripeRefreshStatus] = useState<string | null>(null);
   const [refreshingStripeProof, setRefreshingStripeProof] = useState(false);
 
@@ -506,9 +664,69 @@ export function WorldControl() {
   const drawerTruck =
     openclawTrucks.find((truck) => truck.truckName === drawerTruckName) ?? null;
 
+  const houses = useMemo<HouseView[]>(() => {
+    const openclaw = snapshot?.openclaw;
+    if (!openclaw) {
+      return ssotHouses.map((house) => ({
+        ...house,
+        boards: [],
+        buildings: [],
+        agents: [],
+        trucks: [],
+        activeTasks: 0,
+        status: "UNKNOWN",
+      }));
+    }
+
+    const boardsById = new Map(openclaw.boards.map((board) => [board.id, board]));
+
+    return ssotHouses.map((house) => {
+      const boards = openclaw.boards.filter(
+        (board) => houseIdByBoardSlug[board.slug] === house.id,
+      );
+      const buildings = openclaw.buildings.filter(
+        (building) => houseIdByBoardSlug[building.slug] === house.id,
+      );
+      const agents = openclaw.agents.filter((agent) => {
+        const boardSlug = agent.boardId ? boardsById.get(agent.boardId)?.slug : null;
+        const homeHouseId = boardSlug ? houseIdByBoardSlug[boardSlug] : null;
+        return homeHouseId === house.id || (house.id === "mission_control_tower" && agent.name === "Kevin");
+      });
+      const trucks = openclaw.garageTrucks.filter(
+        (truck) => truck.destinationBoard === house.id,
+      );
+      const activeTasks = buildings.reduce((total, building) => total + building.activeTasks, 0);
+      const status: Status =
+        boards.length === 0
+          ? "UNKNOWN"
+          : agents.length > 0 || trucks.length > 0 || activeTasks > 0
+            ? "LIVE"
+            : "AMBER";
+
+      return {
+        ...house,
+        boards,
+        buildings,
+        agents,
+        trucks,
+        activeTasks,
+        status,
+      };
+    });
+  }, [snapshot]);
+
+  const selectedHouse = houses.find((house) => house.id === selectedHouseId) ?? null;
+
   const openTruckDrawer = (truckName: string) => {
     setSelectedTruckName(truckName);
     setDrawerTruckName(truckName);
+    setSelectedHouseId(null);
+    setStripeRefreshStatus(null);
+  };
+
+  const openHouseDrawer = (houseId: HouseId) => {
+    setSelectedHouseId(houseId);
+    setDrawerTruckName(null);
     setStripeRefreshStatus(null);
   };
 
@@ -610,6 +828,33 @@ export function WorldControl() {
               ]}
             />
           </Panel>
+          <Panel title="15 maisons habitées" tone="cyan">
+            <div className="max-h-[310px] space-y-2 overflow-auto pr-1">
+              {houses.map((house) => (
+                <button
+                  type="button"
+                  key={house.id}
+                  onClick={() => openHouseDrawer(house.id)}
+                  className="w-full rounded-md border border-slate-800 bg-slate-950/70 px-3 py-2 text-left transition hover:border-cyan-300/50 hover:bg-cyan-300/10"
+                >
+                  <div className="flex items-center justify-between gap-2">
+                    <span className="truncate text-sm font-semibold text-slate-100">
+                      {house.name}
+                    </span>
+                    <span className={`shrink-0 rounded border px-2 py-0.5 text-[10px] font-semibold ${statusClass[house.status]}`}>
+                      {house.status}
+                    </span>
+                  </div>
+                  <p className="mt-1 truncate text-[11px] text-slate-500">{house.id}</p>
+                  <div className="mt-2 grid grid-cols-3 gap-1 text-[10px] text-slate-300">
+                    <span>{house.agents.length} agents</span>
+                    <span>{house.trucks.length} trucks</span>
+                    <span>{house.activeTasks} tasks</span>
+                  </div>
+                </button>
+              ))}
+            </div>
+          </Panel>
           <Panel title="Proof ledger" tone="cyan">
             <ProofRow label="OpenClaw Docker" status="LIVE" proof="frontend :3000 / backend :8000" />
             <ProofRow label="Custom fields" status={(snapshot?.openclaw?.customFields.length ?? 0) >= 23 ? "LIVE" : "UNKNOWN"} proof={`${formatNumber(snapshot?.openclaw?.customFields.length)} truck fields`} />
@@ -699,6 +944,30 @@ export function WorldControl() {
             ) : (
               <p className="text-sm text-slate-400">UNKNOWN until Garage / Trucks records load.</p>
             )}
+          </Panel>
+
+          <Panel title="15 maisons SSOT peuplées" tone="cyan">
+            <div className="grid gap-2 sm:grid-cols-2">
+              {houses.map((house) => (
+                <button
+                  type="button"
+                  key={house.id}
+                  onClick={() => openHouseDrawer(house.id)}
+                  className="rounded-md border border-slate-800 bg-slate-950/70 px-3 py-2 text-left transition hover:border-amber-300/50 hover:bg-amber-300/10"
+                >
+                  <div className="flex items-center justify-between gap-2">
+                    <span className="truncate text-sm font-semibold text-slate-100">{house.name}</span>
+                    <span className={`rounded border px-2 py-0.5 text-[10px] ${statusClass[house.status]}`}>
+                      {house.status}
+                    </span>
+                  </div>
+                  <p className="mt-1 truncate text-[11px] text-slate-500">{house.id}</p>
+                  <p className="mt-2 text-[11px] text-slate-300">
+                    {house.agents.length} résidents · {house.trucks.length} camions · {house.activeTasks} tâches
+                  </p>
+                </button>
+              ))}
+            </div>
           </Panel>
 
           <Panel title="Buildings / active tasks" tone="cyan">
@@ -799,6 +1068,7 @@ export function WorldControl() {
           refreshing={refreshingStripeProof}
         />
       ) : null}
+      {selectedHouse ? <HouseDrawer house={selectedHouse} onClose={() => setSelectedHouseId(null)} /> : null}
     </div>
   );
 }
@@ -1104,6 +1374,128 @@ function TruckCard({
         </span>
       </div>
     </button>
+  );
+}
+
+function HouseDrawer({ house, onClose }: { house: HouseView; onClose: () => void }) {
+  return (
+    <div className="fixed inset-0 z-50 bg-black/68 backdrop-blur-sm" role="dialog" aria-modal="true">
+      <div className="absolute right-0 top-0 flex h-full w-full max-w-[640px] flex-col border-l border-amber-300/20 bg-slate-950/96 shadow-[-20px_0_55px_rgba(0,0,0,0.48)]">
+        <div className="flex items-start justify-between gap-4 border-b border-slate-800 px-5 py-4">
+          <div>
+            <p className="text-[11px] font-semibold uppercase tracking-[0.2em] text-amber-200">
+              SSOT house living record
+            </p>
+            <h2 className="mt-1 text-2xl font-black text-white">{house.name}</h2>
+            <p className="mt-1 text-xs text-slate-400">{house.id}</p>
+            <div className="mt-3 flex flex-wrap gap-2">
+              <span className={`rounded border px-2 py-0.5 text-[10px] font-semibold ${statusClass[house.status]}`}>
+                {house.status}
+              </span>
+              <span className="rounded border border-cyan-300/30 bg-cyan-300/10 px-2 py-0.5 text-[10px] font-semibold text-cyan-100">
+                {house.agents.length} agents
+              </span>
+              <span className="rounded border border-cyan-300/30 bg-cyan-300/10 px-2 py-0.5 text-[10px] font-semibold text-cyan-100">
+                {house.trucks.length} trucks
+              </span>
+              <span className="rounded border border-amber-300/30 bg-amber-300/10 px-2 py-0.5 text-[10px] font-semibold text-amber-100">
+                {house.activeTasks} tasks
+              </span>
+            </div>
+          </div>
+          <button
+            type="button"
+            onClick={onClose}
+            className="rounded-md border border-slate-700 bg-slate-900/90 p-2 text-slate-300 transition hover:border-amber-300/50 hover:text-white"
+            aria-label="Close house drawer"
+          >
+            <X className="h-5 w-5" />
+          </button>
+        </div>
+
+        <div className="flex-1 overflow-auto px-5 py-4">
+          <div className="grid gap-2 sm:grid-cols-2">
+            <InspectorRow label="owners" value={house.owners.join(", ")} />
+            <InspectorRow label="primary_board" value={house.primaryBoardSlug} />
+            <InspectorRow label="boards" value={house.boards.map((board) => board.slug).join(", ") || "UNKNOWN"} />
+            <InspectorRow label="active_tasks" value={String(house.activeTasks)} />
+          </div>
+
+          <div className="mt-4 grid gap-4">
+            <section className="rounded-md border border-slate-800 bg-slate-950/70 p-3">
+              <h3 className="mb-3 text-xs font-semibold uppercase tracking-[0.18em] text-slate-300">
+                Résidents agents
+              </h3>
+              <div className="grid gap-2 sm:grid-cols-2">
+                {house.agents.length > 0 ? (
+                  house.agents.slice(0, 16).map((agent) => (
+                    <div key={agent.id} className="rounded border border-slate-800 bg-slate-900/70 px-3 py-2 text-xs">
+                      <div className="flex items-center justify-between gap-2">
+                        <span className="font-semibold text-slate-100">{agent.name}</span>
+                        <span className={`rounded border px-2 py-0.5 text-[9px] ${agent.status === "online" || agent.status === "active" ? statusClass.LIVE : statusClass.AMBER}`}>
+                          {agent.status}
+                        </span>
+                      </div>
+                      <p className="mt-1 line-clamp-2 text-slate-500">{agent.role}</p>
+                    </div>
+                  ))
+                ) : (
+                  <p className="text-xs text-slate-500">Aucun agent résident prouvé dans le snapshot.</p>
+                )}
+              </div>
+            </section>
+
+            <section className="rounded-md border border-slate-800 bg-slate-950/70 p-3">
+              <h3 className="mb-3 text-xs font-semibold uppercase tracking-[0.18em] text-slate-300">
+                Camions garés
+              </h3>
+              <div className="grid gap-2 sm:grid-cols-2">
+                {house.trucks.length > 0 ? (
+                  house.trucks.slice(0, 18).map((truck) => (
+                    <div key={truck.id} className="rounded border border-slate-800 bg-slate-900/70 px-3 py-2 text-xs">
+                      <div className="flex items-center justify-between gap-2">
+                        <span className="truncate font-semibold text-slate-100">{truck.truckName ?? truck.title}</span>
+                        <span className={`rounded border px-2 py-0.5 text-[9px] ${statusClass[normalizeStatus(truck.truckStatus)]}`}>
+                          {truck.truckStatus}
+                        </span>
+                      </div>
+                      <p className="mt-1 truncate text-slate-500">{truck.driverAgent}</p>
+                    </div>
+                  ))
+                ) : (
+                  <p className="text-xs text-slate-500">Aucun camion garé prouvé dans le snapshot.</p>
+                )}
+              </div>
+            </section>
+
+            <section className="rounded-md border border-slate-800 bg-slate-950/70 p-3">
+              <h3 className="mb-3 text-xs font-semibold uppercase tracking-[0.18em] text-slate-300">
+                Boards / appartements
+              </h3>
+              <div className="space-y-2">
+                {house.buildings.length > 0 ? (
+                  house.buildings.map((building) => (
+                    <div key={building.id} className="rounded border border-slate-800 bg-slate-900/70 px-3 py-2 text-xs">
+                      <div className="flex items-center justify-between gap-2">
+                        <span className="font-semibold text-slate-100">{building.name}</span>
+                        <span className="rounded border border-amber-300/30 bg-amber-300/10 px-2 py-0.5 text-[9px] text-amber-100">
+                          {building.activeTasks} tasks
+                        </span>
+                      </div>
+                      <p className="mt-1 truncate text-slate-500">
+                        Proof: {building.proof} · ARR: {building.arrImpact}
+                      </p>
+                    </div>
+                  ))
+                ) : (
+                  <p className="text-xs text-slate-500">Aucun board actif prouvé dans le snapshot.</p>
+                )}
+              </div>
+            </section>
+          </div>
+        </div>
+      </div>
+    </div>
   );
 }
 
