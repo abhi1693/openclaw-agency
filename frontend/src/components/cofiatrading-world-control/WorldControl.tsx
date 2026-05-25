@@ -48,6 +48,8 @@ type Snapshot = {
   services: Array<{ id: string; label: string; ok: boolean; status: number | null }>;
   knowledge?: Record<KnowledgeId, KnowledgeRecord>;
   offers: OfferRecord[];
+  routes?: RoutesSnapshot;
+  investor_room?: InvestorRoomSnapshot;
   openclaw?: {
     sourceTag: string;
     boards: Array<{ id: string; name: string; slug: string }>;
@@ -147,7 +149,49 @@ type KnowledgeRecord = {
   proofRequired: string;
 };
 
-type Status = "LIVE" | "AMBER" | "UNKNOWN" | "PAUSED" | "QUARANTINE" | "LOCKED";
+type RouteRecord = {
+  id: string;
+  label: string;
+  source: string;
+  status: string;
+  key_metrics: Record<string, unknown>;
+  last_proof: string;
+  next_checkpoint: string;
+  gate_required: string;
+  blockers: string[];
+};
+
+type RoutesSnapshot = {
+  revenue_route: RouteRecord;
+  acquisition_route: RouteRecord;
+  knowledge_route: RouteRecord;
+  broker_route: RouteRecord;
+  support_route: RouteRecord;
+  compliance_route: RouteRecord;
+};
+
+type InvestorRoomSnapshot = {
+  current_arr_eur: number | null;
+  current_mrr_eur: number | null;
+  target_arr_eur: number;
+  target_date: string;
+  gap_eur: number | null;
+  gap_pct: number | null;
+  top_blockers: string[];
+  next_7_days_tasks: Array<{
+    title: string;
+    board_id: string | null;
+    status: string;
+    priority: string;
+    due_time: string | null;
+    arr_impact: string;
+    source_tag: string;
+    next_action: string;
+  }>;
+  last_proof_per_route: Record<string, string>;
+};
+
+type Status = "GREEN" | "LIVE" | "AMBER" | "UNKNOWN" | "PAUSED" | "QUARANTINE" | "LOCKED";
 
 type TruckRow = {
   label: string;
@@ -241,7 +285,21 @@ const truncateText = (value: string | null | undefined, maxLength = 80) => {
   return text.length > maxLength ? `${text.slice(0, maxLength - 1)}…` : text;
 };
 
+const formatMetricValue = (value: unknown): string => {
+  if (value === null || value === undefined || value === "") return "UNKNOWN";
+  if (typeof value === "number") return formatNumber(value);
+  if (typeof value === "boolean") return value ? "true" : "false";
+  if (typeof value === "string") return value;
+  if (typeof value === "object") {
+    return Object.entries(value as Record<string, unknown>)
+      .map(([key, item]) => `${key}: ${formatMetricValue(item)}`)
+      .join(" · ");
+  }
+  return String(value);
+};
+
 const statusClass: Record<Status, string> = {
+  GREEN: "border-emerald-300/50 bg-emerald-400/12 text-emerald-100",
   LIVE: "border-emerald-400/40 bg-emerald-400/10 text-emerald-200",
   AMBER: "border-amber-400/40 bg-amber-400/10 text-amber-200",
   UNKNOWN: "border-slate-400/30 bg-slate-400/10 text-slate-300",
@@ -252,7 +310,7 @@ const statusClass: Record<Status, string> = {
 
 const normalizeStatus = (status: string | null | undefined): Status => {
   const upper = (status ?? "").toUpperCase();
-  if (upper === "LIVE" || upper === "AMBER" || upper === "UNKNOWN" || upper === "PAUSED" || upper === "QUARANTINE" || upper === "LOCKED") {
+  if (upper === "GREEN" || upper === "LIVE" || upper === "AMBER" || upper === "UNKNOWN" || upper === "PAUSED" || upper === "QUARANTINE" || upper === "LOCKED") {
     return upper;
   }
   return "UNKNOWN";
@@ -671,6 +729,8 @@ export function WorldControl() {
   const [selectedHouseId, setSelectedHouseId] = useState<HouseId | null>(null);
   const [selectedOfferId, setSelectedOfferId] = useState<string | null>(null);
   const [selectedKnowledgeId, setSelectedKnowledgeId] = useState<KnowledgeId | null>(null);
+  const [showCastleDrawer, setShowCastleDrawer] = useState(false);
+  const [showInvestorDrawer, setShowInvestorDrawer] = useState(false);
   const [stripeRefreshStatus, setStripeRefreshStatus] = useState<string | null>(null);
   const [refreshingStripeProof, setRefreshingStripeProof] = useState(false);
 
@@ -717,6 +777,9 @@ export function WorldControl() {
   }, [snapshot]);
   const openclawTrucks = snapshot?.openclaw?.garageTrucks ?? [];
   const offers = snapshot?.offers ?? [];
+  const routes = snapshot?.routes ?? null;
+  const routeRecords = routes ? (Object.values(routes) as RouteRecord[]) : [];
+  const investorRoom = snapshot?.investor_room ?? null;
   const knowledgeRecords = Object.values(snapshot?.knowledge ?? {}) as KnowledgeRecord[];
   const truckRows: TruckRow[] =
     openclawTrucks.length > 0
@@ -799,6 +862,8 @@ export function WorldControl() {
     setSelectedHouseId(null);
     setSelectedOfferId(null);
     setSelectedKnowledgeId(null);
+    setShowCastleDrawer(false);
+    setShowInvestorDrawer(false);
     setStripeRefreshStatus(null);
   };
 
@@ -807,6 +872,8 @@ export function WorldControl() {
     setDrawerTruckName(null);
     setSelectedOfferId(null);
     setSelectedKnowledgeId(null);
+    setShowCastleDrawer(false);
+    setShowInvestorDrawer(false);
     setStripeRefreshStatus(null);
   };
 
@@ -815,11 +882,35 @@ export function WorldControl() {
     setSelectedHouseId(null);
     setDrawerTruckName(null);
     setSelectedKnowledgeId(null);
+    setShowCastleDrawer(false);
+    setShowInvestorDrawer(false);
     setStripeRefreshStatus(null);
   };
 
   const openKnowledgeDrawer = (knowledgeId: KnowledgeId) => {
     setSelectedKnowledgeId(knowledgeId);
+    setSelectedOfferId(null);
+    setSelectedHouseId(null);
+    setDrawerTruckName(null);
+    setShowCastleDrawer(false);
+    setShowInvestorDrawer(false);
+    setStripeRefreshStatus(null);
+  };
+
+  const openCastleDrawer = () => {
+    setShowCastleDrawer(true);
+    setShowInvestorDrawer(false);
+    setSelectedKnowledgeId(null);
+    setSelectedOfferId(null);
+    setSelectedHouseId(null);
+    setDrawerTruckName(null);
+    setStripeRefreshStatus(null);
+  };
+
+  const openInvestorDrawer = () => {
+    setShowInvestorDrawer(true);
+    setShowCastleDrawer(false);
+    setSelectedKnowledgeId(null);
     setSelectedOfferId(null);
     setSelectedHouseId(null);
     setDrawerTruckName(null);
@@ -863,6 +954,14 @@ export function WorldControl() {
         />
         <div className="absolute inset-0 bg-gradient-to-b from-black/50 via-black/5 to-black/62" />
         <div className="absolute inset-0 bg-[radial-gradient(circle_at_center,transparent_0%,rgba(2,4,10,0.08)_58%,rgba(2,4,10,0.62)_100%)]" />
+        <button
+          type="button"
+          onClick={openCastleDrawer}
+          className="absolute left-1/2 top-[24%] z-10 h-[210px] w-[330px] -translate-x-1/2 -translate-y-1/2 rounded-full border border-amber-300/0 bg-amber-300/0 text-transparent outline-none transition hover:border-amber-200/35 hover:bg-amber-300/8 focus-visible:border-amber-200/70 focus-visible:bg-amber-300/10"
+          aria-label="Open 100M ARR Castle route aggregation"
+        >
+          100M ARR Castle route aggregation
+        </button>
 
         <header className="absolute inset-x-0 top-0 z-20 border-b border-amber-300/20 bg-black/62 px-4 py-3 backdrop-blur-md">
           <div className="flex flex-wrap items-center justify-between gap-3">
@@ -880,7 +979,11 @@ export function WorldControl() {
               </div>
             </div>
 
-            <div className="rounded-md border border-amber-300/35 bg-black/55 px-5 py-2 text-center shadow-[0_0_35px_rgba(251,191,36,0.22)]">
+            <button
+              type="button"
+              onClick={openCastleDrawer}
+              className="rounded-md border border-amber-300/35 bg-black/55 px-5 py-2 text-center shadow-[0_0_35px_rgba(251,191,36,0.22)] transition hover:border-amber-100/70 hover:bg-amber-300/10"
+            >
               <div className="flex items-center justify-center gap-2 text-amber-100">
                 <Castle className="h-5 w-5" />
                 <p className="text-2xl font-black uppercase tracking-wide">
@@ -890,7 +993,7 @@ export function WorldControl() {
               <p className="text-xs uppercase tracking-[0.22em] text-amber-100/75">
                 {TARGET_DATE} · 8.33M MRR only as secondary run-rate math
               </p>
-            </div>
+            </button>
 
             <div className="grid grid-cols-2 gap-2 text-xs md:grid-cols-4">
               <TopMetric label="Current ARR" value={formatEur(snapshot?.revenue.currentArrEur)} />
@@ -913,16 +1016,25 @@ export function WorldControl() {
 
         <aside className="absolute right-4 top-[108px] z-20 hidden w-[300px] space-y-3 xl:block">
           <Panel title="Investor truth" tone="gold">
-            <MetricGrid
-              metrics={[
-                ["Current ARR", formatEur(snapshot?.revenue.currentArrEur)],
-                ["ARR gap", formatEur(arrGap)],
-                ["Current MRR", formatEur(snapshot?.revenue.currentMrrEur)],
-                ["Past due", formatEur(snapshot?.revenue.pastDueEur)],
-                ["Broker lifetime", formatUsd(snapshot?.revenue.brokersLifetimeUsd)],
-                ["Iron clients", formatNumber(snapshot?.revenue.clientsActive)],
-              ]}
-            />
+            <button
+              type="button"
+              onClick={openInvestorDrawer}
+              className="block w-full rounded-md text-left transition hover:bg-amber-300/8 focus-visible:outline focus-visible:outline-1 focus-visible:outline-amber-200/70"
+            >
+              <MetricGrid
+                metrics={[
+                  ["Current ARR", formatEur(snapshot?.revenue.currentArrEur)],
+                  ["ARR gap", formatEur(arrGap)],
+                  ["Current MRR", formatEur(snapshot?.revenue.currentMrrEur)],
+                  ["Past due", formatEur(snapshot?.revenue.pastDueEur)],
+                  ["Broker lifetime", formatUsd(snapshot?.revenue.brokersLifetimeUsd)],
+                  ["Iron clients", formatNumber(snapshot?.revenue.clientsActive)],
+                ]}
+              />
+              <p className="mt-2 text-[11px] font-semibold uppercase tracking-[0.16em] text-amber-100/75">
+                ouvrir Investor Room
+              </p>
+            </button>
           </Panel>
           <OfferFactoryPanel offers={offers} onSelect={openOfferDrawer} />
           <KnowledgeLayerPanel records={knowledgeRecords} onSelect={openKnowledgeDrawer} />
@@ -1046,6 +1158,30 @@ export function WorldControl() {
 
           <OfferFactoryPanel offers={offers} onSelect={openOfferDrawer} />
           <KnowledgeLayerPanel records={knowledgeRecords} onSelect={openKnowledgeDrawer} />
+          <Panel title="100M gravity controls" tone="gold">
+            <div className="grid gap-2 sm:grid-cols-2">
+              <button
+                type="button"
+                onClick={openCastleDrawer}
+                className="rounded-md border border-amber-300/30 bg-amber-300/10 px-3 py-3 text-left transition hover:border-amber-100/70"
+              >
+                <p className="text-sm font-bold uppercase text-amber-100">100M ARR Castle</p>
+                <p className="mt-1 text-xs text-amber-100/70">
+                  Routes revenue, acquisition, knowledge, brokers, support, compliance.
+                </p>
+              </button>
+              <button
+                type="button"
+                onClick={openInvestorDrawer}
+                className="rounded-md border border-cyan-300/25 bg-cyan-300/10 px-3 py-3 text-left transition hover:border-cyan-100/60"
+              >
+                <p className="text-sm font-bold uppercase text-cyan-100">Investor Room</p>
+                <p className="mt-1 text-xs text-cyan-100/70">
+                  ARR/MRR/gap, blockers, next 7 days, proof per route.
+                </p>
+              </button>
+            </div>
+          </Panel>
 
           <Panel title="15 maisons SSOT peuplées" tone="cyan">
             <div className="grid gap-2 sm:grid-cols-2">
@@ -1175,6 +1311,20 @@ export function WorldControl() {
         <KnowledgeDrawer
           record={selectedKnowledge}
           onClose={() => setSelectedKnowledgeId(null)}
+        />
+      ) : null}
+      {showCastleDrawer ? (
+        <CastleDrawer
+          routes={routeRecords}
+          investorRoom={investorRoom}
+          onClose={() => setShowCastleDrawer(false)}
+        />
+      ) : null}
+      {showInvestorDrawer ? (
+        <InvestorRoomDrawer
+          room={investorRoom}
+          revenue={snapshot?.revenue ?? null}
+          onClose={() => setShowInvestorDrawer(false)}
         />
       ) : null}
     </div>
@@ -1738,6 +1888,189 @@ function KnowledgeDrawer({
             <InspectorRow label="next_action" value={record.nextAction} />
             <InspectorRow label="proof_required" value={record.proofRequired} />
           </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function CastleDrawer({
+  routes,
+  investorRoom,
+  onClose,
+}: {
+  routes: RouteRecord[];
+  investorRoom: InvestorRoomSnapshot | null;
+  onClose: () => void;
+}) {
+  return (
+    <div className="fixed inset-0 z-50 bg-black/68 backdrop-blur-sm" role="dialog" aria-modal="true">
+      <div className="absolute right-0 top-0 flex h-full w-full max-w-[760px] flex-col border-l border-amber-300/25 bg-slate-950/96 shadow-[-20px_0_55px_rgba(0,0,0,0.48)]">
+        <div className="flex items-start justify-between gap-4 border-b border-slate-800 px-5 py-4">
+          <div>
+            <p className="text-[11px] font-semibold uppercase tracking-[0.2em] text-amber-200">
+              100M ARR Castle — route aggregation
+            </p>
+            <h2 className="mt-1 text-3xl font-black text-white">100M EUR ARR</h2>
+            <p className="mt-2 text-sm font-semibold text-amber-100">
+              GAP: {formatEur(investorRoom?.gap_eur)} ·{" "}
+              {typeof investorRoom?.gap_pct === "number" ? `${investorRoom.gap_pct.toFixed(3)}% remaining` : "UNKNOWN"}
+            </p>
+            <p className="mt-1 text-xs text-slate-400">
+              Current ARR {formatEur(investorRoom?.current_arr_eur)} · Current MRR {formatEur(investorRoom?.current_mrr_eur)}
+            </p>
+          </div>
+          <button
+            type="button"
+            onClick={onClose}
+            className="rounded-md border border-slate-700 bg-slate-900/90 p-2 text-slate-300 transition hover:border-amber-300/50 hover:text-white"
+            aria-label="Close 100M Castle drawer"
+          >
+            <X className="h-5 w-5" />
+          </button>
+        </div>
+
+        <div className="flex-1 overflow-auto px-5 py-4">
+          {routes.length === 6 ? (
+            <div className="grid gap-3 md:grid-cols-2">
+              {routes.map((route) => {
+                const status = normalizeStatus(route.status);
+                return (
+                  <section key={route.id} className="rounded-md border border-slate-800 bg-slate-950/75 p-3">
+                    <div className="flex items-start justify-between gap-3">
+                      <div className="min-w-0">
+                        <h3 className="truncate text-sm font-bold text-white">{route.label}</h3>
+                        <p className="mt-1 text-[11px] text-slate-500">{route.source}</p>
+                      </div>
+                      <span className={`shrink-0 rounded border px-2 py-0.5 text-[10px] font-semibold ${statusClass[status]}`}>
+                        {route.status}
+                      </span>
+                    </div>
+                    <div className="mt-3 grid gap-1 text-[11px]">
+                      {Object.entries(route.key_metrics).slice(0, 5).map(([key, value]) => (
+                        <div key={key} className="flex gap-2 rounded border border-slate-800 bg-slate-900/70 px-2 py-1">
+                          <span className="w-28 shrink-0 uppercase tracking-wide text-slate-500">{key}</span>
+                          <span className="min-w-0 break-words text-slate-200">{formatMetricValue(value)}</span>
+                        </div>
+                      ))}
+                    </div>
+                    <p className="mt-3 text-[11px] leading-4 text-slate-400">
+                      {truncateText(route.last_proof, 150)}
+                    </p>
+                    <p className="mt-2 text-[11px] text-amber-100/85">
+                      Next: {truncateText(route.next_checkpoint, 120)}
+                    </p>
+                    <p className="mt-1 text-[11px] text-red-100/75">
+                      Gate: {route.gate_required}
+                    </p>
+                  </section>
+                );
+              })}
+            </div>
+          ) : (
+            <p className="rounded-md border border-amber-300/30 bg-amber-300/10 p-3 text-sm text-amber-100">
+              AMBER: snapshot.routes ne contient pas encore les 6 routes attendues.
+            </p>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function InvestorRoomDrawer({
+  room,
+  revenue,
+  onClose,
+}: {
+  room: InvestorRoomSnapshot | null;
+  revenue: Snapshot["revenue"] | null;
+  onClose: () => void;
+}) {
+  return (
+    <div className="fixed inset-0 z-50 bg-black/68 backdrop-blur-sm" role="dialog" aria-modal="true">
+      <div className="absolute right-0 top-0 flex h-full w-full max-w-[720px] flex-col border-l border-cyan-300/20 bg-slate-950/96 shadow-[-20px_0_55px_rgba(0,0,0,0.48)]">
+        <div className="flex items-start justify-between gap-4 border-b border-slate-800 px-5 py-4">
+          <div>
+            <p className="text-[11px] font-semibold uppercase tracking-[0.2em] text-cyan-200">
+              Investor Room — weekly truth
+            </p>
+            <h2 className="mt-1 text-2xl font-black text-white">Investor accountability</h2>
+            <p className="mt-1 text-xs text-slate-400">
+              Read-only investor truth. Pas de send. Pas de Stripe write. Pas de promesse gains.
+            </p>
+          </div>
+          <button
+            type="button"
+            onClick={onClose}
+            className="rounded-md border border-slate-700 bg-slate-900/90 p-2 text-slate-300 transition hover:border-cyan-300/50 hover:text-white"
+            aria-label="Close Investor Room drawer"
+          >
+            <X className="h-5 w-5" />
+          </button>
+        </div>
+
+        <div className="flex-1 overflow-auto px-5 py-4">
+          <div className="grid gap-2 sm:grid-cols-2">
+            <InspectorRow label="current_arr" value={formatEur(room?.current_arr_eur ?? revenue?.currentArrEur)} />
+            <InspectorRow label="current_mrr" value={formatEur(room?.current_mrr_eur ?? revenue?.currentMrrEur)} />
+            <InspectorRow label="target_arr" value={formatEur(room?.target_arr_eur ?? TARGET_ARR_EUR)} />
+            <InspectorRow label="gap" value={formatEur(room?.gap_eur)} />
+            <InspectorRow label="past_due" value={formatEur(revenue?.pastDueEur)} />
+            <InspectorRow label="broker_lifetime" value={formatUsd(revenue?.brokersLifetimeUsd)} />
+            <InspectorRow label="iron_clients" value={formatNumber(revenue?.clientsActive)} />
+            <InspectorRow label="vip" value={formatNumber(revenue?.activeVip)} />
+          </div>
+
+          <section className="mt-4 rounded-md border border-amber-300/20 bg-amber-300/8 p-3">
+            <h3 className="text-xs font-semibold uppercase tracking-[0.18em] text-amber-100">Top blockers</h3>
+            <ul className="mt-3 space-y-2 text-sm text-slate-200">
+              {(room?.top_blockers ?? []).length > 0 ? (
+                (room?.top_blockers ?? []).map((blocker) => (
+                  <li key={blocker} className="flex gap-2">
+                    <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0 text-amber-200" />
+                    <span>{blocker}</span>
+                  </li>
+                ))
+              ) : (
+                <li className="text-slate-500">UNKNOWN: aucun blocker agrégé dans snapshot.investor_room.</li>
+              )}
+            </ul>
+          </section>
+
+          <section className="mt-4 rounded-md border border-cyan-300/20 bg-cyan-300/8 p-3">
+            <h3 className="text-xs font-semibold uppercase tracking-[0.18em] text-cyan-100">Next 7 days tasks</h3>
+            <div className="mt-3 space-y-2">
+              {(room?.next_7_days_tasks ?? []).length > 0 ? (
+                (room?.next_7_days_tasks ?? []).map((task) => (
+                  <div key={`${task.title}-${task.due_time}`} className="rounded border border-slate-800 bg-slate-900/70 px-3 py-2 text-xs">
+                    <div className="flex items-center justify-between gap-2">
+                      <span className="font-semibold text-slate-100">{task.title}</span>
+                      <span className={`rounded border px-2 py-0.5 text-[9px] ${statusClass[normalizeStatus(task.status)]}`}>
+                        {task.status}
+                      </span>
+                    </div>
+                    <p className="mt-1 text-slate-500">
+                      due {task.due_time ?? "UNKNOWN"} · priority {task.priority} · ARR {task.arr_impact}
+                    </p>
+                  </div>
+                ))
+              ) : (
+                <p className="rounded border border-slate-800 bg-slate-900/70 px-3 py-2 text-xs text-slate-400">
+                  [] honnête : aucun champ due_within_7d exploitable dans les tasks OpenClaw actuelles.
+                </p>
+              )}
+            </div>
+          </section>
+
+          <section className="mt-4 rounded-md border border-slate-800 bg-slate-950/70 p-3">
+            <h3 className="text-xs font-semibold uppercase tracking-[0.18em] text-slate-300">Last proof per route</h3>
+            <div className="mt-3 grid gap-2">
+              {Object.entries(room?.last_proof_per_route ?? {}).map(([route, proof]) => (
+                <InspectorRow key={route} label={route} value={truncateText(proof, 180)} />
+              ))}
+            </div>
+          </section>
         </div>
       </div>
     </div>

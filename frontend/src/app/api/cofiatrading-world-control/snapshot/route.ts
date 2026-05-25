@@ -23,6 +23,15 @@ const endpoints = {
   rtk: process.env.COF_RTK_HEALTH_URL ?? `${HOST}:11435/health`,
 };
 
+const TARGET_ARR_EUR = 100_000_000;
+const TARGET_DATE = "2026-12-31";
+const ASSET_FACTORY_CANON = {
+  assets_count: 47,
+  content_pieces: 35,
+  brochures: 6,
+  scripts: 6,
+};
+
 const toRecord = (value: unknown): Record<string, unknown> =>
   value && typeof value === "object" && !Array.isArray(value)
     ? (value as Record<string, unknown>)
@@ -182,6 +191,8 @@ const sanitizeTask = (task: Record<string, unknown>) => {
     owner: readString(fields, ["owner"]) ?? readString(fields, ["driver_agent"]) ?? "UNKNOWN",
     proofRequired: readString(fields, ["proof_required"]) ?? "source_tag + proof",
     oldCityFlag: readBool(fields, ["old_city_flag"]) ?? false,
+    dueTime: readString(fields, ["due_time", "due_within_7d"]) ?? readString(task, ["due_at", "due_date"]),
+    sourceTag: readString(fields, ["source_tag"]) ?? readString(task, ["source_tag"]) ?? "OPENCLAW_TASK",
   };
 };
 
@@ -264,6 +275,246 @@ const sanitizeKnowledgeTruck = (
   };
 };
 
+type SanitizedTask = ReturnType<typeof sanitizeTask>;
+type SanitizedOffer = NonNullable<ReturnType<typeof sanitizeOffer>>;
+type KnowledgeSnapshot = ReturnType<typeof sanitizeKnowledgeTruck>;
+
+const findTruck = (tasks: SanitizedTask[], truckNames: string[]) =>
+  tasks.find((task) => task.truckName && truckNames.includes(task.truckName));
+
+const parseNumberFromProof = (proof: string | undefined, pattern: RegExp): number | null => {
+  const match = proof?.match(pattern);
+  if (!match?.[1]) return null;
+  const parsed = Number.parseFloat(match[1].replace(/[^0-9.-]/g, ""));
+  return Number.isFinite(parsed) ? parsed : null;
+};
+
+const sumBrokerMetric = (brokers: Record<string, unknown>, key: string) =>
+  Object.values(brokers).reduce<number>((total, broker) => {
+    const value = readNumber(toRecord(broker), [key]);
+    return total + (value ?? 0);
+  }, 0);
+
+const buildRouteAggregation = ({
+  revenue,
+  brokers,
+  offers,
+  garageTasks,
+  knowledge,
+  publisher,
+}: {
+  revenue: Record<string, unknown>;
+  brokers: Record<string, unknown>;
+  offers: SanitizedOffer[];
+  garageTasks: SanitizedTask[];
+  knowledge: Record<string, KnowledgeSnapshot>;
+  publisher: Record<string, unknown>;
+}) => {
+  const currentArr = readNumber(revenue, ["arr_eur"]);
+  const currentMrr = readNumber(revenue, ["mrr_eur", "mrr_active_eur"]);
+  const gapEur = currentArr === null ? null : TARGET_ARR_EUR - currentArr;
+  const progressPct = currentArr === null ? null : (currentArr / TARGET_ARR_EUR) * 100;
+  const remainingPct = progressPct === null ? null : Math.max(0, 100 - progressPct);
+  const stripeTruck = findTruck(garageTasks, ["StripeTruck", "RevenueEndpointTruck"]);
+  const brokerTruck = findTruck(garageTasks, ["BrokerReclaimTruck", "IronCRMTruck"]);
+  const publisherTruck = findTruck(garageTasks, ["CofiaPublisherTruck"]);
+  const gmailTruck = findTruck(garageTasks, ["GmailSupportTruck"]);
+  const telegramTruck = findTruck(garageTasks, ["TelegramTruck", "TelegramVipTruck", "TelegramFreeTruck"]);
+  const proofTruck = findTruck(garageTasks, ["ProofTruck"]);
+  const offersById = Object.fromEntries(
+    offers.map((offer) => [offer.offerId, offer.subsCount]),
+  );
+  const brokerLifetime = readNumber(revenue, ["brokers_commission_lifetime_usd"])
+    ?? sumBrokerMetric(brokers, "commission_lifetime_usd");
+  const ftdCumul = readNumber(revenue, ["ftd_cumul"]) ?? sumBrokerMetric(brokers, "ftd");
+  const obsidianFiles = parseNumberFromProof(knowledge.obsidian?.lastProof, /files=(\d+)/);
+  const rendersOldCity = readNumber(publisher, ["output_dir_count", "renders_count", "count"]);
+
+  return {
+    revenue_route: {
+      id: "revenue_route",
+      label: "Revenue Route",
+      source: "Stripe + Iron CRM + Brokers",
+      current_arr_eur: currentArr,
+      mrr_eur: currentMrr,
+      active_subs_by_offer: offersById,
+      target_arr_eur: TARGET_ARR_EUR,
+      gap_eur: gapEur,
+      gap_pct: remainingPct,
+      status: "AMBER",
+      key_metrics: {
+        current_arr_eur: currentArr,
+        mrr_eur: currentMrr,
+        vip: readNumber(revenue, ["active_vip"]),
+        past_due_eur: readNumber(revenue, ["past_due_eur", "past_due_eur_total"]),
+      },
+      last_proof: stripeTruck?.lastProof ?? "Hub Iron revenue summary read-only",
+      next_checkpoint: stripeTruck?.nextAction ?? "Prepare past_due recovery draft, no send",
+      gate_required: "STRIPE_WRITE locked; SEND locked",
+      blockers: offers.some((offer) => offer.statusCanon === "NEEDS_CONFIRMATION")
+        ? ["Academy offer NEEDS_CONFIRMATION", "Stripe by_offer counts AMBER"]
+        : ["Stripe by_offer counts AMBER"],
+    },
+    acquisition_route: {
+      id: "acquisition_route",
+      label: "Acquisition Route",
+      source: "Asset Factory + Acquisition Engine + CofiaPublisher",
+      ...ASSET_FACTORY_CANON,
+      renders_old_city: rendersOldCity,
+      status: "AMBER",
+      key_metrics: {
+        assets_count: ASSET_FACTORY_CANON.assets_count,
+        content_pieces: ASSET_FACTORY_CANON.content_pieces,
+        brochures: ASSET_FACTORY_CANON.brochures,
+        scripts: ASSET_FACTORY_CANON.scripts,
+        renders_old_city: rendersOldCity,
+      },
+      last_proof: publisherTruck?.lastProof ?? "CofiaPublisher status read-only",
+      next_checkpoint: publisherTruck?.nextAction ?? "Lock publish; certify read/status only",
+      gate_required: "PUBLISH locked",
+      blockers: ["86 renders remain OLD_CITY unless individually proven v22BU"],
+    },
+    knowledge_route: {
+      id: "knowledge_route",
+      label: "Knowledge Route",
+      source: "Obsidian + Notion + Drive",
+      obsidian_files: obsidianFiles,
+      notion_status: knowledge.notion?.status ?? "UNKNOWN",
+      drive_status: knowledge.drive?.status ?? "UNKNOWN",
+      status: knowledge.obsidian?.status === "LIVE" ? "AMBER" : "UNKNOWN",
+      key_metrics: {
+        obsidian_files: obsidianFiles,
+        notion_status: knowledge.notion?.status ?? "UNKNOWN",
+        drive_status: knowledge.drive?.status ?? "UNKNOWN",
+      },
+      last_proof: knowledge.obsidian?.lastProof ?? "UNKNOWN",
+      next_checkpoint: "Keep read-only probes; no note content or PII",
+      gate_required: "READ only; no external writes",
+      blockers: ["Notion read endpoint missing", "Drive file-level read unproved"],
+    },
+    broker_route: {
+      id: "broker_route",
+      label: "Broker Route",
+      source: "FXcess + IronFX + Libertex + RaiseFX + TMGM",
+      lifetime_usd: brokerLifetime,
+      ftd_cumul: ftdCumul,
+      status: "AMBER",
+      key_metrics: {
+        lifetime_usd: brokerLifetime,
+        ftd_cumul: ftdCumul,
+      },
+      last_proof: brokerTruck?.lastProof ?? "Broker aggregate from Hub Iron summary",
+      next_checkpoint: brokerTruck?.nextAction ?? "Close reclaim drafts, no send",
+      gate_required: "SEND locked",
+      blockers: ["Reclaim manager sends remain not executed"],
+    },
+    support_route: {
+      id: "support_route",
+      label: "Support Route",
+      source: "Gmail + Telegram",
+      unread: null,
+      important: null,
+      status: "AMBER",
+      key_metrics: {
+        unread: null,
+        important: null,
+        telegram_status: telegramTruck?.truckStatus ?? "UNKNOWN",
+      },
+      last_proof: gmailTruck?.lastProof ?? "Gmail counts not proved in snapshot",
+      next_checkpoint: gmailTruck?.nextAction ?? "Read metadata counts only; no body, no send",
+      gate_required: "SEND locked",
+      blockers: ["Unread/important counts expected but not proved in current truck record"],
+    },
+    compliance_route: {
+      id: "compliance_route",
+      label: "Compliance Route",
+      source: "Proof Ledger + approval gates + write locks",
+      publish_lock: true,
+      send_lock: true,
+      stripe_write_lock: true,
+      status: "GREEN",
+      key_metrics: {
+        publish_lock: true,
+        send_lock: true,
+        stripe_write_lock: true,
+      },
+      last_proof: proofTruck?.lastProof ?? "Dangerous actions locked in World Control",
+      next_checkpoint: "Keep proof ledger blocking fake GREEN",
+      gate_required: "DIRECTOR_GO required for send/publish/deploy/Stripe write",
+      blockers: [],
+    },
+  };
+};
+
+const buildInvestorRoom = ({
+  revenue,
+  routes,
+  offers,
+  allTasks,
+}: {
+  revenue: Record<string, unknown>;
+  routes: ReturnType<typeof buildRouteAggregation>;
+  offers: SanitizedOffer[];
+  allTasks: SanitizedTask[];
+}) => {
+  const currentArr = readNumber(revenue, ["arr_eur"]);
+  const currentMrr = readNumber(revenue, ["mrr_eur", "mrr_active_eur"]);
+  const gapEur = currentArr === null ? null : TARGET_ARR_EUR - currentArr;
+  const progressPct = currentArr === null ? null : (currentArr / TARGET_ARR_EUR) * 100;
+  const remainingPct = progressPct === null ? null : Math.max(0, 100 - progressPct);
+  const now = Date.now();
+  const sevenDaysMs = 7 * 24 * 60 * 60 * 1000;
+  const dueWithinSevenDays = allTasks.filter((task) => {
+    if (!task.dueTime) return false;
+    const dueTime = Date.parse(task.dueTime);
+    if (!Number.isFinite(dueTime)) return false;
+    return dueTime >= now && dueTime <= now + sevenDaysMs
+      && (task.arrImpact === "direct" || task.priority === "high");
+  });
+
+  const topBlockers = [
+    offers.some((offer) => offer.statusCanon === "NEEDS_CONFIRMATION")
+      ? "Academy offer NEEDS_CONFIRMATION"
+      : null,
+    routes.knowledge_route.notion_status !== "LIVE"
+      ? "Notion read endpoint missing"
+      : null,
+    routes.knowledge_route.drive_status !== "LIVE"
+      ? "Drive file-level read unproved"
+      : null,
+    "Stripe by_offer counts remain AMBER",
+    "Social publish remains locked until compliance gate + Director GO",
+  ].filter(Boolean);
+
+  return {
+    current_arr_eur: currentArr,
+    current_mrr_eur: currentMrr,
+    target_arr_eur: TARGET_ARR_EUR,
+    target_date: TARGET_DATE,
+    gap_eur: gapEur,
+    gap_pct: remainingPct,
+    top_blockers: topBlockers,
+    next_7_days_tasks: dueWithinSevenDays.slice(0, 10).map((task) => ({
+      title: task.title,
+      board_id: task.boardId,
+      status: task.status,
+      priority: task.priority,
+      due_time: task.dueTime,
+      arr_impact: task.arrImpact,
+      source_tag: task.sourceTag,
+      next_action: task.nextAction,
+    })),
+    last_proof_per_route: {
+      revenue: routes.revenue_route.last_proof,
+      acquisition: routes.acquisition_route.last_proof,
+      knowledge: routes.knowledge_route.last_proof,
+      broker: routes.broker_route.last_proof,
+      support: routes.support_route.last_proof,
+      compliance: routes.compliance_route.last_proof,
+    },
+  };
+};
+
 export async function GET() {
   const [revenueResult, housesResult, publisherResult, ackResult, rtkResult, boardsResult, agentsResult, fieldsResult] =
     await Promise.all([
@@ -336,8 +587,13 @@ export async function GET() {
   const proofApprovals = proofBoard
     ? pageItems((await readOpenClaw(`/boards/${readString(proofBoard, ["id"])}/approvals`)).data)
     : [];
-  const buildingSummaries = boardTaskResults.map(({ board, result }) => {
-    const tasks = pageItems(result.data).map(sanitizeTask);
+  const boardTaskPayloads = boardTaskResults.map(({ board, result }) => ({
+    board,
+    result,
+    tasks: pageItems(result.data).map(sanitizeTask),
+  }));
+  const allBoardTasks = boardTaskPayloads.flatMap(({ tasks }) => tasks);
+  const buildingSummaries = boardTaskPayloads.map(({ board, result, tasks }) => {
     const truckNames = Array.from(new Set(tasks.map((task) => task.truckName).filter(Boolean)));
     return {
       id: readString(board, ["id"]) ?? "UNKNOWN",
@@ -352,6 +608,20 @@ export async function GET() {
           : "UNKNOWN",
       arrImpact: tasks.some((task) => task.arrImpact === "direct") ? "direct" : "indirect",
     };
+  });
+  const routes = buildRouteAggregation({
+    revenue,
+    brokers,
+    offers: offers as SanitizedOffer[],
+    garageTasks,
+    knowledge,
+    publisher,
+  });
+  const investorRoom = buildInvestorRoom({
+    revenue,
+    routes,
+    offers: offers as SanitizedOffer[],
+    allTasks: allBoardTasks,
   });
 
   return NextResponse.json(
@@ -376,6 +646,8 @@ export async function GET() {
       garageTrucks: garageTasks,
       knowledge,
       offers,
+      routes,
+      investor_room: investorRoom,
       revenue: {
         sourceTag: readString(revenue, ["source_tag"]),
         currentMrrEur: readNumber(revenue, ["mrr_eur", "mrr_active_eur"]),
