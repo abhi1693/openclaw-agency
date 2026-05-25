@@ -46,6 +46,7 @@ type Snapshot = {
     outputDirCount: number | null;
   };
   services: Array<{ id: string; label: string; ok: boolean; status: number | null }>;
+  knowledge?: Record<KnowledgeId, KnowledgeRecord>;
   offers: OfferRecord[];
   openclaw?: {
     sourceTag: string;
@@ -131,6 +132,21 @@ type OfferRecord = {
   lastProof: string;
 };
 
+type KnowledgeId = "obsidian" | "notion" | "drive";
+
+type KnowledgeRecord = {
+  id: KnowledgeId;
+  truckTaskId: string;
+  truckName: string;
+  status: string;
+  lastProof: string;
+  lastRunAt: string | null;
+  sourceTag: string;
+  sourceOfTruth: string;
+  nextAction: string;
+  proofRequired: string;
+};
+
 type Status = "LIVE" | "AMBER" | "UNKNOWN" | "PAUSED" | "QUARANTINE" | "LOCKED";
 
 type TruckRow = {
@@ -206,6 +222,24 @@ const formatNumber = (value: number | null | undefined) =>
   typeof value === "number" && Number.isFinite(value)
     ? moneyFormatter.format(value)
     : "UNKNOWN";
+
+const formatRelativeTime = (value: string | null | undefined) => {
+  if (!value) return "UNKNOWN";
+  const timestamp = Date.parse(value);
+  if (!Number.isFinite(timestamp)) return "UNKNOWN";
+  const diffMs = Math.max(0, Date.now() - timestamp);
+  const diffMin = Math.floor(diffMs / 60_000);
+  if (diffMin < 1) return "il y a <1 min";
+  if (diffMin < 60) return `il y a ${diffMin} min`;
+  const diffHours = Math.floor(diffMin / 60);
+  if (diffHours < 24) return `il y a ${diffHours} h`;
+  return `il y a ${Math.floor(diffHours / 24)} j`;
+};
+
+const truncateText = (value: string | null | undefined, maxLength = 80) => {
+  const text = value?.trim() || "UNKNOWN";
+  return text.length > maxLength ? `${text.slice(0, maxLength - 1)}…` : text;
+};
 
 const statusClass: Record<Status, string> = {
   LIVE: "border-emerald-400/40 bg-emerald-400/10 text-emerald-200",
@@ -636,6 +670,7 @@ export function WorldControl() {
   const [drawerTruckName, setDrawerTruckName] = useState<string | null>(null);
   const [selectedHouseId, setSelectedHouseId] = useState<HouseId | null>(null);
   const [selectedOfferId, setSelectedOfferId] = useState<string | null>(null);
+  const [selectedKnowledgeId, setSelectedKnowledgeId] = useState<KnowledgeId | null>(null);
   const [stripeRefreshStatus, setStripeRefreshStatus] = useState<string | null>(null);
   const [refreshingStripeProof, setRefreshingStripeProof] = useState(false);
 
@@ -682,6 +717,7 @@ export function WorldControl() {
   }, [snapshot]);
   const openclawTrucks = snapshot?.openclaw?.garageTrucks ?? [];
   const offers = snapshot?.offers ?? [];
+  const knowledgeRecords = Object.values(snapshot?.knowledge ?? {}) as KnowledgeRecord[];
   const truckRows: TruckRow[] =
     openclawTrucks.length > 0
       ? openclawTrucks.map((truck) => ({
@@ -754,12 +790,15 @@ export function WorldControl() {
 
   const selectedHouse = houses.find((house) => house.id === selectedHouseId) ?? null;
   const selectedOffer = offers.find((offer) => offer.offerId === selectedOfferId) ?? null;
+  const selectedKnowledge =
+    knowledgeRecords.find((record) => record.id === selectedKnowledgeId) ?? null;
 
   const openTruckDrawer = (truckName: string) => {
     setSelectedTruckName(truckName);
     setDrawerTruckName(truckName);
     setSelectedHouseId(null);
     setSelectedOfferId(null);
+    setSelectedKnowledgeId(null);
     setStripeRefreshStatus(null);
   };
 
@@ -767,11 +806,21 @@ export function WorldControl() {
     setSelectedHouseId(houseId);
     setDrawerTruckName(null);
     setSelectedOfferId(null);
+    setSelectedKnowledgeId(null);
     setStripeRefreshStatus(null);
   };
 
   const openOfferDrawer = (offerId: string) => {
     setSelectedOfferId(offerId);
+    setSelectedHouseId(null);
+    setDrawerTruckName(null);
+    setSelectedKnowledgeId(null);
+    setStripeRefreshStatus(null);
+  };
+
+  const openKnowledgeDrawer = (knowledgeId: KnowledgeId) => {
+    setSelectedKnowledgeId(knowledgeId);
+    setSelectedOfferId(null);
     setSelectedHouseId(null);
     setDrawerTruckName(null);
     setStripeRefreshStatus(null);
@@ -876,6 +925,7 @@ export function WorldControl() {
             />
           </Panel>
           <OfferFactoryPanel offers={offers} onSelect={openOfferDrawer} />
+          <KnowledgeLayerPanel records={knowledgeRecords} onSelect={openKnowledgeDrawer} />
           <Panel title="15 maisons habitées" tone="cyan">
             <div className="max-h-[310px] space-y-2 overflow-auto pr-1">
               {houses.map((house) => (
@@ -995,6 +1045,7 @@ export function WorldControl() {
           </Panel>
 
           <OfferFactoryPanel offers={offers} onSelect={openOfferDrawer} />
+          <KnowledgeLayerPanel records={knowledgeRecords} onSelect={openKnowledgeDrawer} />
 
           <Panel title="15 maisons SSOT peuplées" tone="cyan">
             <div className="grid gap-2 sm:grid-cols-2">
@@ -1120,6 +1171,12 @@ export function WorldControl() {
       ) : null}
       {selectedHouse ? <HouseDrawer house={selectedHouse} onClose={() => setSelectedHouseId(null)} /> : null}
       {selectedOffer ? <OfferDrawer offer={selectedOffer} onClose={() => setSelectedOfferId(null)} /> : null}
+      {selectedKnowledge ? (
+        <KnowledgeDrawer
+          record={selectedKnowledge}
+          onClose={() => setSelectedKnowledgeId(null)}
+        />
+      ) : null}
     </div>
   );
 }
@@ -1494,6 +1551,53 @@ function OfferFactoryPanel({
   );
 }
 
+function KnowledgeLayerPanel({
+  records,
+  onSelect,
+}: {
+  records: KnowledgeRecord[];
+  onSelect: (id: KnowledgeId) => void;
+}) {
+  return (
+    <Panel title="Knowledge Layer — Cervelle" tone="cyan">
+      {records.length >= 3 ? (
+        <div className="grid gap-2">
+          {records.map((record) => {
+            const status = normalizeStatus(record.status);
+            return (
+              <button
+                key={record.id}
+                type="button"
+                onClick={() => onSelect(record.id)}
+                className="rounded-md border border-slate-800 bg-slate-950/75 p-2 text-left text-xs transition hover:border-cyan-300/50 hover:bg-cyan-300/10"
+              >
+                <div className="flex items-start justify-between gap-2">
+                  <div className="min-w-0">
+                    <p className="truncate font-semibold text-white">{record.truckName}</p>
+                    <p className="mt-0.5 text-[11px] uppercase tracking-wide text-slate-500">
+                      {record.id} · {formatRelativeTime(record.lastRunAt)}
+                    </p>
+                  </div>
+                  <span className={`shrink-0 rounded border px-1.5 py-0.5 text-[9px] ${statusClass[status]}`}>
+                    {record.status}
+                  </span>
+                </div>
+                <p className="mt-2 text-[11px] leading-4 text-slate-400">
+                  {truncateText(record.lastProof, 80)}
+                </p>
+              </button>
+            );
+          })}
+        </div>
+      ) : (
+        <p className="text-sm text-slate-400">
+          UNKNOWN until snapshot.knowledge returns Obsidian / Notion / Drive.
+        </p>
+      )}
+    </Panel>
+  );
+}
+
 function OfferDrawer({ offer, onClose }: { offer: OfferRecord; onClose: () => void }) {
   const status = normalizeOfferStatus(offer.statusCanon);
   const links = offer.stripeLinks.length > 0 ? offer.stripeLinks : [offer.stripeLink];
@@ -1575,6 +1679,65 @@ function OfferDrawer({ offer, onClose }: { offer: OfferRecord; onClose: () => vo
               )}
             </div>
           </section>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function KnowledgeDrawer({
+  record,
+  onClose,
+}: {
+  record: KnowledgeRecord;
+  onClose: () => void;
+}) {
+  const status = normalizeStatus(record.status);
+
+  return (
+    <div className="fixed inset-0 z-50 bg-black/68 backdrop-blur-sm" role="dialog" aria-modal="true">
+      <div className="absolute right-0 top-0 flex h-full w-full max-w-[560px] flex-col border-l border-cyan-300/20 bg-slate-950/96 shadow-[-20px_0_55px_rgba(0,0,0,0.48)]">
+        <div className="flex items-start justify-between gap-4 border-b border-slate-800 px-5 py-4">
+          <div>
+            <p className="text-[11px] font-semibold uppercase tracking-[0.2em] text-cyan-200">
+              Knowledge truck read-only record
+            </p>
+            <h2 className="mt-1 text-2xl font-black text-white">{record.truckName}</h2>
+            <p className="mt-1 text-xs text-slate-400">{record.truckTaskId}</p>
+            <div className="mt-3 flex flex-wrap gap-2">
+              <span className={`rounded border px-2 py-0.5 text-[10px] font-semibold ${statusClass[status]}`}>
+                {record.status}
+              </span>
+              <span className="rounded border border-cyan-300/30 bg-cyan-300/10 px-2 py-0.5 text-[10px] font-semibold text-cyan-100">
+                {formatRelativeTime(record.lastRunAt)}
+              </span>
+            </div>
+          </div>
+          <button
+            type="button"
+            onClick={onClose}
+            className="rounded-md border border-slate-700 bg-slate-900/90 p-2 text-slate-300 transition hover:border-cyan-300/50 hover:text-white"
+            aria-label="Close knowledge drawer"
+          >
+            <X className="h-5 w-5" />
+          </button>
+        </div>
+
+        <div className="flex-1 overflow-auto px-5 py-4">
+          <div className="mb-4 rounded-md border border-cyan-300/20 bg-cyan-300/10 p-3 text-xs leading-5 text-cyan-100">
+            Lecture seule sanitizée : compteurs, chemins relatifs et preuves techniques seulement. Aucun texte de note, email ou nom client affiché.
+          </div>
+          <div className="grid gap-2">
+            <InspectorRow label="knowledge_id" value={record.id} />
+            <InspectorRow label="truck_name" value={record.truckName} />
+            <InspectorRow label="status" value={record.status} />
+            <InspectorRow label="last_run_at" value={record.lastRunAt ?? "UNKNOWN"} />
+            <InspectorRow label="last_proof" value={record.lastProof} />
+            <InspectorRow label="source_tag" value={record.sourceTag} />
+            <InspectorRow label="source_of_truth" value={record.sourceOfTruth} />
+            <InspectorRow label="next_action" value={record.nextAction} />
+            <InspectorRow label="proof_required" value={record.proofRequired} />
+          </div>
         </div>
       </div>
     </div>

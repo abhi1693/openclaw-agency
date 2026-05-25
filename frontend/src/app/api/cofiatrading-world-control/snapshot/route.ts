@@ -237,6 +237,33 @@ const offerOrder = new Map(
   ].map((offerId, index) => [offerId, index]),
 );
 
+const knowledgeTruckConfig = [
+  { id: "obsidian", truckName: "ObsidianTruck" },
+  { id: "notion", truckName: "NotionOpsTruck" },
+  { id: "drive", truckName: "DriveDocsTruck" },
+] as const;
+
+const sanitizeKnowledgeTruck = (
+  id: (typeof knowledgeTruckConfig)[number]["id"],
+  truckName: string,
+  garageTasks: ReturnType<typeof sanitizeTask>[],
+) => {
+  const truck = garageTasks.find((task) => task.truckName === truckName);
+  return {
+    id,
+    truckTaskId: truck?.id ?? "UNKNOWN",
+    truckName,
+    status: truck?.truckStatus ?? "UNKNOWN",
+    lastProof: truck?.lastProof ?? "UNKNOWN",
+    lastRunAt: truck?.lastRunAt ?? null,
+    sourceTag: "KNOWLEDGE_TRUCKS_PHASE7_READONLY_20260525",
+    sourceOfTruth: truck?.sourceOfTruth ?? "UNKNOWN",
+    nextAction: truck?.nextAction ?? "UNKNOWN",
+    proofRequired:
+      truck?.proofRequired ?? "sanitized counts only; no PII; no note text; no external writes",
+  };
+};
+
 export async function GET() {
   const [revenueResult, housesResult, publisherResult, ackResult, rtkResult, boardsResult, agentsResult, fieldsResult] =
     await Promise.all([
@@ -283,6 +310,12 @@ export async function GET() {
         error: "GARAGE_TRUCKS_BOARD_NOT_FOUND",
       };
   const garageTasks = pageItems(garageTasksResult.data).map(sanitizeTask);
+  const knowledge = Object.fromEntries(
+    knowledgeTruckConfig.map((config) => [
+      config.id,
+      sanitizeKnowledgeTruck(config.id, config.truckName, garageTasks),
+    ]),
+  );
   const offerTasksResult = offerBoardId
     ? await readOpenClaw(`/boards/${offerBoardId}/tasks`)
     : {
@@ -341,6 +374,7 @@ export async function GET() {
       has_openclaw: hasOpenClaw,
       hasOpenClaw,
       garageTrucks: garageTasks,
+      knowledge,
       offers,
       revenue: {
         sourceTag: readString(revenue, ["source_tag"]),
