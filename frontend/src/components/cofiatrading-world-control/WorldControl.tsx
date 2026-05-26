@@ -2507,7 +2507,7 @@ function AngelRosterPanel({ roster }: { roster: AngelRosterPayload | null }) {
                 <p className="mt-1 truncate text-[11px] text-cyan-300">→ {angel.platform}</p>
               </div>
               <span className="rounded border border-current/40 bg-slate-950/60 px-1.5 py-0.5 text-[9px] font-bold uppercase tracking-wide">
-                {angel.status}
+                {statusLabel[angel.status]}
               </span>
             </div>
             <p className="mt-2 line-clamp-2 text-[10.5px] text-slate-300 leading-snug">
