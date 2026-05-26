@@ -1015,10 +1015,10 @@ export function WorldControl() {
             </button>
 
             <div className="grid grid-cols-2 gap-2 text-xs md:grid-cols-4">
-              <TopMetric label="Current ARR" value={formatEur(snapshot?.revenue.currentArrEur)} />
-              <TopMetric label="Current MRR" value={formatEur(snapshot?.revenue.currentMrrEur)} />
-              <TopMetric label="VIP" value={formatNumber(snapshot?.revenue.activeVip)} />
-              <TopMetric label="Proof" value={endpointStatus} />
+              <TopMetric label="Current ARR" value={formatEur(snapshot?.revenue.currentArrEur)} isPulsing={pulsingFields.has("arr")} />
+              <TopMetric label="Current MRR" value={formatEur(snapshot?.revenue.currentMrrEur)} isPulsing={pulsingFields.has("mrr")} />
+              <TopMetric label="VIP" value={formatNumber(snapshot?.revenue.activeVip)} isPulsing={pulsingFields.has("vip")} />
+              <TopMetric label="Proof" value={endpointStatus} isPulsing={pulsingFields.has("proof")} />
             </div>
           </div>
         </header>
