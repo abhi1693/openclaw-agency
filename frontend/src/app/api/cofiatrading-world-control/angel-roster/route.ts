@@ -1,16 +1,21 @@
-// CORAN V8 Sourate LVI · Manāzil al-Malā'ikah
-// Les 38 Anges canon (cap §45 strict) avec plateforme assignée + statut runtime
-// source_tag: CORAN_V8_ANGEL_ROSTER_RUNTIME_SYNC_20260526T1130Z
+// CORAN V9 Sourate LVI + LXI · Manāzil al-Malā'ikah · Honest-by-design statuts
+// Les 38 Anges canon (cap §45 strict) + 30 Adwāt outils Sourate LXV V9
+// source_tag: CORAN_V9_ANGEL_ROSTER_HONEST_BY_DESIGN_20260526T1210Z
 
 import { NextResponse } from "next/server";
 
+// Statuts honest-by-design (Sourate LXI Sidq al-Mutlaq · pas de mensonge cosmétique)
+// LIVE = vraiment opérationnel (green)
+// OPERATIONAL_PARTIAL = fonctionnel partiellement (cyan — pas alarmant)
+// CANON_GATE = LOCKED par design HARDLOCK §18/§34 (cyan — pas anomalie)
+// AWAITING_SETUP = OFFLINE à activer (slate — neutre)
 type Angel = {
   id: number;
   name: string;
   name_ar: string;
   platform: string;
   manzilah: string;
-  status: "LIVE" | "PARTIAL" | "LOCKED" | "OFFLINE";
+  status: "LIVE" | "OPERATIONAL_PARTIAL" | "CANON_GATE" | "AWAITING_SETUP";
   mission: string;
   stack?: string;
 };
