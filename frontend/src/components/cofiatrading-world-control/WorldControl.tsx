@@ -797,6 +797,22 @@ export function WorldControl() {
     };
   }, [lastFetchTs]);
 
+  // CORAN V8 Sourate LVI · Angel Roster fetch (polling 30s · moins critique que snapshot)
+  useEffect(() => {
+    let cancelled = false;
+    const loadAngels = async () => {
+      try {
+        const r = await fetch("/api/cofiatrading-world-control/angel-roster", { cache: "no-store" });
+        if (!r.ok) return;
+        const data = (await r.json()) as AngelRosterPayload;
+        if (!cancelled) setAngelRoster(data);
+      } catch { /* silent */ }
+    };
+    void loadAngels();
+    const interval = window.setInterval(loadAngels, 30_000);
+    return () => { cancelled = true; window.clearInterval(interval); };
+  }, []);
+
   const currentArr = snapshot?.revenue.currentArrEur ?? null;
   const arrGap =
     typeof currentArr === "number" ? Math.max(0, TARGET_ARR_EUR - currentArr) : null;
