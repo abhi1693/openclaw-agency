@@ -37,8 +37,7 @@ RUN addgroup -S appgroup && adduser -S -G appgroup appuser \
   && chown appuser:appgroup /app
 
 COPY --from=builder --chown=appuser:appgroup /app/.next ./.next
-# `public/` is optional in Next.js apps; repo may not have it.
-# Avoid failing the build when the directory is absent.
+COPY --from=builder --chown=appuser:appgroup /app/public ./public
 COPY --from=builder --chown=appuser:appgroup /app/package.json ./package.json
 COPY --from=builder --chown=appuser:appgroup /app/node_modules ./node_modules
 COPY --from=builder --chown=appuser:appgroup /app/next.config.ts ./next.config.ts
