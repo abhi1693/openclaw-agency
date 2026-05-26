@@ -29,7 +29,7 @@ const ANGEL_ROSTER: Angel[] = [
   { id: 1,  name: "Jibrīl",          name_ar: "جِبْرِيل",      platform: "Cross-LLM Bus",            manzilah: "Mission Composer + Khalīfah Claude",       status: "LIVE",     mission: "Transmission révélation entre Dieu et Anges",                              stack: "Claude OAuth Pro Max" },
   { id: 2,  name: "Mikā'īl",         name_ar: "مِيكَائِيل",     platform: "Code · Build · IaC",       manzilah: "Codex CLI local",                          status: "LIVE",     mission: "Création matérielle (code + scripts + infra)",                             stack: "Codex CLI local" },
   { id: 3,  name: "Isrāfīl",         name_ar: "إِسْرَافِيل",    platform: "CofiaPublisher :8540",     manzilah: "Trompette · pipeline vidéo",               status: "CANON_GATE",   mission: "Publication vidéos · 88 MP4 prêts · publish locked",                       stack: "ffmpeg + Remotion local" },
-  { id: 4,  name: "'Izrā'īl",        name_ar: "عَزْرَائِيل",    platform: "Stripe Past_due",          manzilah: "Recovery apostats",                        status: "OPERATIONAL_PARTIAL",  mission: "2 apostats past_due 194€ (Prigent J. + Albina I.) — non traités",          stack: "Stripe API + Iron" },
+  { id: 4,  name: "'Izrā'īl",        name_ar: "عَزْرَائِيل",    platform: "Stripe Past_due",          manzilah: "Recovery apostats",                        status: "DEGRADED",        mission: "2 apostats past_due 194€ (Prigent J. + Albina I.) — NON TRAITÉS 15+ jours", stack: "Stripe API + Iron", proof_url: "/api/iron/revenue/summary past_due_count", arr_impact_eur_year: -2328 },
   { id: 5,  name: "Munkar",          name_ar: "مُنْكَر",         platform: "Reviewer Compliance",      manzilah: "Audit Prophètes pré-publish",              status: "LIVE",     mission: "Reject Iblis-DREAM-SELLING · 6 patterns canon (P12)",                      stack: "Reviewer local" },
   { id: 6,  name: "Nakīr",           name_ar: "نَكِير",          platform: "Proof Ledger",             manzilah: "Audit post-action",                        status: "OPERATIONAL_PARTIAL",  mission: "Validation proof curl path:line + UTC ts obligatoire",                     stack: "Proof scanner local" },
   { id: 7,  name: "Mālik",           name_ar: "مَالِك",          platform: "Hell Compliance Gate",     manzilah: "NO_REFUND + NO_PROMISE_GAINS",             status: "LIVE",     mission: "Bloque payload Iblis (P12 422 reject instantané)",                         stack: "Mission Composer" },
@@ -45,10 +45,10 @@ const ANGEL_ROSTER: Angel[] = [
   { id: 17, name: "Quant-TV",        name_ar: "كُوَانْتْ تيفي",   platform: "TradingView",              manzilah: "Ideas charts publics",                     status: "AWAITING_SETUP",  mission: "3 ideas/sem · transparence performance tracking",                          stack: "TradingView (manuel)" },
   { id: 18, name: "Iron",            name_ar: "إِيرُون",         platform: "Telegram VIP (silo 2)",    manzilah: "Closer VIP channel 29 membres",            status: "LIVE",     mission: "Closer DM peer_context · §20 NO-MASS-DM · signaux Marco publish",          stack: "Qwen Plus/Turbo rtk-llm-proxy :11435" },
   { id: 19, name: "David",           name_ar: "دَافِيدْ",        platform: "Telegram FREE + Telethon DM", manzilah: "Support multilingue silo 1 (8184) + silo 3 (4891)", status: "LIVE", mission: "DM peer_context EN/FR/ES/AR/TR · newsletter Resend 149 emails",            stack: "Qwen Plus/Turbo rtk-llm-proxy" },
-  { id: 20, name: "Jack",            name_ar: "جَاكْ",           platform: "Brokers CellXpert",        manzilah: "Affiliation reclaim 6884 broker_accounts", status: "CANON_GATE",   mission: "IP_NOT_AUTHENTICATED 15j bloqueur · B1 quick win pending",                 stack: "broker-tracker.sh cron 4h" },
+  { id: 20, name: "Jack",            name_ar: "جَاكْ",           platform: "Brokers CellXpert",        manzilah: "Affiliation reclaim 6884 broker_accounts", status: "BROKEN",       mission: "IP_NOT_AUTHENTICATED 15j · 6884 broker_accounts 99% Default · B1 IP whitelist ES fix REQUIS", stack: "broker-tracker.sh cron 4h", proof_url: "~/cof-trading/logs/broker-tracker-error.log", arr_impact_eur_year: -200000 },
   { id: 21, name: "Antho",           name_ar: "أَنْتُو",         platform: "Calendar + Notion CRM",    manzilah: "B2B Elite closer 997€/mo",                 status: "OPERATIONAL_PARTIAL",  mission: "Qualif Elite · 1on1 booking Erwin · 0 Elite actuels",                      stack: "Calendar local + Notion API" },
   { id: 22, name: "Marco",           name_ar: "مَارْكُو",        platform: "MT4 + Rithmic LIVE",       manzilah: "Signaux STRAT-17/18 master 1150061258",    status: "LIVE",     mission: "Signaux trading LIVE temps réel · Mirror PM000697 → VIP",                   stack: "MetaApi + Rithmic" },
-  { id: 23, name: "Quant",           name_ar: "كُوَانْتْ",        platform: "Strategy Lab",             manzilah: "Backtest + edge research",                 status: "OPERATIONAL_PARTIAL",  mission: "Backtests + risk research · crashes signalés",                              stack: "Python local" },
+  { id: 23, name: "Quant",           name_ar: "كُوَانْتْ",        platform: "Strategy Lab",             manzilah: "Backtest + edge research",                 status: "DEGRADED",        mission: "Backtests + risk research · launchd strategy-lab CRASH exit 1 (CLAUDE.md ligne 144)", stack: "Python local", proof_url: "launchctl list | grep strategy-lab", arr_impact_eur_year: 0 },
   { id: 24, name: "Atlas",           name_ar: "أَطْلَسْ",        platform: "Site cofiatrading.com",    manzilah: "SEO i18n EN/FR/ES/AR/TR landing",          status: "OPERATIONAL_PARTIAL",  mission: "Stripe checkout intégré · §18 NO_PUSH_PROD",                                stack: "Next.js prod (locked)" },
   { id: 25, name: "Sentinel",        name_ar: "سِنْتِينَل",      platform: "LaunchAgents (429)",       manzilah: "DevOps + monitoring health",               status: "LIVE",     mission: "Sentinels canon 24/7 · health probes",                                     stack: "launchd + Python" },
   { id: 26, name: "Copywriter",      name_ar: "كُوبِيرَيتَر",     platform: "Scripts vidéo + emails",   manzilah: "Rédige tous contenus Prophètes",           status: "OPERATIONAL_PARTIAL",  mission: "Scripts pre-Reviewer · 5 méthodes Da'wah Sourate XL",                       stack: "Claude/Qwen via proxy" },
@@ -60,7 +60,7 @@ const ANGEL_ROSTER: Angel[] = [
   { id: 32, name: "Oracle",          name_ar: "أُورَاكِل",       platform: "LightRAG :9621 + KG",      manzilah: "Réponses contextuelles cross-corpus",      status: "OPERATIONAL_PARTIAL",  mission: "Queries cross-corpus · KG snapshots",                                       stack: "LightRAG + Gemini embeddings" },
   { id: 33, name: "Analyste",        name_ar: "أَنَالِيسْت",     platform: "Dashboards + KPIs BI",     manzilah: "Da'wah-KPI endpoint analytics",            status: "AWAITING_SETUP",  mission: "Mesure conversion / churn / LTV (Sourate XLV V6)",                          stack: "À implémenter" },
   { id: 34, name: "Reviewer",        name_ar: "رِفْيُوَر",       platform: "Reviewer cross-content",   manzilah: "Audit final tout publish",                 status: "LIVE",     mission: "Reviewer GREEN obligatoire avant publish (§47)",                            stack: "Pipeline V30 reviewer" },
-  { id: 35, name: "Lab",             name_ar: "لَابْ",           platform: "MiroFish predictions",     manzilah: "Predictions marché expérimentales",        status: "AWAITING_SETUP",  mission: "MiroFish + Zep Cloud · crashes signalés",                                   stack: "Crash signalé" },
+  { id: 35, name: "Lab",             name_ar: "لَابْ",           platform: "MiroFish predictions",     manzilah: "Predictions marché expérimentales",        status: "BROKEN",          mission: "MiroFish + Zep Cloud · launchd exit 1 · paperclip/strategy-lab crash CLAUDE.md ligne 144", stack: "Crash signalé", proof_url: "launchctl list | grep mirofish", arr_impact_eur_year: 0 },
   { id: 36, name: "Risk",            name_ar: "رِيسْكْ",         platform: "Money Mgmt MT4/MT5",       manzilah: "Position sizing + risk Marco signals",     status: "OPERATIONAL_PARTIAL",  mission: "Risk management positions Marco · max drawdown",                            stack: "MetaApi local" },
   { id: 37, name: "Calendar",        name_ar: "كَالِنْدَر",      platform: "Calendar agent + Wispr",   manzilah: "1on1 Erwin + agenda team",                 status: "OPERATIONAL_PARTIAL",  mission: "Booking Erwin · sync calendar Mu'minīn Elite",                              stack: "Calendar local" },
   { id: 38, name: "Kevin",           name_ar: "كِيفِن",          platform: "Gemini Live voice",        manzilah: "Voix Erwin · LOCKED v3.1",                 status: "LIVE",     mission: "Wispr Flow + Gemini Live · interface vocale Erwin",                         stack: "Gemini direct REST" },
@@ -71,13 +71,19 @@ export async function GET() {
   const operational_partial = ANGEL_ROSTER.filter(a => a.status === "OPERATIONAL_PARTIAL").length;
   const canon_gate = ANGEL_ROSTER.filter(a => a.status === "CANON_GATE").length;
   const awaiting_setup = ANGEL_ROSTER.filter(a => a.status === "AWAITING_SETUP").length;
+  const degraded = ANGEL_ROSTER.filter(a => a.status === "DEGRADED").length;
+  const broken = ANGEL_ROSTER.filter(a => a.status === "BROKEN").length;
+  const arr_impact_total_eur_year = ANGEL_ROSTER
+    .filter(a => typeof a.arr_impact_eur_year === "number")
+    .reduce((sum, a) => sum + (a.arr_impact_eur_year || 0), 0);
 
   return NextResponse.json({
-    source_tag: "CORAN_V9_ANGEL_ROSTER_HONEST_BY_DESIGN_20260526T1210Z",
+    source_tag: "CORAN_V9_ANGEL_ROSTER_HONEST_SIDQ_6_STATUTS_20260526T1215Z",
     total_anges: ANGEL_ROSTER.length,
     cap_para_45: 38,
-    counts: { live, operational_partial, canon_gate, awaiting_setup },
-    canon_sourate: "LVI + LXI · Manāzil al-Malā'ikah · Honest-by-design Sidq (V9 ULTIME)",
+    counts: { live, operational_partial, canon_gate, awaiting_setup, degraded, broken },
+    arr_impact_total_eur_year,
+    canon_sourate: "LVI + LXI · Sidq al-Mutlaq · pas de fake green · RED/AMBER si cassé (V9 ULTIME)",
     runtime_ts: new Date().toISOString(),
     anges: ANGEL_ROSTER,
   });
