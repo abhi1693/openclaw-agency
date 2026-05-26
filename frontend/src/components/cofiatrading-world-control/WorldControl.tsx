@@ -1573,9 +1573,9 @@ function HudValue({ label, value }: { label: string; value: string }) {
   );
 }
 
-function TopMetric({ label, value }: { label: string; value: string }) {
+function TopMetric({ label, value, isPulsing }: { label: string; value: string; isPulsing?: boolean }) {
   return (
-    <div className="min-w-[112px] rounded-md border border-slate-600/60 bg-black/55 px-3 py-2">
+    <div className={`min-w-[112px] rounded-md border border-slate-600/60 bg-black/55 px-3 py-2 ${isPulsing ? "qudrah-pulse" : ""}`}>
       <p className="text-[10px] font-semibold uppercase tracking-[0.16em] text-slate-400">
         {label}
       </p>
