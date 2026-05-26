@@ -736,6 +736,10 @@ export function WorldControl() {
   // P10 Al-Khāliq · Qudrah pulse : détecter changements valeurs revenue → animation 1.2s
   const [pulsingFields, setPulsingFields] = useState<Set<string>>(new Set());
   const previousSnapshotRef = useRef<Snapshot | null>(null);
+  // P10b · LIVE indicator visible (Al-Hayy + Al-Qarīb Sourate III)
+  const [lastFetchTs, setLastFetchTs] = useState<number>(Date.now());
+  const [secondsSinceSync, setSecondsSinceSync] = useState<number>(0);
+  const [fetchPulse, setFetchPulse] = useState<boolean>(false);
 
   useEffect(() => {
     let cancelled = false;
