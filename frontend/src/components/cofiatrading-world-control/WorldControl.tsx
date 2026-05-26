@@ -950,7 +950,7 @@ export function WorldControl() {
         <img
           src={northStarImage}
           alt="COFIATRADING New York World Control 100M ARR visual north star"
-          className="absolute inset-0 h-full w-full object-contain object-[center_42%]"
+          className="absolute inset-0 h-full w-full object-cover object-center"
         />
         <div className="absolute inset-0 bg-gradient-to-b from-black/50 via-black/5 to-black/62" />
         <div className="absolute inset-0 bg-[radial-gradient(circle_at_center,transparent_0%,rgba(2,4,10,0.08)_58%,rgba(2,4,10,0.62)_100%)]" />
