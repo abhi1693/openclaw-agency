@@ -4,20 +4,25 @@
 
 import { NextResponse } from "next/server";
 
-// Statuts honest-by-design (Sourate LXI Sidq al-Mutlaq · pas de mensonge cosmétique)
-// LIVE = vraiment opérationnel (green)
-// OPERATIONAL_PARTIAL = fonctionnel partiellement (cyan — pas alarmant)
-// CANON_GATE = LOCKED par design HARDLOCK §18/§34 (cyan — pas anomalie)
-// AWAITING_SETUP = OFFLINE à activer (slate — neutre)
+// Statuts honest-by-design Sourate LXI Sidq al-Mutlaq (V9 ULTIME)
+// "Dieu ne ment jamais" : pas de fake green · RED/AMBER si vraiment cassé
+// LIVE (green)             = vraiment opérationnel + prouvé
+// OPERATIONAL_PARTIAL (cy) = fonctionnel mais incomplet, à améliorer
+// CANON_GATE (cyan-light)  = LOCKED par design HARDLOCK §18/§34 — par design, pas anomalie
+// AWAITING_SETUP (slate)   = OFFLINE à activer, neutre, prévu
+// DEGRADED (amber)         = fonctionne mais problèmes connus runtime
+// BROKEN (red)             = VRAIMENT cassé, fix urgent requis (refus de cacher)
 type Angel = {
   id: number;
   name: string;
   name_ar: string;
   platform: string;
   manzilah: string;
-  status: "LIVE" | "OPERATIONAL_PARTIAL" | "CANON_GATE" | "AWAITING_SETUP";
+  status: "LIVE" | "OPERATIONAL_PARTIAL" | "CANON_GATE" | "AWAITING_SETUP" | "DEGRADED" | "BROKEN";
   mission: string;
   stack?: string;
+  proof_url?: string;
+  arr_impact_eur_year?: number;
 };
 
 const ANGEL_ROSTER: Angel[] = [
