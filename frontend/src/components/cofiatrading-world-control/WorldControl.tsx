@@ -754,9 +754,9 @@ export function WorldControl() {
             const changes = new Set<string>();
             if (prev.revenue?.currentArrEur !== data.revenue?.currentArrEur) changes.add("arr");
             if (prev.revenue?.currentMrrEur !== data.revenue?.currentMrrEur) changes.add("mrr");
-            if (prev.revenue?.vipCount !== data.revenue?.vipCount) changes.add("vip");
-            if (prev.revenue?.proofValidated !== data.revenue?.proofValidated) changes.add("proof");
-            if (prev.revenue?.pastDueRecoverableEur !== data.revenue?.pastDueRecoverableEur) changes.add("pastDue");
+            if (prev.revenue?.activeVip !== data.revenue?.activeVip) changes.add("vip");
+            if (prev.revenue?.pastDueCount !== data.revenue?.pastDueCount) changes.add("pastDue");
+            if (prev.revenue?.pastDueEur !== data.revenue?.pastDueEur) changes.add("pastDueEur");
             if (changes.size > 0) {
               setPulsingFields(changes);
               window.setTimeout(() => setPulsingFields(new Set()), 1200);
