@@ -1008,6 +1008,16 @@ export function WorldControl() {
                 <p className="text-xs font-semibold uppercase tracking-[0.18em] text-slate-300">
                   New York World Control
                 </p>
+                {/* P10b · LIVE indicator jugulaire (Al-Hayy + Al-Qarīb) */}
+                <p className="mt-1 flex items-center gap-1.5 text-[10px] font-semibold tracking-wide text-emerald-300">
+                  <span
+                    className={`inline-block h-2 w-2 rounded-full ${fetchPulse ? "bg-emerald-400 shadow-[0_0_8px_2px_rgba(52,211,153,0.8)]" : "bg-emerald-500/70"} transition-all duration-200`}
+                    style={{ animation: fetchPulse ? "qudrah-pulse 0.6s ease-out" : undefined }}
+                  />
+                  <span className="uppercase">
+                    LIVE · synced {secondsSinceSync}s ago · jugulaire 5s
+                  </span>
+                </p>
               </div>
             </div>
 
