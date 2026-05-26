@@ -2279,7 +2279,7 @@ function TruckDrawer({
           </div>
         </div>
 
-        <div className="border-t border-slate-800 px-5 py-4">
+        <div className="border-t border-slate-800 px-5 py-4 space-y-3">
           {isStripe ? (
             <button
               type="button"
@@ -2294,6 +2294,52 @@ function TruckDrawer({
               Proof refresh réservé à StripeTruck en Phase 2.
             </div>
           )}
+          {/* P12 Al-Mahdī · Mission Composer câblé · Bismillāh 2026-05-26T10:10Z */}
+          <button
+            type="button"
+            onClick={async () => {
+              const missionText = window.prompt(
+                `Donner mission à ${truck.truckName} (DRAFT ONLY — compliance gates enforced)\n\nExemples :\n• Recover past_due 194€ Lajungle COF-104\n• Reclaim broker_account 1234 vers CellXpert\n• Render video-02 anti-faux-gourou 90s`,
+                "",
+              );
+              if (!missionText || !missionText.trim()) return;
+              const levierRoi = window.prompt(
+                "Levier ROI (L1=CofiaPublisher · L2=Diamond · L3=Brokers · L4=B2B · L0=indirect)",
+                "L0_indirect",
+              ) ?? "L0_indirect";
+              const arrImpactRaw = window.prompt("ARR impact mensuel estimé (EUR, nombre)", "0");
+              const arrImpact = Number.parseFloat(arrImpactRaw ?? "0") || 0;
+              try {
+                const response = await fetch("/api/cofiatrading-world-control/mission-composer", {
+                  method: "POST",
+                  headers: { "Content-Type": "application/json" },
+                  cache: "no-store",
+                  body: JSON.stringify({
+                    truck_name: truck.truckName ?? truck.title,
+                    mission_text: missionText.trim(),
+                    levier_roi: levierRoi,
+                    arr_impact_eur: arrImpact,
+                    lock_policy: "DRAFT_ONLY",
+                  }),
+                });
+                const data = await response.json();
+                if (data.ok) {
+                  alert(
+                    `Alhamdulillah · Mission canon créée\n\n${data.message ?? ""}\n\nMission ID: ${data.missionId}\nTask ID: ${data.taskId ?? "PENDING"}`,
+                  );
+                } else {
+                  alert(
+                    `Astaghfirullah · Mission rejetée\n\nErreur: ${data.error}\n${data.violations ? "Violations: " + JSON.stringify(data.violations) : ""}\n${data.iblis_detected ?? ""}\n${data.message ?? ""}`,
+                  );
+                }
+              } catch (e) {
+                alert(`Astaghfirullah · Network error: ${e instanceof Error ? e.message : "unknown"}`);
+              }
+            }}
+            className="w-full rounded-md border border-cyan-300/45 bg-cyan-300/10 px-4 py-3 text-sm font-bold uppercase tracking-wide text-cyan-100 transition hover:bg-cyan-300/18"
+          >
+            🕌 Donner mission (Al-Mahdī DRAFT ONLY)
+          </button>
           {refreshStatus ? (
             <p className="mt-3 rounded-md border border-slate-800 bg-slate-900/70 p-2 text-xs text-slate-300">
               {refreshStatus}
