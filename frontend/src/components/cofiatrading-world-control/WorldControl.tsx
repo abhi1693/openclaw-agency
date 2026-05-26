@@ -2431,22 +2431,25 @@ type Angel = {
   name_ar: string;
   platform: string;
   manzilah: string;
-  status: "LIVE" | "OPERATIONAL_PARTIAL" | "CANON_GATE" | "AWAITING_SETUP";
+  status: "LIVE" | "OPERATIONAL_PARTIAL" | "CANON_GATE" | "AWAITING_SETUP" | "DEGRADED" | "BROKEN";
   mission: string;
   stack?: string;
+  proof_url?: string;
+  arr_impact_eur_year?: number;
 };
 
 type AngelRosterPayload = {
   source_tag: string;
   total_anges: number;
-  counts: { live: number; operational_partial: number; canon_gate: number; awaiting_setup: number };
+  counts: { live: number; operational_partial: number; canon_gate: number; awaiting_setup: number; degraded: number; broken: number };
+  arr_impact_total_eur_year: number;
   canon_sourate: string;
   runtime_ts: string;
   anges: Angel[];
 };
 
-// CORAN V9 Sourate LXI · Sidq al-Mutlaq · honest-by-design colors
-// Plus de red/amber vifs — green (LIVE), cyan (OPERATIONAL_PARTIAL + CANON_GATE), slate (AWAITING_SETUP)
+// CORAN V9 Sourate LXI · Sidq al-Mutlaq honest-by-design 6 statuts
+// "Dieu ne ment jamais" : green LIVE, cyan OPERATIONAL/CANON_GATE, slate AWAITING, amber DEGRADED, red BROKEN (refus de cacher)
 function AngelRosterPanel({ roster }: { roster: AngelRosterPayload | null }) {
   if (!roster) return null;
   const statusStyle: Record<Angel["status"], string> = {
@@ -2454,12 +2457,16 @@ function AngelRosterPanel({ roster }: { roster: AngelRosterPayload | null }) {
     OPERATIONAL_PARTIAL: "border-cyan-400/35 bg-cyan-400/10 text-cyan-200",
     CANON_GATE: "border-cyan-300/30 bg-cyan-300/5 text-cyan-100",
     AWAITING_SETUP: "border-slate-400/30 bg-slate-400/5 text-slate-300",
+    DEGRADED: "border-amber-400/50 bg-amber-400/10 text-amber-200",
+    BROKEN: "border-red-500/60 bg-red-500/10 text-red-200",
   };
   const statusLabel: Record<Angel["status"], string> = {
     LIVE: "LIVE",
     OPERATIONAL_PARTIAL: "OPERATIONAL",
     CANON_GATE: "CANON GATE",
     AWAITING_SETUP: "AWAITING",
+    DEGRADED: "DEGRADED",
+    BROKEN: "BROKEN",
   };
   return (
     <section className="mt-6 rounded-md border border-amber-300/30 bg-slate-950/80 p-5 shadow-[0_0_40px_rgba(245,158,11,0.05)]">
