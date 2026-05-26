@@ -1356,6 +1356,10 @@ export function WorldControl() {
           </Panel>
         </div>
       </section>
+
+      {/* CORAN V8 Sourate LVI · Angel Roster Manāzil al-Malā'ikah */}
+      <AngelRosterPanel roster={angelRoster} />
+
       {drawerTruck ? (
         <TruckDrawer
           truck={drawerTruck}
