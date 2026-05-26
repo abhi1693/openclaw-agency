@@ -2495,6 +2495,17 @@ function AngelRosterPanel({ roster }: { roster: AngelRosterPayload | null }) {
           <span className="rounded border border-slate-400/30 bg-slate-400/5 px-2 py-1 text-slate-300">
             AWAITING {roster.counts.awaiting_setup}
           </span>
+          <span className="rounded border border-amber-400/50 bg-amber-400/10 px-2 py-1 text-amber-200">
+            DEGRADED {roster.counts.degraded}
+          </span>
+          <span className="rounded border border-red-500/60 bg-red-500/10 px-2 py-1 text-red-200">
+            BROKEN {roster.counts.broken}
+          </span>
+          {roster.arr_impact_total_eur_year !== 0 && (
+            <span className="rounded border border-red-500/60 bg-red-500/15 px-2 py-1 text-red-200">
+              ARR loss: {roster.arr_impact_total_eur_year.toLocaleString("fr-FR")} €/an
+            </span>
+          )}
         </div>
       </div>
       <div className="grid grid-cols-1 gap-2 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
