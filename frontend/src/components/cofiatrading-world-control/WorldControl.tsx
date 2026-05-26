@@ -1054,6 +1054,27 @@ export function WorldControl() {
                     LIVE · synced {secondsSinceSync}s ago · jugulaire 5s
                   </span>
                 </p>
+                {/* Mu'taqib doctrine drift advisor — non-blocking visual feed (Guardian operates) */}
+                {mutaqibCounts && (
+                  <p className="mt-0.5 flex items-center gap-1.5 text-[10px] font-semibold tracking-wide">
+                    <span
+                      className={`inline-block h-2 w-2 rounded-full ${
+                        (mutaqibCounts.by_level?.alert ?? 0) > 0
+                          ? "bg-red-400 shadow-[0_0_6px_2px_rgba(239,68,68,0.6)]"
+                          : (mutaqibCounts.by_level?.warn ?? 0) > 0
+                          ? "bg-amber-400 shadow-[0_0_6px_2px_rgba(251,191,36,0.6)]"
+                          : "bg-slate-500/70"
+                      }`}
+                    />
+                    <span className={`uppercase ${
+                      (mutaqibCounts.by_level?.alert ?? 0) > 0 ? "text-red-300" :
+                      (mutaqibCounts.by_level?.warn ?? 0) > 0 ? "text-amber-300" :
+                      "text-slate-400"
+                    }`}>
+                      Mu'taqib · {mutaqibCounts.last_1h} warnings last 1h · advisor non-blocking
+                    </span>
+                  </p>
+                )}
               </div>
             </div>
 
