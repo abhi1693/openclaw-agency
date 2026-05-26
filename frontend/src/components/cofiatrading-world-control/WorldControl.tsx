@@ -740,6 +740,8 @@ export function WorldControl() {
   const [lastFetchTs, setLastFetchTs] = useState<number>(Date.now());
   const [secondsSinceSync, setSecondsSinceSync] = useState<number>(0);
   const [fetchPulse, setFetchPulse] = useState<boolean>(false);
+  // CORAN V8 Sourate LVI · Angel Roster Manāzil al-Malā'ikah runtime sync
+  const [angelRoster, setAngelRoster] = useState<AngelRosterPayload | null>(null);
 
   useEffect(() => {
     let cancelled = false;
