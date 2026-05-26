@@ -989,3 +989,14 @@ body {
     gap: 2rem;
   }
 }
+
+/* P10 Al-Khāliq · Qudrah pulse — Bismillāh 2026-05-26T09:50Z */
+/* Source: CORAN V5 Sourate XXXII Al-Qurb (proximité jugulaire) + Sourate XXIX Al-Qudrah */
+@keyframes qudrah-pulse {
+  0%   { background-color: rgba(34, 211, 238, 0); box-shadow: 0 0 0 0 rgba(34, 211, 238, 0); transform: scale(1); }
+  30%  { background-color: rgba(34, 211, 238, 0.18); box-shadow: 0 0 24px 4px rgba(34, 211, 238, 0.45); transform: scale(1.03); }
+  100% { background-color: rgba(34, 211, 238, 0); box-shadow: 0 0 0 0 rgba(34, 211, 238, 0); transform: scale(1); }
+}
+.qudrah-pulse {
+  animation: qudrah-pulse 1.2s ease-out;
+}
