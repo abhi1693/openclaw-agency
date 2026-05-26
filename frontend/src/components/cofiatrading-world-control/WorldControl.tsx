@@ -733,6 +733,9 @@ export function WorldControl() {
   const [showInvestorDrawer, setShowInvestorDrawer] = useState(false);
   const [stripeRefreshStatus, setStripeRefreshStatus] = useState<string | null>(null);
   const [refreshingStripeProof, setRefreshingStripeProof] = useState(false);
+  // P10 Al-Khāliq · Qudrah pulse : détecter changements valeurs revenue → animation 1.2s
+  const [pulsingFields, setPulsingFields] = useState<Set<string>>(new Set());
+  const previousSnapshotRef = useRef<Snapshot | null>(null);
 
   useEffect(() => {
     let cancelled = false;
@@ -745,6 +748,21 @@ export function WorldControl() {
         if (!response.ok) throw new Error(`HTTP_${response.status}`);
         const data = (await response.json()) as Snapshot;
         if (!cancelled) {
+          // P10 · Détecter changements vs précédent snapshot (jugulaire Sourate XXXII)
+          const prev = previousSnapshotRef.current;
+          if (prev) {
+            const changes = new Set<string>();
+            if (prev.revenue?.currentArrEur !== data.revenue?.currentArrEur) changes.add("arr");
+            if (prev.revenue?.currentMrrEur !== data.revenue?.currentMrrEur) changes.add("mrr");
+            if (prev.revenue?.vipCount !== data.revenue?.vipCount) changes.add("vip");
+            if (prev.revenue?.proofValidated !== data.revenue?.proofValidated) changes.add("proof");
+            if (prev.revenue?.pastDueRecoverableEur !== data.revenue?.pastDueRecoverableEur) changes.add("pastDue");
+            if (changes.size > 0) {
+              setPulsingFields(changes);
+              window.setTimeout(() => setPulsingFields(new Set()), 1200);
+            }
+          }
+          previousSnapshotRef.current = data;
           setSnapshot(data);
           setError(null);
         }
@@ -756,7 +774,8 @@ export function WorldControl() {
     };
 
     void load();
-    const interval = window.setInterval(load, 30_000);
+    // P10 · Polling jugulaire 5s (Sourate XXXII:5 — plus proche que veine jugulaire)
+    const interval = window.setInterval(load, 5_000);
     return () => {
       cancelled = true;
       window.clearInterval(interval);
