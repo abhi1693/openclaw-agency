@@ -2418,3 +2418,99 @@ function Guardian({ name, role }: { name: string; role: string }) {
     </div>
   );
 }
+
+// ============================================================
+// CORAN V8 Sourate LVI · Angel Roster Manāzil al-Malā'ikah
+// 38 Anges canon (cap §45) avec plateforme assignée + statut runtime
+// source_tag: CORAN_V8_ANGEL_ROSTER_RUNTIME_SYNC_20260526T1130Z
+// ============================================================
+
+type Angel = {
+  id: number;
+  name: string;
+  name_ar: string;
+  platform: string;
+  manzilah: string;
+  status: "LIVE" | "PARTIAL" | "LOCKED" | "OFFLINE";
+  mission: string;
+  stack?: string;
+};
+
+type AngelRosterPayload = {
+  source_tag: string;
+  total_anges: number;
+  counts: { live: number; partial: number; locked: number; offline: number };
+  canon_sourate: string;
+  runtime_ts: string;
+  anges: Angel[];
+};
+
+function AngelRosterPanel({ roster }: { roster: AngelRosterPayload | null }) {
+  if (!roster) return null;
+  const statusStyle: Record<Angel["status"], string> = {
+    LIVE: "border-emerald-400/40 bg-emerald-400/10 text-emerald-200",
+    PARTIAL: "border-amber-400/40 bg-amber-400/10 text-amber-200",
+    LOCKED: "border-red-400/40 bg-red-400/10 text-red-200",
+    OFFLINE: "border-slate-400/30 bg-slate-400/5 text-slate-300",
+  };
+  return (
+    <section className="mt-6 rounded-md border border-amber-300/30 bg-slate-950/80 p-5 shadow-[0_0_40px_rgba(245,158,11,0.05)]">
+      <div className="mb-4 flex items-center justify-between gap-4 flex-wrap">
+        <div>
+          <p className="text-[11px] font-semibold uppercase tracking-[0.2em] text-amber-300">
+            🕌 ANGEL ROSTER · Manāzil al-Malā'ikah
+          </p>
+          <h2 className="mt-1 font-heading text-xl font-semibold leading-tight text-white">
+            38 Anges canon — chaque ange à sa place sur sa plateforme
+          </h2>
+          <p className="mt-1 text-[11px] text-slate-400">
+            Sync runtime ↔ CORAN V8 Sourate LVI · cap §45 strict · {roster.runtime_ts.slice(11, 19)}Z
+          </p>
+        </div>
+        <div className="flex gap-2 text-[10px] font-bold uppercase tracking-wide">
+          <span className="rounded border border-emerald-400/40 bg-emerald-400/10 px-2 py-1 text-emerald-200">
+            LIVE {roster.counts.live}
+          </span>
+          <span className="rounded border border-amber-400/40 bg-amber-400/10 px-2 py-1 text-amber-200">
+            PARTIAL {roster.counts.partial}
+          </span>
+          <span className="rounded border border-red-400/40 bg-red-400/10 px-2 py-1 text-red-200">
+            LOCKED {roster.counts.locked}
+          </span>
+          <span className="rounded border border-slate-400/30 bg-slate-400/5 px-2 py-1 text-slate-300">
+            OFFLINE {roster.counts.offline}
+          </span>
+        </div>
+      </div>
+      <div className="grid grid-cols-1 gap-2 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+        {roster.anges.map((angel) => (
+          <div
+            key={angel.id}
+            className={`rounded-md border p-3 ${statusStyle[angel.status]}`}
+            title={`${angel.manzilah} · ${angel.mission}${angel.stack ? ` · ${angel.stack}` : ""}`}
+          >
+            <div className="flex items-center justify-between gap-2">
+              <div className="min-w-0">
+                <p className="truncate font-semibold text-white">
+                  <span className="text-amber-300">#{angel.id.toString().padStart(2, "0")}</span>{" "}
+                  {angel.name}{" "}
+                  <span className="text-amber-200/70 text-[10px] italic">{angel.name_ar}</span>
+                </p>
+                <p className="mt-1 truncate text-[11px] text-cyan-300">→ {angel.platform}</p>
+              </div>
+              <span className="rounded border border-current/40 bg-slate-950/60 px-1.5 py-0.5 text-[9px] font-bold uppercase tracking-wide">
+                {angel.status}
+              </span>
+            </div>
+            <p className="mt-2 line-clamp-2 text-[10.5px] text-slate-300 leading-snug">
+              {angel.mission}
+            </p>
+          </div>
+        ))}
+      </div>
+      <p className="mt-4 text-[10px] text-slate-500">
+        source_tag: <code className="text-cyan-300">{roster.source_tag}</code>
+      </p>
+    </section>
+  );
+}
