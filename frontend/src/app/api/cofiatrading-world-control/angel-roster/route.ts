@@ -65,7 +65,7 @@ export async function GET() {
   return NextResponse.json({
     source_tag: "CORAN_V8_ANGEL_ROSTER_RUNTIME_SYNC_20260526T1130Z",
     total_anges: ANGEL_ROSTER.length,
-    cap_§45: 38,
+    cap_para_45: 38,
     counts: { live, partial, locked, offline },
     canon_sourate: "LVI · Manāzil al-Malā'ikah (V8 ULTRA)",
     runtime_ts: new Date().toISOString(),
