@@ -68,6 +68,8 @@ services:
     environment:
       NEXT_PUBLIC_API_URL: ${NEXT_PUBLIC_API_URL:-auto}
       NEXT_PUBLIC_AUTH_MODE: ${AUTH_MODE}
+      # Server-side snapshot route uses this to auth against backend OpenClaw endpoints.
+      LOCAL_AUTH_TOKEN: ${LOCAL_AUTH_TOKEN}
     depends_on:
       - backend
     ports:
