@@ -2431,7 +2431,7 @@ type Angel = {
   name_ar: string;
   platform: string;
   manzilah: string;
-  status: "LIVE" | "PARTIAL" | "LOCKED" | "OFFLINE";
+  status: "LIVE" | "OPERATIONAL_PARTIAL" | "CANON_GATE" | "AWAITING_SETUP";
   mission: string;
   stack?: string;
 };
@@ -2439,46 +2439,54 @@ type Angel = {
 type AngelRosterPayload = {
   source_tag: string;
   total_anges: number;
-  counts: { live: number; partial: number; locked: number; offline: number };
+  counts: { live: number; operational_partial: number; canon_gate: number; awaiting_setup: number };
   canon_sourate: string;
   runtime_ts: string;
   anges: Angel[];
 };
 
+// CORAN V9 Sourate LXI · Sidq al-Mutlaq · honest-by-design colors
+// Plus de red/amber vifs — green (LIVE), cyan (OPERATIONAL_PARTIAL + CANON_GATE), slate (AWAITING_SETUP)
 function AngelRosterPanel({ roster }: { roster: AngelRosterPayload | null }) {
   if (!roster) return null;
   const statusStyle: Record<Angel["status"], string> = {
     LIVE: "border-emerald-400/40 bg-emerald-400/10 text-emerald-200",
-    PARTIAL: "border-amber-400/40 bg-amber-400/10 text-amber-200",
-    LOCKED: "border-red-400/40 bg-red-400/10 text-red-200",
-    OFFLINE: "border-slate-400/30 bg-slate-400/5 text-slate-300",
+    OPERATIONAL_PARTIAL: "border-cyan-400/35 bg-cyan-400/10 text-cyan-200",
+    CANON_GATE: "border-cyan-300/30 bg-cyan-300/5 text-cyan-100",
+    AWAITING_SETUP: "border-slate-400/30 bg-slate-400/5 text-slate-300",
+  };
+  const statusLabel: Record<Angel["status"], string> = {
+    LIVE: "LIVE",
+    OPERATIONAL_PARTIAL: "OPERATIONAL",
+    CANON_GATE: "CANON GATE",
+    AWAITING_SETUP: "AWAITING",
   };
   return (
     <section className="mt-6 rounded-md border border-amber-300/30 bg-slate-950/80 p-5 shadow-[0_0_40px_rgba(245,158,11,0.05)]">
       <div className="mb-4 flex items-center justify-between gap-4 flex-wrap">
         <div>
           <p className="text-[11px] font-semibold uppercase tracking-[0.2em] text-amber-300">
-            🕌 ANGEL ROSTER · Manāzil al-Malā'ikah
+            🕌 ANGEL ROSTER · Manāzil al-Malā'ikah · Honest-by-design Sidq
           </p>
           <h2 className="mt-1 font-heading text-xl font-semibold leading-tight text-white">
             38 Anges canon — chaque ange à sa place sur sa plateforme
           </h2>
           <p className="mt-1 text-[11px] text-slate-400">
-            Sync runtime ↔ CORAN V8 Sourate LVI · cap §45 strict · {roster.runtime_ts.slice(11, 19)}Z
+            Sync runtime ↔ CORAN V9 Sourate LVI + LXI · cap §45 strict · {roster.runtime_ts.slice(11, 19)}Z
           </p>
         </div>
-        <div className="flex gap-2 text-[10px] font-bold uppercase tracking-wide">
+        <div className="flex gap-2 text-[10px] font-bold uppercase tracking-wide flex-wrap">
           <span className="rounded border border-emerald-400/40 bg-emerald-400/10 px-2 py-1 text-emerald-200">
             LIVE {roster.counts.live}
           </span>
-          <span className="rounded border border-amber-400/40 bg-amber-400/10 px-2 py-1 text-amber-200">
-            PARTIAL {roster.counts.partial}
+          <span className="rounded border border-cyan-400/35 bg-cyan-400/10 px-2 py-1 text-cyan-200">
+            OPERATIONAL {roster.counts.operational_partial}
           </span>
-          <span className="rounded border border-red-400/40 bg-red-400/10 px-2 py-1 text-red-200">
-            LOCKED {roster.counts.locked}
+          <span className="rounded border border-cyan-300/30 bg-cyan-300/5 px-2 py-1 text-cyan-100">
+            CANON GATE {roster.counts.canon_gate}
           </span>
           <span className="rounded border border-slate-400/30 bg-slate-400/5 px-2 py-1 text-slate-300">
-            OFFLINE {roster.counts.offline}
+            AWAITING {roster.counts.awaiting_setup}
           </span>
         </div>
       </div>
