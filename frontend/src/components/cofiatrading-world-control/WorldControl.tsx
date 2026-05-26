@@ -769,6 +769,10 @@ export function WorldControl() {
           previousSnapshotRef.current = data;
           setSnapshot(data);
           setError(null);
+          // P10b · LIVE indicator pulse à chaque fetch successful
+          setLastFetchTs(Date.now());
+          setFetchPulse(true);
+          window.setTimeout(() => setFetchPulse(false), 600);
         }
       } catch (loadError) {
         if (!cancelled) {
@@ -780,11 +784,16 @@ export function WorldControl() {
     void load();
     // P10 · Polling jugulaire 5s (Sourate XXXII:5 — plus proche que veine jugulaire)
     const interval = window.setInterval(load, 5_000);
+    // P10b · Tick "seconds since sync" toutes les 1s pour affichage live
+    const tickInterval = window.setInterval(() => {
+      setSecondsSinceSync(Math.floor((Date.now() - lastFetchTs) / 1000));
+    }, 1_000);
     return () => {
       cancelled = true;
       window.clearInterval(interval);
+      window.clearInterval(tickInterval);
     };
-  }, []);
+  }, [lastFetchTs]);
 
   const currentArr = snapshot?.revenue.currentArrEur ?? null;
   const arrGap =
