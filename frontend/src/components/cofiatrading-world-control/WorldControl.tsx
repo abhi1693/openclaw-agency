@@ -813,6 +813,24 @@ export function WorldControl() {
     return () => { cancelled = true; window.clearInterval(interval); };
   }, []);
 
+  // Mu'taqib doctrine drift warnings — advisor non-blocking (Guardian agent operates)
+  // source_tag: MUTAQIB_COCKPIT_WIDGET_V1_20260526T1248Z
+  const [mutaqibCounts, setMutaqibCounts] = useState<{ total: number; last_1h: number; by_level: Record<string, number> } | null>(null);
+  useEffect(() => {
+    let cancelled = false;
+    const loadMutaqib = async () => {
+      try {
+        const r = await fetch("/api/cofiatrading-world-control/mutaqib-warnings", { cache: "no-store" });
+        if (!r.ok) return;
+        const data = await r.json();
+        if (!cancelled && data?.ok) setMutaqibCounts(data.counts);
+      } catch { /* silent */ }
+    };
+    void loadMutaqib();
+    const interval = window.setInterval(loadMutaqib, 60_000);
+    return () => { cancelled = true; window.clearInterval(interval); };
+  }, []);
+
   const currentArr = snapshot?.revenue.currentArrEur ?? null;
   const arrGap =
     typeof currentArr === "number" ? Math.max(0, TARGET_ARR_EUR - currentArr) : null;
