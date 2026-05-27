@@ -752,7 +752,9 @@ export async function GET() {
       knowledge,
       offers,
       routes,
-      investor_room: investorRoom,
+      investor_room: investorRoomEnriched,
+      agents: agentsBlock,
+      commerce_machine: COMMERCE_MACHINE_CANON,
       revenue: {
         sourceTag: readString(revenue, ["source_tag"]),
         currentMrrEur: readNumber(revenue, ["mrr_eur", "mrr_active_eur"]),
