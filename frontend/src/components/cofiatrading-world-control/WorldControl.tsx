@@ -1033,6 +1033,11 @@ export function WorldControl() {
 
   return (
     <div className="min-h-screen bg-[#02040a] text-slate-100">
+      <CofiaOperatorCockpit snapshot={snapshot} />
+      <details className="mx-4 my-4 rounded-md border border-slate-700 bg-slate-900/40 lg:mx-6">
+        <summary className="cursor-pointer px-4 py-3 text-sm font-semibold text-slate-300 hover:text-white">
+          🏙️ City Map / Vision Manhattan 100M€ ARR — cliquer pour développer
+        </summary>
       <section className="relative min-h-screen overflow-hidden">
         <img
           src={northStarImage}
