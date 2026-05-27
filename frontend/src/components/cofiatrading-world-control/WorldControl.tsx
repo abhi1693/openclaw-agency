@@ -1580,6 +1580,15 @@ function CityWorld({
 
         {districts.map((district) => {
           const Icon = district.icon;
+          // P11 Al-Muharrik · bind district status sur snapshot.routes LIVE (Sourate LXVIII)
+          const liveStatusRaw =
+            district.label === "Revenue Command" ? snapshot?.routes?.revenue_route?.status :
+            district.label === "Acquisition Engine" || district.label === "Asset Factory" ? snapshot?.routes?.acquisition_route?.status :
+            district.label === "Support Ops" ? snapshot?.routes?.support_route?.status :
+            district.label === "Proof Ledger" ? snapshot?.routes?.compliance_route?.status :
+            district.label === "Offer Factory" ? snapshot?.routes?.revenue_route?.status :
+            undefined;
+          const liveStatus = (liveStatusRaw as Status | undefined) ?? district.status;
           return (
             <div
               key={district.label}
@@ -1597,8 +1606,8 @@ function CityWorld({
                   </div>
                 </div>
                 <div className="mt-2 h-10 rounded-sm bg-gradient-to-t from-slate-900 to-slate-700 shadow-[inset_0_8px_0_rgba(255,255,255,0.03)]" />
-                <span className={`mt-2 inline-flex rounded border px-1.5 py-0.5 text-[10px] ${statusClass[district.status]}`}>
-                  {district.status}
+                <span className={`mt-2 inline-flex rounded border px-1.5 py-0.5 text-[10px] ${statusClass[liveStatus]}`}>
+                  {liveStatus}
                 </span>
               </div>
             </div>
