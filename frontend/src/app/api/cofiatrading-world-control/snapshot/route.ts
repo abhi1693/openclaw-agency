@@ -762,6 +762,7 @@ export async function GET() {
         activeVip: readNumber(revenue, ["active_vip"]),
         pastDueCount: readNumber(revenue, ["past_due_count"]),
         pastDueEur: readNumber(revenue, ["past_due_eur", "past_due_eur_total"]),
+        revenue_drift_detected: revenueDriftDetected,
         ftdCumul: readNumber(revenue, ["ftd_cumul"]),
         brokersLifetimeUsd: readNumber(revenue, ["brokers_commission_lifetime_usd"]),
         clientsActive: readNumber(revenue, ["clients_active"]),
