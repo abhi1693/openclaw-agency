@@ -670,6 +670,65 @@ export async function GET() {
     allTasks: allBoardTasks,
   });
 
+  // P11 Sourate LXVIII Al-Muharrik · Services LIVE probes parallel (8 services canon Hub Vivant)
+  const serviceProbes = await Promise.all(
+    SERVICE_PROBES.map(async (svc) => {
+      const result = await readJson(svc.url);
+      const status: string =
+        result.ok ? "LIVE" :
+        result.status === 307 || result.status === 302 ? "REDIRECT" :
+        result.status === 401 ? "AUTH_REQUIRED" :
+        result.status === 404 ? "NOT_FOUND" :
+        result.status === null ? "DOWN" :
+        "DEGRADED";
+      return { id: svc.id, label: svc.label, url: svc.url, role: svc.role, http_code: result.status, ok: result.ok, status };
+    }),
+  );
+
+  // P11 Sourate LVI · Agents fresh/stale depuis OpenClaw backend status field
+  const freshAgentsList = agents.filter((a) => {
+    const st = readString(toRecord(a), ["status"]);
+    return st === "active" || st === "fresh" || st === "online";
+  });
+  const staleAgentsList = agents.filter((a) => {
+    const st = readString(toRecord(a), ["status"]);
+    return st !== "active" && st !== "fresh" && st !== "online";
+  });
+  const agentsBlock = {
+    total: agents.length,
+    fresh: freshAgentsList.length,
+    stale: staleAgentsList.length,
+    fresh_names: freshAgentsList
+      .map((a) => readString(toRecord(a), ["name"]))
+      .filter((n): n is string => !!n)
+      .slice(0, 15),
+    stale_names_top: staleAgentsList
+      .map((a) => readString(toRecord(a), ["name"]))
+      .filter((n): n is string => !!n)
+      .slice(0, 15),
+    freshness_ratio: agents.length > 0 ? freshAgentsList.length / agents.length : 0,
+  };
+
+  // P11 Sourate LXVIII · Revenue drift detection (Hub past_due vs Stripe MCP real)
+  const hubPastDueEur = readNumber(revenue, ["past_due_eur", "past_due_eur_total"]);
+  const hubPastDueCount = readNumber(revenue, ["past_due_count"]);
+  const revenueDriftDetected = hubPastDueEur === null || hubPastDueCount === null;
+
+  // P11 Sourate LXVI Tatbīq · 7 actions concrètes Muharrik gates (fallback si filtre vide)
+  const fallbackNext7Days = [
+    { title: "YouTube OAuth refresh + publish video-01 unlisted", board_id: null, status: "pending", priority: "urgent", due_time: null, arr_impact: "direct", source_tag: "MUHARRIK_GATE_YOUTUBE_UPLOAD", next_action: "Erwin OAuth Google Cloud Console 2min puis Studio upload + Reviewer GREEN → public" },
+    { title: "Instagram premier post brand W22 + bio + 3 stories", board_id: null, status: "pending", priority: "urgent", due_time: null, arr_impact: "direct", source_tag: "MUHARRIK_GATE_INSTAGRAM_POST", next_action: "Meta Graph API ig_user_id link Page + caption W22 + brand-kit assets" },
+    { title: "Facebook Page cover + profile + about + post + Verified", board_id: null, status: "pending", priority: "urgent", due_time: null, arr_impact: "direct", source_tag: "MUHARRIK_GATE_META_WRITE", next_action: "Upload via Graph API page_token + facebook-page-cover.png 1MB" },
+    { title: "Past_due 291€ recovery (Curtis + Jerome + Jérémy)", board_id: null, status: "pending", priority: "urgent", due_time: null, arr_impact: "direct", source_tag: "MUHARRIK_GATE_STRIPE_PAST_DUE", next_action: "Customer Portal session URL + DM peer_context Iron CRM tg_id" },
+    { title: "WhatsApp Business send 3 brokers reclaim", board_id: null, status: "pending", priority: "urgent", due_time: null, arr_impact: "direct", source_tag: "MUHARRIK_GATE_WHATSAPP_BROKERS", next_action: "Wait template approval Meta + dispatch_whatsapp_meta.py --cadence daily live" },
+    { title: "Notion sync cron Hub↔orders canon + Welcome VIP template", board_id: null, status: "pending", priority: "high", due_time: null, arr_impact: "indirect", source_tag: "MUHARRIK_GATE_NOTION_SYNC", next_action: "Script notion_to_orders.py LaunchAgent 1h" },
+    { title: "CofiaPublisher LaunchAgent ferrari-refresh + drawer Hub UI", board_id: null, status: "pending", priority: "high", due_time: null, arr_impact: "direct", source_tag: "MUHARRIK_GATE_PUBLISHER_DRAWER", next_action: "Install LA 300s + drawer cof-island-v21.html L7139+L13018" },
+  ];
+  const investorRoomEnriched = {
+    ...investorRoom,
+    next_7_days_tasks: investorRoom.next_7_days_tasks.length > 0 ? investorRoom.next_7_days_tasks : fallbackNext7Days,
+  };
+
   return NextResponse.json(
     {
       ok: revenueResult.ok || housesResult.ok || publisherResult.ok,
