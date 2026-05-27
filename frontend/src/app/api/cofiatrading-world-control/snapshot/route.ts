@@ -789,10 +789,7 @@ export async function GET() {
         service: readString(publisher, ["service"]) ?? "CofiaPublisher",
         outputDirCount: readNumber(publisher, ["output_dir_count", "renders_count", "count"]),
       },
-      services: [
-        { id: "ack-server", label: "ack-server :8443", ok: ackResult.ok, status: ackResult.status },
-        { id: "rtk-llm-proxy", label: "rtk-llm-proxy :11435", ok: rtkResult.ok, status: rtkResult.status },
-      ],
+      services: serviceProbes,
       openclaw: {
         sourceTag: "COFIATRADING_WORLD_CONTROL_LIVING_OBJECTS_20260525",
         boards: boards.map((board) => ({
