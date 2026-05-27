@@ -34,7 +34,25 @@ type Snapshot = {
     ftdCumul: number | null;
     brokersLifetimeUsd: number | null;
     clientsActive: number | null;
+    revenue_drift_detected?: boolean;
   };
+  agents?: {
+    total: number;
+    fresh: number;
+    stale: number;
+    fresh_names: string[];
+    stale_names_top: string[];
+    freshness_ratio: number;
+  };
+  commerce_machine?: Array<{
+    id: string;
+    name: string;
+    status: "LIVE" | "PARTIAL" | "CANON_GATE" | "AWAITING_SETUP" | "BROKEN";
+    problem: string;
+    next_action: string;
+    owner_agent: string;
+    proof_source: string;
+  }>;
   centralBrain: {
     housesCount: number | null;
     houses: Array<{ key: string; title: string; status: string }>;
