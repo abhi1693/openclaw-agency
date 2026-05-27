@@ -1465,7 +1465,7 @@ export default function DashboardPage() {
                           <p className="text-[10px] font-semibold uppercase tracking-wide text-slate-500">
                             Session config
                           </p>
-                          <pre className="mt-1 max-h-40 overflow-auto rounded-md bg-slate-950/95 p-2 font-mono text-[10px] leading-4 text-slate-100 break-all">
+                          <pre className="mt-1 max-h-40 overflow-auto rounded-md bg-slate-950/95 p-2 font-mono text-xs leading-4 text-slate-100 whitespace-pre-wrap break-words">
                             {inspectedSession.sessionConfig ?? DASH}
                           </pre>
                         </div>
