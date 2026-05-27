@@ -23,6 +23,52 @@ const endpoints = {
   rtk: process.env.COF_RTK_HEALTH_URL ?? `${HOST}:11435/health`,
 };
 
+// P11 Sourate LXVIII Al-Muharrik · 8 services canon probes LIVE (cockpit Hub Vivant)
+const SERVICE_PROBES: ReadonlyArray<{ id: string; label: string; url: string; role: string }> = [
+  { id: "hub_8430", label: "Hub :8430", url: `${HOST}:8430/cofiacontrol.html`, role: "Hub principal Iron + revenue + chat" },
+  { id: "mission_control_3000", label: "Mission Control :3000", url: `${HOST}:3000/cofiatrading-world-control`, role: "Cockpit Hub Vivant NY" },
+  { id: "central_brain_8767", label: "Central Brain :8767", url: `${HOST}:8767/api/central-brain/houses`, role: "Registry 15 maisons SSOT" },
+  { id: "cofiapublisher_8540", label: "CofiaPublisher :8540", url: `${HOST}:8540/api/status`, role: "Pipeline vidéos 89 MP4" },
+  { id: "inventory_8433", label: "Inventory :8433", url: `${HOST}:8433/`, role: "Living Inventory canon" },
+  { id: "llm_proxy_11435", label: "rtk-llm-proxy :11435", url: `${HOST}:11435`, role: "Gemini/Qwen routing local" },
+  { id: "lightrag_9621", label: "LightRAG :9621", url: `${HOST}:9621/api/health`, role: "Semantic graph recall" },
+  { id: "paperclip_3100", label: "Paperclip :3100", url: `${HOST}:3100`, role: "Universal assets pipeline" },
+];
+
+// P11 Sourate LXV Adwāt al-Mu'minīn · 20 boutiques commerciales canon (machine 100M€ Déc 2026)
+type CommerceShop = {
+  id: string;
+  name: string;
+  status: "LIVE" | "PARTIAL" | "CANON_GATE" | "AWAITING_SETUP" | "BROKEN";
+  problem: string;
+  next_action: string;
+  owner_agent: string;
+  proof_source: string;
+};
+const COMMERCE_MACHINE_CANON: ReadonlyArray<CommerceShop> = [
+  { id: "instagram", name: "Instagram @cofiatrading", status: "AWAITING_SETUP", problem: "Token IG valide V9, 10 posts existants mais bio basique, 0 stories quotidiennes, 0 DM <4h, 0 grid cohérent", next_action: "Update bio brand-kit + premier carousel premium W22 + 3 stories/jour cron", owner_agent: "Malik al-Insta", proof_source: "Meta Graph API ig_user_id link Page" },
+  { id: "youtube", name: "YouTube CofiaPublisher V30", status: "CANON_GATE", problem: "89 MP4 prêts ~/cof-trading/remotion/out/, 0 publié, OAuth refresh expiré, channel art absent", next_action: "OAuth refresh Erwin 2min + publish video-01 unlisted → Reviewer GREEN → public + channel art brand", owner_agent: "Nova + Isrāfīl", proof_source: "ls remotion/out/*.mp4 + Reviewer GREEN gate" },
+  { id: "facebook", name: "Facebook Page COFIA Trading", status: "AWAITING_SETUP", problem: "Page 1136548789543573 existe, about/desc/cover/profile VIDES, 0 followers, Meta Verified ⭐ payé non appliqué", next_action: "Upload cover + profile + about + premier post + soumettre Verified Application", owner_agent: "Luna", proof_source: "Meta Graph API page_token + brand-kit-2026-05" },
+  { id: "tiktok", name: "TikTok", status: "AWAITING_SETUP", problem: "TIKTOK_ACCESS_TOKEN placeholder, 0 short publié, profile vide", next_action: "Génère token dev portal (Erwin 10min) + Sonic cron 1 short/jour debunk", owner_agent: "Sonic", proof_source: "TikTok Developer Portal app" },
+  { id: "telegram_free", name: "Telegram FREE -1001279616913", status: "LIVE", problem: "4891 members, broadcasts sporadiques, pas de cadence hebdo soignée", next_action: "Broadcast educational hebdo W22 captions premium V8/V12 + sondages mensuels", owner_agent: "Sonic + David", proof_source: "Hub :8430/api/iron/chat/send + 78452 msg IDs récents" },
+  { id: "telegram_vip", name: "Telegram VIP", status: "LIVE", problem: "29 members, sous-utilisé pour Welcome flow + signaux quotidiens", next_action: "Welcome flow auto post-Stripe + 1 signal STRAT-17 quotidien Marco", owner_agent: "Antho + Marco", proof_source: "Stripe webhook → Telegram VIP invite" },
+  { id: "whatsapp_business", name: "WhatsApp Business WABA US", status: "PARTIAL", problem: "Phone +1 555-964-8716 VERIFIED, template cofia_welcome_vip_fr PENDING Meta ~24h, 0 message envoyé", next_action: "Wait approval template + send 3 brokers + onboarding VIP", owner_agent: "David + Jack", proof_source: "Meta Graph waba_id 1320675216711048 template review" },
+  { id: "gmail_brokers", name: "Gmail brokers reclaim", status: "PARTIAL", problem: "3 drafts (Nicolas/Fabienne/François) JAMAIS sent depuis 24h+", next_action: "Send via Gmail API Python OAuth refresh_token OR WhatsApp template approved", owner_agent: "Jack", proof_source: "Gmail drafts r-1313936... r-885955... r-412545..." },
+  { id: "stripe", name: "Stripe", status: "LIVE", problem: "MRR 879€ / 7 VIP / 3 past_due 291€ (Curtis + Jerome + Jérémy), past_due retry Iron daemon bloqué 33 instances depuis 22/05", next_action: "Past_due retry via Customer Portal session URL + DM peer_context Iron daemon fix", owner_agent: "Mikā'īl", proof_source: "Stripe MCP search status=past_due → 3 subs LIVE 2026-05-27T16:11Z" },
+  { id: "brokers_cellxpert", name: "Brokers CellXpert", status: "CANON_GATE", problem: "6884 broker_accounts Default, IP whitelist ES pending, 4 brokers (FXcess/IronFX/RaiseFX/Libertex) PDFs daily 0 dispatched", next_action: "IP whitelist fix + dispatch quotidien WhatsApp/Gmail PDF reclaim", owner_agent: "Jack", proof_source: "broker_accounts Iron CRM + affiliate_contacts.json" },
+  { id: "notion", name: "Notion workspace", status: "PARTIAL", problem: "3 DBs créées (38 Anges + 4 Leviers + 11 Prices), pas de sync cron Hub↔Notion ni orders canon", next_action: "Script notion_to_orders.py LaunchAgent 1h + Welcome VIP page template + canon docs B2B", owner_agent: "Steward + Antho", proof_source: "Notion API 3 DBs ID 7a2d1ad6 + 7c54ea95 + 4e93d058" },
+  { id: "linear", name: "Linear cofiatrading team", status: "LIVE", problem: "76+ issues, 4 doublons §21 fermés 27/05, pas de cycles structurés ni projects par 4 leviers", next_action: "Cycles 2 weekly + projects par 4 leviers ROI + roadmap visible Hub", owner_agent: "Sentinel", proof_source: "Linear MCP list_issues team Cofiatrading" },
+  { id: "github", name: "GitHub @erwin-cmyk", status: "LIVE", problem: "Auto-commit branche feature OK, repos pas propres, README absents, pas de CI/CD ni topics", next_action: "README pro tous repos + badges + topics + GitHub Actions CI/CD", owner_agent: "Atlas + Codex", proof_source: "github.com/erwin-cmyk audit repos" },
+  { id: "vercel", name: "Vercel cofiatrading.com", status: "PARTIAL", problem: "Site déployé, landing pages SEO i18n incomplet, pas de tracking conversions ni Meta Pixel", next_action: "i18n EN/FR/ES/AR/TR + analytics + Meta Pixel CAPI v22", owner_agent: "Atlas", proof_source: "vercel.app cof-trading-site project" },
+  { id: "supabase", name: "Supabase pxynrgypfkoyuixsxvsj", status: "LIVE", problem: "9 advisors security RLS always_true backdoor (COF-130 P0), 149 emails newsletter jamais envoyée", next_action: "Fix RLS policies + envoyer newsletter weekly via Resend re-activé", owner_agent: "Atlas + Mikā'īl", proof_source: "Supabase MCP get_advisors security warnings" },
+  { id: "n8n", name: "n8n coftrading.app.n8n.cloud", status: "PARTIAL", problem: "9 workflows ACTIVE dont fan-out publish, erreurs config + credentials sync manquantes", next_action: "Audit + fix workflows erreurs + credentials sync + webhook publish-approve", owner_agent: "Steward", proof_source: "n8n cloud workflow id kXojepCAXV5ktVsf" },
+  { id: "cofiapublisher", name: "CofiaPublisher pipeline V30", status: "LIVE", problem: "Server :8540 LIVE, 89 MP4 prêts, 0 publié, drawer Hub UI absent, ferrari-refresh LA pas installé", next_action: "Install LaunchAgent ferrari-refresh 300s + drawer cof-island-v21.html + Gemini Vision J+3", owner_agent: "Nova", proof_source: "curl :8540/api/status LIVE + 89 .mp4 remotion/out/" },
+  { id: "hedra", name: "Hedra Character-3 lipsync", status: "AWAITING_SETUP", problem: "$30/mo PAYÉ depuis 2026-05-18, HEDRA_API_KEY not set, 6 tentatives FAILED (faux-vert)", next_action: "Set HEDRA_API_KEY env + premier video talking-head Erwin Menorca + ElevenLabs voice clone", owner_agent: "Nova + Luna", proof_source: "hedra.com account $30/mo invoices" },
+  { id: "wispr_flow", name: "Wispr Flow voice", status: "LIVE", problem: "App installée, voice→Warp/Chrome Erwin OK", next_action: "Garder LIVE, intégrer dans pipeline Codex parallel", owner_agent: "Kevin", proof_source: "Wispr.app dictation Warp Terminal" },
+  { id: "atas", name: "ATAS order flow", status: "AWAITING_SETUP", problem: "Pas câblé sur signaux STRAT-17, pas de widget Hub footprint", next_action: "Connector MT5 + footprint cluster export hub widget", owner_agent: "Marco + Quant", proof_source: "ATAS desktop + MT5 plugin" },
+  { id: "tradingview", name: "TradingView", status: "AWAITING_SETUP", problem: "Pas d'API publique, 0 chart annoté publié, 0 followers growth", next_action: "Script Playwright tradingview_screenshot.py + publish 3 ideas/sem M5 NQ", owner_agent: "Quant-TV", proof_source: "TradingView Pro + Playwright cron weekly" },
+];
+
 const TARGET_ARR_EUR = 100_000_000;
 const TARGET_DATE = "2026-12-31";
 const ASSET_FACTORY_CANON = {
