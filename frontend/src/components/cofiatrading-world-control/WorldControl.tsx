@@ -2611,3 +2611,162 @@ function AngelRosterPanel({ roster }: { roster: AngelRosterPayload | null }) {
     </section>
   );
 }
+
+// P11 Sourate LXVIII Al-Muharrik · Commerce Machine Grid — 21 boutiques canon machine 100M€
+type CommerceShop = {
+  id: string;
+  name: string;
+  status: "LIVE" | "PARTIAL" | "CANON_GATE" | "AWAITING_SETUP" | "BROKEN";
+  problem: string;
+  next_action: string;
+  owner_agent: string;
+  proof_source: string;
+};
+const commerceStatusTone: Record<CommerceShop["status"], string> = {
+  LIVE: "border-emerald-400/40 bg-emerald-400/10 text-emerald-200",
+  PARTIAL: "border-cyan-400/40 bg-cyan-400/10 text-cyan-200",
+  CANON_GATE: "border-amber-400/40 bg-amber-400/10 text-amber-200",
+  AWAITING_SETUP: "border-slate-400/40 bg-slate-400/10 text-slate-300",
+  BROKEN: "border-red-500/60 bg-red-500/15 text-red-200",
+};
+function CommerceMachineGrid({ shops }: { shops: CommerceShop[] }) {
+  if (!shops || shops.length === 0) return null;
+  const counts = shops.reduce<Record<string, number>>((acc, s) => {
+    acc[s.status] = (acc[s.status] ?? 0) + 1;
+    return acc;
+  }, {});
+  return (
+    <section className="mx-4 my-6 rounded-md border border-amber-400/35 bg-slate-950/85 p-5 shadow-[0_0_40px_rgba(245,158,11,0.18)] lg:mx-6">
+      <div className="mb-4 flex items-center justify-between gap-3 flex-wrap">
+        <div>
+          <p className="text-[11px] font-semibold uppercase tracking-[0.2em] text-amber-300">
+            COMMERCE MACHINE · {shops.length} boutiques canon Hub Vivant
+          </p>
+          <h2 className="mt-1 font-heading text-xl font-semibold text-white">
+            Sourate LXV Adwāt · machine 100M€ Déc 2026
+          </h2>
+        </div>
+        <div className="flex flex-wrap gap-2 text-[10px] font-bold uppercase tracking-wide">
+          {(["LIVE", "PARTIAL", "CANON_GATE", "AWAITING_SETUP", "BROKEN"] as const).map((s) => (
+            <span key={s} className={`rounded border px-2 py-1 ${commerceStatusTone[s]}`}>
+              {s} {counts[s] ?? 0}
+            </span>
+          ))}
+        </div>
+      </div>
+      <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+        {shops.map((shop) => (
+          <div
+            key={shop.id}
+            className={`rounded-md border p-3 transition hover:border-white/30 ${commerceStatusTone[shop.status]}`}
+          >
+            <div className="flex items-center justify-between gap-2">
+              <p className="truncate font-semibold text-white text-sm">{shop.name}</p>
+              <span className="rounded border border-current/40 bg-slate-950/60 px-1.5 py-0.5 text-[9px] font-bold uppercase">
+                {shop.status}
+              </span>
+            </div>
+            <p className="mt-2 text-[10.5px] text-slate-300 leading-snug line-clamp-3">
+              <span className="text-red-300 font-semibold">⚠ </span>
+              {shop.problem}
+            </p>
+            <p className="mt-2 text-[10.5px] text-emerald-200 leading-snug line-clamp-3">
+              <span className="text-emerald-300 font-semibold">→ </span>
+              {shop.next_action}
+            </p>
+            <div className="mt-2 flex items-center justify-between text-[9.5px] text-slate-400">
+              <span>👤 {shop.owner_agent}</span>
+              <span className="truncate max-w-[55%] text-right" title={shop.proof_source}>
+                {shop.proof_source.slice(0, 30)}{shop.proof_source.length > 30 ? "…" : ""}
+              </span>
+            </div>
+          </div>
+        ))}
+      </div>
+      <p className="mt-4 text-[10px] text-slate-500">
+        source_tag: <code className="text-amber-300">COMMERCE_MACHINE_CANON_20260527</code> · 21 boutiques outbound vers 100M€
+      </p>
+    </section>
+  );
+}
+
+// P11 Sourate LXVIII · Services Status Bar — 8 services canon LIVE probes
+type ServiceProbe = { id: string; label: string; ok: boolean; status?: string | number | null; http_code?: number | null; url?: string; role?: string };
+const serviceStatusTone: Record<string, string> = {
+  LIVE: "border-emerald-400/40 bg-emerald-400/10 text-emerald-200",
+  REDIRECT: "border-cyan-400/40 bg-cyan-400/10 text-cyan-200",
+  AUTH_REQUIRED: "border-amber-400/40 bg-amber-400/10 text-amber-200",
+  NOT_FOUND: "border-orange-400/40 bg-orange-400/10 text-orange-200",
+  DEGRADED: "border-orange-500/50 bg-orange-500/15 text-orange-200",
+  DOWN: "border-red-500/60 bg-red-500/15 text-red-200",
+};
+function ServicesStatusBar({ services }: { services: ServiceProbe[] }) {
+  if (!services || services.length === 0) return null;
+  return (
+    <section className="mx-4 mt-4 rounded-md border border-cyan-400/30 bg-slate-950/80 p-4 lg:mx-6">
+      <div className="mb-3 flex items-center justify-between gap-3 flex-wrap">
+        <p className="text-[11px] font-semibold uppercase tracking-[0.2em] text-cyan-300">
+          SERVICES LIVE · {services.length} endpoints canon Hub Vivant
+        </p>
+        <span className="text-[10px] text-slate-400">
+          probe HTTP every snapshot poll · Sidq §35
+        </span>
+      </div>
+      <div className="grid grid-cols-2 gap-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-8">
+        {services.map((svc) => {
+          const statusKey = typeof svc.status === "string" ? svc.status : svc.ok ? "LIVE" : "DOWN";
+          const tone = serviceStatusTone[statusKey] ?? serviceStatusTone.DOWN;
+          return (
+            <div key={svc.id} className={`rounded border p-2 ${tone}`} title={`${svc.role ?? ""} · ${svc.url ?? ""}`}>
+              <div className="flex items-center justify-between gap-1">
+                <p className="truncate text-[10px] font-semibold text-white">{svc.label}</p>
+                <span className="text-[9px] font-mono">{svc.http_code ?? "—"}</span>
+              </div>
+              <p className="mt-1 text-[9px] uppercase tracking-wide">{statusKey}</p>
+            </div>
+          );
+        })}
+      </div>
+    </section>
+  );
+}
+
+// P11 Sourate LVI · Agents Freshness Bar — fresh/stale ratio compact widget
+function AgentsFreshnessBar({ agents }: { agents?: Snapshot["agents"] }) {
+  if (!agents) return null;
+  const pct = Math.round(agents.freshness_ratio * 100);
+  const tone = pct >= 50 ? "text-emerald-300" : pct >= 20 ? "text-amber-300" : "text-red-300";
+  return (
+    <section className="mx-4 mt-4 rounded-md border border-purple-400/30 bg-slate-950/80 p-4 lg:mx-6">
+      <div className="flex items-center justify-between gap-3 flex-wrap mb-3">
+        <p className="text-[11px] font-semibold uppercase tracking-[0.2em] text-purple-300">
+          AGENTS FRESHNESS · {agents.total} anges canon
+        </p>
+        <span className={`text-lg font-bold ${tone}`}>
+          {agents.fresh}/{agents.total} fresh · {pct}%
+        </span>
+      </div>
+      <div className="h-2 w-full rounded-full bg-slate-800 overflow-hidden">
+        <div
+          className={`h-full ${pct >= 50 ? "bg-emerald-400" : pct >= 20 ? "bg-amber-400" : "bg-red-500"} transition-all`}
+          style={{ width: `${pct}%` }}
+        />
+      </div>
+      <div className="mt-3 grid grid-cols-1 gap-2 sm:grid-cols-2 text-[10.5px]">
+        <div>
+          <p className="text-emerald-300 font-semibold mb-1">FRESH ({agents.fresh}):</p>
+          <p className="text-slate-300 leading-snug">
+            {agents.fresh_names.length > 0 ? agents.fresh_names.slice(0, 10).join(" · ") : "—"}
+          </p>
+        </div>
+        <div>
+          <p className="text-red-300 font-semibold mb-1">STALE ({agents.stale}):</p>
+          <p className="text-slate-400 leading-snug">
+            {agents.stale_names_top.slice(0, 10).join(" · ")}
+            {agents.stale > 10 ? ` · +${agents.stale - 10} more` : ""}
+          </p>
+        </div>
+      </div>
+    </section>
+  );
+}
