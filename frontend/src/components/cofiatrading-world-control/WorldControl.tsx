@@ -1208,10 +1208,14 @@ export function WorldControl() {
                     Next action
                   </p>
                   <p className="text-sm text-white">
-                    Recover past_due + activate VIP funnel
+                    {snapshot?.investor_room?.next_7_days_tasks?.[0]
+                      ?? snapshot?.investor_room?.top_blockers?.[0]
+                      ?? "Recover past_due + activate VIP funnel"}
                   </p>
                   <p className="text-[11px] text-amber-100/70">
-                    Draft only · no send · no publish · no Stripe write
+                    {snapshot?.investor_room?.top_blockers?.length
+                      ? `${snapshot.investor_room.top_blockers.length} blockers · ${snapshot.investor_room.next_7_days_tasks?.length ?? 0} tasks 7j · sync ${secondsSinceSync}s ago`
+                      : "Draft only · no send · no publish · no Stripe write"}
                   </p>
                 </div>
               </div>
