@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useRef, useState } from "react";
+import * as Tabs from "@radix-ui/react-tabs";
 import {
   Activity,
   AlertTriangle,
