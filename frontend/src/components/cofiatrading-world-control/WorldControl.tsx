@@ -1208,7 +1208,8 @@ export function WorldControl() {
                     Next action
                   </p>
                   <p className="text-sm text-white">
-                    {snapshot?.investor_room?.next_7_days_tasks?.[0]
+                    {snapshot?.investor_room?.next_7_days_tasks?.[0]?.next_action
+                      ?? snapshot?.investor_room?.next_7_days_tasks?.[0]?.title
                       ?? snapshot?.investor_room?.top_blockers?.[0]
                       ?? "Recover past_due + activate VIP funnel"}
                   </p>
