@@ -1,7 +1,6 @@
 "use client";
 
 import { useEffect, useMemo, useRef, useState } from "react";
-import * as Tabs from "@radix-ui/react-tabs";
 import {
   Activity,
   AlertTriangle,
@@ -19,6 +18,20 @@ import {
   Users,
   X,
 } from "lucide-react";
+
+type AssetsWarehouseSnapshot = {
+  ok?: boolean;
+  sourceTag?: string;
+  mp4Count?: number | null;
+  captionsCount?: number | null;
+  assetsInventoryCount?: number | null;
+  paths?: {
+    remotionOutDir?: string;
+    captionsDir?: string;
+    assetsInventoryPath?: string;
+  };
+  errors?: string[];
+};
 
 type Snapshot = {
   ok: boolean;
@@ -1033,8 +1046,7 @@ export function WorldControl() {
 
   return (
     <div className="min-h-screen bg-[#02040a] text-slate-100">
-      <CofiaOperatorCockpit snapshot={snapshot} />
-      <section className="relative min-h-screen overflow-hidden hidden" aria-hidden="true" data-cockpit-hidden="city-map-vision">
+      <section className="relative min-h-screen overflow-hidden">
         <img
           src={northStarImage}
           alt="COFIATRADING New York World Control 100M ARR visual north star"
@@ -1097,6 +1109,13 @@ export function WorldControl() {
                 )}
               </div>
             </div>
+
+            <a
+              href="/cof-operator"
+              className="rounded-md border border-cyan-300/35 bg-cyan-400/10 px-4 py-2 text-sm font-bold uppercase tracking-[0.16em] text-cyan-100 transition hover:border-cyan-100/70 hover:bg-cyan-300/15"
+            >
+              Open Operator Cockpit
+            </a>
 
             <button
               type="button"
@@ -2773,220 +2792,5 @@ function AgentsFreshnessBar({ agents }: { agents?: Snapshot["agents"] }) {
         </div>
       </div>
     </section>
-  );
-}
-
-// P11 Sourate LXVIII Muharrik · COFIA Operator Cockpit — vue principale opérateur 10s
-// 5 sections obligatoires : Top Bar · Aujourd'hui · Machine commerciale tabs · System truth · City Map collapsible
-const humanStatusMap: Record<string, { label: string; tone: string }> = {
-  LIVE: { label: "Prêt", tone: "border-emerald-400/40 bg-emerald-400/10 text-emerald-200" },
-  PARTIAL: { label: "À finir", tone: "border-cyan-400/40 bg-cyan-400/10 text-cyan-200" },
-  CANON_GATE: { label: "Automatisation verrouillée", tone: "border-amber-400/40 bg-amber-400/10 text-amber-200" },
-  AWAITING_SETUP: { label: "Action humaine requise", tone: "border-slate-400/40 bg-slate-400/10 text-slate-300" },
-  BROKEN: { label: "Bloqué", tone: "border-red-500/60 bg-red-500/15 text-red-200" },
-};
-const serviceHumanStatus = (status: string | number | null | undefined, ok: boolean | undefined): { label: string; tone: string } => {
-  const key = typeof status === "string" ? status : (ok ? "LIVE" : "DOWN");
-  if (key === "LIVE") return { label: "Prêt", tone: "border-emerald-400/40 bg-emerald-400/10 text-emerald-200" };
-  if (key === "REDIRECT") return { label: "À vérifier", tone: "border-cyan-400/40 bg-cyan-400/10 text-cyan-200" };
-  if (key === "AUTH_REQUIRED") return { label: "Action humaine requise", tone: "border-amber-400/40 bg-amber-400/10 text-amber-200" };
-  if (key === "NOT_FOUND" || key === "DEGRADED") return { label: "À vérifier", tone: "border-orange-400/40 bg-orange-400/10 text-orange-200" };
-  if (key === "DOWN") return { label: "Bloqué", tone: "border-red-500/60 bg-red-500/15 text-red-200" };
-  return { label: "Inconnu", tone: "border-slate-400/40 bg-slate-400/10 text-slate-300" };
-};
-function CofiaOperatorCockpit({ snapshot }: { snapshot: Snapshot | null }) {
-  const revenue = snapshot?.revenue;
-  const services = snapshot?.services ?? [];
-  const agents = snapshot?.agents;
-  const commerce = snapshot?.commerce_machine ?? [];
-  const todayTasks = snapshot?.investor_room?.next_7_days_tasks?.slice(0, 3) ?? [];
-  const topBlockers = snapshot?.investor_room?.top_blockers ?? [];
-
-  const fmt = (n: number | null | undefined) => (n != null ? n.toLocaleString("fr-FR") : "—");
-  const servicesLive = services.filter((s) => s.status === "LIVE" || s.ok === true).length;
-
-  const commerceByCategory: Record<string, typeof commerce> = {
-    argent: commerce.filter((c) => ["stripe", "brokers_cellxpert"].includes(c.id)),
-    reseaux: commerce.filter((c) => ["instagram", "facebook", "youtube", "tiktok"].includes(c.id)),
-    clients: commerce.filter((c) => ["telegram_vip", "telegram_free", "whatsapp_business", "gmail_brokers"].includes(c.id)),
-    contenu: commerce.filter((c) => ["cofiapublisher", "hedra", "wispr_flow"].includes(c.id)),
-    trading: commerce.filter((c) => ["atas", "tradingview"].includes(c.id)),
-    ops: commerce.filter((c) => ["notion", "linear", "github", "vercel", "supabase", "n8n"].includes(c.id)),
-  };
-
-  return (
-    <div className="px-4 py-3 lg:px-6">
-      {/* 1. TOP BAR — vérité business 10 secondes */}
-      <div className="mb-5 rounded-md border border-amber-300/30 bg-black/70 px-5 py-4 backdrop-blur-md">
-        <div className="grid grid-cols-2 gap-4 md:grid-cols-4 lg:grid-cols-8">
-          <div>
-            <p className="text-[10px] uppercase tracking-wider text-slate-400">ARR cumul</p>
-            <p className="mt-0.5 text-lg font-black text-amber-200">{fmt(revenue?.currentArrEur)} €</p>
-          </div>
-          <div>
-            <p className="text-[10px] uppercase tracking-wider text-slate-400">MRR mensuel</p>
-            <p className="mt-0.5 text-lg font-black text-emerald-200">{fmt(revenue?.currentMrrEur)} €</p>
-          </div>
-          <div>
-            <p className="text-[10px] uppercase tracking-wider text-slate-400">VIP actifs</p>
-            <p className="mt-0.5 text-lg font-black text-cyan-200">{fmt(revenue?.activeVip)}</p>
-          </div>
-          <div>
-            <p className="text-[10px] uppercase tracking-wider text-slate-400">Clients</p>
-            <p className="mt-0.5 text-lg font-black text-cyan-200">{fmt(revenue?.clientsActive)}</p>
-          </div>
-          <div>
-            <p className="text-[10px] uppercase tracking-wider text-slate-400">FTD lifetime</p>
-            <p className="mt-0.5 text-lg font-black text-amber-200">{fmt(revenue?.ftdCumul)}</p>
-          </div>
-          <div>
-            <p className="text-[10px] uppercase tracking-wider text-slate-400">Past due</p>
-            <p className={`mt-0.5 text-lg font-black ${(revenue?.pastDueEur ?? 0) > 0 ? "text-red-300" : "text-slate-300"}`}>
-              {fmt(revenue?.pastDueEur)} € · {fmt(revenue?.pastDueCount)}
-            </p>
-          </div>
-          <div>
-            <p className="text-[10px] uppercase tracking-wider text-slate-400">Services</p>
-            <p className={`mt-0.5 text-lg font-black ${servicesLive === services.length ? "text-emerald-200" : "text-amber-200"}`}>
-              {servicesLive}/{services.length}
-            </p>
-          </div>
-          <div>
-            <p className="text-[10px] uppercase tracking-wider text-slate-400">Agents fresh</p>
-            <p className={`mt-0.5 text-lg font-black ${agents && agents.fresh > 5 ? "text-emerald-200" : "text-red-300"}`}>
-              {agents?.fresh ?? 0}/{agents?.total ?? 0}
-            </p>
-          </div>
-        </div>
-      </div>
-
-      {/* 2. AUJOURD'HUI — 3 actions prioritaires */}
-      <section className="mb-5 rounded-md border border-amber-400/30 bg-slate-950/70 px-5 py-4">
-        <h2 className="mb-3 text-sm font-bold uppercase tracking-[0.2em] text-amber-300">
-          🎯 Aujourd&apos;hui · 3 actions prioritaires
-        </h2>
-        <div className="grid grid-cols-1 gap-3 md:grid-cols-3">
-          {todayTasks.length > 0 ? (
-            todayTasks.map((task, idx) => (
-              <div key={idx} className="rounded-md border border-amber-300/30 bg-slate-900/60 p-4">
-                <p className="text-base font-semibold text-white leading-snug">{task.title}</p>
-                <p className="mt-1 text-[10.5px] uppercase tracking-wide text-amber-300">
-                  {task.priority === "urgent" ? "🔴 Urgent" : task.priority === "high" ? "🟡 Haute" : "🟢 Normale"}
-                  {" · "}
-                  {task.arr_impact === "direct" ? "Impact direct ARR" : "Impact indirect"}
-                </p>
-                <p className="mt-2 text-xs text-slate-300 leading-snug">
-                  <span className="text-emerald-300 font-semibold">→ </span>
-                  {task.next_action}
-                </p>
-                <p className="mt-2 text-[10px] text-slate-500 truncate" title={task.source_tag ?? ""}>
-                  source: {task.source_tag}
-                </p>
-              </div>
-            ))
-          ) : (
-            <p className="col-span-3 text-sm text-slate-400">Aucune action prioritaire chargée</p>
-          )}
-        </div>
-      </section>
-
-      {/* 3. MACHINE COMMERCIALE — tabs par domaine */}
-      <section className="mb-5 rounded-md border border-cyan-400/25 bg-slate-950/70 px-5 py-4">
-        <h2 className="mb-3 text-sm font-bold uppercase tracking-[0.2em] text-cyan-300">
-          🏭 Machine commerciale · {commerce.length} boutiques par domaine
-        </h2>
-        <Tabs.Root defaultValue="argent" className="w-full">
-          <Tabs.List className="flex flex-wrap gap-1 border-b border-slate-800 mb-4">
-            {[
-              { v: "argent", l: "💰 Argent" },
-              { v: "reseaux", l: "📱 Réseaux" },
-              { v: "clients", l: "👥 Clients" },
-              { v: "contenu", l: "🎬 Contenu" },
-              { v: "trading", l: "📈 Trading" },
-              { v: "ops", l: "⚙️ Ops" },
-            ].map((t) => (
-              <Tabs.Trigger
-                key={t.v}
-                value={t.v}
-                className="px-3 py-2 text-xs font-semibold text-slate-400 hover:text-white data-[state=active]:text-amber-300 data-[state=active]:border-b-2 data-[state=active]:border-amber-300"
-              >
-                {t.l} ({commerceByCategory[t.v]?.length ?? 0})
-              </Tabs.Trigger>
-            ))}
-          </Tabs.List>
-          {Object.entries(commerceByCategory).map(([cat, shops]) => (
-            <Tabs.Content key={cat} value={cat} className="grid grid-cols-1 gap-3 md:grid-cols-2 lg:grid-cols-3">
-              {shops.length === 0 ? (
-                <p className="text-xs text-slate-500">Aucune boutique dans cette catégorie</p>
-              ) : (
-                shops.map((shop) => {
-                  const h = humanStatusMap[shop.status] ?? humanStatusMap.AWAITING_SETUP;
-                  return (
-                    <div key={shop.id} className={`rounded-md border p-3 ${h.tone}`}>
-                      <div className="flex items-center justify-between gap-2">
-                        <p className="truncate font-semibold text-white text-sm">{shop.name}</p>
-                        <span className="rounded border border-current/40 bg-slate-950/60 px-1.5 py-0.5 text-[9px] font-bold uppercase whitespace-nowrap">
-                          {h.label}
-                        </span>
-                      </div>
-                      <p className="mt-2 text-[11px] text-slate-300 leading-snug line-clamp-2">
-                        <span className="text-red-300">⚠ </span>
-                        {shop.problem}
-                      </p>
-                      <p className="mt-1 text-[11px] text-emerald-200 leading-snug line-clamp-2">
-                        <span className="text-emerald-300">→ </span>
-                        {shop.next_action}
-                      </p>
-                      <p className="mt-2 text-[10px] text-slate-400">👤 {shop.owner_agent}</p>
-                    </div>
-                  );
-                })
-              )}
-            </Tabs.Content>
-          ))}
-        </Tabs.Root>
-      </section>
-
-      {/* 4. SYSTEM TRUTH — compact */}
-      <section className="mb-5 rounded-md border border-purple-400/25 bg-slate-950/70 px-5 py-4">
-        <h2 className="mb-3 text-sm font-bold uppercase tracking-[0.2em] text-purple-300">
-          🛰️ System truth · état infra
-        </h2>
-        <div className="grid grid-cols-2 gap-2 md:grid-cols-4 lg:grid-cols-8">
-          {services.slice(0, 8).map((s) => {
-            const h = serviceHumanStatus(s.status, s.ok);
-            return (
-              <div key={s.id} className={`rounded border ${h.tone} bg-slate-900/40 p-2`} title={s.role ?? s.url ?? ""}>
-                <p className="text-[11px] font-semibold text-white truncate">{s.label}</p>
-                <p className="mt-0.5 text-[9.5px] uppercase tracking-wide">{h.label}</p>
-                <p className="text-[9px] font-mono text-slate-400">HTTP {s.http_code ?? "—"}</p>
-              </div>
-            );
-          })}
-        </div>
-        {agents && (
-          <p className="mt-3 text-xs text-slate-400">
-            Agents : <span className="text-emerald-300 font-semibold">{agents.fresh} fresh</span> ·{" "}
-            <span className="text-red-300 font-semibold">{agents.stale} stale</span> sur {agents.total} canon
-            {revenue?.revenue_drift_detected && (
-              <span className="ml-3 text-amber-300">⚠ Revenue drift détecté (Hub past_due ≠ Stripe LIVE)</span>
-            )}
-          </p>
-        )}
-        {topBlockers.length > 0 && (
-          <div className="mt-3 border-t border-slate-800 pt-3">
-            <p className="mb-1 text-[10px] uppercase tracking-wide text-amber-300 font-semibold">Warnings importants</p>
-            <ul className="space-y-1 text-xs text-slate-300">
-              {topBlockers.slice(0, 5).map((b: string, i: number) => (
-                <li key={i} className="leading-snug">
-                  <span className="text-amber-300">▸ </span>
-                  {b}
-                </li>
-              ))}
-            </ul>
-          </div>
-        )}
-      </section>
-    </div>
   );
 }
