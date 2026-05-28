@@ -22,7 +22,7 @@ import {
 
 import { DashboardSidebar } from "@/components/organisms/DashboardSidebar";
 import { DashboardShell } from "@/components/templates/DashboardShell";
-import { WorldMapLiving } from "./WorldMapLiving";
+import { WorldMapLiving, type CofiaSnapshot } from "./WorldMapLiving";
 
 type AssetsWarehouseSnapshot = {
   ok?: boolean;
