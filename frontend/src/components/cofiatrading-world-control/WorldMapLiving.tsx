@@ -264,6 +264,48 @@ export function WorldMapLiving({
   });
   const [selectedAngel, setSelectedAngel] = useState<Angel | null>(null);
   const [hoveredAngel, setHoveredAngel] = useState<number | null>(null);
+  // Live house statuses from Central Brain registry — refetch every 30s.
+  const [houseStatuses, setHouseStatuses] = useState<Record<string, string> | null>(null);
+  const [registryError, setRegistryError] = useState(false);
+
+  useEffect(() => {
+    let cancelled = false;
+    const loadRegistry = async () => {
+      try {
+        const r = await fetch("http://localhost:8767/api/central-brain/registry", { cache: "no-store" });
+        if (!r.ok) throw new Error(`HTTP_${r.status}`);
+        const data = await r.json();
+        const houses = (data?.houses ?? {}) as Record<string, { status?: unknown }>;
+        const map: Record<string, string> = {};
+        for (const [id, v] of Object.entries(houses)) {
+          if (typeof v?.status === "string") map[id] = v.status;
+        }
+        if (!cancelled) {
+          setHouseStatuses(map);
+          setRegistryError(false);
+        }
+      } catch {
+        // Honest-by-design: on échec, on marque ERR — jamais de faux-vert ni UNKNOWN.
+        if (!cancelled) setRegistryError(true);
+      }
+    };
+    void loadRegistry();
+    const iv = window.setInterval(loadRegistry, 30_000);
+    return () => {
+      cancelled = true;
+      window.clearInterval(iv);
+    };
+  }, []);
+
+  // Statut honnête par maison : registry > ERR si échec/absent > LOADING avant 1er fetch.
+  const statusFor = (id: string): string => {
+    if (houseStatuses && houseStatuses[id]) return houseStatuses[id];
+    if (registryError) return "ERR";
+    if (houseStatuses === null) return "LOADING";
+    return "ERR";
+  };
+  const houseNodes = CANON_HOUSES.map((h) => ({ ...h, key: h.id, status: statusFor(h.id) }));
+  const liveHousesCount = houseNodes.filter((n) => n.status === "LIVE").length;
 
   const dragState = useRef<{ active: boolean; startX: number; startY: number; ox: number; oy: number }>({
     active: false,
