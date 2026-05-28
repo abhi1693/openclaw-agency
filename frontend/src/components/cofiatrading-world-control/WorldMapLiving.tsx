@@ -365,6 +365,15 @@ export function WorldMapLiving({
               <feGaussianBlur stdDeviation="3.2" result="b" />
               <feMerge><feMergeNode in="b" /><feMergeNode in="SourceGraphic" /></feMerge>
             </filter>
+            <filter id="soft-glow" x="-60%" y="-60%" width="220%" height="220%">
+              <feGaussianBlur stdDeviation="7" result="b" />
+              <feMerge><feMergeNode in="b" /><feMergeNode in="SourceGraphic" /></feMerge>
+            </filter>
+            <linearGradient id="roof-sheen" x1="0" y1="0" x2="0.45" y2="1">
+              <stop offset="0%" stopColor="#ffffff" stopOpacity="0.26" />
+              <stop offset="55%" stopColor="#ffffff" stopOpacity="0.05" />
+              <stop offset="100%" stopColor="#000000" stopOpacity="0.22" />
+            </linearGradient>
           </defs>
 
           {/* sol iso */}
