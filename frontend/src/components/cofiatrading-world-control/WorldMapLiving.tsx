@@ -163,34 +163,77 @@ const fmtEur = (v: number | null | undefined) =>
 const fmtNum = (v: number | null | undefined) =>
   typeof v === "number" && Number.isFinite(v) ? new Intl.NumberFormat("fr-FR").format(v) : "source down";
 
-/* géométrie iso d'un bâtiment : footprint + prisme (toit + 2 murs) */
+/* géométrie iso d'un bâtiment : footprint + prisme (toit + 2 murs + fenêtres) */
+type Pt = { x: number; y: number };
+type Win = { pts: string; lit: boolean };
 type Built = {
   zone: Zone;
-  base: { x: number; y: number };
-  ground: Array<{ x: number; y: number }>;
-  roofPts: Array<{ x: number; y: number }>;
+  base: Pt;
+  ground: Pt[];
+  roofPts: Pt[];
   leftWall: string;
   rightWall: string;
   roofPoly: string;
   height: number;
+  leftWindows: Win[];
+  rightWindows: Win[];
 };
+
+const lerpPt = (a: Pt, b: Pt, t: number): Pt => ({ x: a.x + (b.x - a.x) * t, y: a.y + (b.y - a.y) * t });
+
+/* grille de fenêtres iso-correcte sur une face (4 coins bas/haut), interpolation bilinéaire */
+function faceWindows(BL: Pt, BR: Pt, TL: Pt, TR: Pt, cols: number, rows: number, seed: number): Win[] {
+  const out: Win[] = [];
+  const mx = 0.16;
+  const my = 0.2;
+  const P = (pt: Pt) => `${pt.x.toFixed(1)},${pt.y.toFixed(1)}`;
+  const at = (u: number, v: number): Pt => lerpPt(lerpPt(BL, BR, u), lerpPt(TL, TR, u), v);
+  for (let r = 0; r < rows; r++) {
+    for (let c = 0; c < cols; c++) {
+      const a = at((c + mx) / cols, (r + my) / rows);
+      const b = at((c + 1 - mx) / cols, (r + my) / rows);
+      const d = at((c + 1 - mx) / cols, (r + 1 - my) / rows);
+      const e = at((c + mx) / cols, (r + 1 - my) / rows);
+      const lit = ((c * 7 + r * 13 + seed) % 7) !== 0;
+      out.push({ pts: `${P(a)} ${P(b)} ${P(d)} ${P(e)}`, lit });
+    }
+  }
+  return out;
+}
+
 function buildZone(z: Zone): Built {
-  const h = z.tall ? 46 : 30;
+  const levels = z.tall ? 7 : z.district === "command" || z.district === "content" ? 5 : 4;
+  const h = 8 + levels * 6.5;
   const corners = [
     [z.x, z.y],
     [z.x + z.w, z.y],
     [z.x + z.w, z.y + z.h],
     [z.x, z.y + z.h],
   ].map(([wx, wy]) => isoProject(wx, wy));
-  const ground = corners.map((c) => ({ x: c.sx, y: c.sy }));
-  const roofPts = ground.map((c) => ({ x: c.x, y: c.y - h }));
-  const p = (pt: { x: number; y: number }) => `${pt.x.toFixed(1)},${pt.y.toFixed(1)}`;
+  const ground: Pt[] = corners.map((c) => ({ x: c.sx, y: c.sy }));
+  const roofPts: Pt[] = ground.map((c) => ({ x: c.x, y: c.y - h }));
+  const p = (pt: Pt) => `${pt.x.toFixed(1)},${pt.y.toFixed(1)}`;
   // ground: 0=back 1=right 2=front 3=left
   const roofPoly = roofPts.map(p).join(" ");
   const leftWall = [ground[3], ground[2], roofPts[2], roofPts[3]].map(p).join(" ");
   const rightWall = [ground[1], ground[2], roofPts[2], roofPts[1]].map(p).join(" ");
-  const base = { x: (ground[2].x + roofPts[0].x) / 2, y: ground[2].y };
-  return { zone: z, base: { x: (ground[0].x + ground[2].x) / 2, y: (ground[0].y + ground[2].y) / 2 }, ground, roofPts, leftWall, rightWall, roofPoly, height: h };
+  const cols = Math.max(2, Math.round(z.w * 1.1));
+  const rows = Math.max(3, levels);
+  const seed = z.id.length + Math.round(z.x) + Math.round(z.y);
+  const leftWindows = faceWindows(ground[3], ground[2], roofPts[3], roofPts[2], cols, rows, seed);
+  const rightWindows = faceWindows(ground[1], ground[2], roofPts[1], roofPts[2], cols, rows, seed + 3);
+  return {
+    zone: z,
+    base: { x: (ground[0].x + ground[2].x) / 2, y: (ground[0].y + ground[2].y) / 2 },
+    ground,
+    roofPts,
+    leftWall,
+    rightWall,
+    roofPoly,
+    height: h,
+    leftWindows,
+    rightWindows,
+  };
 }
 
 export function WorldMapLiving({
