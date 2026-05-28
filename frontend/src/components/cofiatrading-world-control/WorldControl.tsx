@@ -3711,6 +3711,38 @@ function HouseDrawer({
               </section>
             )}
 
+            {house.id === "obsidian_library" && (
+              <section className="rounded-md border border-slate-300/15 bg-slate-300/5 p-3">
+                <h3 className="mb-3 flex items-center justify-between text-xs font-semibold uppercase tracking-[0.18em] text-slate-200">
+                  <span>Notion · workspace (cache local)</span>
+                  <span className="text-[9px] font-normal text-slate-400">
+                    {notion
+                      ? notion.ok
+                        ? `${notion.databases?.length ?? 0} DBs · ${notion.sections?.length ?? 0} sections`
+                        : notion.reason ?? "source down"
+                      : "…"}
+                  </span>
+                </h3>
+                <div className="grid gap-1.5 sm:grid-cols-2">
+                  {(notion?.databases ?? []).map((db) => (
+                    <div
+                      key={db.key}
+                      className="truncate rounded border border-slate-800 bg-slate-900/70 px-2.5 py-1.5 text-[11px] text-slate-300"
+                    >
+                      {db.title}
+                    </div>
+                  ))}
+                </div>
+                {notion && (notion.databases ?? []).length === 0 && (
+                  <p className="text-[11px] text-slate-500">{notion.reason ?? "aucune DB"}</p>
+                )}
+                {!notion && <p className="text-[11px] text-slate-500">chargement Notion…</p>}
+                <p className="mt-2 text-[9px] text-slate-500">
+                  Source réelle locale : ~/.openclaw/state/notion_dbs.json
+                </p>
+              </section>
+            )}
+
             <section className="rounded-md border border-slate-800 bg-slate-950/70 p-3">
               <h3 className="mb-3 text-xs font-semibold uppercase tracking-[0.18em] text-slate-300">
                 Camions garés
