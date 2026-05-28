@@ -1211,6 +1211,7 @@ export function WorldControl() {
             <ProofRow label="Approval gates" status={(snapshot?.openclaw?.approvals.length ?? 0) >= 8 ? "LIVE" : "UNKNOWN"} proof={`${formatNumber(snapshot?.openclaw?.approvals.length)} pending gates`} />
             <ProofRow label="Central Brain" status={snapshot?.centralBrain.housesCount ? "LIVE" : "UNKNOWN"} proof={`${formatNumber(snapshot?.centralBrain.housesCount)} houses`} />
             <ProofRow label="CofiaPublisher" status={snapshot?.publisher.ok ? "LIVE" : "UNKNOWN"} proof={`${snapshot?.publisher.status ?? "UNKNOWN"} / ${formatNumber(snapshot?.publisher.outputDirCount)} renders`} />
+            <ProofRow label="Assets prêts" status={snapshot?.assetsWarehouse?.ok ? "LIVE" : "UNKNOWN"} proof={`${formatNumber(snapshot?.assetsWarehouse?.mp4Count)} MP4 · ${formatNumber(snapshot?.assetsWarehouse?.captionsCount)} captions · ${formatNumber(snapshot?.assetsWarehouse?.assetsInventoryCount)} assets${(snapshot?.assetsWarehouse?.errors?.length ?? 0) > 0 ? ` · ${snapshot?.assetsWarehouse?.errors?.length} err` : ""}`} />
             <ProofRow label="Writes" status="LOCKED" proof="send/publish/deploy/Stripe disabled" />
           </Panel>
         </aside>
