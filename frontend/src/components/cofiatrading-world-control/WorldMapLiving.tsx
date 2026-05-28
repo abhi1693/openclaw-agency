@@ -165,6 +165,7 @@ type Layers = {
   entrepots: boolean;
   routes: boolean;
   maisons: boolean;
+  anges: boolean;
 };
 
 /* Generated faint "city light" dots — deterministic so SSR/CSR match. */
