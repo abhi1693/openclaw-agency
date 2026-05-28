@@ -3426,6 +3426,13 @@ type NotionPayload = {
   sections?: string[];
   reason?: string;
 };
+type ObsidianPayload = {
+  ok: boolean;
+  total?: number;
+  sections?: { section: string; notes: number }[];
+  handoffs?: { codex: string | null; claude: string | null; openclaw: string | null };
+  reason?: string;
+};
 
 function HouseDrawer({
   house,
