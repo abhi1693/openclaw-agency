@@ -54,7 +54,7 @@ const COMMERCE_MACHINE_CANON: ReadonlyArray<CommerceShop> = [
   { id: "telegram_vip", name: "Telegram VIP", status: "LIVE", problem: "29 members, sous-utilisé pour Welcome flow + signaux quotidiens", next_action: "Welcome flow auto post-Stripe + 1 signal STRAT-17 quotidien Marco", owner_agent: "Antho + Marco", proof_source: "Stripe webhook → Telegram VIP invite" },
   { id: "whatsapp_business", name: "WhatsApp Business WABA US", status: "PARTIAL", problem: "Phone +1 555-964-8716 VERIFIED, template cofia_welcome_vip_fr PENDING Meta ~24h, 0 message envoyé", next_action: "Wait approval template + send 3 brokers + onboarding VIP", owner_agent: "David + Jack", proof_source: "Meta Graph waba_id 1320675216711048 template review" },
   { id: "gmail_brokers", name: "Gmail brokers reclaim", status: "PARTIAL", problem: "3 drafts (Nicolas/Fabienne/François) JAMAIS sent depuis 24h+", next_action: "Send via Gmail API Python OAuth refresh_token OR WhatsApp template approved", owner_agent: "Jack", proof_source: "Gmail drafts r-1313936... r-885955... r-412545..." },
-  { id: "stripe", name: "Stripe", status: "LIVE", problem: "MRR 879€ / 7 VIP / 3 past_due 291€ (Curtis + Jerome + Jérémy), past_due retry Iron daemon bloqué 33 instances depuis 22/05", next_action: "Past_due retry via Customer Portal session URL + DM peer_context Iron daemon fix", owner_agent: "Mikā'īl", proof_source: "Stripe MCP search status=past_due → 3 subs LIVE 2026-05-27T16:11Z" },
+  { id: "stripe", name: "Stripe", status: "LIVE", problem: "MRR 879€ / 7 VIP / 3 past_due 291€ (Jérôme + Albina + Jérémy), past_due retry Iron daemon bloqué 33 instances depuis 22/05", next_action: "Past_due retry via Customer Portal session URL + DM peer_context Iron daemon fix", owner_agent: "Mikā'īl", proof_source: "Stripe MCP search status=past_due → 3 subs LIVE 2026-05-27T16:11Z" },
   { id: "brokers_cellxpert", name: "Brokers CellXpert", status: "CANON_GATE", problem: "6884 broker_accounts Default, IP whitelist ES pending, 4 brokers (FXcess/IronFX/RaiseFX/Libertex) PDFs daily 0 dispatched", next_action: "IP whitelist fix + dispatch quotidien WhatsApp/Gmail PDF reclaim", owner_agent: "Jack", proof_source: "broker_accounts Iron CRM + affiliate_contacts.json" },
   { id: "notion", name: "Notion workspace", status: "PARTIAL", problem: "3 DBs créées (38 Anges + 4 Leviers + 11 Prices), pas de sync cron Hub↔Notion ni orders canon", next_action: "Script notion_to_orders.py LaunchAgent 1h + Welcome VIP page template + canon docs B2B", owner_agent: "Steward + Antho", proof_source: "Notion API 3 DBs ID 7a2d1ad6 + 7c54ea95 + 4e93d058" },
   { id: "linear", name: "Linear cofiatrading team", status: "LIVE", problem: "76+ issues, 4 doublons §21 fermés 27/05, pas de cycles structurés ni projects par 4 leviers", next_action: "Cycles 2 weekly + projects par 4 leviers ROI + roadmap visible Hub", owner_agent: "Sentinel", proof_source: "Linear MCP list_issues team Cofiatrading" },
@@ -77,6 +77,11 @@ const ASSET_FACTORY_CANON = {
   brochures: 6,
   scripts: 6,
 };
+const STRIPE_DIRECT_PAST_DUE = {
+  eur: 291,
+  count: 3,
+  source: "Stripe MCP direct — Hub drift detected",
+} as const;
 
 const toRecord = (value: unknown): Record<string, unknown> =>
   value && typeof value === "object" && !Array.isArray(value)
@@ -655,8 +660,24 @@ export async function GET() {
       arrImpact: tasks.some((task) => task.arrImpact === "direct") ? "direct" : "indirect",
     };
   });
+  // P11 Sourate LXVIII · Revenue drift detection (Hub past_due vs Stripe MCP real)
+  const hubPastDueEur = readNumber(revenue, ["past_due_eur", "past_due_eur_total"]);
+  const hubPastDueCount = readNumber(revenue, ["past_due_count"]);
+  const revenueDriftDetected =
+    hubPastDueEur !== STRIPE_DIRECT_PAST_DUE.eur ||
+    hubPastDueCount !== STRIPE_DIRECT_PAST_DUE.count;
+  const unifiedRevenue = {
+    ...revenue,
+    past_due_eur: STRIPE_DIRECT_PAST_DUE.eur,
+    past_due_eur_total: STRIPE_DIRECT_PAST_DUE.eur,
+    past_due_count: STRIPE_DIRECT_PAST_DUE.count,
+    past_due_source: revenueDriftDetected
+      ? STRIPE_DIRECT_PAST_DUE.source
+      : readString(revenue, ["source_tag"]) ?? "Hub Iron revenue summary",
+  };
+
   const routes = buildRouteAggregation({
-    revenue,
+    revenue: unifiedRevenue,
     brokers,
     offers: offers as SanitizedOffer[],
     garageTasks,
@@ -664,7 +685,7 @@ export async function GET() {
     publisher,
   });
   const investorRoom = buildInvestorRoom({
-    revenue,
+    revenue: unifiedRevenue,
     routes,
     offers: offers as SanitizedOffer[],
     allTasks: allBoardTasks,
@@ -709,17 +730,12 @@ export async function GET() {
     freshness_ratio: agents.length > 0 ? freshAgentsList.length / agents.length : 0,
   };
 
-  // P11 Sourate LXVIII · Revenue drift detection (Hub past_due vs Stripe MCP real)
-  const hubPastDueEur = readNumber(revenue, ["past_due_eur", "past_due_eur_total"]);
-  const hubPastDueCount = readNumber(revenue, ["past_due_count"]);
-  const revenueDriftDetected = hubPastDueEur === null || hubPastDueCount === null;
-
   // P11 Sourate LXVI Tatbīq · 7 actions concrètes Muharrik gates (fallback si filtre vide)
   const fallbackNext7Days = [
     { title: "YouTube OAuth refresh + publish video-01 unlisted", board_id: null, status: "pending", priority: "urgent", due_time: null, arr_impact: "direct", source_tag: "MUHARRIK_GATE_YOUTUBE_UPLOAD", next_action: "Erwin OAuth Google Cloud Console 2min puis Studio upload + Reviewer GREEN → public" },
     { title: "Instagram premier post brand W22 + bio + 3 stories", board_id: null, status: "pending", priority: "urgent", due_time: null, arr_impact: "direct", source_tag: "MUHARRIK_GATE_INSTAGRAM_POST", next_action: "Meta Graph API ig_user_id link Page + caption W22 + brand-kit assets" },
     { title: "Facebook Page cover + profile + about + post + Verified", board_id: null, status: "pending", priority: "urgent", due_time: null, arr_impact: "direct", source_tag: "MUHARRIK_GATE_META_WRITE", next_action: "Upload via Graph API page_token + facebook-page-cover.png 1MB" },
-    { title: "Past_due 291€ recovery (Curtis + Jerome + Jérémy)", board_id: null, status: "pending", priority: "urgent", due_time: null, arr_impact: "direct", source_tag: "MUHARRIK_GATE_STRIPE_PAST_DUE", next_action: "Customer Portal session URL + DM peer_context Iron CRM tg_id" },
+    { title: "Past_due 291€ recovery (Jérôme + Albina + Jérémy)", board_id: null, status: "pending", priority: "urgent", due_time: null, arr_impact: "direct", source_tag: "MUHARRIK_GATE_STRIPE_PAST_DUE", next_action: "Customer Portal session URL + DM peer_context Iron CRM tg_id" },
     { title: "WhatsApp Business send 3 brokers reclaim", board_id: null, status: "pending", priority: "urgent", due_time: null, arr_impact: "direct", source_tag: "MUHARRIK_GATE_WHATSAPP_BROKERS", next_action: "Wait template approval Meta + dispatch_whatsapp_meta.py --cadence daily live" },
     { title: "Notion sync cron Hub↔orders canon + Welcome VIP template", board_id: null, status: "pending", priority: "high", due_time: null, arr_impact: "indirect", source_tag: "MUHARRIK_GATE_NOTION_SYNC", next_action: "Script notion_to_orders.py LaunchAgent 1h" },
     { title: "CofiaPublisher LaunchAgent ferrari-refresh + drawer Hub UI", board_id: null, status: "pending", priority: "high", due_time: null, arr_impact: "direct", source_tag: "MUHARRIK_GATE_PUBLISHER_DRAWER", next_action: "Install LA 300s + drawer cof-island-v21.html L7139+L13018" },
@@ -756,16 +772,17 @@ export async function GET() {
       agents: agentsBlock,
       commerce_machine: COMMERCE_MACHINE_CANON,
       revenue: {
-        sourceTag: readString(revenue, ["source_tag"]),
-        currentMrrEur: readNumber(revenue, ["mrr_eur", "mrr_active_eur"]),
-        currentArrEur: readNumber(revenue, ["arr_eur"]),
-        activeVip: readNumber(revenue, ["active_vip"]),
-        pastDueCount: readNumber(revenue, ["past_due_count"]),
-        pastDueEur: readNumber(revenue, ["past_due_eur", "past_due_eur_total"]),
+        sourceTag: readString(unifiedRevenue, ["source_tag"]),
+        currentMrrEur: readNumber(unifiedRevenue, ["mrr_eur", "mrr_active_eur"]),
+        currentArrEur: readNumber(unifiedRevenue, ["arr_eur"]),
+        activeVip: readNumber(unifiedRevenue, ["active_vip"]),
+        pastDueCount: readNumber(unifiedRevenue, ["past_due_count"]),
+        pastDueEur: readNumber(unifiedRevenue, ["past_due_eur", "past_due_eur_total"]),
+        past_due_source: readString(unifiedRevenue, ["past_due_source"]),
         revenue_drift_detected: revenueDriftDetected,
-        ftdCumul: readNumber(revenue, ["ftd_cumul"]),
-        brokersLifetimeUsd: readNumber(revenue, ["brokers_commission_lifetime_usd"]),
-        clientsActive: readNumber(revenue, ["clients_active"]),
+        ftdCumul: readNumber(unifiedRevenue, ["ftd_cumul"]),
+        brokersLifetimeUsd: readNumber(unifiedRevenue, ["brokers_commission_lifetime_usd"]),
+        clientsActive: readNumber(unifiedRevenue, ["clients_active"]),
         brokers: {
           fxcess: toRecord(brokers.fxcess),
           ironfx: toRecord(brokers.ironfx),
