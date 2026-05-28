@@ -393,6 +393,25 @@ export function WorldMapLiving({
             })}
           </g>
 
+          {/* halos de district au sol (pools de lumière colorée) */}
+          <g opacity="0.9">
+            {built.map((b) => {
+              const col = DISTRICT_COLOR[b.zone.district] ?? "#22d3ee";
+              return (
+                <ellipse
+                  key={`dist-${b.zone.id}`}
+                  cx={b.base.x}
+                  cy={b.base.y + 8}
+                  rx={b.zone.w * 13}
+                  ry={b.zone.w * 6}
+                  fill={col}
+                  opacity="0.09"
+                  filter="url(#soft-glow)"
+                />
+              );
+            })}
+          </g>
+
           {/* routes animées inter-maisons (district flows) */}
           <g>
             {ROUTES.map(([a, b2], i) => {
