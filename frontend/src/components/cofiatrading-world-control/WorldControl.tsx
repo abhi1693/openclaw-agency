@@ -3652,6 +3652,43 @@ function HouseDrawer({
               </section>
             )}
 
+            {house.id === "mission_control_tower" && (
+              <section className="rounded-md border border-violet-300/20 bg-violet-300/8 p-3">
+                <h3 className="mb-3 flex items-center justify-between text-xs font-semibold uppercase tracking-[0.18em] text-violet-100">
+                  <span>Linear · issues live (team COF)</span>
+                  <span className="text-[9px] font-normal text-slate-400">
+                    {linear ? (linear.ok ? `${linear.total} issues` : linear.reason ?? "source down") : "…"}
+                  </span>
+                </h3>
+                <div className="space-y-1.5">
+                  {(linear?.issues ?? []).slice(0, 12).map((iss) => (
+                    <a
+                      key={iss.id}
+                      href={iss.url ?? "#"}
+                      target="_blank"
+                      rel="noreferrer"
+                      className="flex items-center gap-2 rounded border border-slate-800 bg-slate-900/70 px-2.5 py-1.5 text-[11px] hover:border-violet-300/40"
+                    >
+                      <span className="shrink-0 rounded bg-violet-300/10 px-1.5 py-0.5 font-mono text-[9px] text-violet-200">
+                        {iss.id}
+                      </span>
+                      <span className="shrink-0 rounded border border-slate-700 px-1.5 py-0.5 text-[8.5px] text-slate-300">
+                        {iss.state}
+                      </span>
+                      <span className="truncate text-slate-300">{iss.title}</span>
+                    </a>
+                  ))}
+                  {linear && (linear.issues ?? []).length === 0 && (
+                    <p className="text-[11px] text-slate-500">
+                      {linear.ok ? "aucune issue" : linear.reason ?? "source down — pas d'invention"}
+                    </p>
+                  )}
+                  {!linear && <p className="text-[11px] text-slate-500">chargement Linear…</p>}
+                </div>
+                <p className="mt-2 text-[9px] text-slate-500">Source réelle : api.linear.app (clé locale, jamais exposée)</p>
+              </section>
+            )}
+
             <section className="rounded-md border border-slate-800 bg-slate-950/70 p-3">
               <h3 className="mb-3 text-xs font-semibold uppercase tracking-[0.18em] text-slate-300">
                 Camions garés
