@@ -1804,7 +1804,7 @@ export function WorldControl() {
       <main className="flex-1 overflow-y-auto bg-slate-950">
         <MissionControlPreservedShellCheck />
         <div className="bg-[#02040a] p-3 text-slate-100">
-          <CofiaLivingCity snapshot={snapshot} angelRoster={angelRoster} />
+          <CofiaLivingCity snapshot={snapshot} angelRoster={angelRoster} onSelectHouse={openHouseDrawer} />
 
           <section className="mt-4 min-h-screen border-b border-cyan-300/15 bg-[#050812] px-4 py-4 lg:px-6">
         <div className="mx-auto grid max-w-[1760px] gap-4 xl:grid-cols-[1fr_420px]">
