@@ -3338,12 +3338,28 @@ function CityBuilding({
         </div>
         <p className="relative mt-2 line-clamp-2 text-[10px] leading-3 text-slate-200">{district.role}</p>
         <p className="relative mt-1 truncate text-[9px] text-amber-100">Next: {district.next}</p>
-        <div className="relative mt-1 flex flex-wrap gap-1">
-          {district.workers.slice(0, 4).map((worker) => (
-            <span key={`${district.id}-${worker}`} className="rounded border border-cyan-300/25 bg-cyan-300/10 px-1 py-0.5 text-[8px] font-semibold text-cyan-100">
-              {worker}
+        <div className="relative mt-1 flex flex-wrap items-center gap-1">
+          {agents.slice(0, 6).map((agent) => (
+            <span
+              key={`${district.id}-${agent.id}`}
+              title={`${agent.name} — ${agent.roleBadge}`}
+              className="inline-flex h-4 items-center gap-0.5 rounded border px-1 text-[8px] font-semibold"
+              style={{ borderColor: `${agent.colorPrimary}55`, backgroundColor: `${agent.colorPrimary}1f`, color: agent.colorPrimary }}
+            >
+              <span>{agent.avatarEmoji || agent.glyph}</span>
+              <span className="max-w-[46px] truncate">{agent.name}</span>
             </span>
           ))}
+          {agents.length > 6 ? (
+            <span className="rounded border border-white/15 bg-white/5 px-1 py-0.5 text-[8px] text-slate-300">+{agents.length - 6}</span>
+          ) : null}
+          {agents.length === 0
+            ? district.workers.slice(0, 3).map((worker) => (
+                <span key={`${district.id}-${worker}`} className="rounded border border-cyan-300/25 bg-cyan-300/10 px-1 py-0.5 text-[8px] font-semibold text-cyan-100">
+                  {worker}
+                </span>
+              ))
+            : null}
         </div>
         <div className="relative mt-1 flex flex-wrap gap-1">
           {district.machines.slice(0, 3).map((machine) => (
