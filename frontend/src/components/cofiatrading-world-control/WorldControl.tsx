@@ -3418,6 +3418,14 @@ type LinearIssueView = {
   updatedAt: string | null;
 };
 type LinearPayload = { ok: boolean; total?: number; issues?: LinearIssueView[]; reason?: string };
+type NotionDbView = { key: string; title: string; id: string | null };
+type NotionPayload = {
+  ok: boolean;
+  bootstrapAt?: string | null;
+  databases?: NotionDbView[];
+  sections?: string[];
+  reason?: string;
+};
 
 function HouseDrawer({
   house,
