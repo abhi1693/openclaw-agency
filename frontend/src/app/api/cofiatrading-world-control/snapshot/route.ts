@@ -813,6 +813,8 @@ export async function GET() {
     next_7_days_tasks: investorRoom.next_7_days_tasks.length > 0 ? investorRoom.next_7_days_tasks : fallbackNext7Days,
   };
 
+  const assetsWarehouse = await readAssetsWarehouse();
+
   return NextResponse.json(
     {
       ok: revenueResult.ok || housesResult.ok || publisherResult.ok,
