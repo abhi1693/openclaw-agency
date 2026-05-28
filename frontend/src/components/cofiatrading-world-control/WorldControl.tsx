@@ -3394,6 +3394,20 @@ function LivingWorldEngine({ snapshot, angelRoster }: { snapshot: Snapshot | nul
   );
 }
 
+type CalendarEventView = {
+  ts: string | null;
+  from: string | null;
+  role: string | null;
+  kind: string | null;
+  summary: string;
+};
+type CalendarPayload = {
+  ok: boolean;
+  freshness?: string;
+  totalLines?: number | null;
+  events?: CalendarEventView[];
+};
+
 function HouseDrawer({
   house,
   canonAgents,
