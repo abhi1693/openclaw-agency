@@ -3281,11 +3281,28 @@ function MovingTruck({ truck, path }: { truck: MovingTruck; path: string }) {
   );
 }
 
-function CityBuilding({ district }: { district: CityDistrict }) {
+function CityBuilding({
+  district,
+  agents,
+  onSelect,
+}: {
+  district: CityDistrict;
+  agents: CofiaAgent[];
+  onSelect: () => void;
+}) {
   const windows = Array.from({ length: district.visual === "castle" ? 8 : 6 });
   return (
     <div
-      className="t6-city-building absolute z-20 text-left transition hover:z-40 hover:scale-[1.04]"
+      role="button"
+      tabIndex={0}
+      onClick={onSelect}
+      onKeyDown={(event) => {
+        if (event.key === "Enter" || event.key === " ") {
+          event.preventDefault();
+          onSelect();
+        }
+      }}
+      className="t6-city-building absolute z-20 cursor-pointer text-left transition hover:z-40 hover:scale-[1.05] focus:outline-none focus-visible:ring-2 focus-visible:ring-cyan-300/70"
       style={{
         left: `${district.x}%`,
         top: `${district.y}%`,
