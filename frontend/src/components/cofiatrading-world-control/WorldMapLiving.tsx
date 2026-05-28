@@ -315,23 +315,6 @@ export function WorldMapLiving({
     oy: 0,
   });
 
-  const housesCount = snapshot?.centralBrain?.housesCount;
-  const houses = snapshot?.centralBrain?.houses ?? [];
-
-  /* Map first N houses onto preset coordinates. */
-  const nodes = useMemo(() => {
-    const count = Math.min(NODE_COORDS.length, Math.max(houses.length, 0));
-    return NODE_COORDS.slice(0, count || NODE_COORDS.length).map((coord, i) => {
-      const house = houses[i];
-      return {
-        ...coord,
-        key: house?.key ?? `node-${i}`,
-        title: house?.title ?? `Maison ${i + 1}`,
-        status: house?.status,
-        present: Boolean(house),
-      };
-    });
-  }, [houses]);
 
   /* Position the 38 angels in orbit rings around their platform cluster. */
   const angelNodes = useMemo(() => {
