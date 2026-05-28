@@ -166,6 +166,25 @@ const NODE_COORDS: Array<{ x: number; y: number }> = [
   { x: 740, y: 330 }, // Indian Ocean
 ];
 
+/* 15 maisons canon — id (matche le registry :8767) + titre + coord fixe map. */
+const CANON_HOUSES: Array<{ id: string; title: string; x: number; y: number }> = [
+  { id: "site_seo_lab", title: "Site & SEO Lab", x: 190, y: 150 },
+  { id: "openclaw_agent_barracks", title: "Agents Barracks", x: 252, y: 226 },
+  { id: "youtube_studio", title: "CofiaPublisher Studio", x: 150, y: 300 },
+  { id: "paperclip_factory", title: "Paperclip Factory", x: 305, y: 335 },
+  { id: "compliance_port", title: "Compliance Port", x: 432, y: 108 },
+  { id: "mission_control_tower", title: "Command Tower", x: 492, y: 150 },
+  { id: "central_brain", title: "Central Brain", x: 540, y: 198 },
+  { id: "vip_gate", title: "VIP Gate", x: 556, y: 296 },
+  { id: "assets_warehouse", title: "Assets Warehouse", x: 626, y: 112 },
+  { id: "iron_office", title: "Revenue & Iron", x: 692, y: 166 },
+  { id: "mt4_signal_tower", title: "Trading Tower", x: 816, y: 150 },
+  { id: "trading_academy", title: "Trading Academy", x: 866, y: 216 },
+  { id: "lightrag_observatory", title: "LightRAG Observatory", x: 720, y: 300 },
+  { id: "obsidian_library", title: "Knowledge Vault", x: 776, y: 360 },
+  { id: "calendar_tower", title: "Calendar Tower", x: 882, y: 360 },
+];
+
 type Layers = {
   camions: boolean;
   ouvriers: boolean;
