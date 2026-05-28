@@ -398,7 +398,7 @@ export function WorldMapLiving({
   let donutAcc = 0;
 
   const chips = [
-    { label: `${housesCount != null ? formatNumber(housesCount) : "—"} Maisons` },
+    { label: `${CANON_HOUSES.length} Maisons` },
     { label: `${angelTotal ?? 38} Anges` },
     { label: "59 Camions Canon" },
     { label: "41 Ouvriers" },
