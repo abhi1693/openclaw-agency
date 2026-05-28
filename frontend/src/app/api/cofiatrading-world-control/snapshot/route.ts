@@ -10,7 +10,7 @@ type FetchResult = {
   error: string | null;
 };
 
-const HOST = "http://host.docker.internal";
+const HOST = process.env.COF_HOST ?? "http://host.docker.internal";
 const OPENCLAW_API =
   process.env.OPENCLAW_BACKEND_INTERNAL_URL ?? "http://backend:8000";
 const LOCAL_AUTH_TOKEN = process.env.LOCAL_AUTH_TOKEN;
