@@ -853,6 +853,7 @@ export async function GET() {
   };
 
   const assetsWarehouse = await readAssetsWarehouse();
+  const agentsCanon = await readAgentsCanon();
 
   return NextResponse.json(
     {
@@ -860,6 +861,7 @@ export async function GET() {
       fetchedAt: new Date().toISOString(),
       sourceTag: "COFIATRADING_WORLD_CONTROL_READ_ONLY_SNAPSHOT_20260525",
       assetsWarehouse,
+      agentsCanon,
       endpoints: {
         revenue: { ok: revenueResult.ok, status: revenueResult.status },
         houses: { ok: housesResult.ok, status: housesResult.status },
