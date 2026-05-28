@@ -348,7 +348,7 @@ export function WorldMapLiving({
 
   const chips = [
     { label: `${housesCount != null ? formatNumber(housesCount) : "—"} Maisons` },
-    { label: "38 Anges" },
+    { label: `${angelTotal ?? 38} Anges` },
     { label: "59 Camions Canon" },
     { label: "41 Ouvriers" },
     { label: "LIVE Runtime", live: true },
