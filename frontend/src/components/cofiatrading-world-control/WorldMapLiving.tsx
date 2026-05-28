@@ -673,6 +673,7 @@ export function WorldMapLiving({
                 ["entrepots", "Entrepôts"],
                 ["routes", "Routes"],
                 ["maisons", "Maisons"],
+                ["anges", "Anges"],
               ] as Array<[keyof Layers, string]>).map(([key, label]) => (
                 <label key={key} className="flex cursor-pointer items-center gap-2 text-[11px] text-slate-300 hover:text-slate-100">
                   <input
