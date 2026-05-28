@@ -3440,26 +3440,43 @@ function HouseDrawer({
 
             <section className="rounded-md border border-slate-800 bg-slate-950/70 p-3">
               <h3 className="mb-3 text-xs font-semibold uppercase tracking-[0.18em] text-slate-300">
-                Ouvriers / agents affectés
+                Anges canon en poste ({canonAgents.length}) · attribution canonique
               </h3>
-              <div className="grid gap-2 sm:grid-cols-2">
-                {workforce.workers.map((worker) => {
-                  const runtimeAgent = house.agents.find((agent) => agent.name.toLowerCase() === worker.toLowerCase());
-                  return (
-                    <div key={`${house.id}-${worker}`} className="rounded border border-slate-800 bg-slate-900/70 px-3 py-2 text-xs">
-                      <div className="flex items-center justify-between gap-2">
-                        <span className="font-semibold text-slate-100">{worker}</span>
-                        <span className={`rounded border px-2 py-0.5 text-[9px] ${runtimeAgent ? statusClass.LIVE : statusClass.PAUSED}`}>
-                          {runtimeAgent ? runtimeAgent.status : "org"}
+              {canonAgents.length === 0 ? (
+                <p className="text-xs text-slate-500">Aucun ange canon attribué à cette maison.</p>
+              ) : (
+                <div className="grid gap-2 sm:grid-cols-2">
+                  {canonAgents.map((agent) => {
+                    const liveStatus = rosterStatusByName.get(agent.name.toLowerCase());
+                    return (
+                      <div
+                        key={`${house.id}-${agent.id}`}
+                        className="flex items-center gap-2 rounded border border-slate-800 bg-slate-900/70 px-3 py-2 text-xs"
+                      >
+                        <span
+                          className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full text-[11px] font-black"
+                          style={{
+                            background: `${agent.colorPrimary}22`,
+                            color: agent.colorPrimary,
+                            border: `1px solid ${agent.colorPrimary}66`,
+                          }}
+                        >
+                          {agent.avatarEmoji || agent.no || "·"}
                         </span>
+                        <div className="min-w-0 flex-1">
+                          <div className="flex items-center justify-between gap-2">
+                            <span className="truncate font-semibold text-slate-100">{agent.name}</span>
+                            <span className="shrink-0 rounded border border-slate-700 px-1.5 py-0.5 text-[8.5px] text-slate-300">
+                              {liveStatus ?? "org"}
+                            </span>
+                          </div>
+                          <p className="truncate text-[10px] text-slate-500">{agent.roleBadge || "—"}</p>
+                        </div>
                       </div>
-                      <p className="mt-1 line-clamp-2 text-slate-500">
-                        {runtimeAgent?.role ?? "Affectation organisationnelle T4C; runtime non prouvé ici."}
-                      </p>
-                    </div>
-                  );
-                })}
-              </div>
+                    );
+                  })}
+                </div>
+              )}
             </section>
 
             <section className="rounded-md border border-slate-800 bg-slate-950/70 p-3">
