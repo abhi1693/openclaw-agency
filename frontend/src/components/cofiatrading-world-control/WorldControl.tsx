@@ -3395,7 +3395,7 @@ function HouseDrawer({
                 {runtimeBadge}
               </span>
               <span className="rounded border border-cyan-300/30 bg-cyan-300/10 px-2 py-0.5 text-[10px] font-semibold text-cyan-100">
-                {workforce.workers.length} ouvriers affectés
+                {canonAgents.length} anges canon
               </span>
               <span className="rounded border border-cyan-300/30 bg-cyan-300/10 px-2 py-0.5 text-[10px] font-semibold text-cyan-100">
                 {trucksLabel}
