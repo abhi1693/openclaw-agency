@@ -3492,6 +3492,20 @@ function HouseDrawer({
       cancelled = true;
     };
   }, [house.id]);
+  const [obsidian, setObsidian] = useState<ObsidianPayload | null>(null);
+  useEffect(() => {
+    if (house.id !== "obsidian_library") return;
+    let cancelled = false;
+    fetch("/api/cofiatrading-world-control/obsidian", { cache: "no-store" })
+      .then((r) => r.json())
+      .then((j) => {
+        if (!cancelled) setObsidian(j as ObsidianPayload);
+      })
+      .catch(() => {});
+    return () => {
+      cancelled = true;
+    };
+  }, [house.id]);
   const runtimeTone = house.status === "LIVE" ? "LIVE" : workforce.tone;
   const runtimeBadge = house.status === "LIVE" ? "LIVE" : workforce.badge;
   const trucksLabel = house.trucks.length > 0
