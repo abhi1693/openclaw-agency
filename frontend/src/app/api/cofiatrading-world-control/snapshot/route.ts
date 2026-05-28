@@ -820,6 +820,7 @@ export async function GET() {
       ok: revenueResult.ok || housesResult.ok || publisherResult.ok,
       fetchedAt: new Date().toISOString(),
       sourceTag: "COFIATRADING_WORLD_CONTROL_READ_ONLY_SNAPSHOT_20260525",
+      assetsWarehouse,
       endpoints: {
         revenue: { ok: revenueResult.ok, status: revenueResult.status },
         houses: { ok: housesResult.ok, status: housesResult.status },
