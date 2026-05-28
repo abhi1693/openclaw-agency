@@ -3397,11 +3397,15 @@ function LivingWorldEngine({ snapshot, angelRoster }: { snapshot: Snapshot | nul
 function HouseDrawer({
   house,
   canonAgents,
+  commerce,
+  services,
   rosterStatusByName,
   onClose,
 }: {
   house: HouseView;
   canonAgents: CofiaAgent[];
+  commerce: NonNullable<Snapshot["commerce_machine"]>;
+  services: Snapshot["services"];
   rosterStatusByName: Map<string, string>;
   onClose: () => void;
 }) {
