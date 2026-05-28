@@ -2012,13 +2012,13 @@ export function WorldControl() {
       <DashboardSidebar />
       <main className="flex-1 overflow-y-auto bg-slate-950">
         <div className="bg-[#02040a] p-3 text-slate-100">
-          <ExactImageWorldControl snapshot={snapshot} onSelectHouse={(id) => openHouseDrawer(id)} />
+          <WorldMapLiving snapshot={snapshot} angelRoster={angelRoster} onSelectHouse={(id) => openHouseDrawer(id as HouseId)} />
 
           <details className="mt-4">
-            <summary className="cursor-pointer list-none rounded-md border border-cyan-300/15 bg-slate-950/70 px-4 py-3 text-[12px] font-black uppercase tracking-[0.2em] text-cyan-100 transition hover:bg-slate-900/70">
-              ▸ Debug — vue SVG legacy + raw (sous le fold)
+            <summary className="cursor-pointer list-none rounded-md border border-amber-300/20 bg-slate-950/70 px-4 py-3 text-[12px] font-black uppercase tracking-[0.2em] text-amber-100 transition hover:bg-slate-900/70">
+              ▸ Image exacte de référence (pack V2) — NE PAS utiliser comme poster figé · à transformer en scène LIVE (sprites + data temps réel)
             </summary>
-            <WorldMapLiving snapshot={snapshot} angelRoster={angelRoster} onSelectHouse={(id) => openHouseDrawer(id as HouseId)} />
+            <ExactImageWorldControl snapshot={snapshot} onSelectHouse={(id) => openHouseDrawer(id)} />
           </details>
 
 
