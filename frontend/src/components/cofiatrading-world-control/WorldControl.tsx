@@ -3024,30 +3024,6 @@ function InvestorRoomDrawer({
   );
 }
 
-function MissionControlPreservedShellCheck() {
-  return (
-    <div className="border-b border-slate-800 bg-slate-950 px-4 py-3 text-slate-100 md:px-6">
-      <div className="flex flex-wrap items-center justify-between gap-3">
-        <div>
-          <p className="text-[11px] font-black uppercase tracking-[0.24em] text-cyan-200">
-            Mission Control shell preserved
-          </p>
-          <h1 className="mt-1 font-heading text-xl font-semibold text-white">
-            COFIATRADING Living City inside OpenClaw
-          </h1>
-        </div>
-        <div className="flex flex-wrap gap-2 text-[11px] font-semibold text-slate-200">
-          {["Dashboard", "Live feed", "Boards", "Approvals", "Gateways", "Agents"].map((item) => (
-            <span key={item} className="rounded-md border border-slate-700 bg-slate-900 px-2 py-1">
-              {item}
-            </span>
-          ))}
-        </div>
-      </div>
-    </div>
-  );
-}
-
 function CofiaLivingCity({
   snapshot,
   angelRoster,
