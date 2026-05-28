@@ -3407,6 +3407,17 @@ type CalendarPayload = {
   totalLines?: number | null;
   events?: CalendarEventView[];
 };
+type LinearIssueView = {
+  id: string;
+  title: string;
+  priority: number | null;
+  state: string;
+  stateType: string;
+  team: string;
+  url: string | null;
+  updatedAt: string | null;
+};
+type LinearPayload = { ok: boolean; total?: number; issues?: LinearIssueView[]; reason?: string };
 
 function HouseDrawer({
   house,
