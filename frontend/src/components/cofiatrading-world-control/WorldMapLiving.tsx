@@ -234,7 +234,10 @@ export function WorldMapLiving({
     entrepots: true,
     routes: true,
     maisons: true,
+    anges: true,
   });
+  const [selectedAngel, setSelectedAngel] = useState<Angel | null>(null);
+  const [hoveredAngel, setHoveredAngel] = useState<number | null>(null);
 
   const dragState = useRef<{ active: boolean; startX: number; startY: number; ox: number; oy: number }>({
     active: false,
