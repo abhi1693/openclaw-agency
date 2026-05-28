@@ -108,6 +108,7 @@ type Snapshot = {
       arrImpact: string;
     }>;
   };
+  assetsWarehouse?: AssetsWarehouseSnapshot;
   writeBlocked: boolean;
   piiBlocked: boolean;
   dangerousActions: string[];
