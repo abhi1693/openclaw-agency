@@ -603,9 +603,9 @@ export function WorldMapLiving({
                 </g>
               ))}
 
-            {/* House nodes */}
+            {/* House nodes — 15 maisons canon, statut live registry :8767 */}
             {layers.maisons &&
-              nodes.map((n, i) => {
+              houseNodes.map((n, i) => {
                 const sc = statusColor(n.status);
                 const isHover = hovered === i;
                 return (
