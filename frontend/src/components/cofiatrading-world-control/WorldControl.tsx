@@ -3269,15 +3269,10 @@ function CityBuilding({
           onSelect();
         }
       }}
-      className="t6-city-building absolute z-20 cursor-pointer text-left transition hover:z-40 hover:scale-[1.05] focus:outline-none focus-visible:ring-2 focus-visible:ring-cyan-300/70"
+      className="group relative cursor-pointer rounded-lg text-left transition duration-200 hover:-translate-y-1 focus:outline-none focus-visible:ring-2 focus-visible:ring-cyan-300/70"
       style={{
-        left: `${district.x}%`,
-        top: `${district.y}%`,
-        width: `${district.width}%`,
-        minHeight: `${district.height * 8}px`,
-        borderColor: district.accent,
         background: `linear-gradient(145deg, rgba(15,23,42,.95), rgba(2,6,23,.84)), radial-gradient(circle at 50% 0%, ${district.glow}, transparent 62%)`,
-        boxShadow: `0 0 26px ${district.glow}, 0 28px 50px rgba(0,0,0,.54)`,
+        boxShadow: `0 0 22px ${district.glow}, 0 14px 32px rgba(0,0,0,.5)`,
         ["--t6-glow" as string]: district.glow,
       }}
     >
