@@ -1812,6 +1812,7 @@ export function WorldControl() {
               ▸ Vue quartiers (grille) + panneaux détaillés
             </summary>
           <CofiaLivingCity snapshot={snapshot} angelRoster={angelRoster} onSelectHouse={openHouseDrawer} />
+          </details>
 
           <details className="mt-4">
             <summary className="cursor-pointer list-none rounded-md border border-cyan-300/20 bg-slate-950/70 px-4 py-3 text-[12px] font-black uppercase tracking-[0.2em] text-cyan-100 transition hover:bg-slate-900/70">
