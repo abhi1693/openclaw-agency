@@ -3086,46 +3086,23 @@ function CofiaLivingCity({
         <CityHUD snapshot={snapshot} servicesOk={servicesOk} servicesTotal={servicesTotal} />
 
         <div className="grid min-h-0 gap-3 xl:grid-cols-[minmax(0,1fr)_390px]">
-          <div className="relative min-h-[840px] overflow-hidden rounded-lg border border-cyan-300/25 bg-slate-950/58 shadow-[0_0_80px_rgba(8,145,178,.13)]">
-            <div className="absolute left-4 top-4 z-30 max-w-[440px] rounded-md border border-cyan-300/25 bg-slate-950/82 px-3 py-2 backdrop-blur">
-              <p className="text-[11px] font-black uppercase tracking-[0.22em] text-cyan-100">COFIATRADING Living City · 15 quartiers réels</p>
-              <p className="mt-1 text-[11px] text-slate-300">
-                Clique un quartier → ouvre la maison réelle. 38 agents canon en poste (registre live). Camions runtime = à câbler.
-              </p>
+          <div className="rounded-lg border border-cyan-300/25 bg-slate-950/55 p-3 shadow-[0_0_80px_rgba(8,145,178,.13)]">
+            <div className="mb-3 flex flex-wrap items-center justify-between gap-2 rounded-md border border-cyan-300/20 bg-slate-950/75 px-3 py-2">
+              <div>
+                <p className="text-[11px] font-black uppercase tracking-[0.22em] text-cyan-100">COFIATRADING Living City · 15 quartiers réels</p>
+                <p className="mt-0.5 text-[11px] text-slate-300">Clique un quartier → ouvre la maison réelle · 38 agents canon en poste (registre live).</p>
+              </div>
+              <span className="shrink-0 rounded border border-emerald-300/25 bg-emerald-300/10 px-2 py-1 text-[10px] font-semibold text-emerald-100">59 camions · runtime à câbler</span>
             </div>
-
-            <svg className="absolute inset-0 h-full w-full" viewBox="0 0 100 100" preserveAspectRatio="none" aria-label="Routes lumineuses COFIATRADING">
-              <defs>
-                <filter id="t6-road-glow">
-                  <feGaussianBlur stdDeviation="1.45" result="blurred" />
-                  <feMerge>
-                    <feMergeNode in="blurred" />
-                    <feMergeNode in="SourceGraphic" />
-                  </feMerge>
-                </filter>
-              </defs>
-              {CITY_ROUTES.map((route) => (
-                <CityRoad key={route.id} route={route} path={cityPath(route.points)} />
+            <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 2xl:grid-cols-4">
+              {CITY_DISTRICTS.map((district) => (
+                <CityBuilding
+                  key={district.id}
+                  district={district}
+                  agents={agentsByHouse.get(district.id) ?? []}
+                  onSelect={() => onSelectHouse(district.id)}
+                />
               ))}
-              {MOVING_TRUCKS.map((truck) => (
-                <MovingTruck key={truck.name} truck={truck} path={cityPath(truck.points)} />
-              ))}
-              {MOVING_AGENTS.map((agent) => (
-                <MovingAgent key={agent.name} agent={agent} path={cityPath([agent.from, agent.to])} />
-              ))}
-            </svg>
-
-            {CITY_DISTRICTS.map((district) => (
-              <CityBuilding
-                key={district.id}
-                district={district}
-                agents={agentsByHouse.get(district.id) ?? []}
-                onSelect={() => onSelectHouse(district.id)}
-              />
-            ))}
-
-            <div className="absolute bottom-4 left-4 z-30 rounded-md border border-emerald-300/25 bg-slate-950/86 px-3 py-2 text-[11px] text-emerald-100">
-              59 camions canon · 7 camions visuels animés · runtime camion à connecter
             </div>
           </div>
 
