@@ -1489,6 +1489,191 @@ const houseIdByBoardSlug: Record<string, HouseId> = ssotHouses.reduce(
   {} as Record<string, HouseId>,
 );
 
+// ── T10 EXACT IMAGE PACK V2 — backplate image + hotspots lus du manifest (zéro position inventée) ──
+const EXACT_ASSET_BASE = "/cofiatrading/exact-image-pack-v2";
+const EXACT_SRC_W = 1536;
+const EXACT_SRC_H = 1024;
+const EXACT_CROP_X = 170; // sidebar OpenClaw réelle gérée par le shell -> on crope le crop sidebar de l'image
+const EXACT_VIEW_W = EXACT_SRC_W - EXACT_CROP_X;
+
+type ManifestAsset = {
+  id: string;
+  name: string;
+  category: string;
+  box_xyxy: [number, number, number, number];
+  width: number;
+  height: number;
+  description?: string;
+  role?: string;
+  click_action?: string;
+  image: string;
+};
+type ManifestPayload = { source_size: [number, number]; assets: ManifestAsset[] };
+
+const EXACT_BUILDING_HOUSE: Record<string, HouseId> = {
+  mission_control_tower: "mission_control_tower",
+  central_brain: "central_brain",
+  iron_office: "iron_office",
+  vip_gate: "vip_gate",
+  trading_tower: "mt4_signal_tower",
+  youtube_studio: "youtube_studio",
+  site_seo_lab: "site_seo_lab",
+  assets_warehouse: "assets_warehouse",
+  openclaw_barracks: "openclaw_agent_barracks",
+  paperclip_factory: "paperclip_factory",
+  lightrag_observatory: "lightrag_observatory",
+  obsidian_library: "obsidian_library",
+  calendar_tower: "calendar_tower",
+  compliance_port: "compliance_port",
+  trading_academy: "trading_academy",
+};
+
+function exactBuildingHouse(assetId: string): HouseId | null {
+  const m = assetId.match(/^building_\d+_(.+)$/);
+  return m ? EXACT_BUILDING_HOUSE[m[1]] ?? null : null;
+}
+
+function exactKpiLive(id: string, s: Snapshot | null): string {
+  const r = s?.revenue;
+  switch (id) {
+    case "kpi_mrr":
+      return formatEur(r?.currentMrrEur ?? null);
+    case "kpi_arr":
+      return formatEur(r?.currentArrEur ?? null);
+    case "kpi_vip":
+      return formatNumber(r?.activeVip ?? null);
+    case "kpi_assets_94":
+      return `${formatNumber(s?.assetsWarehouse?.mp4Count ?? null)} MP4`;
+    case "kpi_services_5_8":
+      return `${(s?.services ?? []).filter((x) => x.ok).length}/${(s?.services ?? []).length}`;
+    case "kpi_maisons_15":
+      return formatNumber(s?.centralBrain?.housesCount ?? null);
+    default:
+      return "UNKNOWN";
+  }
+}
+
+function ExactImageWorldControl({
+  snapshot,
+  onSelectHouse,
+}: {
+  snapshot: Snapshot | null;
+  onSelectHouse: (houseId: HouseId) => void;
+}) {
+  const [manifest, setManifest] = useState<ManifestPayload | null>(null);
+  const [card, setCard] = useState<ManifestAsset | null>(null);
+
+  useEffect(() => {
+    let cancelled = false;
+    fetch(`${EXACT_ASSET_BASE}/09_docs_for_claude/assets_manifest.json`, { cache: "force-cache" })
+      .then((r) => r.json())
+      .then((j) => {
+        if (!cancelled) setManifest(j as ManifestPayload);
+      })
+      .catch(() => {});
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  const assets = manifest?.assets ?? [];
+  const hotspots = assets.filter(
+    (a) =>
+      a.box_xyxy[2] > EXACT_CROP_X &&
+      a.category !== "01_layout_sections" &&
+      a.category !== "07_icons_nav",
+  );
+
+  const pct = (a: ManifestAsset) => {
+    const [x1, y1, x2, y2] = a.box_xyxy;
+    return {
+      left: `${((x1 - EXACT_CROP_X) / EXACT_VIEW_W) * 100}%`,
+      top: `${(y1 / EXACT_SRC_H) * 100}%`,
+      width: `${((x2 - x1) / EXACT_VIEW_W) * 100}%`,
+      height: `${((y2 - y1) / EXACT_SRC_H) * 100}%`,
+    };
+  };
+
+  const onHotspot = (a: ManifestAsset) => {
+    if (a.click_action === "open_department_inspector") {
+      const h = exactBuildingHouse(a.id);
+      if (h) {
+        onSelectHouse(h);
+        return;
+      }
+    }
+    setCard(a);
+  };
+
+  const isLive = (a: ManifestAsset) =>
+    a.category === "04_trucks_routes_flows" || a.id.startsWith("flow_") || a.id.startsWith("truck_");
+
+  return (
+    <div className="relative w-full overflow-hidden rounded-2xl border border-cyan-300/15 bg-[#02040a] shadow-[0_0_45px_-12px_rgba(34,211,238,0.35)]">
+      <div className="relative w-full" style={{ aspectRatio: `${EXACT_VIEW_W} / ${EXACT_SRC_H}` }}>
+        <img
+          src={`${EXACT_ASSET_BASE}/00_full_reference/cofiatrading_world_control_exact_generated_image.png`}
+          alt="COFIATRADING World Control"
+          draggable={false}
+          className="pointer-events-none absolute top-0 select-none"
+          style={{
+            left: `${(-EXACT_CROP_X / EXACT_VIEW_W) * 100}%`,
+            width: `${(EXACT_SRC_W / EXACT_VIEW_W) * 100}%`,
+            height: "100%",
+            objectFit: "fill",
+          }}
+        />
+        {hotspots.map((a) => (
+          <button
+            key={a.id}
+            type="button"
+            onClick={() => onHotspot(a)}
+            title={a.name}
+            className={`group absolute rounded-md border border-transparent transition hover:border-cyan-300/70 hover:bg-cyan-300/10 ${
+              isLive(a) ? "border-cyan-300/20" : ""
+            }`}
+            style={pct(a)}
+          >
+            <span className="pointer-events-none absolute -top-5 left-0 hidden whitespace-nowrap rounded bg-slate-950/95 px-1.5 py-0.5 text-[9px] font-semibold text-cyan-100 group-hover:block">
+              {a.name}
+            </span>
+            {isLive(a) && (
+              <span className="pointer-events-none absolute inset-0 animate-pulse rounded-md border border-cyan-300/30" />
+            )}
+          </button>
+        ))}
+      </div>
+
+      {card && (
+        <div className="absolute right-3 top-3 z-30 w-[290px] rounded-xl border border-cyan-300/30 bg-slate-950/96 p-4 backdrop-blur">
+          <div className="flex items-start justify-between gap-2">
+            <h3 className="text-[13px] font-black text-cyan-100">{card.name}</h3>
+            <button
+              type="button"
+              onClick={() => setCard(null)}
+              className="rounded border border-slate-700 px-1.5 text-[12px] text-slate-400 hover:text-white"
+            >
+              ✕
+            </button>
+          </div>
+          <p className="mt-1 text-[10px] uppercase tracking-wide text-slate-400">
+            {card.click_action ?? card.category}
+          </p>
+          {card.description && <p className="mt-2 text-[11px] leading-snug text-slate-300">{card.description}</p>}
+          {card.id.startsWith("kpi_") && (
+            <p className="mt-2 text-[12px] font-bold text-emerald-300">Live (snapshot) : {exactKpiLive(card.id, snapshot)}</p>
+          )}
+          <p className="mt-2 break-words text-[9px] text-slate-500">asset : {card.image}</p>
+        </div>
+      )}
+
+      {!manifest && (
+        <div className="absolute inset-x-0 bottom-2 text-center text-[10px] text-slate-500">chargement manifest…</div>
+      )}
+    </div>
+  );
+}
+
 export function WorldControl() {
   const [snapshot, setSnapshot] = useState<Snapshot | null>(null);
   const [error, setError] = useState<string | null>(null);
