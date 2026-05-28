@@ -3424,6 +3424,20 @@ function HouseDrawer({
   onClose: () => void;
 }) {
   const workforce = HOUSE_WORKFORCE[house.id];
+  const [cadence, setCadence] = useState<CalendarPayload | null>(null);
+  useEffect(() => {
+    if (house.id !== "calendar_tower") return;
+    let cancelled = false;
+    fetch("/api/cofiatrading-world-control/calendar", { cache: "no-store" })
+      .then((r) => r.json())
+      .then((j) => {
+        if (!cancelled) setCadence(j as CalendarPayload);
+      })
+      .catch(() => {});
+    return () => {
+      cancelled = true;
+    };
+  }, [house.id]);
   const runtimeTone = house.status === "LIVE" ? "LIVE" : workforce.tone;
   const runtimeBadge = house.status === "LIVE" ? "LIVE" : workforce.badge;
   const trucksLabel = house.trucks.length > 0
