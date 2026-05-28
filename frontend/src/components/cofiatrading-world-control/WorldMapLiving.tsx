@@ -740,6 +740,37 @@ export function WorldMapLiving({
               ))}
             </div>
           </div>
+
+          {/* Anges canon — statuts honest-by-design */}
+          <div className="rounded-xl border border-amber-300/25 bg-slate-950/75 p-3 backdrop-blur">
+            <div className="mb-2 flex items-center justify-between text-[10px] font-black uppercase tracking-widest text-amber-200">
+              <span>🕌 Anges canon</span>
+              <span className="text-slate-400">{angelTotal ?? 38}</span>
+            </div>
+            {angelCounts ? (
+              <div className="grid grid-cols-2 gap-x-2 gap-y-1">
+                {([
+                  ["LIVE", angelCounts.live],
+                  ["OPERATIONAL_PARTIAL", angelCounts.operational_partial],
+                  ["CANON_GATE", angelCounts.canon_gate],
+                  ["AWAITING_SETUP", angelCounts.awaiting_setup],
+                  ["DEGRADED", angelCounts.degraded],
+                  ["BROKEN", angelCounts.broken],
+                ] as Array<[AngelStatus, number]>).map(([st, n]) => (
+                  <div key={st} className="flex items-center gap-1.5 text-[9.5px] text-slate-300">
+                    <span
+                      className="h-2 w-2 shrink-0 rounded-full"
+                      style={{ background: ANGEL_STATUS[st].color, boxShadow: `0 0 5px ${ANGEL_STATUS[st].color}` }}
+                    />
+                    <span className="truncate">{ANGEL_STATUS[st].label}</span>
+                    <span className="ml-auto font-bold text-slate-100">{n}</span>
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <p className="text-[10px] text-slate-500">chargement roster…</p>
+            )}
+          </div>
         </div>
 
         {/* ---------------- BOTTOM LEGEND ---------------- */}
