@@ -1842,7 +1842,9 @@ export function WorldControl() {
       {selectedHouse ? (
         <HouseDrawer
           house={selectedHouse}
-          canonAgents={(snapshot?.agentsCanon?.agents ?? []).filter((a) => a.house === selectedHouse.id)}
+          canonAgents={selectedHouseCanonAgents}
+          commerce={selectedHouseCommerce}
+          services={selectedHouseServices}
           rosterStatusByName={rosterStatusByName}
           onClose={() => setSelectedHouseId(null)}
         />
