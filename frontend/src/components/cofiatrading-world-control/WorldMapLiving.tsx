@@ -502,6 +502,41 @@ export function WorldMapLiving({
               </g>
             );
           })}
+
+          {/* AGENTS VIVANTS : se déplacent maison → maison puis reviennent (vie réelle, cliquable) */}
+          <g>
+            {ROUTES.map(([a, b2], i) => {
+              const ca = centerById[a];
+              const cb = centerById[b2];
+              if (!ca || !cb) return null;
+              const homeA = angelsByHome[a] ?? [];
+              const ag = homeA[i % Math.max(1, homeA.length)];
+              if (!ag) return null;
+              const mx = (ca.x + cb.x) / 2;
+              const my = (ca.y + cb.y) / 2 - 28;
+              const path = `M ${ca.x} ${ca.y} Q ${mx} ${my} ${cb.x} ${cb.y}`;
+              const col = ANGEL_STATUS[ag.status]?.color ?? "#22d3ee";
+              const dur = 9 + (i % 4) * 2;
+              return (
+                <g
+                  key={`mov-${i}`}
+                  style={{ cursor: "pointer" }}
+                  onClick={(e) => { e.stopPropagation(); setSelectedAngel(ag); }}
+                >
+                  <circle r="3.6" fill={col} stroke="#02040a" strokeWidth="0.9" filter="url(#iso-glow)" />
+                  <text x="5" y="2.2" fontSize="6.5" fontWeight="800" fill="#e2e8f0">{ag.name}</text>
+                  <animateMotion
+                    dur={`${dur}s`}
+                    repeatCount="indefinite"
+                    keyPoints="0;1;0"
+                    keyTimes="0;0.5;1"
+                    calcMode="linear"
+                    path={path}
+                  />
+                </g>
+              );
+            })}
+          </g>
         </svg>
 
         {/* atmosphère : bloom ville en haut + vignette bords (n'intercepte pas les clics) */}
