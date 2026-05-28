@@ -3045,7 +3045,6 @@ function CofiaLivingCity({
   angelRoster: AngelRosterPayload | null;
   onSelectHouse: (houseId: HouseId) => void;
 }) {
-  const districtById = new Map(CITY_DISTRICTS.map((district) => [district.id, district]));
   const agentsByHouse = new Map<string, CofiaAgent[]>();
   for (const agent of snapshot?.agentsCanon?.agents ?? []) {
     const list = agentsByHouse.get(agent.house) ?? [];
@@ -3055,15 +3054,6 @@ function CofiaLivingCity({
   const services = snapshot?.services ?? [];
   const servicesOk = services.filter((service) => service.ok).length;
   const servicesTotal = services.length;
-  const cityPath = (points: HouseId[]) =>
-    points
-      .map((id, index) => {
-        const district = districtById.get(id);
-        if (!district) return "";
-        return `${index === 0 ? "M" : "L"} ${district.x} ${district.y}`;
-      })
-      .filter(Boolean)
-      .join(" ");
 
   return (
     <section className="relative min-h-[calc(100vh-180px)] overflow-hidden rounded-xl border border-cyan-300/20 bg-[#02040a] px-4 py-4 text-slate-100 shadow-[0_18px_60px_rgba(2,6,23,.55)] lg:px-6">
