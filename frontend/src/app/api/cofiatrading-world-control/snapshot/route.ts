@@ -567,6 +567,73 @@ const buildInvestorRoom = ({
   };
 };
 
+const REMOTION_OUT_DIR =
+  process.env.COF_REMOTION_OUT_DIR ?? "/Users/burakokyay/cof-trading/remotion/out";
+const CAPTIONS_DIR =
+  process.env.COF_CAPTIONS_DIR ??
+  "/Users/burakokyay/.openclaw/content/captions/2026-W22-premium-batch";
+const ASSETS_INVENTORY_PATH =
+  process.env.COF_ASSETS_INVENTORY_PATH ??
+  "/Users/burakokyay/.openclaw/config/assets_inventory_canon.json";
+
+async function readAssetsWarehouse() {
+  const errors: string[] = [];
+  let mp4Count: number | null = null;
+  let captionsCount: number | null = null;
+  let assetsInventoryCount: number | null = null;
+
+  try {
+    const files = await readdir(REMOTION_OUT_DIR);
+    mp4Count = files.filter((file) => file.toLowerCase().endsWith(".mp4")).length;
+  } catch (error) {
+    errors.push(`mp4:${error instanceof Error ? error.message : String(error)}`);
+  }
+
+  try {
+    const files = await readdir(CAPTIONS_DIR);
+    captionsCount = files.filter((file) => !file.startsWith(".")).length;
+  } catch (error) {
+    errors.push(`captions:${error instanceof Error ? error.message : String(error)}`);
+  }
+
+  try {
+    const raw = await readFile(ASSETS_INVENTORY_PATH, "utf8");
+    const parsed = JSON.parse(raw);
+    if (parsed && typeof parsed === "object" && Array.isArray(parsed.assets)) {
+      assetsInventoryCount = parsed.assets.length;
+    } else if (
+      parsed &&
+      typeof parsed === "object" &&
+      typeof parsed.assets_count_actual === "number"
+    ) {
+      assetsInventoryCount = parsed.assets_count_actual;
+    } else if (Array.isArray(parsed)) {
+      assetsInventoryCount = parsed.length;
+    } else {
+      errors.push("assets_inventory:unsupported_json_shape");
+    }
+  } catch (error) {
+    errors.push(`assets_inventory:${error instanceof Error ? error.message : String(error)}`);
+  }
+
+  return {
+    ok:
+      typeof mp4Count === "number" &&
+      typeof captionsCount === "number" &&
+      typeof assetsInventoryCount === "number",
+    sourceTag: "filesystem_assets_warehouse",
+    mp4Count,
+    captionsCount,
+    assetsInventoryCount,
+    paths: {
+      remotionOutDir: REMOTION_OUT_DIR,
+      captionsDir: CAPTIONS_DIR,
+      assetsInventoryPath: ASSETS_INVENTORY_PATH,
+    },
+    errors,
+  };
+}
+
 export async function GET() {
   const [revenueResult, housesResult, publisherResult, ackResult, rtkResult, boardsResult, agentsResult, fieldsResult] =
     await Promise.all([
