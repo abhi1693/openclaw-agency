@@ -1674,6 +1674,164 @@ function ExactImageWorldControl({
   );
 }
 
+// ── T11 — scène = SECTION map centrale (pas le full screenshot) + hotspots + KPI live + statut canon ──
+const MAP_SECTION_X1 = 170;
+const MAP_SECTION_Y1 = 70;
+const MAP_SECTION_W = 1095; // 1265 - 170
+const MAP_SECTION_H = 570; // 640 - 70
+
+// Statut canon par maison (jamais UNKNOWN si le canon donne l'info) — T11
+const HOUSE_CANON_STATUS: Record<HouseId, Status> = {
+  mission_control_tower: "LIVE",
+  central_brain: "LIVE",
+  iron_office: "AMBER",
+  vip_gate: "AMBER",
+  mt4_signal_tower: "AMBER",
+  youtube_studio: "AMBER",
+  site_seo_lab: "AMBER",
+  assets_warehouse: "LIVE",
+  openclaw_agent_barracks: "PAUSED",
+  paperclip_factory: "PAUSED",
+  lightrag_observatory: "AMBER",
+  obsidian_library: "PAUSED",
+  calendar_tower: "AMBER",
+  compliance_port: "QUARANTINE",
+  trading_academy: "AMBER",
+};
+const STATUS_DOT_COLOR: Record<Status, string> = {
+  GREEN: "#34d399",
+  LIVE: "#34d399",
+  AMBER: "#f59e0b",
+  UNKNOWN: "#64748b",
+  PAUSED: "#64748b",
+  QUARANTINE: "#ef4444",
+  LOCKED: "#ef4444",
+};
+
+function MapSceneWorldControl({
+  snapshot,
+  onSelectHouse,
+}: {
+  snapshot: Snapshot | null;
+  onSelectHouse: (houseId: HouseId) => void;
+}) {
+  const [manifest, setManifest] = useState<ManifestPayload | null>(null);
+  useEffect(() => {
+    let cancelled = false;
+    fetch(`${EXACT_ASSET_BASE}/09_docs_for_claude/assets_manifest.json`, { cache: "force-cache" })
+      .then((r) => r.json())
+      .then((j) => {
+        if (!cancelled) setManifest(j as ManifestPayload);
+      })
+      .catch(() => {});
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  const buildings = (manifest?.assets ?? []).filter((a) => a.category === "02_city_buildings_15");
+  const statusByKey = new Map(
+    (snapshot?.centralBrain?.houses ?? []).map((h) => [h.key, (h.status ?? "").toUpperCase()]),
+  );
+  const statusFor = (hid: HouseId): Status => {
+    const live = statusByKey.get(hid);
+    if (live && live !== "UNKNOWN") return normalizeStatus(live);
+    return HOUSE_CANON_STATUS[hid];
+  };
+  const agentsByHouse = new Map<string, CofiaAgent[]>();
+  for (const a of snapshot?.agentsCanon?.agents ?? []) {
+    const l = agentsByHouse.get(a.house) ?? [];
+    l.push(a);
+    agentsByHouse.set(a.house, l);
+  }
+  const rev = snapshot?.revenue;
+  const services = snapshot?.services ?? [];
+  const kpis: Array<[string, string, boolean]> = [
+    ["MRR", rev?.currentMrrEur != null ? formatEur(rev.currentMrrEur) : "879 €", rev?.currentMrrEur == null],
+    ["ARR", rev?.currentArrEur != null ? formatEur(rev.currentArrEur) : "10 548 €", rev?.currentArrEur == null],
+    ["VIP", rev?.activeVip != null ? String(rev.activeVip) : "7", rev?.activeVip == null],
+    ["ACTIFS", snapshot?.assetsWarehouse?.mp4Count != null ? `${snapshot.assetsWarehouse.mp4Count} MP4` : "94 MP4", snapshot?.assetsWarehouse?.mp4Count == null],
+    ["CAPTIONS", snapshot?.assetsWarehouse?.captionsCount != null ? String(snapshot.assetsWarehouse.captionsCount) : "51", snapshot?.assetsWarehouse?.captionsCount == null],
+    ["SERVICES", services.length ? `${services.filter((s) => s.ok).length}/${services.length}` : "5/8", services.length === 0],
+    ["MAISONS", snapshot?.centralBrain?.housesCount != null ? String(snapshot.centralBrain.housesCount) : "15", snapshot?.centralBrain?.housesCount == null],
+    ["PAST DUE", rev?.pastDueEur != null ? `${formatEur(rev.pastDueEur)} / ${rev?.pastDueCount ?? 0}` : "291 € / 3", rev?.pastDueEur == null],
+  ];
+  const agentChips = (snapshot?.agentsCanon?.agents ?? []).slice(0, 12);
+
+  return (
+    <div className="flex w-full flex-col gap-2">
+      {/* KPI HUD live (fallback canon marqué ·ref) */}
+      <div className="flex flex-wrap items-center gap-1.5 rounded-xl border border-cyan-300/15 bg-slate-950/70 px-3 py-2">
+        <span className="mr-1 text-[11px] font-black uppercase tracking-[0.2em] text-cyan-200">COFIATRADING World Control</span>
+        {kpis.map(([k, v, fb]) => (
+          <span key={k} className="rounded-md border border-cyan-300/20 bg-slate-900/70 px-2 py-1 text-[10px]">
+            <span className="text-slate-400">{k} </span>
+            <span className="font-bold text-slate-100">{v}</span>
+            {fb && <span className="ml-1 text-[8px] text-amber-300/80">·ref</span>}
+          </span>
+        ))}
+      </div>
+
+      {/* MAP = section centrale (pas de sidebar/header) + hotspots alignés */}
+      <div
+        className="relative w-full overflow-hidden rounded-2xl border border-cyan-300/15 bg-[#02040a] shadow-[0_0_45px_-12px_rgba(34,211,238,0.35)]"
+        style={{ aspectRatio: `${MAP_SECTION_W} / ${MAP_SECTION_H}` }}
+      >
+        <img
+          src={`${EXACT_ASSET_BASE}/01_layout_sections/layout_world_map__main_living_city_map.png`}
+          alt="COFIATRADING World Control — map"
+          draggable={false}
+          className="pointer-events-none absolute inset-0 h-full w-full select-none object-fill"
+        />
+        {buildings.map((a) => {
+          const hid = exactBuildingHouse(a.id);
+          if (!hid) return null;
+          const st = statusFor(hid);
+          const color = STATUS_DOT_COLOR[st];
+          const n = (agentsByHouse.get(hid) ?? []).length;
+          const [x1, y1, x2, y2] = a.box_xyxy;
+          return (
+            <button
+              key={a.id}
+              type="button"
+              onClick={() => onSelectHouse(hid)}
+              title={a.name}
+              className="group absolute rounded-md border border-transparent transition hover:border-cyan-300/70 hover:bg-cyan-300/10"
+              style={{
+                left: `${((x1 - MAP_SECTION_X1) / MAP_SECTION_W) * 100}%`,
+                top: `${((y1 - MAP_SECTION_Y1) / MAP_SECTION_H) * 100}%`,
+                width: `${((x2 - x1) / MAP_SECTION_W) * 100}%`,
+                height: `${((y2 - y1) / MAP_SECTION_H) * 100}%`,
+              }}
+            >
+              <span className="pointer-events-none absolute right-1 top-1 h-2 w-2 rounded-full" style={{ background: color, boxShadow: `0 0 6px ${color}` }} />
+              <span className="pointer-events-none absolute -top-5 left-0 hidden whitespace-nowrap rounded bg-slate-950/95 px-1.5 py-0.5 text-[9px] font-semibold text-cyan-100 group-hover:block">
+                {a.name.replace(/^\d+\s/, "")} · <span style={{ color }}>{st}</span>{n ? ` · ${n} anges` : ""}
+              </span>
+            </button>
+          );
+        })}
+      </div>
+
+      {/* agents en ligne — chips premium propres (max 12) */}
+      <div className="flex flex-wrap items-center gap-1.5 rounded-xl border border-cyan-300/15 bg-slate-950/70 px-3 py-2">
+        <span className="mr-1 text-[10px] font-black uppercase tracking-[0.2em] text-cyan-200">Agents en ligne</span>
+        {agentChips.map((ag) => (
+          <span
+            key={ag.id}
+            className="flex items-center gap-1 rounded-full border px-2 py-0.5 text-[10px]"
+            style={{ borderColor: `${ag.colorPrimary}55`, color: ag.colorPrimary }}
+            title={`${ag.name} · ${ag.house}`}
+          >
+            <span>{ag.avatarEmoji || "●"}</span>
+            <span className="text-slate-200">{ag.name}</span>
+          </span>
+        ))}
+      </div>
+    </div>
+  );
+}
+
 export function WorldControl() {
   const [snapshot, setSnapshot] = useState<Snapshot | null>(null);
   const [error, setError] = useState<string | null>(null);
