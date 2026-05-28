@@ -113,10 +113,33 @@ type Snapshot = {
     }>;
   };
   assetsWarehouse?: AssetsWarehouseSnapshot;
+  agentsCanon?: {
+    ok: boolean;
+    count: number;
+    sourceTag: string;
+    agents: Array<{
+      no: number | null;
+      id: string;
+      name: string;
+      glyph: string;
+      avatarEmoji: string;
+      colorPrimary: string;
+      colorAccent: string;
+      roleBadge: string;
+      house: string;
+      houseColor: string;
+      rankLayer: string;
+      boss: string;
+      engine: string;
+      responsibilities: string[];
+    }>;
+  };
   writeBlocked: boolean;
   piiBlocked: boolean;
   dangerousActions: string[];
 };
+
+type CofiaAgent = NonNullable<Snapshot["agentsCanon"]>["agents"][number];
 
 type OpenClawTruck = {
   id: string;
