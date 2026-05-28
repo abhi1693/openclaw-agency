@@ -218,9 +218,11 @@ function curvePath(ax: number, ay: number, bx: number, by: number): string {
  * ------------------------------------------------------------------ */
 export function WorldMapLiving({
   snapshot,
+  angelRoster,
   onSelectHouse,
 }: {
   snapshot: CofiaSnapshot | null;
+  angelRoster?: AngelRoster | null;
   onSelectHouse: (houseId: string) => void;
 }) {
   const [scale, setScale] = useState(1);
