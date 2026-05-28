@@ -634,6 +634,45 @@ async function readAssetsWarehouse() {
   };
 }
 
+const AGENTS_CANON_PATH =
+  process.env.COF_AGENTS_CANON_PATH ??
+  "/Users/burakokyay/.openclaw/config/agents_visual_identity_canon.json";
+
+async function readAgentsCanon() {
+  try {
+    const raw = await readFile(AGENTS_CANON_PATH, "utf8");
+    const parsed = JSON.parse(raw);
+    const list = Array.isArray(parsed?.agents) ? (parsed.agents as Record<string, unknown>[]) : [];
+    const agents = list.map((a) => ({
+      no: typeof a.no === "number" ? a.no : null,
+      id: String(a.id ?? "unknown"),
+      name: String(a.name ?? "Unknown"),
+      glyph: typeof a.glyph === "string" ? a.glyph : "",
+      avatarEmoji: typeof a.avatar_emoji === "string" ? a.avatar_emoji : "",
+      colorPrimary: typeof a.color_primary === "string" ? a.color_primary : "#888888",
+      colorAccent: typeof a.color_accent === "string" ? a.color_accent : "#aaaaaa",
+      roleBadge: typeof a.role_badge === "string" ? a.role_badge : "",
+      house: typeof a.house_attached === "string" ? a.house_attached : "unassigned",
+      houseColor: typeof a.house_color === "string" ? a.house_color : "#888888",
+      rankLayer: typeof a.rank_layer === "string" ? a.rank_layer : "",
+      boss: typeof a.boss === "string" ? a.boss : "",
+      engine: typeof a.engine === "string" ? a.engine : "",
+      responsibilities: Array.isArray(a.responsibilities)
+        ? (a.responsibilities as unknown[]).filter((r): r is string => typeof r === "string")
+        : [],
+    }));
+    return { ok: agents.length > 0, count: agents.length, sourceTag: "agents_visual_identity_canon", agents };
+  } catch (error) {
+    return {
+      ok: false,
+      count: 0,
+      sourceTag: "agents_visual_identity_canon",
+      agents: [] as never[],
+      error: error instanceof Error ? error.message : "UNKNOWN_ERROR",
+    };
+  }
+}
+
 export async function GET() {
   const [revenueResult, housesResult, publisherResult, ackResult, rtkResult, boardsResult, agentsResult, fieldsResult] =
     await Promise.all([
