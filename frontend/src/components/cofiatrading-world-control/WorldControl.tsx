@@ -82,7 +82,7 @@ type Snapshot = {
     service: string;
     outputDirCount: number | null;
   };
-  services: Array<{ id: string; label: string; ok: boolean; status?: string | number | null; http_code?: number | null; url?: string; role?: string }>;
+  services: Array<{ id: string; label: string; ok: boolean; status?: string; http_code?: number | null; url?: string; role?: string }>;
   knowledge?: Record<KnowledgeId, KnowledgeRecord>;
   offers: OfferRecord[];
   routes?: RoutesSnapshot;
