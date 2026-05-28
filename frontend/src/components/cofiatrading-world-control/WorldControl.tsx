@@ -3515,6 +3515,59 @@ function HouseDrawer({
               )}
             </section>
 
+            {commerce.length > 0 && (
+              <section className="rounded-md border border-amber-300/20 bg-amber-300/8 p-3">
+                <h3 className="mb-3 text-xs font-semibold uppercase tracking-[0.18em] text-amber-100">
+                  Commerce / boutiques ({commerce.length})
+                </h3>
+                <div className="grid gap-2 sm:grid-cols-2">
+                  {commerce.map((shop) => (
+                    <div key={shop.id} className="rounded border border-slate-800 bg-slate-900/70 px-3 py-2 text-xs">
+                      <div className="flex items-center justify-between gap-2">
+                        <span className="truncate font-semibold text-slate-100">{shop.name}</span>
+                        <span
+                          className={`shrink-0 rounded border px-1.5 py-0.5 text-[8.5px] ${
+                            shop.status === "LIVE"
+                              ? statusClass.LIVE
+                              : shop.status === "BROKEN"
+                                ? statusClass.QUARANTINE
+                                : statusClass.AMBER
+                          }`}
+                        >
+                          {shop.status}
+                        </span>
+                      </div>
+                      <p className="mt-1 line-clamp-2 text-slate-500">{shop.next_action}</p>
+                    </div>
+                  ))}
+                </div>
+              </section>
+            )}
+
+            {services.length > 0 && (
+              <section className="rounded-md border border-cyan-300/20 bg-cyan-300/8 p-3">
+                <h3 className="mb-3 text-xs font-semibold uppercase tracking-[0.18em] text-cyan-100">
+                  Endpoints / services ({services.length})
+                </h3>
+                <div className="grid gap-2 sm:grid-cols-2">
+                  {services.map((svc) => (
+                    <div
+                      key={svc.id}
+                      className="flex items-center justify-between gap-2 rounded border border-slate-800 bg-slate-900/70 px-3 py-2 text-xs"
+                    >
+                      <span className="truncate text-slate-200">{svc.label}</span>
+                      <span
+                        className={`shrink-0 rounded border px-1.5 py-0.5 text-[8.5px] ${svc.ok ? statusClass.LIVE : statusClass.AMBER}`}
+                      >
+                        {svc.status ?? (svc.ok ? "LIVE" : "?")}
+                        {typeof svc.http_code === "number" ? ` ${svc.http_code}` : ""}
+                      </span>
+                    </div>
+                  ))}
+                </div>
+              </section>
+            )}
+
             <section className="rounded-md border border-slate-800 bg-slate-950/70 p-3">
               <h3 className="mb-3 text-xs font-semibold uppercase tracking-[0.18em] text-slate-300">
                 Camions garés
