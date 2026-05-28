@@ -408,7 +408,7 @@ export function WorldMapLiving({
   const fleetStats = [
     { icon: Truck, label: "Camions Canon", value: "59" },
     { icon: Users, label: "Ouvriers Actifs", value: "41" },
-    { icon: Building2, label: "Maisons Actives", value: housesCount != null ? formatNumber(housesCount) : "—" },
+    { icon: Building2, label: "Maisons LIVE", value: `${liveHousesCount}/${CANON_HOUSES.length}` },
     { icon: Warehouse, label: "Entrepôts", value: "8" },
     { icon: Radio, label: "Uptime Global", value: "98%" },
   ];
