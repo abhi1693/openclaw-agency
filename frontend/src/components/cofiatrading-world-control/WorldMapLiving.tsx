@@ -786,6 +786,65 @@ export function WorldMapLiving({
           ))}
         </div>
 
+        {/* ---------------- ANGEL DETAIL CARD ---------------- */}
+        {selectedAngel && (
+          <div
+            className="absolute bottom-3 right-3 z-40 w-[264px] max-h-[440px] overflow-auto rounded-xl border bg-slate-950/95 p-3 text-slate-100 shadow-[0_0_45px_-8px_rgba(0,0,0,0.85)] backdrop-blur"
+            style={{ borderColor: ANGEL_STATUS[selectedAngel.status].color }}
+          >
+            <div className="flex items-start justify-between gap-2">
+              <div>
+                <div className="flex items-center gap-2">
+                  <span className="text-[13px] font-black">{selectedAngel.name}</span>
+                  <span className="text-[12px] text-slate-400">{selectedAngel.name_ar}</span>
+                </div>
+                <div className="text-[10px] uppercase tracking-wide text-slate-400">
+                  #{selectedAngel.id} · {selectedAngel.platform}
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => setSelectedAngel(null)}
+                className="rounded-md border border-slate-700 px-1.5 text-[12px] leading-none text-slate-400 transition hover:text-slate-100"
+              >
+                ✕
+              </button>
+            </div>
+            <span
+              className="mt-2 inline-block rounded-full px-2 py-0.5 text-[9px] font-bold uppercase tracking-wide"
+              style={{
+                background: `${ANGEL_STATUS[selectedAngel.status].color}22`,
+                color: ANGEL_STATUS[selectedAngel.status].color,
+                border: `1px solid ${ANGEL_STATUS[selectedAngel.status].color}55`,
+              }}
+            >
+              ● {ANGEL_STATUS[selectedAngel.status].label}
+            </span>
+            <p className="mt-2 text-[10px] font-semibold uppercase tracking-wide text-cyan-300">Manzilah</p>
+            <p className="text-[11px] text-slate-300">{selectedAngel.manzilah}</p>
+            <p className="mt-2 text-[10px] font-semibold uppercase tracking-wide text-cyan-300">Mission</p>
+            <p className="text-[11px] leading-snug text-slate-300">{selectedAngel.mission}</p>
+            {selectedAngel.stack && (
+              <p className="mt-2 text-[10px] text-slate-400">
+                <span className="text-slate-500">Stack:</span> {selectedAngel.stack}
+              </p>
+            )}
+            {selectedAngel.proof_url && (
+              <p className="mt-1 break-words text-[9.5px] text-emerald-300/80">
+                <span className="text-slate-500">Preuve:</span> {selectedAngel.proof_url}
+              </p>
+            )}
+            {typeof selectedAngel.arr_impact_eur_year === "number" && (
+              <p
+                className="mt-1 text-[10px] font-bold"
+                style={{ color: selectedAngel.arr_impact_eur_year < 0 ? "#f87171" : "#34d399" }}
+              >
+                Impact ARR: {selectedAngel.arr_impact_eur_year.toLocaleString("fr-FR")} €/an
+              </p>
+            )}
+          </div>
+        )}
+
         {/* Tiny fetch stamp */}
         {snapshot?.fetchedAt && (
           <div className="absolute bottom-3 right-3 z-20 flex items-center gap-1.5 rounded-md border border-cyan-300/15 bg-slate-950/70 px-2 py-1 text-[9px] uppercase tracking-wider text-slate-400 backdrop-blur">
