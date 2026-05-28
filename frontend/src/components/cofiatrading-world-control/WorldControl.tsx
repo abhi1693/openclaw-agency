@@ -3596,6 +3596,37 @@ function HouseDrawer({
               </section>
             )}
 
+            {house.id === "calendar_tower" && (
+              <section className="rounded-md border border-cyan-300/20 bg-cyan-300/8 p-3">
+                <h3 className="mb-3 flex items-center justify-between text-xs font-semibold uppercase tracking-[0.18em] text-cyan-100">
+                  <span>Cadence opérations (live)</span>
+                  <span className="text-[9px] font-normal text-slate-400">
+                    {cadence?.freshness ?? "…"} · {cadence?.totalLines ?? "—"}
+                  </span>
+                </h3>
+                <div className="space-y-1.5">
+                  {(cadence?.events ?? []).slice(0, 10).map((e, i) => (
+                    <div
+                      key={i}
+                      className="flex items-center gap-2 rounded border border-slate-800 bg-slate-900/70 px-2.5 py-1.5 text-[11px]"
+                    >
+                      <span className="shrink-0 rounded bg-cyan-300/10 px-1.5 py-0.5 font-mono text-[9px] text-cyan-200">
+                        {e.kind ?? "·"}
+                      </span>
+                      <span className="shrink-0 font-mono text-[9.5px] text-slate-400">
+                        {e.ts ? new Date(e.ts).toLocaleTimeString("fr-FR", { hour: "2-digit", minute: "2-digit" }) : "—"}
+                      </span>
+                      <span className="truncate text-slate-300">{e.summary}</span>
+                    </div>
+                  ))}
+                  {(cadence?.events ?? []).length === 0 && (
+                    <p className="text-[11px] text-slate-500">chargement cadence…</p>
+                  )}
+                </div>
+                <p className="mt-2 text-[9px] text-slate-500">Source réelle : hub :8430 /api/calendar/upcoming</p>
+              </section>
+            )}
+
             <section className="rounded-md border border-slate-800 bg-slate-950/70 p-3">
               <h3 className="mb-3 text-xs font-semibold uppercase tracking-[0.18em] text-slate-300">
                 Camions garés
