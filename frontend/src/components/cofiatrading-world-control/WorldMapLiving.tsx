@@ -597,6 +597,59 @@ export function WorldMapLiving({
                   </g>
                 );
               })}
+
+            {/* Cluster hubs (faint anchors for the angels) */}
+            {layers.anges &&
+              ANGEL_CLUSTERS.map((c) => (
+                <circle key={`hub-${c.id}`} cx={c.x} cy={c.y} r="1.4" fill="#cbd5e1" opacity="0.4" />
+              ))}
+
+            {/* Angels constellation — 38 anges canon at their platform clusters */}
+            {layers.anges &&
+              angelNodes.map(({ angel, x, y, cx, cy, color }) => {
+                const isSel = selectedAngel?.id === angel.id;
+                const isHover = hoveredAngel === angel.id;
+                return (
+                  <g
+                    key={`angel-${angel.id}`}
+                    style={{ cursor: "pointer" }}
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      setSelectedAngel(angel);
+                    }}
+                    onMouseEnter={() => setHoveredAngel(angel.id)}
+                    onMouseLeave={() => setHoveredAngel(null)}
+                  >
+                    <line x1={cx} y1={cy} x2={x} y2={y} stroke={color} strokeWidth="0.4" opacity="0.22" />
+                    <circle cx={x} cy={y} r={isSel || isHover ? 4 : 2.3} fill={color} filter="url(#wm-glow)">
+                      <animate
+                        attributeName="opacity"
+                        values="0.5;1;0.5"
+                        dur={`${2.4 + (angel.id % 5) * 0.45}s`}
+                        repeatCount="indefinite"
+                      />
+                    </circle>
+                    {(isHover || isSel) && (
+                      <g transform={`translate(${x + 6} ${y - 4})`}>
+                        <rect
+                          x="0"
+                          y="-8"
+                          width={angel.name.length * 5.2 + 12}
+                          height="14"
+                          rx="3"
+                          fill="#020617"
+                          stroke={color}
+                          strokeWidth="0.7"
+                          opacity="0.96"
+                        />
+                        <text x="6" y="2" fontSize="7.5" fontWeight="700" fill="#e2e8f0">
+                          {angel.name}
+                        </text>
+                      </g>
+                    )}
+                  </g>
+                );
+              })}
           </svg>
         </div>
 
