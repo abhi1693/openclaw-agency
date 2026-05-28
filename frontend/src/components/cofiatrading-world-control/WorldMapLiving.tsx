@@ -131,18 +131,25 @@ function formatNumber(value: number | null | undefined): string {
     .replace(/ /g, " ");
 }
 
+// Honest-by-design: registry status → color. NO fake-green default.
+// LIVE→green · SOURCE_DOWN→red · REGISTERED/DEGRADED→orange · ERR→rose · LOADING→slate.
 function statusColor(status?: string): { dot: string; text: string; label: string } {
-  const s = (status || "").toLowerCase();
-  if (s.includes("live") || s.includes("online") || s.includes("ok") || s.includes("up")) {
-    return { dot: "#10b981", text: "text-emerald-300", label: status?.toUpperCase() || "ONLINE" };
+  switch (status) {
+    case "LIVE":
+      return { dot: "#10b981", text: "text-emerald-300", label: "LIVE" };
+    case "SOURCE_DOWN":
+      return { dot: "#ef4444", text: "text-rose-300", label: "SOURCE DOWN" };
+    case "DEGRADED":
+      return { dot: "#f59e0b", text: "text-amber-300", label: "DEGRADED" };
+    case "REGISTERED":
+      return { dot: "#f59e0b", text: "text-amber-300", label: "REGISTERED" };
+    case "LOADING":
+      return { dot: "#475569", text: "text-slate-400", label: "…" };
+    case "ERR":
+      return { dot: "#fb7185", text: "text-rose-300", label: "ERR" };
+    default:
+      return { dot: "#fb7185", text: "text-rose-300", label: status || "ERR" };
   }
-  if (s.includes("warn") || s.includes("degraded") || s.includes("partial")) {
-    return { dot: "#f59e0b", text: "text-amber-300", label: status?.toUpperCase() || "WARN" };
-  }
-  if (s.includes("down") || s.includes("off") || s.includes("error")) {
-    return { dot: "#ef4444", text: "text-rose-300", label: status?.toUpperCase() || "OFFLINE" };
-  }
-  return { dot: "#22d3ee", text: "text-cyan-300", label: status?.toUpperCase() || "ONLINE" };
 }
 
 /* Preset node coordinates spread across the 1000x500 map viewBox. */
