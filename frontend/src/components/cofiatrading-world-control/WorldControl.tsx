@@ -2221,7 +2221,6 @@ export function WorldControl() {
 
       {/* CORAN V8 Sourate LVI · Angel Roster Manāzil al-Malā'ikah */}
       <AngelRosterPanel roster={angelRoster} />
-      <CalendarPanel />
       <ServicesStatusBar services={snapshot?.services ?? []} />
       <AgentsFreshnessBar agents={snapshot?.agents} />
       <CommerceMachineGrid shops={snapshot?.commerce_machine ?? []} />
