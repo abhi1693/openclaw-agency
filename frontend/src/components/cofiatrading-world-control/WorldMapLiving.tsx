@@ -504,6 +504,15 @@ export function WorldMapLiving({
           })}
         </svg>
 
+        {/* atmosphère : bloom ville en haut + vignette bords (n'intercepte pas les clics) */}
+        <div
+          className="pointer-events-none absolute inset-0 rounded-xl"
+          style={{
+            background:
+              "radial-gradient(120% 75% at 50% 8%, rgba(38,86,150,0.30), transparent 52%), radial-gradient(100% 100% at 50% 52%, transparent 56%, rgba(0,0,0,0.6))",
+          }}
+        />
+
         {/* légende bas */}
         <div className="absolute bottom-2 left-1/2 z-10 flex -translate-x-1/2 flex-wrap items-center justify-center gap-x-3 gap-y-1 rounded-lg border border-cyan-300/20 bg-slate-950/85 px-3 py-1.5 text-[9px] text-slate-300 backdrop-blur">
           {([["LIVE", "#34d399"], ["DEGRADED", "#f59e0b"], ["SOURCE DOWN", "#ef4444"], ["ERR", "#fb7185"]] as Array<[string, string]>).map(([l, c]) => (
