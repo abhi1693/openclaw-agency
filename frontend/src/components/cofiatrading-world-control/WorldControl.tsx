@@ -3449,6 +3449,20 @@ function HouseDrawer({
       cancelled = true;
     };
   }, [house.id]);
+  const [linear, setLinear] = useState<LinearPayload | null>(null);
+  useEffect(() => {
+    if (house.id !== "mission_control_tower") return;
+    let cancelled = false;
+    fetch("/api/cofiatrading-world-control/linear", { cache: "no-store" })
+      .then((r) => r.json())
+      .then((j) => {
+        if (!cancelled) setLinear(j as LinearPayload);
+      })
+      .catch(() => {});
+    return () => {
+      cancelled = true;
+    };
+  }, [house.id]);
   const runtimeTone = house.status === "LIVE" ? "LIVE" : workforce.tone;
   const runtimeBadge = house.status === "LIVE" ? "LIVE" : workforce.badge;
   const trucksLabel = house.trucks.length > 0
