@@ -3036,8 +3036,22 @@ function MissionControlPreservedShellCheck() {
   );
 }
 
-function CofiaLivingCity({ snapshot, angelRoster }: { snapshot: Snapshot | null; angelRoster: AngelRosterPayload | null }) {
+function CofiaLivingCity({
+  snapshot,
+  angelRoster,
+  onSelectHouse,
+}: {
+  snapshot: Snapshot | null;
+  angelRoster: AngelRosterPayload | null;
+  onSelectHouse: (houseId: HouseId) => void;
+}) {
   const districtById = new Map(CITY_DISTRICTS.map((district) => [district.id, district]));
+  const agentsByHouse = new Map<string, CofiaAgent[]>();
+  for (const agent of snapshot?.agentsCanon?.agents ?? []) {
+    const list = agentsByHouse.get(agent.house) ?? [];
+    list.push(agent);
+    agentsByHouse.set(agent.house, list);
+  }
   const services = snapshot?.services ?? [];
   const servicesOk = services.filter((service) => service.ok).length;
   const servicesTotal = services.length;
