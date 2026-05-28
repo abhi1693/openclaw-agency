@@ -1816,7 +1816,14 @@ export function WorldControl() {
           refreshing={refreshingStripeProof}
         />
       ) : null}
-      {selectedHouse ? <HouseDrawer house={selectedHouse} onClose={() => setSelectedHouseId(null)} /> : null}
+      {selectedHouse ? (
+        <HouseDrawer
+          house={selectedHouse}
+          canonAgents={(snapshot?.agentsCanon?.agents ?? []).filter((a) => a.house === selectedHouse.id)}
+          rosterStatusByName={rosterStatusByName}
+          onClose={() => setSelectedHouseId(null)}
+        />
+      ) : null}
       {selectedOffer ? <OfferDrawer offer={selectedOffer} onClose={() => setSelectedOfferId(null)} /> : null}
       {selectedKnowledge ? (
         <KnowledgeDrawer
