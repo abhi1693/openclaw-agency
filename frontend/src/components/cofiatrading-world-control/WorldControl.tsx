@@ -3059,7 +3059,7 @@ function CofiaLivingCity({ snapshot, angelRoster }: { snapshot: Snapshot | null;
         <CityHUD snapshot={snapshot} servicesOk={servicesOk} servicesTotal={servicesTotal} />
 
         <div className="grid min-h-0 gap-3 xl:grid-cols-[minmax(0,1fr)_390px]">
-          <div className="relative min-h-[650px] overflow-hidden rounded-lg border border-cyan-300/25 bg-slate-950/58 shadow-[0_0_80px_rgba(8,145,178,.13)]">
+          <div className="relative min-h-[840px] overflow-hidden rounded-lg border border-cyan-300/25 bg-slate-950/58 shadow-[0_0_80px_rgba(8,145,178,.13)]">
             <div className="absolute left-4 top-4 z-30 max-w-[440px] rounded-md border border-cyan-300/25 bg-slate-950/82 px-3 py-2 backdrop-blur">
               <p className="text-[11px] font-black uppercase tracking-[0.22em] text-cyan-100">Vision Map blueprint vers Living City</p>
               <p className="mt-1 text-[11px] text-slate-300">
