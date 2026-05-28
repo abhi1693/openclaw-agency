@@ -11,7 +11,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
  * angel-roster (anges). Pas de canvas impératif, pas de sprites legacy.
  * ════════════════════════════════════════════════════════════════ */
 
-type CofiaSnapshot = {
+export type CofiaSnapshot = {
   revenue?: {
     currentMrrEur?: number | null;
     currentArrEur?: number | null;
