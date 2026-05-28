@@ -1803,7 +1803,6 @@ export function WorldControl() {
     <DashboardShell>
       <DashboardSidebar />
       <main className="flex-1 overflow-y-auto bg-slate-950">
-        <MissionControlPreservedShellCheck />
         <div className="bg-[#02040a] p-3 text-slate-100">
           <WorldMapLiving snapshot={snapshot} angelRoster={angelRoster} onSelectHouse={(id) => openHouseDrawer(id as HouseId)} />
 
