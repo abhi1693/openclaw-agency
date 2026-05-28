@@ -1806,7 +1806,11 @@ export function WorldControl() {
         <div className="bg-[#02040a] p-3 text-slate-100">
           <CofiaLivingCity snapshot={snapshot} angelRoster={angelRoster} onSelectHouse={openHouseDrawer} />
 
-          <section className="mt-4 min-h-screen border-b border-cyan-300/15 bg-[#050812] px-4 py-4 lg:px-6">
+          <details className="mt-4">
+            <summary className="cursor-pointer list-none rounded-md border border-cyan-300/20 bg-slate-950/70 px-4 py-3 text-[12px] font-black uppercase tracking-[0.2em] text-cyan-100 transition hover:bg-slate-900/70">
+              ▸ Détails opérateur — tables complètes (masquées par défaut · tout est déjà dans la map ci-dessus)
+            </summary>
+          <section className="mt-3 border-b border-cyan-300/15 bg-[#050812] px-4 py-4 lg:px-6">
         <div className="mx-auto grid max-w-[1760px] gap-4 xl:grid-cols-[1fr_420px]">
           <div className="space-y-4">
             <header className="rounded-md border border-cyan-300/20 bg-slate-950/85 p-4 shadow-[0_0_45px_rgba(34,211,238,0.08)]">
