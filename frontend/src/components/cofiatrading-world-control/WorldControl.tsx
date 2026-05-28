@@ -22,6 +22,7 @@ import {
 
 import { DashboardSidebar } from "@/components/organisms/DashboardSidebar";
 import { DashboardShell } from "@/components/templates/DashboardShell";
+import { WorldMapLiving } from "./WorldMapLiving";
 
 type AssetsWarehouseSnapshot = {
   ok?: boolean;
