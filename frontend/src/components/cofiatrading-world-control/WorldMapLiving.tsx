@@ -265,6 +265,32 @@ export function WorldMapLiving({
     });
   }, [houses]);
 
+  /* Position the 38 angels in orbit rings around their platform cluster. */
+  const angelNodes = useMemo(() => {
+    const list = angelRoster?.anges ?? [];
+    const out: Array<{ angel: Angel; x: number; y: number; cx: number; cy: number; color: string }> = [];
+    for (const cluster of ANGEL_CLUSTERS) {
+      const angels = list.filter((a) => cluster.angelIds.includes(a.id));
+      const n = angels.length;
+      angels.forEach((a, idx) => {
+        const ring = n <= 1 ? 0 : 11 + (idx % 3) * 6;
+        const theta = (idx / Math.max(1, n)) * Math.PI * 2 + cluster.x * 0.05;
+        out.push({
+          angel: a,
+          cx: cluster.x,
+          cy: cluster.y,
+          x: cluster.x + Math.cos(theta) * ring,
+          y: cluster.y + Math.sin(theta) * ring,
+          color: ANGEL_STATUS[a.status].color,
+        });
+      });
+    }
+    return out;
+  }, [angelRoster]);
+
+  const angelCounts = angelRoster?.counts;
+  const angelTotal = angelRoster?.total_anges ?? angelRoster?.anges?.length;
+
   const zoomBy = useCallback((delta: number) => {
     setScale((s) => Math.min(2.5, Math.max(0.6, +(s + delta).toFixed(2))));
   }, []);
