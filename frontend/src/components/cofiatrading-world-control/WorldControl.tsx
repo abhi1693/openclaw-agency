@@ -778,6 +778,18 @@ const disabledActions = ["SEND", "PUBLISH", "DEPLOY", "STRIPE WRITE"];
 const northStarImage =
   "/assets/cofiatrading-world-control/cofiatrading-new-york-world-control-100m-arr.png";
 
+// Attribution canonique service -> maison (sûre uniquement ; les non listés ne s'affichent dans aucune maison)
+const SERVICE_HOUSE: Partial<Record<string, HouseId>> = {
+  hub_8430: "mission_control_tower",
+  mission_control_3000: "mission_control_tower",
+  central_brain_8767: "central_brain",
+  llm_proxy_11435: "central_brain",
+  cofiapublisher_8540: "youtube_studio",
+  inventory_8433: "assets_warehouse",
+  lightrag_9621: "lightrag_observatory",
+  paperclip_3100: "paperclip_factory",
+};
+
 const ssotHouses: HouseDefinition[] = [
   {
     id: "mission_control_tower",
