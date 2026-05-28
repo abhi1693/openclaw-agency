@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { readdir, readFile } from "fs/promises";
+import { getCofHost, getOpenClawApiBase, getLocalAuthToken } from "../../../../lib/cof-runtime";
 
 export const dynamic = "force-dynamic";
 export const runtime = "nodejs";
