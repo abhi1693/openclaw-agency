@@ -3126,7 +3126,12 @@ function CofiaLivingCity({
             </svg>
 
             {CITY_DISTRICTS.map((district) => (
-              <CityBuilding key={district.id} district={district} />
+              <CityBuilding
+                key={district.id}
+                district={district}
+                agents={agentsByHouse.get(district.id) ?? []}
+                onSelect={() => onSelectHouse(district.id)}
+              />
             ))}
 
             <div className="absolute bottom-4 left-4 z-30 rounded-md border border-emerald-300/25 bg-slate-950/86 px-3 py-2 text-[11px] text-emerald-100">
