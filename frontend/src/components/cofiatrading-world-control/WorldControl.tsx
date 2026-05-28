@@ -3764,6 +3764,37 @@ function HouseDrawer({
               </section>
             )}
 
+            {house.id === "obsidian_library" && (
+              <section className="rounded-md border border-emerald-300/15 bg-emerald-300/5 p-3">
+                <h3 className="mb-3 flex items-center justify-between text-xs font-semibold uppercase tracking-[0.18em] text-emerald-100">
+                  <span>Obsidian · vault canon (local)</span>
+                  <span className="text-[9px] font-normal text-slate-400">
+                    {obsidian ? (obsidian.ok ? `${obsidian.total} notes` : obsidian.reason ?? "source down") : "…"}
+                  </span>
+                </h3>
+                <div className="grid grid-cols-2 gap-1.5 sm:grid-cols-3">
+                  {(obsidian?.sections ?? []).map((s) => (
+                    <div
+                      key={s.section}
+                      className="flex items-center justify-between gap-1 rounded border border-slate-800 bg-slate-900/70 px-2 py-1 text-[10px]"
+                    >
+                      <span className="truncate text-slate-300">{s.section}</span>
+                      <span className="shrink-0 font-mono text-emerald-200">{s.notes}</span>
+                    </div>
+                  ))}
+                </div>
+                {obsidian?.handoffs && (
+                  <div className="mt-2 space-y-1 text-[10px] text-slate-400">
+                    {obsidian.handoffs.codex && <p className="truncate">handoff codex: {obsidian.handoffs.codex}</p>}
+                    {obsidian.handoffs.claude && <p className="truncate">handoff claude: {obsidian.handoffs.claude}</p>}
+                    {obsidian.handoffs.openclaw && <p className="truncate">handoff openclaw: {obsidian.handoffs.openclaw}</p>}
+                  </div>
+                )}
+                {!obsidian && <p className="text-[11px] text-slate-500">chargement vault…</p>}
+                <p className="mt-2 text-[9px] text-slate-500">Source réelle locale : ~/Obsidian/COF_TRADING</p>
+              </section>
+            )}
+
             <section className="rounded-md border border-slate-800 bg-slate-950/70 p-3">
               <h3 className="mb-3 text-xs font-semibold uppercase tracking-[0.18em] text-slate-300">
                 Camions garés
