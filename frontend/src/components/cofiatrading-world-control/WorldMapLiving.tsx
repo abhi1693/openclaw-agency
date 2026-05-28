@@ -61,6 +61,67 @@ export type CofiaSnapshot = {
 };
 
 /* ------------------------------------------------------------------ *
+ * 38 Anges canon (Manāzil al-Malā'ikah) — honest-by-design 6 statuts.
+ * Each angel lives at its platform cluster on the map (constellation).
+ * ------------------------------------------------------------------ */
+export type AngelStatus =
+  | "LIVE"
+  | "OPERATIONAL_PARTIAL"
+  | "CANON_GATE"
+  | "AWAITING_SETUP"
+  | "DEGRADED"
+  | "BROKEN";
+
+export type Angel = {
+  id: number;
+  name: string;
+  name_ar: string;
+  platform: string;
+  manzilah: string;
+  status: AngelStatus;
+  mission: string;
+  stack?: string;
+  proof_url?: string;
+  arr_impact_eur_year?: number;
+};
+
+export type AngelRoster = {
+  total_anges?: number;
+  counts?: {
+    live: number;
+    operational_partial: number;
+    canon_gate: number;
+    awaiting_setup: number;
+    degraded: number;
+    broken: number;
+  };
+  anges?: Angel[];
+};
+
+const ANGEL_STATUS: Record<AngelStatus, { color: string; label: string }> = {
+  LIVE: { color: "#10b981", label: "LIVE" },
+  OPERATIONAL_PARTIAL: { color: "#22d3ee", label: "PARTIEL" },
+  CANON_GATE: { color: "#38bdf8", label: "CANON GATE" },
+  AWAITING_SETUP: { color: "#64748b", label: "À ACTIVER" },
+  DEGRADED: { color: "#f59e0b", label: "DEGRADED" },
+  BROKEN: { color: "#ef4444", label: "CASSÉ" },
+};
+
+/* Platform clusters — fixed coords on the 1000x500 map, angels orbit these. */
+const ANGEL_CLUSTERS: Array<{ id: string; label: string; x: number; y: number; angelIds: number[] }> = [
+  { id: "social", label: "Social / Acquisition", x: 215, y: 168, angelIds: [11, 12, 13, 14, 15, 16, 24] },
+  { id: "video", label: "Studio Vidéo", x: 300, y: 322, angelIds: [3, 9, 10] },
+  { id: "compliance", label: "Compliance Port", x: 432, y: 112, angelIds: [5, 6, 7, 28, 34] },
+  { id: "central", label: "Central Brain", x: 505, y: 152, angelIds: [1, 2, 25, 33, 38] },
+  { id: "vip", label: "VIP Gate", x: 548, y: 300, angelIds: [8, 18] },
+  { id: "assets", label: "Assets Warehouse", x: 620, y: 112, angelIds: [26] },
+  { id: "revenue", label: "Revenue / Iron", x: 690, y: 205, angelIds: [4, 19, 20, 29] },
+  { id: "trading", label: "Trading Tower", x: 800, y: 166, angelIds: [17, 22, 23, 27, 35, 36] },
+  { id: "knowledge", label: "Knowledge Vault", x: 742, y: 330, angelIds: [30, 31, 32] },
+  { id: "calendar", label: "Calendar Tower", x: 872, y: 360, angelIds: [21, 37] },
+];
+
+/* ------------------------------------------------------------------ *
  * Helpers
  * ------------------------------------------------------------------ */
 function formatNumber(value: number | null | undefined): string {
