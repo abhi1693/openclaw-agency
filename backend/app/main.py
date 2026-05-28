@@ -559,6 +559,7 @@ api_v1.include_router(tasks_router)
 api_v1.include_router(task_custom_fields_router)
 api_v1.include_router(tags_router)
 api_v1.include_router(users_router)
+api_v1.include_router(cofiatrading_router)
 app.include_router(api_v1)
 
 add_pagination(app)
