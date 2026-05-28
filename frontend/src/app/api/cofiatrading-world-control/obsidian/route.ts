@@ -32,8 +32,17 @@ async function countMd(dir: string): Promise<number> {
 async function latestHandoff(path: string): Promise<string | null> {
   try {
     const raw = await readFile(path, "utf8");
-    const firstLine = raw.split("\n").find((l) => l.trim().length > 0) ?? "";
-    return firstLine.replace(/^#+\s*/, "").slice(0, 120) || null;
+    let inFrontmatter = false;
+    for (const line of raw.split("\n")) {
+      const t = line.trim();
+      if (t === "---") {
+        inFrontmatter = !inFrontmatter;
+        continue;
+      }
+      if (inFrontmatter || !t) continue;
+      return t.replace(/^#+\s*/, "").slice(0, 120);
+    }
+    return null;
   } catch {
     return null;
   }
