@@ -453,12 +453,25 @@ export function WorldMapLiving({
                 opacity={selectedHouse && !isSel ? 0.82 : 1}
               >
                 {/* halo statut au sol */}
-                <ellipse cx={cx} cy={b.base.y + 6} rx={b.zone.w * 9} ry={b.zone.w * 4.4} fill={st.color} opacity={isSel || isHover ? 0.22 : 0.1} />
-                {/* murs */}
-                <polygon points={b.leftWall} fill={b.zone.color} opacity="0.92" stroke={st.color} strokeWidth={isSel || isHover ? 1.6 : 0.8} />
-                <polygon points={b.rightWall} fill={b.zone.color} opacity="0.7" stroke={st.color} strokeWidth={isSel || isHover ? 1.6 : 0.8} />
-                {/* toit */}
-                <polygon points={b.roofPoly} fill={b.zone.roof} stroke={b.zone.accent} strokeWidth="1.1" />
+                <ellipse cx={cx} cy={b.base.y + 6} rx={b.zone.w * 9} ry={b.zone.w * 4.4} fill={st.color} opacity={isSel || isHover ? 0.26 : 0.12} />
+                {/* murs (base sombre, gauche éclairée / droite ombre) */}
+                <polygon points={b.leftWall} fill={b.zone.color} opacity="0.96" />
+                <polygon points={b.rightWall} fill={b.zone.color} opacity="0.72" />
+                {/* fenêtres façade gauche (lit = accent lumineux) */}
+                {b.leftWindows.map((w, i) => (
+                  <polygon key={`lw-${b.zone.id}-${i}`} points={w.pts} fill={w.lit ? b.zone.accent : "#0a0f1c"} opacity={w.lit ? 0.5 : 0.5} />
+                ))}
+                {/* fenêtres façade droite (ombre) */}
+                {b.rightWindows.map((w, i) => (
+                  <polygon key={`rw-${b.zone.id}-${i}`} points={w.pts} fill={w.lit ? b.zone.accent : "#070b14"} opacity={w.lit ? 0.32 : 0.55} />
+                ))}
+                {/* arêtes néon (statut) */}
+                <polygon points={b.leftWall} fill="none" stroke={st.color} strokeWidth={isSel || isHover ? 1.8 : 0.9} opacity={isSel || isHover ? 1 : 0.7} />
+                <polygon points={b.rightWall} fill="none" stroke={st.color} strokeWidth={isSel || isHover ? 1.6 : 0.7} opacity={isSel || isHover ? 0.9 : 0.5} />
+                {/* toit + reflet + arête néon accent */}
+                <polygon points={b.roofPoly} fill={b.zone.roof} />
+                <polygon points={b.roofPoly} fill="url(#roof-sheen)" />
+                <polygon points={b.roofPoly} fill="none" stroke={b.zone.accent} strokeWidth={isSel || isHover ? 2 : 1.3} filter={isSel || isHover ? "url(#iso-glow)" : undefined} />
                 {/* accent crest sur le toit */}
                 <circle cx={cx} cy={cyTop} r="3.2" fill={b.zone.accent} filter="url(#iso-glow)">
                   {(statusFor(b.zone.id) === "SOURCE_DOWN" || statusFor(b.zone.id) === "DEGRADED") && (
