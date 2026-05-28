@@ -1808,13 +1808,6 @@ export function WorldControl() {
 
           <details className="mt-4">
             <summary className="cursor-pointer list-none rounded-md border border-cyan-300/20 bg-slate-950/70 px-4 py-3 text-[12px] font-black uppercase tracking-[0.2em] text-cyan-100 transition hover:bg-slate-900/70">
-              ▸ Vue quartiers (grille) + panneaux détaillés
-            </summary>
-          <CofiaLivingCity snapshot={snapshot} angelRoster={angelRoster} onSelectHouse={openHouseDrawer} />
-          </details>
-
-          <details className="mt-4">
-            <summary className="cursor-pointer list-none rounded-md border border-cyan-300/20 bg-slate-950/70 px-4 py-3 text-[12px] font-black uppercase tracking-[0.2em] text-cyan-100 transition hover:bg-slate-900/70">
               ▸ Détails opérateur — tables complètes (masquées par défaut · tout est déjà dans la map ci-dessus)
             </summary>
           <section className="mt-3 border-b border-cyan-300/15 bg-[#050812] px-4 py-4 lg:px-6">
