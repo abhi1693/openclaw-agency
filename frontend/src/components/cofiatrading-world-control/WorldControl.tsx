@@ -1688,6 +1688,17 @@ export function WorldControl() {
   }, [snapshot]);
 
   const selectedHouse = houses.find((house) => house.id === selectedHouseId) ?? null;
+  const selectedHouseCanonAgents = selectedHouse
+    ? (snapshot?.agentsCanon?.agents ?? []).filter((a) => a.house === selectedHouse.id)
+    : [];
+  const selectedHouseCommerce = selectedHouse
+    ? (snapshot?.commerce_machine ?? []).filter((shop) =>
+        selectedHouseCanonAgents.some((a) => shop.owner_agent.includes(a.name)),
+      )
+    : [];
+  const selectedHouseServices = selectedHouse
+    ? (snapshot?.services ?? []).filter((svc) => SERVICE_HOUSE[svc.id] === selectedHouse.id)
+    : [];
   const selectedOffer = offers.find((offer) => offer.offerId === selectedOfferId) ?? null;
   const selectedKnowledge =
     knowledgeRecords.find((record) => record.id === selectedKnowledgeId) ?? null;
