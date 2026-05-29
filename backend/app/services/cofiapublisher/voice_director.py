@@ -267,15 +267,16 @@ def direct(script: str, out_path: str, run_dir, voice_id: str | None = None, tak
                   optimize_streaming_latency=0,
                   voice_settings={"stability": 0.5, "similarity_boost": 0.85,
                                   "style": 0.0, "use_speaker_boost": True})
+    brand_terms = _brand_terms_in(script)
     takes_log, best = [], None
     for i in range(1, max(1, takes) + 1):
-        take_mp3 = str(rd / f"voice_take{i}.mp3")
+        take_mp3 = str(rd / f"voice_take_{i}.mp3")
         vr = ve.synthesize_with_timestamps(spoken, take_mp3, voice_id=vid, model_id=VOICE_MODEL,
                                             seed=i * 1000, **forced)
         if not vr.get("ok"):
             takes_log.append({"take": i, "ok": False, "error": vr.get("error") or vr.get("status")})
             continue
-        qa = audit_take(take_mp3, vr["alignment"], spoken)
+        qa = audit_take(take_mp3, vr["alignment"], spoken, brand_terms=brand_terms)
         rec = {"take": i, "ok": True, "path": take_mp3, "seed": i * 1000,
                "pass": qa["pass"], "score": qa["score"], "reasons": qa["reasons"], "metrics": qa["metrics"]}
         takes_log.append(rec)
@@ -285,11 +286,25 @@ def direct(script: str, out_path: str, run_dir, voice_id: str | None = None, tak
             break  # 1ère prise PASS = on s'arrête
 
     verdict = "PASS" if (best and best.get("pass")) else "FAIL"
+    if best and best.get("pass"):
+        m = best["metrics"]
+        justification = (f"Prise {best['take']} retenue : PASS — similarité STT {m.get('stt_similarity')}, "
+                         f"logprob {m.get('avg_logprob')} (non robotique), débit {m.get('wps')} mots/s, "
+                         f"0 mot allongé, marque entendue OK ({m.get('brand_checked')}).")
+    elif best:
+        justification = (f"Aucune prise PASS sur {len(takes_log)}. Meilleure = prise {best['take']} "
+                         f"(score {best.get('score')}, raisons {best.get('reasons')}). Vidéo BLOQUÉE.")
+    else:
+        justification = "Aucune prise générée (échec ElevenLabs). Vidéo BLOQUÉE."
     report = {
         "verdict": verdict, "voice_id": vid, "model": VOICE_MODEL,
-        "forced_params": {k: v for k, v in forced.items() if k != "voice_settings"} | {"style": 0.0},
+        "forced_params": {k: v for k, v in forced.items() if k != "voice_settings"} | {"style": 0.0,
+                          "endpoint": "/with-timestamps"},
+        "brand_terms_checked": [b[0] for b in brand_terms],
         "spoken_text": spoken, "raw_script": script.strip(),
         "chosen_take": best["take"] if best else None,
+        "selected_voice": str(rd / "selected_voice.mp3") if (best and best.get("pass")) else None,
+        "justification": justification,
         "takes": takes_log,
     }
     report_path = rd / "voice_qa_report.json"
@@ -297,11 +312,14 @@ def direct(script: str, out_path: str, run_dir, voice_id: str | None = None, tak
 
     if verdict != "PASS" or not best:
         return {"ok": False, "verdict": verdict, "error": "VOICE_QA_FAILED",
-                "report_path": str(report_path), "qa_report": report}
+                "report_path": str(report_path), "qa_report": report, "justification": justification}
 
-    # promeut la prise gagnante en voix finale
+    # promeut la prise gagnante : selected_voice.mp3 (livrable) + out_path (pipeline)
     import shutil
+    sel = str(rd / "selected_voice.mp3")
+    shutil.copyfile(best["path"], sel)
     shutil.copyfile(best["path"], out_path)
-    return {"ok": True, "verdict": "PASS", "path": out_path, "alignment": best["alignment"],
-            "display_restore": display_restore, "spoken_text": spoken,
-            "report_path": str(report_path), "qa_report": report, "chosen_take": best["take"]}
+    return {"ok": True, "verdict": "PASS", "path": out_path, "selected_voice": sel,
+            "alignment": best["alignment"], "display_restore": display_restore, "spoken_text": spoken,
+            "report_path": str(report_path), "qa_report": report, "chosen_take": best["take"],
+            "justification": justification}
