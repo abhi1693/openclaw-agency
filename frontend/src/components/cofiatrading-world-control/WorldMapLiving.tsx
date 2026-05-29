@@ -263,13 +263,16 @@ export function WorldMapLiving({
         const r = await fetch("/api/cofiatrading-world-control/registry", { cache: "no-store" });
         if (!r.ok) throw new Error(`HTTP_${r.status}`);
         const data = await r.json();
-        const houses = (data?.houses ?? {}) as Record<string, { status?: unknown }>;
+        const houses = (data?.houses ?? {}) as Record<string, { status?: unknown; on_demand?: unknown }>;
         const map: Record<string, string> = {};
+        const onDemand = new Set<string>();
         for (const [id, v] of Object.entries(houses)) {
           if (typeof v?.status === "string") map[id] = v.status;
+          if (v?.on_demand === true) onDemand.add(id);
         }
         if (!cancelled) {
           setHouseStatuses(map);
+          setOnDemandSet(onDemand);
           setRegistryError(false);
           lastFetch.current = Date.now();
           setSyncStamp(new Date().toLocaleTimeString("fr-FR"));
