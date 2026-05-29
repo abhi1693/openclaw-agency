@@ -406,6 +406,7 @@ def _emit_manifest(rd, run_id, beats, shots, captions, audio_dur, suno_track, qv
     for t in tool_ledger:
         md.append(f"- **{t['outil']}** : {t['statut']} — {t.get('raison') or t.get('detail') or ''}")
     md += ["", f"## Cost : {est}€ (plafond {cost_ledger['plafond_eur']}€)",
+           f"## Voix (gate) : {voice_qa.get('verdict','N/A')} · voix {voice_qa.get('voice_id','')} · prise {voice_qa.get('chosen_take')}/{len(voice_qa.get('takes',[]))} · audit Whisper FR",
            f"## QA : {qv.get('verdict')} {qv.get('passed')} · sync drift {drift}ms (ok={qa_ledger['sync_ok']})",
            f"## Shots : {n_video}/{len(shots)} footage réel, {n_flux} FLUX (justifié)",
            f"## Final : {out_mp4}", "## Publish : 🔒 LOCKED (GO Erwin requis)"]
