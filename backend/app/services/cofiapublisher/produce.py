@@ -581,7 +581,9 @@ def execute_v4(beats=None, voice_id=None, counter_to=200, counter_suffix=" IA",
 
     n_video = sum(1 for s in shots if s.get("type") == "video")
     qv = qa.review(out_mp4)
+    _emit_manifest(rd, run_id, beats, shots, captions, audio_dur, suno_mp3, qv, est, out_mp4)
     return {"ok": True, "run": run_id, "engine": "remotion+ffmpeg", "shots": len(shots), "video_shots": n_video,
+            "manifest": str(rd / "manifest.json"), "manifest_md": str(rd / "manifest.md"), "timeline": str(rd / "timeline.json"),
             "cost_eur": est, "output": out_mp4, "duration_s": round(audio_dur, 2), "captions_chunks": len(captions),
             "qa": qv, "publish": distribution.PUBLISH_LOCK,
             "upgrades": [f"{n_video}/{len(shots)} plans = VRAI footage vidéo (Pexels, ça bouge)", "montage multi-plans coupé au beat",
