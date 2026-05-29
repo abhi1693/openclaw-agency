@@ -352,6 +352,54 @@ LAUNCH_VISUAL_QUERIES = [
 ]
 
 
+def _emit_manifest(rd, run_id, beats, shots, captions, audio_dur, suno_track, qv, est, out_mp4) -> dict:
+    """Contrat CofiaPublisher : storyboard + audio_map + shot_list + tool_ledger + cost_ledger + qa_ledger."""
+    n_video = sum(1 for s in shots if s.get("type") == "video")
+    n_flux = sum(1 for s in shots if s.get("type") == "image")
+    storyboard = [{"beat": i, "voix": b["t"], "intent_visuel": (b.get("v") or "")[:90]} for i, b in enumerate(beats)]
+    shot_list = [{"idx": j, "type": s.get("type"), "source": "Pexels video" if s.get("type") == "video" else "FLUX still",
+                  "durationInFrames": s["durationInFrames"], "transition": s.get("transition"),
+                  "justification": None if s.get("type") == "video" else "stock vidéo indispo pour la requête → fallback image FLUX (contrat §7)"} for j, s in enumerate(shots)]
+    audio_map = {"voix": {"provider": "ElevenLabs", "duration_s": round(audio_dur, 2), "timing": "word-level /with-timestamps"},
+                 "musique": {"provider": "Suno (compte Pro)", "track": os.path.basename(suno_track), "role": "bed dynamique + ducking sidechain"},
+                 "sfx": ["drone_bed_lo", "boom hook", "riser avant reveals", "boom_heavy drops", "impact twist", "whoosh whip-only"],
+                 "master": "loudnorm -14 LUFS"}
+    tool_ledger = [
+        {"outil": "Suno", "statut": "USED" if suno_track and os.path.exists(suno_track) else "FAIL", "detail": "musique générée compte Pro (obligatoire §4)"},
+        {"outil": "Remotion", "statut": "USED", "detail": "montage timeline final (obligatoire §5)"},
+        {"outil": "ElevenLabs", "statut": "USED", "detail": "voix"},
+        {"outil": "Captions word-level", "statut": "USED", "detail": "sync au mot ElevenLabs (§6)"},
+        {"outil": "Footage vidéo Pexels", "statut": "USED" if n_video else "UNUSED", "detail": f"{n_video}/{len(shots)} plans réels (§7)"},
+        {"outil": "FLUX", "statut": "USED" if n_flux else "STANDBY", "detail": f"{n_flux} fallback image"},
+        {"outil": "Veo/Kling/Runway (motion IA)", "statut": "UNAVAILABLE", "raison": "non câblé runtime v4 (coût/async) — P2 ; footage Pexels couvre la motion"},
+        {"outil": "Hedra/avatar", "statut": "UNAVAILABLE", "raison": "compte free-tier + pas de présentateur ce scénario — P3"},
+        {"outil": "Imagen3/Ideogram", "statut": "STANDBY", "raison": "FLUX suffit en secours image"},
+        {"outil": "Mascottes CorsiKaan/KatiKaan", "statut": "UNAVAILABLE", "raison": "pas encore intégrées au moteur — backlog"},
+        {"outil": "LUT/grain/vignette + SFX", "statut": "USED"},
+    ]
+    last_cap = captions[-1]["endMs"] if captions else 0
+    drift = int(audio_dur * 1000) - last_cap
+    cost_ledger = {"ElevenLabs_voix_eur": 0.30, "Suno_eur": 0.0, "Suno_credits_approx": 10, "Pexels_eur": 0.0,
+                   "FLUX_eur": round(0.03 * n_flux, 2), "total_eur": est, "plafond_eur": float(os.environ.get("MAX_COST_EUR", "3"))}
+    qa_ledger = {"qa": qv, "sync_caption_end_ms": last_cap, "audio_dur_ms": int(audio_dur * 1000),
+                 "sync_drift_ms": drift, "sync_ok": abs(drift) < 400}
+    manifest = {"run": run_id, "contract": "CofiaPublisher_v1", "storyboard": storyboard, "audio_map": audio_map,
+                "shot_list": shot_list, "tool_ledger": tool_ledger, "cost_ledger": cost_ledger, "qa_ledger": qa_ledger,
+                "final_mp4": out_mp4, "publish": distribution.PUBLISH_LOCK}
+    with open(rd / "manifest.json", "w", encoding="utf-8") as f:
+        _json.dump(manifest, f, ensure_ascii=False, indent=1)
+    md = [f"# Manifest CofiaPublisher — {run_id}", "", "## Tool ledger (obligatoires ou justifiés)"]
+    for t in tool_ledger:
+        md.append(f"- **{t['outil']}** : {t['statut']} — {t.get('raison') or t.get('detail') or ''}")
+    md += ["", f"## Cost : {est}€ (plafond {cost_ledger['plafond_eur']}€)",
+           f"## QA : {qv.get('verdict')} {qv.get('passed')} · sync drift {drift}ms (ok={qa_ledger['sync_ok']})",
+           f"## Shots : {n_video}/{len(shots)} footage réel, {n_flux} FLUX (justifié)",
+           f"## Final : {out_mp4}", "## Publish : 🔒 LOCKED (GO Erwin requis)"]
+    with open(rd / "manifest.md", "w", encoding="utf-8") as f:
+        f.write("\n".join(md))
+    return manifest
+
+
 def execute_v4(beats=None, voice_id=None, counter_to=200, counter_suffix=" IA",
                counter_beat=3, brand_beat=2, twist_beat=3,
                music_prompt="cinematic finance trailer, hybrid orchestral electronic, tension build to a drop, confident premium, no vocals, sub bass, 100 BPM") -> dict:
