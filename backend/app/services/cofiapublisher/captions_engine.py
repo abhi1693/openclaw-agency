@@ -65,12 +65,14 @@ def _mk(word: str, start_s, end_s, lex: set[str]) -> dict:
 
 
 def chunk_words(words: list[dict], max_chunk: int = 3, max_ms: int = 900) -> list[dict]:
-    """Regroupe en chunks 2-4 mots tenus ≤900ms (pacing Dynamic Minimalism 2026)."""
+    """Regroupe en chunks 2-4 mots tenus ≤900ms. Coupe à chaque FIN DE PHRASE (. ! ? …)
+    pour ne jamais coller deux phrases dans un chunk (fix « justifié.Tu »)."""
     chunks, buf = [], []
     for w in words:
         buf.append(w)
         span = buf[-1]["endMs"] - buf[0]["startMs"]
-        if len(buf) >= max_chunk or span >= max_ms:
+        ends_sentence = (w.get("text", "").strip()[-1:] in ".!?…")
+        if len(buf) >= max_chunk or span >= max_ms or ends_sentence:
             chunks.append(_merge(buf)); buf = []
     if buf:
         chunks.append(_merge(buf))
