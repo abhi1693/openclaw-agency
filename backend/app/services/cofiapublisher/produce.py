@@ -530,8 +530,15 @@ def execute_v4(beats=None, voice_id=None, counter_to=200, counter_suffix=" IA",
     return {"ok": True, "run": run_id, "engine": "remotion+ffmpeg", "shots": len(shots), "video_shots": n_video,
             "cost_eur": est, "output": out_mp4, "duration_s": round(audio_dur, 2), "captions_chunks": len(captions),
             "qa": qv, "publish": distribution.PUBLISH_LOCK,
-            "upgrades": [f"{n_video}/{len(shots)} plans = VRAI footage vidéo (Pexels, ça bouge)", "montage multi-plans coupé au beat", "master loudnorm -14 LUFS (fin du PSHHH)", "whoosh 0.22 sur whip only", "LUT+grain léger+ducking", "captions kinetic synchro"],
-            "note": "Vidéo v4 (vrai montage vidéo). Non publiée (§18)."}
+            "upgrades": [f"{n_video}/{len(shots)} plans = VRAI footage vidéo (Pexels, ça bouge)", "montage multi-plans coupé au beat",
+                         "MUSIQUE BASSE base 0.13 + automation volume dynamique (swell pré-reveal/twist, dip post-boum)",
+                         f"2 tracks Suno crossfadés tension→uplift au brand reveal{'' if has_uplift else ' (1 track: uplift échec)'}",
+                         "punch-zoom synchro beat (beatFrames=accents voix, ≥1/plan)",
+                         "SFX timeline placée : drone bed + boom_thump hook + riser builds + boom_heavy drops + impact twist",
+                         "ducking renforcé ratio=10 (voix claire au-dessus)", "master loudnorm -14 LRA=12 (plus de dynamique)",
+                         "LUT navy/cyan + grain léger + vignette", "captions kinetic synchro"],
+            "music_dynamics": {"base_vol": 0.13, "brand_reveal_s": round(brand_s, 2), "twist_s": round(twist_s, 2), "two_tracks_suno": has_uplift},
+            "note": "Vidéo v4 SOUND-DYNAMICS (Marcus). Non publiée (§18)."}
 
 
 def execute_v3(beats=None, voice_id=None) -> dict:
