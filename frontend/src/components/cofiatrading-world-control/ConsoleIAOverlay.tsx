@@ -975,20 +975,19 @@ export function ConsoleIAOverlay() {
 
             <main className="grid min-h-0 grid-rows-[auto_1fr_auto] overflow-hidden">
 	              <div className="border-b border-slate-800/80 p-4">
-                <p className="text-[10px] font-black uppercase tracking-[0.18em] text-cyan-100">
-                  Conversation Central Brain
-                </p>
-                <h3 className="mt-1 text-lg font-black text-white">
-                  Central Brain → {selectedTarget.label}
-                </h3>
-                <p className="mt-1 text-xs leading-5 text-slate-400">
-                  Comme dans les apps IA : tu peux écrire, parler, montrer ton écran, déposer une image ou un fichier,
-                  choisir le modèle/lane, puis cibler l’agent ou le groupe.
-                </p>
-                <div className="mt-3 grid gap-2 rounded-2xl border border-cyan-300/15 bg-slate-950/45 p-2 text-[10px] uppercase tracking-[0.08em] text-slate-300 sm:grid-cols-3">
-                  <span><b className="text-cyan-100">Agent</b> · {selectedTarget.label}</span>
-                  <span><b className="text-cyan-100">Modèle</b> · {selectedModelMode.label}</span>
-                  <span><b className="text-cyan-100">Action</b> · {selectedActionMode}</span>
+                <div className="grid gap-3 rounded-2xl border border-cyan-300/20 bg-slate-950/55 p-3 sm:grid-cols-3">
+                  <div className="min-w-0">
+                    <p className="text-[9px] font-black uppercase tracking-[0.16em] text-slate-500">Cible</p>
+                    <p className="mt-1 truncate text-sm font-black text-white">{selectedTarget.label}</p>
+                  </div>
+                  <div className="min-w-0 sm:border-l sm:border-slate-800 sm:pl-3">
+                    <p className="text-[9px] font-black uppercase tracking-[0.16em] text-slate-500">Modèle</p>
+                    <p className="mt-1 truncate text-sm font-black text-cyan-100">{selectedModelMode.label}</p>
+                  </div>
+                  <div className="min-w-0 sm:border-l sm:border-slate-800 sm:pl-3">
+                    <p className="text-[9px] font-black uppercase tracking-[0.16em] text-slate-500">Action</p>
+                    <p className="mt-1 truncate text-sm font-black text-emerald-100">{selectedActionMode}</p>
+                  </div>
                 </div>
                 <div className="mt-3 rounded-2xl border border-slate-800 bg-slate-950/55 p-3">
                   <div className="mb-2 flex items-center gap-2 text-[10px] font-black uppercase tracking-[0.16em] text-cyan-100">
