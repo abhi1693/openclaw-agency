@@ -69,7 +69,7 @@ def synthesize_with_timestamps(
     text: str,
     out_path: str,
     voice_id: str | None = None,
-    model_id: str = "eleven_multilingual_v2",
+    model_id: str | None = None,
 ) -> dict:
     """Génère le MP3 + l'alignement caractère-par-caractère (horloge maître captions kinetic).
     Retourne {ok, path, alignment:{characters[], starts_s[], ends_s[]}}."""
@@ -79,12 +79,12 @@ def synthesize_with_timestamps(
     vid = (voice_id or DEFAULT_VOICE).strip()
     if not vid:
         return {"ok": False, "error": "no_voice_id"}
+    model_id = (model_id or DEFAULT_MODEL).strip()
     try:
         r = httpx.post(
             f"{API}/text-to-speech/{vid}/with-timestamps",
             headers={"xi-api-key": EL_KEY, "content-type": "application/json"},
-            json={"text": text, "model_id": model_id,
-                  "voice_settings": {"stability": 0.55, "similarity_boost": 0.75}},
+            json={"text": text, "model_id": model_id, "voice_settings": _voice_settings()},
             timeout=90,
         )
     except Exception as e:  # noqa: BLE001
