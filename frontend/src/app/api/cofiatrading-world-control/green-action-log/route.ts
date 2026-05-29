@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { getCofHost } from "../../../../lib/cof-runtime";
+import { readLocalRevenue } from "../_lib/localRevenue";
 
 export const dynamic = "force-dynamic";
 export const runtime = "nodejs";
