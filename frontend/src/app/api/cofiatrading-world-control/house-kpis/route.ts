@@ -149,9 +149,11 @@ export async function GET() {
   }
 
   // ── obsidian_library : notion DBs + lightrag manifest (lectures cheap, local)
+  const NOTION_META = ["schema_version", "bootstrap_at_utc", "bootstrap_method"];
+  const notionDbCount = notion ? Object.keys(notion).filter((k) => !NOTION_META.includes(k)).length : null;
   houses.obsidian_library = {
     kpis: [
-      { label: "Notion DBs", value: fr(Array.isArray(g(notion, "dbs")) ? (g(notion, "dbs") as unknown[]).length : g(notion, "count")), source: "notion_dbs.json (local)" } as Kpi,
+      { label: "Notion sections-DB", value: fr(notionDbCount), source: "notion_dbs.json (local)" } as Kpi,
       { label: "Fichiers RAG ciblés", value: fr(g(lrManifest, "total_files")), source: "lightrag_manifest.json (local)" } as Kpi,
     ],
   };
