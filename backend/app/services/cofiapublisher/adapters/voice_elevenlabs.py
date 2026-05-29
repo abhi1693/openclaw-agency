@@ -14,6 +14,23 @@ API = "https://api.elevenlabs.io/v1"
 EL_KEY = os.environ.get("ELEVENLABS_API_KEY", "").strip()
 DEFAULT_VOICE = os.environ.get("ELEVENLABS_FALLBACK_VOICE_ID", "").strip()
 
+# Modèle EXPRESSIF par défaut (doc ElevenLabs 2026) : eleven_v3 = dialogue expressif + audio tags
+# ([pause], [excited], [emphasized]...). Vérifié 2026-05-29 : renvoie AUSSI les timestamps
+# /with-timestamps → on garde les captions au mot. Override possible via ELEVEN_MODEL_ID.
+DEFAULT_MODEL = os.environ.get("ELEVEN_MODEL_ID", "eleven_v3").strip()
+
+
+def _voice_settings() -> dict:
+    """Réglages doc-backed pour une narration vivante (pas plate/robotique).
+    Doc : stability basse (25-50%) = + d'émotion ; style = expressivité ; speaker_boost = présence.
+    Tunable via env (ELEVEN_STABILITY / ELEVEN_STYLE / ELEVEN_SIMILARITY)."""
+    return {
+        "stability": float(os.environ.get("ELEVEN_STABILITY", "0.35")),
+        "similarity_boost": float(os.environ.get("ELEVEN_SIMILARITY", "0.8")),
+        "style": float(os.environ.get("ELEVEN_STYLE", "0.45")),
+        "use_speaker_boost": True,
+    }
+
 
 def available() -> bool:
     return bool(EL_KEY)
