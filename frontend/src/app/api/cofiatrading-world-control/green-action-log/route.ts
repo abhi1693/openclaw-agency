@@ -25,8 +25,7 @@ type TodayPublishReview = {
 
 const HOST = getCofHost();
 const MISSION_CONTROL_URL = process.env.COF_MISSION_CONTROL_URL ?? "http://127.0.0.1:3000";
-const REVENUE_SUMMARY_URL =
-  process.env.COF_REVENUE_SUMMARY_URL ?? `${HOST}:8430/api/iron/revenue/summary`;
+// REVENUE_SUMMARY_URL Abidjan :8430 COUPÉ 20260529 → revenue lu en local (cof_state.json) via localRevenueProbe().
 const PUBLISHER_STATUS_URL =
   process.env.COF_PUBLISHER_STATUS_URL ?? `${HOST}:8540/api/status`;
 const CENTRAL_BRAIN_HEALTH_URL =
