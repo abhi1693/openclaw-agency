@@ -115,3 +115,99 @@ def execute(tier: str = "economy", mode: str = "manual", prompt: str = "COF Trad
             "output": out_mp4, "duration_s": round(vdur, 2), "qa": qv,
             "publish": distribution.PUBLISH_LOCK, "steps": steps,
             "note": "Vidéo LOCALE produite (0€). Non publiée (§18). Brand overlay + captions = itération suivante."}
+
+
+def _build_srt(text: str, total_s: float, path: str) -> None:
+    """SRT depuis le script connu (pas besoin de whisper) — découpe en segments timés."""
+    words = text.split()
+    seg, segs, cur = [], [], 0
+    for w in words:
+        seg.append(w); cur += 1
+        if cur >= 6:
+            segs.append(" ".join(seg)); seg, cur = [], 0
+    if seg:
+        segs.append(" ".join(seg))
+    if not segs:
+        segs = [text]
+    per = total_s / len(segs)
+    def ts(s):
+        h = int(s // 3600); m = int((s % 3600) // 60); sec = s % 60
+        return f"{h:02d}:{m:02d}:{sec:06.3f}".replace(".", ",")
+    with open(path, "w", encoding="utf-8") as f:
+        for i, s in enumerate(segs):
+            f.write(f"{i+1}\n{ts(i*per)} --> {ts((i+1)*per)}\n{s}\n\n")
+
+
+def execute_real(tier: str = "premium", prompt: str = "COF Trading",
+                 visual_prompt: str | None = None, duration_s: int = 12) -> dict:
+    """VRAI pipeline : ElevenLabs (vraie voix) + FLUX (visuel IA) + Ken Burns + logo COF + sous-titres.
+    GATED PRODUCE_GO=1 + plafond MAX_COST_EUR. Utilise les VRAIS outils (pas stock+say). Ne publie pas."""
+    if os.environ.get("PRODUCE_GO") != "1":
+        return {"ok": False, "blocked": True, "reason": "PRODUCE_GO absent"}
+    provs = ["elevenlabs", "flux_fal"]
+    est = tiers.estimate_cost_eur(provs, duration_s)
+    ceiling = float(os.environ.get("MAX_COST_EUR", "2"))
+    if est > ceiling:
+        return {"ok": False, "blocked": True, "reason": f"coût {est}€ > plafond {ceiling}€"}
+    if not shutil.which("ffmpeg"):
+        return {"ok": False, "error": "ffmpeg_absent"}
+
+    run_id = f"real_{int(time.time())}"
+    rd = OUT_ROOT / run_id; rd.mkdir(parents=True, exist_ok=True)
+    steps = {}
+
+    # 1) VRAIE voix ElevenLabs
+    voice_mp3 = str(rd / "voice.mp3")
+    vr = voice_elevenlabs.synthesize(prompt, voice_mp3)
+    if not vr.get("ok"):
+        return {"ok": False, "error": "elevenlabs_failed", "detail": vr}
+    steps["voice"] = {"provider": "elevenlabs", "ok": True, "bytes": vr.get("bytes")}
+    try:
+        vdur = float(subprocess.run(["ffprobe", "-v", "error", "-show_entries", "format=duration", "-of", "csv=p=0", voice_mp3],
+                                    capture_output=True, text=True, timeout=20).stdout.strip() or duration_s)
+    except Exception:  # noqa: BLE001
+        vdur = duration_s
+
+    # 2) Visuel IA FLUX (fallback stock si échec)
+    img = str(rd / "visual.png")
+    fr = image_gen.flux_generate(visual_prompt or f"cinematic vertical 9:16, {prompt}, trading, premium, dark blue, no text", img)
+    if fr.get("ok"):
+        steps["visual"] = {"provider": "flux_fal", "ok": True}
+        bg_src, bg_is_img = img, True
+    else:
+        sr = video_stock.search_pexels_video(prompt, per_page=3, orientation="portrait")
+        vids = sr.get("videos") or []
+        if not vids:
+            return {"ok": False, "error": "no_visual", "flux": fr, "stock": sr}
+        bg_src = str(rd / "clip.mp4"); video_stock.download(vids[0]["file_url"], bg_src); bg_is_img = False
+        steps["visual"] = {"provider": "stock_pexels_fallback", "ok": True, "flux_err": fr.get("error")}
+
+    # 3) sous-titres depuis le script
+    srt = str(rd / "captions.srt"); _build_srt(prompt, vdur, srt)
+    logo = brand_assets.BRAND["logo_remotion"]
+    out_mp4 = str(rd / "video_real.mp4")
+    frames = int(vdur * 30)
+
+    if bg_is_img:
+        bg = f"[0:v]scale=1620:2880,zoompan=z='min(zoom+0.0006,1.25)':d={frames}:s=1080x1920:fps=30,setsar=1[bg]"
+        in_bg = ["-loop", "1", "-i", bg_src]
+    else:
+        bg = "[0:v]scale=1080:1920:force_original_aspect_ratio=increase,crop=1080:1920,fps=30,setsar=1[bg]"
+        in_bg = ["-stream_loop", "-1", "-i", bg_src]
+
+    srt_esc = srt.replace(":", "\\:").replace("'", "")
+    fc = (f"{bg};[2:v]scale=240:-1[lg];[bg][lg]overlay=40:55[v1];"
+          f"[v1]subtitles='{srt_esc}':force_style='Fontsize=18,PrimaryColour=&H00FFFFFF,"
+          f"OutlineColour=&H00000000,BorderStyle=1,Outline=2,Alignment=2,MarginV=120'[v]")
+    cmd = ["ffmpeg", "-y", *in_bg, "-i", voice_mp3, "-i", logo,
+           "-filter_complex", fc, "-map", "[v]", "-map", "1:a:0", "-t", f"{vdur:.2f}",
+           "-c:v", "libx264", "-preset", "veryfast", "-pix_fmt", "yuv420p", "-c:a", "aac", out_mp4]
+    r = subprocess.run(cmd, capture_output=True, text=True, timeout=240)
+    if r.returncode != 0 or not os.path.exists(out_mp4):
+        return {"ok": False, "error": "ffmpeg_failed", "stderr": r.stderr[-400:], "run": run_id, "steps": steps}
+    steps["montage"] = {"ok": True, "brand_overlay": True, "captions": True}
+    qv = qa.review(out_mp4)
+    return {"ok": True, "run": run_id, "tier": tier, "cost_eur": est, "output": out_mp4,
+            "duration_s": round(vdur, 2), "qa": qv, "steps": steps, "publish": distribution.PUBLISH_LOCK,
+            "tools_used": ["ElevenLabs voix", steps["visual"]["provider"], "Ken Burns", "logo COF overlay", "sous-titres"],
+            "note": "Vidéo RÉELLE (vrais outils). Non publiée (§18)."}
