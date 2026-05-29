@@ -681,7 +681,7 @@ def execute_vip(voice_id=None) -> dict:
             if vid:
                 raw = str(rd / f"raw{len(shots)}.mp4")
                 if video_stock.download(vid["file_url"], raw).get("ok"):
-                    r = subprocess.run(["ffmpeg", "-y", "-stream_loop", "-1", "-ss", "0.5", "-i", raw, "-t", f"{dur_s:.2f}", "-vf", VF, "-an", "-c:v", "libx264", "-preset", "veryfast", "-pix_fmt", "yuv420p", clip], capture_output=True, timeout=120)
+                    r = subprocess.run(["ffmpeg", "-y", "-stream_loop", "-1", "-ss", "0.5", "-i", raw, "-t", f"{dur_s:.2f}", "-vf", VF_PEX, "-an", "-c:v", "libx264", "-preset", "veryfast", "-pix_fmt", "yuv420p", clip], capture_output=True, timeout=120)
                     ok = r.returncode == 0
                     if ok: used_pexels += 1
         if not ok:
