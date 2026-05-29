@@ -1,5 +1,7 @@
 import { NextResponse } from "next/server";
 
+import { readLocalRevenue } from "../_lib/localRevenue";
+
 export const dynamic = "force-dynamic";
 export const runtime = "nodejs";
 
