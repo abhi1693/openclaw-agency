@@ -25,8 +25,43 @@ export type CofiaSnapshot = {
     captionsCount?: number | null;
     assetsInventoryCount?: number | null;
   };
-  services?: Array<{ id?: string; label?: string; ok?: boolean; status?: string }>;
+  services?: Array<{ id?: string; label?: string; ok?: boolean; status?: string; role?: string; url?: string; http_code?: number | null }>;
   fetchedAt?: string;
+  openclawRuntime?: {
+    sourceTag: string;
+    status: string;
+    counts: {
+      total: number;
+      fresh: number;
+      stale: number;
+      noHeartbeat: number;
+      disabled: number;
+      tickEnabled: number;
+      tickExpected: number;
+      servicesOk: number;
+      servicesTotal: number;
+      lobsterConfigured: number | null;
+      lobsterEnabled: number | null;
+    };
+    jarod: {
+      name: string;
+      runtimeStatus: string;
+      proof: string;
+      nextAction: string;
+    } | null;
+    services: Array<{ id: string; label: string; ok: boolean; status: string; http_code: number | null }>;
+    agents: Array<{
+      id: string;
+      name: string;
+      team: string;
+      homeHouse: string;
+      runtimeStatus: string;
+      tickEnabled: boolean;
+      proof: string;
+      nextAction: string;
+    }>;
+    problems: Array<{ severity: string; title: string; proof: string; patch: string }>;
+  };
 };
 
 export type AngelStatus =
@@ -126,6 +161,8 @@ const LEGACY_ZONES: Zone[] = [
   { id: "vip_gate", name: "Telegram Community", sub: "Free / VIP channels", x: 40, y: 68, w: 5, h: 4, color: "#0d3b66", roof: "#061a2d", accent: "#00d9ff", district: "crm", role: "Acquisition Telegram, gate VIP et rétention" },
   { id: "compliance_port", name: "Compliance Gate", sub: "CNMV · AEPD · ESMA", x: 82, y: 70, w: 5, h: 4, color: "#3a0710", roof: "#130206", accent: "#ef233c", district: "security", role: "Compliance CNMV/AEPD/ESMA, safety, DLP, GO packets" },
   { id: "youtube_studio", name: "COF IA Publisher", sub: "Video Production Machine", x: 92, y: 22, w: 5, h: 4, color: "#40111b", roof: "#16050a", accent: "#ff1744", district: "content", role: "Machine vidéo : scénarios, render, review, timeline, drafts" },
+  { id: "quant_rd_lab", name: "Quant R&D Lab", sub: "STRAT-17/18 · research, replay, variants", x: 34, y: 24, w: 5, h: 4, color: "#1a0f3a", roof: "#0a0518", accent: "#a878ff", district: "trading", role: "Recherche stratégique, backtests, replay, walk-forward, red-team, variantes STRAT-17/18 — distinct du Trading Tower (marchés/live)", tall: true },
+  { id: "personal_trading_control", name: "Personal Trading Control", sub: "Accounts · risk · copy trading", x: 62, y: 60, w: 5, h: 4, color: "#0f2a1a", roof: "#05140a", accent: "#6fe39a", district: "security", role: "Comptes perso ATAS/Rithmic/Apex/MT4/MT5, FXcess copy, prop, positions, risk — DEGRADED: live money non armé (distinct du Command Tower)" },
 ];
 
 /* ---- agent (ange) -> maison (esprit HUB_V21_AGENT_HOME) ---- */
@@ -158,6 +195,38 @@ const ROUTES: Array<[string, string, "active" | "vip"]> = [
   ["central_brain", "paperclip_factory", "active"],
   ["iron_office", "mission_control_tower", "vip"],
 ];
+
+const SERVICE_HOME_BY_ID: Record<string, string> = {
+  hub_8430: "mission_control_tower",
+  mission_control_3000: "mission_control_tower",
+  central_brain_8767: "central_brain",
+  llm_proxy_11435: "central_brain",
+  cofiapublisher_8540: "youtube_studio",
+  openclaw_gateway_18789: "openclaw_agent_barracks",
+  inventory_8433: "assets_warehouse",
+  lightrag_9621: "lightrag_observatory",
+  paperclip_3100: "paperclip_factory",
+};
+
+type RuntimeAgent = NonNullable<CofiaSnapshot["openclawRuntime"]>["agents"][number];
+type WorldMachine = {
+  id: string;
+  label: string;
+  homeHouse: string;
+  ok: boolean;
+  status: string;
+  role?: string;
+  proof?: string;
+};
+
+const runtimeColor = (status: string) =>
+  status === "FRESH" || status === "LIVE" || status === "GREEN"
+    ? "#34d399"
+    : status === "SLEEPING" || status === "PAUSED"
+      ? "#64748b"
+    : status === "STALE" || status === "AMBER" || status === "DEGRADED"
+      ? "#f59e0b"
+      : "#ef4444";
 
 /* statut maison (registry) — honest-by-design, jamais de faux-vert */
 function houseStatusStyle(status: string): { color: string; label: string } {
@@ -275,8 +344,11 @@ export function WorldMapLiving({
   const [registryError, setRegistryError] = useState(false);
   const [selectedHouse, setSelectedHouse] = useState<string | null>(null);
   const [selectedAngel, setSelectedAngel] = useState<Angel | null>(null);
+  const [selectedRuntimeAgent, setSelectedRuntimeAgent] = useState<RuntimeAgent | null>(null);
+  const [selectedMachine, setSelectedMachine] = useState<WorldMachine | null>(null);
+  const [selectedTruck, setSelectedTruck] = useState<Truck | null>(null);
   const [hoverHouse, setHoverHouse] = useState<string | null>(null);
-  const [houseTab, setHouseTab] = useState<"vue" | "kpis" | "anges" | "flux">("vue");
+  const [houseTab, setHouseTab] = useState<"vue" | "kpis" | "anges" | "machines" | "flux">("vue");
   const [houseKpiData, setHouseKpiData] = useState<Record<string, { kpis: Array<{ label: string; value: string; source?: string }>; gap?: string }> | null>(null);
   const lastFetch = useRef<number>(0);
   const [syncStamp, setSyncStamp] = useState<string>("");
@@ -378,7 +450,7 @@ export function WorldMapLiving({
     return { built: b, viewBox: vb, centerById: center };
   }, []);
 
-  const angels = angelRoster?.anges ?? [];
+  const angels = useMemo(() => angelRoster?.anges ?? [], [angelRoster?.anges]);
   const angelsByHome = useMemo(() => {
     const m: Record<string, Angel[]> = {};
     for (const a of angels) {
@@ -394,8 +466,56 @@ export function WorldMapLiving({
   const feedColor = (s?: string) => (s === "LIVE" ? "#34d399" : s === "UNKNOWN" ? "#64748b" : "#f59e0b");
   const rev = snapshot?.revenue;
   const assets = snapshot?.assetsWarehouse;
-  const services = snapshot?.services ?? [];
+  const services = useMemo(() => snapshot?.services ?? [], [snapshot?.services]);
   const servicesOk = services.filter((s) => s.ok).length;
+  const openclawRuntime = snapshot?.openclawRuntime ?? null;
+  const runtimeGateway =
+    openclawRuntime?.services.find((svc) => svc.id === "openclaw_gateway_18789") ?? null;
+  const machines = useMemo(() => {
+    const merged = new Map<string, WorldMachine>();
+    for (const svc of services) {
+      const id = svc.id ?? "";
+      const homeHouse = SERVICE_HOME_BY_ID[id];
+      if (!homeHouse) continue;
+      merged.set(id, {
+        id,
+        label: svc.label ?? id,
+        homeHouse,
+        ok: svc.ok === true,
+        status: svc.status ?? (svc.ok ? "LIVE" : "UNKNOWN"),
+        role: svc.role,
+        proof: svc.url,
+      });
+    }
+    for (const svc of openclawRuntime?.services ?? []) {
+      const homeHouse = SERVICE_HOME_BY_ID[svc.id];
+      if (!homeHouse) continue;
+      merged.set(svc.id, {
+        id: svc.id,
+        label: svc.label,
+        homeHouse,
+        ok: svc.ok,
+        status: svc.status,
+        proof: svc.http_code === null ? "no listener / timeout" : `HTTP ${svc.http_code}`,
+      });
+    }
+    return [...merged.values()];
+  }, [services, openclawRuntime]);
+  const machinesByHome = useMemo(() => {
+    const map: Record<string, WorldMachine[]> = {};
+    for (const machine of machines) (map[machine.homeHouse] ||= []).push(machine);
+    return map;
+  }, [machines]);
+  const runtimeAgentsByHome = useMemo(() => {
+    const map: Record<string, RuntimeAgent[]> = {};
+    for (const agent of openclawRuntime?.agents ?? []) {
+      const home = LEGACY_ZONES.some((zone) => zone.id === agent.homeHouse)
+        ? agent.homeHouse
+        : "openclaw_agent_barracks";
+      (map[home] ||= []).push(agent);
+    }
+    return map;
+  }, [openclawRuntime]);
 
   const selZone = LEGACY_ZONES.find((z) => z.id === selectedHouse) ?? null;
 
@@ -409,7 +529,6 @@ export function WorldMapLiving({
 
     const a = snapshot?.assetsWarehouse;
     const pubOk = services.find((s) => (s.id ?? "").includes("publisher") || (s.label ?? "").toLowerCase().includes("publisher"))?.ok;
-    const houseAngels = angelsByHome[id] ?? [];
     switch (id) {
       case "assets_warehouse":
         return { kpis: [
@@ -429,8 +548,11 @@ export function WorldMapLiving({
         ] };
       case "openclaw_agent_barracks":
         return { kpis: [
-          { label: "Anges (cap §45)", value: `${houseAngels.length} ici · ${angels.length} total`, source: "angel-roster" },
-          { label: "Anges LIVE", value: fmtNum(angels.filter((x) => x.status === "LIVE").length), source: "angel-roster" },
+          { label: "Agents runtime", value: openclawRuntime ? `${openclawRuntime.counts.fresh}/${openclawRuntime.counts.total} fresh` : "source down", source: "heartbeats ~/.openclaw/heartbeats" },
+          { label: "Jarod", value: openclawRuntime?.jarod?.runtimeStatus ?? "UNKNOWN", source: openclawRuntime?.jarod?.proof ?? "heartbeat Jarod" },
+          { label: "Ticks LaunchAgents", value: openclawRuntime ? `${openclawRuntime.counts.tickEnabled}/${openclawRuntime.counts.tickExpected} enabled` : "source down", source: "launchctl gui user" },
+          { label: "Gateway", value: runtimeGateway ? `${runtimeGateway.status}${runtimeGateway.http_code ? ` ${runtimeGateway.http_code}` : ""}` : "source down", source: "probe :18789" },
+          { label: "Lobster 360", value: openclawRuntime ? `${fmtNum(openclawRuntime.counts.lobsterEnabled)}/${fmtNum(openclawRuntime.counts.lobsterConfigured)} enabled` : "source down", source: "cof_lobster_agents_360_config.json" },
           { label: "Camions", value: fmtNum(trucks.length), source: "trucks manifest" },
         ] };
       default:
@@ -439,36 +561,44 @@ export function WorldMapLiving({
   };
 
   return (
-    <div className="flex w-full flex-col gap-2 rounded-2xl border border-cyan-300/15 bg-slate-950/85 p-3 text-slate-100 shadow-[0_0_40px_-12px_rgba(34,211,238,0.35)] backdrop-blur">
+    <div className="flex w-full max-w-[366px] min-w-0 flex-col gap-2 overflow-hidden rounded-2xl border border-cyan-300/15 bg-slate-950/85 p-3 text-slate-100 shadow-[0_0_40px_-12px_rgba(34,211,238,0.35)] backdrop-blur sm:max-w-[calc(100vw-24px)]">
       {/* ── HEADER + KPIs (snapshot) ── */}
-      <div className="flex flex-wrap items-center justify-between gap-2 px-1">
-        <div>
-          <h2 className="bg-gradient-to-r from-cyan-300 via-sky-200 to-amber-300 bg-clip-text text-lg font-black uppercase tracking-wide text-transparent sm:text-xl">
+      <div className="flex min-w-0 flex-wrap items-center justify-between gap-2 px-1">
+        <div className="min-w-0 flex-1">
+          <h2 className="break-words bg-gradient-to-r from-cyan-300 via-sky-200 to-amber-300 bg-clip-text text-base font-black uppercase tracking-wide text-transparent sm:text-xl">
             COFIATRADING WORLD CONTROL
           </h2>
-          <p className="text-[10px] uppercase tracking-[0.2em] text-slate-400">Ville isométrique canonique · portée de cof-island</p>
+          <p className="max-w-full truncate text-[9px] uppercase tracking-[0.16em] text-slate-400 sm:text-[10px] sm:tracking-[0.2em]">Ville isométrique canonique · portée de cof-island</p>
         </div>
-        <div className="flex flex-wrap items-center gap-1.5 text-[10px]">
+        <div className="grid w-full min-w-0 grid-cols-1 items-center gap-1.5 text-[10px] sm:w-auto sm:flex sm:flex-wrap">
           {([
             ["MRR", fmtEur(rev?.currentMrrEur), "emerald"],
             ["ARR", fmtEur(rev?.currentArrEur), "cyan"],
             ["VIP", fmtNum(rev?.activeVip), "emerald"],
             ["Past due", `${fmtEur(rev?.pastDueEur)} / ${fmtNum(rev?.pastDueCount)}`, "rose"],
             ["Services", `${servicesOk}/${services.length || "—"}`, "amber"],
+            ["OpenClaw", openclawRuntime ? `${openclawRuntime.counts.fresh}/${openclawRuntime.counts.total} fresh` : "source down", "cyan"],
+            ["Gateway", runtimeGateway ? runtimeGateway.status : "source down", runtimeGateway?.ok ? "emerald" : "rose"],
             ["Maisons", `${liveCount}/${LEGACY_ZONES.length} LIVE`, "cyan"],
             ["Assets", `${fmtNum(assets?.mp4Count)} MP4`, "violet"],
           ] as Array<[string, string, string]>).map(([k, v]) => (
-            <span key={k} className="rounded-md border border-cyan-300/20 bg-slate-900/70 px-2 py-1">
-              <span className="text-slate-400">{k} </span>
-              <span className="font-bold text-slate-100">{v}</span>
+            <span key={k} className="flex min-w-0 items-baseline gap-1 rounded-md border border-cyan-300/20 bg-slate-900/70 px-2 py-1">
+              <span className="shrink-0 text-slate-400">{k}</span>
+              <span className="min-w-0 truncate font-bold text-slate-100">{v}</span>
             </span>
           ))}
         </div>
       </div>
 
       {/* ── SCÈNE ISO + INSPECTOR ── */}
-      <div className="relative h-[calc(100vh-220px)] min-h-[560px] w-full overflow-hidden rounded-xl border border-cyan-300/15 bg-[#02040a]">
-        <svg viewBox={viewBox} className="h-full w-full" preserveAspectRatio="xMidYMid meet" onClick={() => { setSelectedHouse(null); setSelectedAngel(null); }}>
+      <div className="relative h-[640px] min-h-[560px] w-full max-w-full overflow-hidden rounded-xl border border-cyan-300/15 bg-[#02040a] sm:h-[calc(100vh-220px)]">
+        <svg viewBox={viewBox} className="h-full w-full" preserveAspectRatio="xMidYMid meet" onClick={() => {
+          setSelectedHouse(null);
+          setSelectedAngel(null);
+          setSelectedRuntimeAgent(null);
+          setSelectedMachine(null);
+          setSelectedTruck(null);
+        }}>
           <defs>
             <radialGradient id="iso-ground" cx="50%" cy="42%" r="75%">
               <stop offset="0%" stopColor="#0a1326" />
@@ -549,7 +679,18 @@ export function WorldMapLiving({
                     </animateMotion>
                   </circle>
                   {/* navette qui ROULE sur la route (camion/agent vivant, pas figé) */}
-                  <g style={{ cursor: flow.truck ? "help" : "default" }}>
+                  <g
+                    style={{ cursor: flow.truck ? "pointer" : "default" }}
+                    onClick={(e) => {
+                      if (!flow.truck) return;
+                      e.stopPropagation();
+                      setSelectedTruck(flow.truck);
+                      setSelectedAngel(null);
+                      setSelectedRuntimeAgent(null);
+                      setSelectedMachine(null);
+                      setSelectedHouse(null);
+                    }}
+                  >
                     {flow.truck && <title>{`🚚 ${flow.truck.name} — ${flow.truck.payload} (${flow.truck.owner})`}</title>}
                     <animateMotion dur={`${7 + (i % 4)}s`} repeatCount="indefinite" begin={`${i * 1.3}s`} rotate="auto">
                       <mpath href={`#iso-route-${i}`} />
@@ -575,15 +716,26 @@ export function WorldMapLiving({
           {/* bâtiments iso (tri painter) */}
           {built.map((b) => {
             const st = houseStatusStyle(statusFor(b.zone.id));
-            const isSel = selectedHouse === b.zone.id;
-            const isHover = hoverHouse === b.zone.id;
-            const homeAngels = angelsByHome[b.zone.id] ?? [];
-            const cx = b.base.x, cyTop = b.base.y - b.height;
+	            const isSel = selectedHouse === b.zone.id;
+	            const isHover = hoverHouse === b.zone.id;
+	            const homeAngels = angelsByHome[b.zone.id] ?? [];
+	            const homeRuntimeAgents = runtimeAgentsByHome[b.zone.id] ?? [];
+	            const homeMachines = machinesByHome[b.zone.id] ?? [];
+	            const cx = b.base.x, cyTop = b.base.y - b.height;
             return (
               <g
                 key={b.zone.id}
                 style={{ cursor: "pointer" }}
-                onClick={(e) => { e.stopPropagation(); setSelectedHouse(b.zone.id); setSelectedAngel(null); setHouseTab("vue"); onSelectHouse(b.zone.id); }}
+	                onClick={(e) => {
+	                  e.stopPropagation();
+	                  setSelectedHouse(b.zone.id);
+	                  setSelectedAngel(null);
+	                  setSelectedRuntimeAgent(null);
+	                  setSelectedMachine(null);
+	                  setSelectedTruck(null);
+	                  setHouseTab("vue");
+	                  onSelectHouse(b.zone.id);
+	                }}
                 onMouseEnter={() => setHoverHouse(b.zone.id)}
                 onMouseLeave={() => setHoverHouse(null)}
                 opacity={selectedHouse && !isSel ? 0.82 : 1}
@@ -614,8 +766,34 @@ export function WorldMapLiving({
                     <animate attributeName="opacity" values="1;0.3;1" dur="1.4s" repeatCount="indefinite" />
                   )}
                 </circle>
-                {/* anges (dots) autour de la base */}
-                {homeAngels.map((a, idx) => {
+	                {/* machines/services attachés à la maison : glyphes sur le toit, pas panel externe */}
+	                {homeMachines.map((machine, idx) => {
+	                  const mx = cx - Math.min(18, b.zone.w * 4) + (idx % 5) * 8;
+	                  const my = cyTop + 8 + Math.floor(idx / 5) * 7;
+	                  const mc = runtimeColor(machine.status);
+	                  return (
+	                    <g
+	                      key={`machine-${machine.id}`}
+	                      style={{ cursor: "pointer" }}
+	                      onClick={(e) => {
+	                        e.stopPropagation();
+	                        setSelectedMachine(machine);
+	                        setSelectedRuntimeAgent(null);
+	                        setSelectedAngel(null);
+	                        setSelectedTruck(null);
+	                        setSelectedHouse(null);
+	                      }}
+	                    >
+	                      <title>{`${machine.label} — ${machine.status}`}</title>
+	                      <polygon points={`${mx},${my - 4.5} ${mx + 5.5},${my} ${mx},${my + 4.5} ${mx - 5.5},${my}`} fill={mc} opacity="0.9" filter="url(#iso-glow)">
+	                        {!machine.ok && <animate attributeName="opacity" values="0.35;1;0.35" dur="1.5s" repeatCount="indefinite" />}
+	                      </polygon>
+	                      <circle cx={mx} cy={my} r="8" fill="transparent" />
+	                    </g>
+	                  );
+	                })}
+	                {/* anges (dots) autour de la base */}
+	                {homeAngels.map((a, idx) => {
                   const n = homeAngels.length;
                   const ang = (idx / Math.max(1, n)) * Math.PI * 2;
                   const rr = 10 + (idx % 2) * 7;
@@ -623,12 +801,51 @@ export function WorldMapLiving({
                   const ay = b.base.y + 4 + Math.sin(ang) * rr * 0.8;
                   const ac = ANGEL_STATUS[a.status].color;
                   return (
-                    <circle key={a.id} cx={ax} cy={ay} r={selectedAngel?.id === a.id ? 3.4 : 2} fill={ac}
-                      onClick={(e) => { e.stopPropagation(); setSelectedAngel(a); }} style={{ cursor: "pointer" }}>
-                      <animate attributeName="opacity" values="0.55;1;0.55" dur={`${2.4 + (a.id % 5) * 0.4}s`} repeatCount="indefinite" />
-                    </circle>
-                  );
-                })}
+	                    <g key={a.id} style={{ cursor: "pointer" }} onClick={(e) => {
+	                      e.stopPropagation();
+	                      setSelectedAngel(a);
+	                      setSelectedRuntimeAgent(null);
+	                      setSelectedMachine(null);
+	                      setSelectedTruck(null);
+	                      setSelectedHouse(null);
+	                    }}>
+	                      <circle cx={ax} cy={ay} r={selectedAngel?.id === a.id ? 3.4 : 2} fill={ac}>
+	                        <animate attributeName="opacity" values="0.55;1;0.55" dur={`${2.4 + (a.id % 5) * 0.4}s`} repeatCount="indefinite" />
+	                      </circle>
+	                      <circle cx={ax} cy={ay} r="6" fill="transparent" />
+	                    </g>
+	                  );
+	                })}
+	                {/* agents runtime OpenClaw/Lobster : vrais opérateurs vivants dans la ville */}
+	                {homeRuntimeAgents.map((agent, idx) => {
+	                  const n = homeRuntimeAgents.length;
+	                  const ang = (idx / Math.max(1, n)) * Math.PI * 2 + 0.35;
+	                  const rr = 20 + (idx % 3) * 8;
+	                  const ax = cx + Math.cos(ang) * rr * 1.35;
+	                  const ay = b.base.y + 12 + Math.sin(ang) * rr * 0.62;
+	                  const ac = runtimeColor(agent.runtimeStatus);
+	                  return (
+	                    <g
+	                      key={`runtime-${agent.id}-${agent.name}`}
+	                      style={{ cursor: "pointer" }}
+	                      onClick={(e) => {
+	                        e.stopPropagation();
+	                        setSelectedRuntimeAgent(agent);
+	                        setSelectedAngel(null);
+	                        setSelectedMachine(null);
+	                        setSelectedTruck(null);
+	                        setSelectedHouse(null);
+	                      }}
+	                    >
+	                      <title>{`${agent.name} — ${agent.runtimeStatus} — ${agent.team}`}</title>
+	                      <circle cx={ax} cy={ay - 3.2} r="2.2" fill="#e2e8f0" opacity="0.92" />
+	                      <rect x={ax - 1.9} y={ay - 1.2} width="3.8" height="6" rx="1.8" fill={ac} opacity="0.95" filter="url(#iso-glow)">
+	                        <animate attributeName="opacity" values="0.55;1;0.55" dur={`${1.9 + (idx % 4) * 0.3}s`} repeatCount="indefinite" />
+	                      </rect>
+	                      <circle cx={ax} cy={ay} r="7" fill="transparent" />
+	                    </g>
+	                  );
+	                })}
                 {/* label */}
                 <g transform={`translate(${cx + b.zone.w * 9} ${cyTop - 10})`} opacity={isHover || isSel ? 1 : 0.9}>
                   <rect x="0" y="-9" width={b.zone.name.length * 6 + 30} height="26" rx="5" fill="#020617" stroke={isSel || isHover ? st.color : "#1e3a52"} strokeWidth={isSel || isHover ? 1.2 : 0.7} opacity="0.95" />
@@ -650,17 +867,73 @@ export function WorldMapLiving({
         />
 
         {/* légende bas */}
-        <div className="absolute bottom-2 left-1/2 z-10 flex -translate-x-1/2 flex-wrap items-center justify-center gap-x-3 gap-y-1 rounded-lg border border-cyan-300/20 bg-slate-950/85 px-3 py-1.5 text-[9px] text-slate-300 backdrop-blur">
+        <div className="absolute bottom-2 left-2 right-2 z-10 flex flex-wrap items-center justify-center gap-x-3 gap-y-1 rounded-lg border border-cyan-300/20 bg-slate-950/85 px-3 py-1.5 text-[9px] text-slate-300 backdrop-blur sm:left-1/2 sm:right-auto sm:max-w-[82%] sm:-translate-x-1/2">
           {([["LIVE", "#34d399"], ["EN VEILLE", "#64748b"], ["DEGRADED", "#f59e0b"], ["SOURCE DOWN", "#ef4444"], ["ERR", "#fb7185"]] as Array<[string, string]>).map(([l, c]) => (
             <span key={l} className="flex items-center gap-1.5"><span className="h-2 w-2 rounded-full" style={{ background: c, boxShadow: `0 0 6px ${c}` }} />{l}</span>
           ))}
           <span className="text-slate-500">· clic maison/ange → inspector</span>
         </div>
 
-        {/* INSPECTOR droit */}
-        <div className="absolute right-2 top-2 z-20 flex max-h-[94%] w-[260px] flex-col overflow-auto rounded-xl border border-cyan-300/25 bg-slate-950/95 p-3 backdrop-blur">
-          {selectedAngel ? (
-            <div>
+	        {/* INSPECTOR droit */}
+	        <div className="absolute left-2 right-2 top-2 z-20 flex max-h-[52%] w-auto flex-col overflow-auto rounded-xl border border-cyan-300/25 bg-slate-950/95 p-3 backdrop-blur sm:left-auto sm:right-2 sm:max-h-[94%] sm:w-[260px]">
+	          {selectedRuntimeAgent ? (
+	            <div>
+	              <div className="flex items-start justify-between gap-2">
+	                <div className="min-w-0">
+	                  <div className="truncate text-[13px] font-black text-orange-200">{selectedRuntimeAgent.name}</div>
+	                  <div className="text-[10px] uppercase tracking-wide text-slate-400">{selectedRuntimeAgent.id} · {selectedRuntimeAgent.team}</div>
+	                </div>
+	                <button type="button" onClick={() => setSelectedRuntimeAgent(null)} className="rounded border border-slate-700 px-1.5 text-[12px] text-slate-400 hover:text-slate-100">✕</button>
+	              </div>
+	              <span className="mt-2 inline-block rounded-full px-2 py-0.5 text-[9px] font-bold uppercase" style={{ background: `${runtimeColor(selectedRuntimeAgent.runtimeStatus)}22`, color: runtimeColor(selectedRuntimeAgent.runtimeStatus), border: `1px solid ${runtimeColor(selectedRuntimeAgent.runtimeStatus)}55` }}>● {selectedRuntimeAgent.runtimeStatus}</span>
+	              <p className="mt-2 text-[10px] font-semibold uppercase text-orange-200">Maison</p>
+	              <p className="text-[11px] text-slate-300">{LEGACY_ZONES.find((z) => z.id === selectedRuntimeAgent.homeHouse)?.name ?? selectedRuntimeAgent.homeHouse}</p>
+	              <p className="mt-2 text-[10px] font-semibold uppercase text-orange-200">Tick LaunchAgent</p>
+	              <p className="text-[11px] text-slate-300">{selectedRuntimeAgent.tickEnabled ? "enabled" : "missing"}</p>
+	              <p className="mt-2 text-[10px] font-semibold uppercase text-orange-200">Preuve</p>
+	              <p className="break-words text-[9px] leading-snug text-slate-400">{selectedRuntimeAgent.proof}</p>
+	              <p className="mt-2 text-[10px] font-semibold uppercase text-orange-200">Action</p>
+	              <p className="text-[10px] leading-snug text-amber-200">{selectedRuntimeAgent.nextAction}</p>
+	            </div>
+	          ) : selectedMachine ? (
+	            <div>
+	              <div className="flex items-start justify-between gap-2">
+	                <div className="min-w-0">
+	                  <div className="truncate text-[13px] font-black" style={{ color: runtimeColor(selectedMachine.status) }}>{selectedMachine.label}</div>
+	                  <div className="text-[10px] uppercase tracking-wide text-slate-400">{selectedMachine.id}</div>
+	                </div>
+	                <button type="button" onClick={() => setSelectedMachine(null)} className="rounded border border-slate-700 px-1.5 text-[12px] text-slate-400 hover:text-slate-100">✕</button>
+	              </div>
+	              <span className="mt-2 inline-block rounded-full px-2 py-0.5 text-[9px] font-bold uppercase" style={{ background: `${runtimeColor(selectedMachine.status)}22`, color: runtimeColor(selectedMachine.status), border: `1px solid ${runtimeColor(selectedMachine.status)}55` }}>● {selectedMachine.status}</span>
+	              <p className="mt-2 text-[10px] font-semibold uppercase text-cyan-300">Maison</p>
+	              <p className="text-[11px] text-slate-300">{LEGACY_ZONES.find((z) => z.id === selectedMachine.homeHouse)?.name ?? selectedMachine.homeHouse}</p>
+	              {selectedMachine.role && (
+	                <>
+	                  <p className="mt-2 text-[10px] font-semibold uppercase text-cyan-300">Rôle</p>
+	                  <p className="text-[11px] leading-snug text-slate-300">{selectedMachine.role}</p>
+	                </>
+	              )}
+	              {selectedMachine.proof && <p className="mt-2 break-words text-[9px] text-emerald-300/70">Preuve: {selectedMachine.proof}</p>}
+	            </div>
+	          ) : selectedTruck ? (
+	            <div>
+	              <div className="flex items-start justify-between gap-2">
+	                <div className="min-w-0">
+	                  <div className="truncate text-[13px] font-black text-amber-200">{selectedTruck.name}</div>
+	                  <div className="text-[10px] uppercase tracking-wide text-slate-400">{selectedTruck.id} · {selectedTruck.kind ?? "flux"}</div>
+	                </div>
+	                <button type="button" onClick={() => setSelectedTruck(null)} className="rounded border border-slate-700 px-1.5 text-[12px] text-slate-400 hover:text-slate-100">✕</button>
+	              </div>
+	              <p className="mt-2 text-[10px] font-semibold uppercase text-amber-200">Route</p>
+	              <p className="text-[11px] text-slate-300">{selectedTruck.from} → {selectedTruck.to}</p>
+	              <p className="mt-2 text-[10px] font-semibold uppercase text-amber-200">Payload</p>
+	              <p className="text-[11px] leading-snug text-slate-300">{selectedTruck.payload}</p>
+	              <p className="mt-2 text-[10px] font-semibold uppercase text-amber-200">Owner</p>
+	              <p className="text-[11px] text-slate-300">{selectedTruck.owner}{selectedTruck.cadence ? ` · ${selectedTruck.cadence}` : ""}</p>
+	              {selectedTruck.source && <p className="mt-2 break-words text-[9px] text-emerald-300/70">Source: {selectedTruck.source}</p>}
+	            </div>
+	          ) : selectedAngel ? (
+	            <div>
               <div className="flex items-start justify-between">
                 <div>
                   <div className="text-[13px] font-black">{selectedAngel.name} <span className="text-[11px] text-slate-400">{selectedAngel.name_ar}</span></div>
@@ -694,17 +967,20 @@ export function WorldMapLiving({
                 <span className="mt-2 inline-block rounded-full px-2 py-0.5 text-[9px] font-bold uppercase" style={{ background: `${st.color}22`, color: st.color, border: `1px solid ${st.color}55` }}>● {st.label}</span>
               ); })()}
               {/* ── ONGLETS maison (déménagement Abidjan→NY, clic interactif, zéro nouvelle page) ── */}
-              {(() => {
-                const houseAngels = angelsByHome[selZone.id] ?? [];
-                const houseTrucks = trucks.filter((t) => t.from === selZone.id || t.to === selZone.id);
-                const hk = houseKpis(selZone.id);
-                const kpis = hk.kpis;
-                const tabs: Array<[typeof houseTab, string]> = [
-                  ["vue", "Vue"],
-                  ["kpis", "KPIs"],
-                  ["anges", `Anges ${houseAngels.length}`],
-                  ["flux", `Flux ${houseTrucks.length}`],
-                ];
+	              {(() => {
+	                const houseAngels = angelsByHome[selZone.id] ?? [];
+	                const houseRuntimeAgents = runtimeAgentsByHome[selZone.id] ?? [];
+	                const houseMachines = machinesByHome[selZone.id] ?? [];
+	                const houseTrucks = trucks.filter((t) => t.from === selZone.id || t.to === selZone.id);
+	                const hk = houseKpis(selZone.id);
+	                const kpis = hk.kpis;
+	                const tabs: Array<[typeof houseTab, string]> = [
+	                  ["vue", "Vue"],
+	                  ["kpis", "KPIs"],
+	                  ["anges", `Agents ${houseAngels.length + houseRuntimeAgents.length}`],
+	                  ["machines", `Machines ${houseMachines.length}`],
+	                  ["flux", `Flux ${houseTrucks.length}`],
+	                ];
                 return (
                   <>
                     <div className="mt-2 flex gap-1 border-b border-slate-700/50">
@@ -719,7 +995,7 @@ export function WorldMapLiving({
                         <p className="text-[10px] font-semibold uppercase text-cyan-300">Rôle</p>
                         <p className="text-[11px] leading-snug text-slate-300">{selZone.role}</p>
                         <p className="mt-2 text-[10px] font-semibold uppercase text-cyan-300">Synthèse</p>
-                        <p className="text-[10px] text-slate-300">{houseAngels.filter((a) => a.status === "LIVE").length}/{houseAngels.length} anges LIVE · {houseTrucks.length} flux · {kpis.length ? `${kpis.length} KPIs` : "KPIs à migrer"}</p>
+	                        <p className="text-[10px] text-slate-300">{houseAngels.filter((a) => a.status === "LIVE").length}/{houseAngels.length} anges LIVE · {houseRuntimeAgents.length} agents runtime · {houseMachines.length} machines · {houseTrucks.length} flux · {kpis.length ? `${kpis.length} KPIs` : "KPIs à migrer"}</p>
                       </div>
                     )}
 
@@ -754,12 +1030,32 @@ export function WorldMapLiving({
                           const arrAtRisk = houseAngels.reduce((s, a) => s + (a.arr_impact_eur_year && a.arr_impact_eur_year < 0 ? a.arr_impact_eur_year : 0), 0);
                           const nextActions = houseAngels.filter((a) => a.status === "BROKEN" || a.status === "DEGRADED" || a.status === "AWAITING_SETUP");
                           return (
-                            <>
-                              {arrAtRisk < 0 && (
-                                <p className="mb-1 rounded bg-rose-500/10 px-1.5 py-0.5 text-[10px] font-bold text-rose-300">⚠ ARR à risque : {arrAtRisk.toLocaleString("fr-FR")} €/an</p>
-                              )}
-                              <div className="flex flex-col gap-1">
-                                {houseAngels.map((a) => (
+	                            <>
+	                              {arrAtRisk < 0 && (
+	                                <p className="mb-1 rounded bg-rose-500/10 px-1.5 py-0.5 text-[10px] font-bold text-rose-300">⚠ ARR à risque : {arrAtRisk.toLocaleString("fr-FR")} €/an</p>
+	                              )}
+	                              {houseRuntimeAgents.length > 0 && (
+	                                <div className="mb-2 rounded border border-orange-400/20 bg-orange-400/8 p-1.5">
+	                                  <p className="text-[9px] font-bold uppercase tracking-wide text-orange-200">
+	                                    Runtime OpenClaw / Lobster
+	                                  </p>
+	                                  <div className="mt-1 grid grid-cols-2 gap-1">
+	                                    {houseRuntimeAgents.map((agent) => (
+	                                      <button
+	                                        key={`${agent.id}-${agent.name}`}
+	                                        type="button"
+	                                        onClick={() => setSelectedRuntimeAgent(agent)}
+	                                        className="rounded border border-slate-700/60 px-1.5 py-1 text-left hover:border-orange-300/60"
+	                                      >
+	                                        <span className="block truncate text-[9.5px] font-bold text-slate-200">{agent.name}</span>
+	                                        <span className="text-[8px] font-bold" style={{ color: runtimeColor(agent.runtimeStatus) }}>● {agent.runtimeStatus}</span>
+	                                      </button>
+	                                    ))}
+	                                  </div>
+	                                </div>
+	                              )}
+	                              <div className="flex flex-col gap-1">
+	                                {houseAngels.map((a) => (
                                   <button key={a.id} type="button" onClick={() => setSelectedAngel(a)} className="flex items-start gap-1.5 rounded border border-slate-700/60 px-1.5 py-1 text-left hover:border-slate-500">
                                     <span className="mt-0.5 h-2 w-2 shrink-0 rounded-full" style={{ background: ANGEL_STATUS[a.status].color }} />
                                     <span className="min-w-0">
@@ -769,28 +1065,73 @@ export function WorldMapLiving({
                                     </span>
                                   </button>
                                 ))}
-                                {!houseAngels.length && <span className="text-[10px] text-slate-500">—</span>}
-                              </div>
+	                                {!houseAngels.length && !houseRuntimeAgents.length && <span className="text-[10px] text-slate-500">—</span>}
+	                              </div>
                               {nextActions.length > 0 && (
                                 <p className="mt-2 text-[9px] text-amber-300/80">▸ {nextActions.length} ange(s) à débloquer/activer — clic pour le détail.</p>
+                              )}
+                              {selZone.id === "openclaw_agent_barracks" && openclawRuntime && (
+                                <div className="mt-2 rounded border border-orange-400/20 bg-orange-400/8 p-1.5">
+                                  <p className="text-[9px] font-bold uppercase tracking-wide text-orange-200">
+                                    Team OpenClaw / Lobster ({openclawRuntime.counts.fresh}/{openclawRuntime.counts.total} fresh)
+                                  </p>
+                                  <div className="mt-1 grid max-h-52 grid-cols-2 gap-1 overflow-auto pr-1">
+                                    {openclawRuntime.agents.map((agent) => (
+                                      <div key={`${agent.id}-${agent.name}`} className="rounded border border-slate-700/60 px-1.5 py-1">
+                                        <div className="flex items-center justify-between gap-1">
+                                          <span className="truncate text-[9.5px] font-bold text-slate-200">{agent.name}</span>
+                                          <span className={`shrink-0 text-[8px] font-bold ${agent.runtimeStatus === "FRESH" ? "text-emerald-300" : agent.runtimeStatus === "STALE" ? "text-amber-300" : "text-rose-300"}`}>
+                                            {agent.runtimeStatus}
+                                          </span>
+                                        </div>
+                                        <p className="truncate text-[8.5px] text-slate-500">{agent.team}</p>
+                                      </div>
+                                    ))}
+                                  </div>
+                                </div>
                               )}
                             </>
                           );
                         })()}
                       </div>
-                    )}
+	                    )}
 
-                    {houseTab === "flux" && (
+	                    {houseTab === "machines" && (
+	                      <div className="mt-2">
+	                        {houseMachines.length ? (
+	                          <div className="flex flex-col gap-1">
+	                            {houseMachines.map((machine) => (
+	                              <button
+	                                key={machine.id}
+	                                type="button"
+	                                onClick={() => setSelectedMachine(machine)}
+	                                className="rounded border border-slate-700/60 px-1.5 py-1 text-left hover:border-cyan-300/60"
+	                              >
+	                                <span className="flex items-center justify-between gap-2">
+	                                  <span className="truncate text-[10px] font-bold text-slate-200">{machine.label}</span>
+	                                  <span className="shrink-0 text-[8px] font-bold" style={{ color: runtimeColor(machine.status) }}>● {machine.status}</span>
+	                                </span>
+	                                {machine.role && <span className="block truncate text-[8.5px] text-slate-500">{machine.role}</span>}
+	                              </button>
+	                            ))}
+	                          </div>
+	                        ) : (
+	                          <p className="text-[10px] text-slate-500">Aucune machine/service canonique attaché à cette maison.</p>
+	                        )}
+	                      </div>
+	                    )}
+
+	                    {houseTab === "flux" && (
                       <div className="mt-2">
                         {houseTrucks.length ? (
                           <div className="flex flex-col gap-1">
-                            {houseTrucks.map((t) => (
-                              <div key={t.id} className="rounded border border-slate-700/50 px-1.5 py-1">
-                                <span className="text-[10px] font-bold text-slate-200">{t.name}</span>
-                                <span className="block text-[9px] text-slate-400">{t.from} → {t.to} · {t.payload}</span>
-                                <span className="block text-[8.5px] text-slate-500">{t.owner}{t.cadence ? ` · ${t.cadence}` : ""}</span>
-                              </div>
-                            ))}
+	                            {houseTrucks.map((t) => (
+	                              <button key={t.id} type="button" onClick={() => setSelectedTruck(t)} className="rounded border border-slate-700/50 px-1.5 py-1 text-left hover:border-amber-300/60">
+	                                <span className="text-[10px] font-bold text-slate-200">{t.name}</span>
+	                                <span className="block text-[9px] text-slate-400">{t.from} → {t.to} · {t.payload}</span>
+	                                <span className="block text-[8.5px] text-slate-500">{t.owner}{t.cadence ? ` · ${t.cadence}` : ""}</span>
+	                              </button>
+	                            ))}
                           </div>
                         ) : (
                           <p className="text-[10px] text-slate-500">Aucun camion (flux inter-maison) ne touche cette maison.</p>
@@ -812,9 +1153,9 @@ export function WorldMapLiving({
                   return <div key={s} className="flex items-center gap-1.5"><span className="h-2 w-2 rounded-full" style={{ background: st.color }} /><span className="text-slate-300">{st.label}</span><span className="ml-auto font-bold">{n}</span></div>;
                 })}
               </div>
-              {angels.length > 0 && (
-                <>
-                  <p className="mt-2 text-[9px] font-bold uppercase tracking-wide text-slate-400">{angels.length} anges — état réel</p>
+	              {angels.length > 0 && (
+	                <>
+	                  <p className="mt-2 text-[9px] font-bold uppercase tracking-wide text-slate-400">{angels.length} profils canon — statut déclaratif</p>
                   <div className="mt-1 grid grid-cols-2 gap-1 text-[9.5px]">
                     {(Object.keys(ANGEL_STATUS) as AngelStatus[]).map((s) => {
                       const n = angels.filter((a) => a.status === s).length;
@@ -823,43 +1164,50 @@ export function WorldMapLiving({
                       return <div key={s} className="flex items-center gap-1.5"><span className="h-2 w-2 rounded-full" style={{ background: st.color }} /><span className="text-slate-300">{st.label}</span><span className="ml-auto font-bold">{n}</span></div>;
                     })}
                   </div>
-                </>
-              )}
-              <p className="mt-2 text-[9px] text-slate-500">sync registry {syncStamp || "…"}</p>
-            </div>
-          )}
+	                </>
+	              )}
+	              <p className="mt-2 rounded border border-slate-700/50 px-2 py-1 text-[9.5px] text-slate-300">
+	                Missions : <b className="text-emerald-300">{activeMissions}</b> actives · <b className="text-amber-300">{blockerMissions}</b> à débloquer
+	              </p>
+	              {openclawRuntime && (
+	                <div className="mt-2 rounded border border-orange-400/25 bg-orange-400/8 px-2 py-1.5">
+                  <p className="text-[9px] font-bold uppercase tracking-wide text-orange-200">
+                    OpenClaw / Lobster — runtime local
+                  </p>
+                  <div className="mt-1 grid grid-cols-2 gap-1 text-[9.5px] text-slate-300">
+                    <span>Agents fresh</span><span className="text-right font-bold">{openclawRuntime.counts.fresh}/{openclawRuntime.counts.total}</span>
+                    <span>Jarod</span><span className="text-right font-bold">{openclawRuntime.jarod?.runtimeStatus ?? "UNKNOWN"}</span>
+                    <span>Gateway</span><span className="text-right font-bold">{runtimeGateway?.status ?? "UNKNOWN"}</span>
+                    <span>Lobster</span><span className="text-right font-bold">{fmtNum(openclawRuntime.counts.lobsterEnabled)}/{fmtNum(openclawRuntime.counts.lobsterConfigured)}</span>
+                  </div>
+                  {openclawRuntime.problems.length > 0 && (
+                    <p className="mt-1 line-clamp-2 text-[9px] text-amber-200">
+                      {openclawRuntime.problems.slice(0, 2).map((p) => p.title).join(" · ")}
+                    </p>
+                  )}
+	                </div>
+	              )}
+	              {events.length > 0 && (
+	                <div className="mt-2 rounded border border-emerald-300/15 bg-emerald-300/5 px-2 py-1.5">
+	                  <p className="text-[9px] font-black uppercase tracking-wide text-emerald-300">Live feed</p>
+	                  <div className="mt-1 flex flex-col gap-1">
+	                    {events.slice(0, 4).map((e) => (
+	                      <div key={e.id} title={e.proof ? `${e.source ?? ""} — ${e.proof}` : (e.source ?? "")} className="flex items-center gap-1.5 text-[9px]">
+	                        <span className="h-1.5 w-1.5 shrink-0 rounded-full" style={{ background: feedColor(e.status) }} />
+	                        <span className="min-w-0 truncate text-slate-300">{e.label}</span>
+	                      </div>
+	                    ))}
+	                  </div>
+	                </div>
+	              )}
+	              <p className="mt-2 text-[9px] text-slate-500">sync registry {syncStamp || "…"}</p>
+	            </div>
+	          )}
         </div>
       </div>
 
-      {/* ── LIVE FEED (events réels world-state, avec preuve) ── */}
-      {events.length > 0 && (
-        <div className="flex items-center gap-2 overflow-x-auto rounded-lg border border-emerald-300/15 bg-slate-950/70 px-3 py-1.5 text-[10px]">
-          <span className="shrink-0 font-black uppercase tracking-wide text-emerald-300">● Live feed</span>
-          {events.map((e) => (
-            <span key={e.id} title={e.proof ? `${e.source ?? ""} — ${e.proof}` : (e.source ?? "")} className="flex shrink-0 items-center gap-1 rounded border border-slate-700/50 px-1.5 py-0.5">
-              <span className="h-1.5 w-1.5 rounded-full" style={{ background: feedColor(e.status) }} />
-              <span className="text-slate-300">{e.label}</span>
-              {e.source && <span className="text-slate-500">· {e.source}</span>}
-            </span>
-          ))}
-        </div>
-      )}
-
-      {/* ── TASKBAR mission (bas) ── */}
-      <div className="flex flex-wrap items-center gap-2 rounded-lg border border-cyan-300/15 bg-slate-950/70 px-3 py-1.5 text-[10px] text-slate-300">
-        <span className="font-black uppercase tracking-wide text-cyan-300">Taskbar</span>
-        <span>·</span>
-        <span>{LEGACY_ZONES.length} maisons</span>
-        <span>· {liveCount} LIVE</span>
-        <span>· {angels.length} anges</span>
-        <span>· {trucks.length} camions</span>
-        <span className="text-emerald-300/90">· {activeMissions} missions actives</span>
-        <span className="text-amber-300/90">· {blockerMissions} à débloquer</span>
-        <span>· YouTube: <span className="text-rose-300">publish locked</span></span>
-        <span className="ml-auto text-slate-500">registry :8767 {registryError ? "ERR" : syncStamp ? `sync ${syncStamp}` : "…"}</span>
-      </div>
-    </div>
-  );
-}
+	    </div>
+	  );
+	}
 
 export default WorldMapLiving;
