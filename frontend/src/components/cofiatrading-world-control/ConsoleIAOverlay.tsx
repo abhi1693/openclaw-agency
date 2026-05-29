@@ -266,6 +266,11 @@ const TARGET_BUS_BY_ID: Record<string, string> = {
   jarod_openclaw: "jarod",
   kevin_gemini: "kevin",
   qwen_local: "qwen",
+  perplexity_local: "perplexity",
+  telegram_iron: "telegram_iron",
+  telegram_free: "telegram_free",
+  telegram_vip: "telegram_vip",
+  telegram_erwin: "telegram_erwin",
 };
 
 const formatBytes = (bytes: number) => {
