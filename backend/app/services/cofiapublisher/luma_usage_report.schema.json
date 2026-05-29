@@ -1,0 +1,51 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "luma_usage_report",
+  "description": "CofiaPublisher — rapport d'usage Luma (hero-motion) par vidéo. HARDLOCK Erwin 2026-05-29.",
+  "type": "object",
+  "required": ["required", "used", "reason", "shots", "verdict"],
+  "properties": {
+    "required": {"type": "boolean", "description": "true si la vidéo vise un rendu premium (≥1 hero shot Luma attendu)"},
+    "used": {"type": "boolean", "description": "true si ≥1 plan Luma est réellement dans le MP4 final"},
+    "reason": {"type": "string", "description": "pourquoi used/not-used (ex: API trial sans accès, cookie GO absent, brief économie)"},
+    "auth_mode": {"type": ["string", "null"], "enum": ["api_key", "cookie_session", null]},
+    "shots": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["shot_id", "prompt", "mode", "status"],
+        "properties": {
+          "shot_id": {"type": "string"},
+          "prompt": {"type": "string"},
+          "mode": {"type": "string", "enum": ["text_to_video", "image_to_video"]},
+          "source_image": {"type": ["string", "null"]},
+          "generation_id": {"type": ["string", "null"]},
+          "duration": {"type": ["number", "string"]},
+          "cost_estimate": {"type": "object", "description": "{model,duration_s,credits_est,eur_est}"},
+          "output_path": {"type": ["string", "null"]},
+          "status": {"type": "string", "enum": ["SUBMITTED", "REUSED", "COMPLETED", "BLOCKED", "GATED", "OVER_BUDGET", "FAILED"]}
+        }
+      }
+    },
+    "verdict": {"type": "string", "enum": ["PASS", "BLOCKED", "NOT_REQUIRED"],
+      "description": "PASS=hero Luma dans le MP4 · BLOCKED=Luma requis mais impossible (ne pas dire premium) · NOT_REQUIRED=économie/brief no-luma"}
+  },
+  "x_rules": {
+    "premium_claim": "Interdit de dire 'premium motion' si verdict != PASS (aucun hero Luma/Veo/Kling dans le MP4).",
+    "tool_usage_ledger": "Luma=USED_IN_FINAL_MP4 si ≥1 plan Luma dans le MP4 ; BLOCKED si API+cookie impossibles ; AVAILABLE_NOT_USED seulement si économie/brief no-luma.",
+    "idempotence": "Un shot_id déjà généré + mp4 valide est réutilisé, jamais repayé (~/.openclaw/state/cofiapublisher/luma_generations/).",
+    "budget": "estimate_cost avant chaque génération + plafond MAX_COST_EUR + cost_ledger ; pas de retry payant sans justification.",
+    "billing_guard": "no_luma_billing_guard bloque billing/subscription/cancel/upgrade/downgrade/payment/invoice/account."
+  },
+  "example": {
+    "required": true, "used": false, "auth_mode": null,
+    "reason": "API officielle 403 (trial web sans accès API) ; cookie 'comme Suno' non encore configuré",
+    "shots": [
+      {"shot_id": "hero_brand_reveal", "prompt": "Cofiatrading logo forming from flowing market data, cinematic, navy/electric-blue, premium",
+       "mode": "image_to_video", "source_image": "brand/001_logo_primary_transparent.png", "generation_id": null,
+       "duration": 5, "cost_estimate": {"model": "ray-2", "duration_s": 5, "credits_est": 60, "eur_est": 0.216},
+       "output_path": null, "status": "BLOCKED"}
+    ],
+    "verdict": "BLOCKED"
+  }
+}
