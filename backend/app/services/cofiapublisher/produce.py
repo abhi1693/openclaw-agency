@@ -16,7 +16,7 @@ import time
 from pathlib import Path
 
 from . import brand_assets, distribution, qa, tiers
-from .adapters import video_stock, voice_local
+from .adapters import image_gen, video_stock, voice_elevenlabs, voice_local
 
 OUT_ROOT = Path("/Users/burakokyay/.openclaw/state/cofiapublisher/produced")
 PIPELINE_STEPS = ["script", "voice", "image", "thumbnail", "video", "avatar", "music", "captions", "montage", "qa"]
