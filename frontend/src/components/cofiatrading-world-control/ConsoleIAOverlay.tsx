@@ -657,7 +657,6 @@ export function ConsoleIAOverlay() {
   const [threadError, setThreadError] = useState<string | null>(null);
   const [submitError, setSubmitError] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement | null>(null);
-  const imageInputRef = useRef<HTMLInputElement | null>(null);
   const {
     addFiles,
     attachments,
