@@ -15,8 +15,12 @@ import subprocess
 import time
 from pathlib import Path
 
-from . import brand_assets, distribution, qa, tiers
+import json as _json
+
+from . import brand_assets, captions_engine, distribution, qa, tiers
 from .adapters import image_gen, video_stock, voice_elevenlabs, voice_local
+
+REMOTION_DIR = "/Users/burakokyay/cof-trading/remotion"
 
 OUT_ROOT = Path("/Users/burakokyay/.openclaw/state/cofiapublisher/produced")
 PIPELINE_STEPS = ["script", "voice", "image", "thumbnail", "video", "avatar", "music", "captions", "montage", "qa"]
