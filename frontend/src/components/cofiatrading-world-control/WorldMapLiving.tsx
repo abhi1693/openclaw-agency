@@ -201,22 +201,14 @@ function faceWindows(BL: Pt, BR: Pt, TL: Pt, TR: Pt, cols: number, rows: number,
   return out;
 }
 
-/* densification ville (Erwin 2026-05-29) : footprints plus gros + tours plus
- * hautes pour matcher la densité de l'image de référence. Le footprint grossit
- * autour de SON CENTRE (pas du coin) pour rester aligné sur la position canon. */
-const FOOTPRINT_SCALE = 1.7;
 function buildZone(z: Zone): Built {
-  const levels = z.tall ? 8 : z.district === "command" || z.district === "content" ? 6 : 5;
-  const h = 12 + levels * 8.5;
-  const cw = z.w * FOOTPRINT_SCALE;
-  const ch = z.h * FOOTPRINT_SCALE;
-  const ox = z.x - (cw - z.w) / 2;
-  const oy = z.y - (ch - z.h) / 2;
+  const levels = z.tall ? 7 : z.district === "command" || z.district === "content" ? 5 : 4;
+  const h = 8 + levels * 6.5;
   const corners = [
-    [ox, oy],
-    [ox + cw, oy],
-    [ox + cw, oy + ch],
-    [ox, oy + ch],
+    [z.x, z.y],
+    [z.x + z.w, z.y],
+    [z.x + z.w, z.y + z.h],
+    [z.x, z.y + z.h],
   ].map(([wx, wy]) => isoProject(wx, wy));
   const ground: Pt[] = corners.map((c) => ({ x: c.sx, y: c.sy }));
   const roofPts: Pt[] = ground.map((c) => ({ x: c.x, y: c.y - h }));
@@ -225,7 +217,7 @@ function buildZone(z: Zone): Built {
   const roofPoly = roofPts.map(p).join(" ");
   const leftWall = [ground[3], ground[2], roofPts[2], roofPts[3]].map(p).join(" ");
   const rightWall = [ground[1], ground[2], roofPts[2], roofPts[1]].map(p).join(" ");
-  const cols = Math.max(3, Math.round(cw * 0.95));
+  const cols = Math.max(2, Math.round(z.w * 1.1));
   const rows = Math.max(3, levels);
   const seed = z.id.length + Math.round(z.x) + Math.round(z.y);
   const leftWindows = faceWindows(ground[3], ground[2], roofPts[3], roofPts[2], cols, rows, seed);
@@ -261,12 +253,13 @@ export function WorldMapLiving({
   const lastFetch = useRef<number>(0);
   const [syncStamp, setSyncStamp] = useState<string>("");
 
-  // Registry :8767 — statut live des maisons, refetch 30s (CORS *)
+  // Statut live des maisons via route proxy interne (serveur-side → :8767), refetch 30s.
+  // Plus de localhost hardcodé dans le bundle navigateur → marche hors machine locale.
   useEffect(() => {
     let cancelled = false;
     const load = async () => {
       try {
-        const r = await fetch("http://localhost:8767/api/central-brain/registry", { cache: "no-store" });
+        const r = await fetch("/api/cofiatrading-world-control/registry", { cache: "no-store" });
         if (!r.ok) throw new Error(`HTTP_${r.status}`);
         const data = await r.json();
         const houses = (data?.houses ?? {}) as Record<string, { status?: unknown }>;
@@ -308,7 +301,7 @@ export function WorldMapLiving({
       }
       center[z.zone.id] = { x: z.base.x, y: z.base.y - z.height };
     }
-    const pad = 55;
+    const pad = 90;
     const vb = `${(minX - pad).toFixed(0)} ${(minY - pad).toFixed(0)} ${(maxX - minX + pad * 2).toFixed(0)} ${(maxY - minY + pad * 2).toFixed(0)}`;
     // tri painter (depth iso) : (x+y) croissant
     b.sort((p, q) => (p.zone.x + p.zone.y) - (q.zone.x + q.zone.y));
