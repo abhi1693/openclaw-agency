@@ -1000,46 +1000,28 @@ export function ConsoleIAOverlay() {
             </button>
           </header>
 
-          <div className="grid min-h-0 grid-cols-1 overflow-hidden lg:grid-cols-[260px_1fr_310px]">
+          <div className={`grid min-h-0 grid-cols-1 overflow-hidden ${proofsOpen ? "lg:grid-cols-[240px_1fr_330px]" : "lg:grid-cols-[240px_1fr]"}`}>
             <aside className="max-h-56 overflow-auto border-b border-slate-800/80 p-3 lg:max-h-none lg:border-b-0 lg:border-r">
               <p className="mb-3 text-[10px] font-black uppercase tracking-[0.18em] text-cyan-100">
-                Cibles console
+                Cibles IA
               </p>
               <div className="grid gap-2">
-                {TARGETS.map((target) => {
-                  const bus = TARGET_BUS_BY_ID[target.id];
-                  const visual = targetVisualStatus(target, selectedTargetId, activeRouteBuses, bus ? participantStatusById.get(bus) : undefined);
-                  return (
-                    <button
-                      key={target.id}
-                      type="button"
-                      onClick={() => setSelectedTargetId(target.id)}
-                      className={`rounded-xl border p-3 text-left transition focus-visible:outline focus-visible:outline-1 focus-visible:outline-cyan-200/50 ${
-                        target.id === selectedTargetId
-                          ? "border-cyan-300/60 bg-cyan-400/10"
-                          : "border-slate-800 bg-slate-900/70 hover:border-cyan-300/25"
-                      }`}
-                    >
-                      <div className="flex items-start gap-2">
-                        <span className="grid h-8 w-8 shrink-0 place-items-center rounded-lg border border-cyan-200/20 bg-cyan-400/10 text-[10px] font-black text-cyan-100">
-                          {target.label.slice(0, 2).toUpperCase()}
-                        </span>
-                        <span className="min-w-0">
-                          <span className="block truncate text-xs font-black text-white">{target.label}</span>
-                          <span className="mt-1 block truncate text-[10px] uppercase tracking-[0.08em] text-slate-400">
-                            {target.scope}
-                          </span>
-                        </span>
-                      </div>
-                      {visual.showBadge ? (
-                        <span className={`mt-2 inline-flex rounded-full border px-2 py-0.5 text-[9px] font-black ${visualClassFor(visual.tone)}`}>
-                          {visual.label}
-                        </span>
-                      ) : null}
-                    </button>
-                  );
-                })}
+                {AGENT_TARGETS.map((target) => renderTargetButton(target))}
               </div>
+
+              <button
+                type="button"
+                onClick={() => setChannelsOpen((value) => !value)}
+                className="mt-4 flex w-full items-center justify-between rounded-lg border border-slate-800 bg-slate-900/60 px-3 py-2 text-[10px] font-black uppercase tracking-[0.14em] text-slate-300 transition hover:border-cyan-300/40"
+              >
+                <span>Canaux Telegram</span>
+                <span className="text-slate-500">{channelsOpen ? "▾" : "▸"}</span>
+              </button>
+              {channelsOpen ? (
+                <div className="mt-2 grid gap-2">
+                  {CHANNEL_TARGETS.map((target) => renderTargetButton(target))}
+                </div>
+              ) : null}
             </aside>
 
             <main className="grid min-h-0 grid-rows-[auto_1fr_auto] overflow-hidden">
