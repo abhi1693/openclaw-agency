@@ -477,13 +477,47 @@ def execute_v4(beats=None, voice_id=None, counter_to=200, counter_suffix=" IA",
     if r.returncode != 0 or not os.path.exists(raw):
         return {"ok": False, "error": "remotion_render_failed", "stderr": r.stderr[-700:], "run": run_id, "shots": len(shots)}
 
-    music = suno_mp3  # HARD LOCK : musique SUNO générée pour CETTE vidéo (compte Pro Erwin)
+    # ── MARCUS SOUND DYNAMICS : musique BASSE + automation de volume + crossfade tension→uplift ──
     out_mp4 = str(rd / "video_v4.mp4")
-    fc = ("[0:v]curves=b='0/0.06 0.5/0.55 1/1':r='0/0 0.5/0.46 1/0.95',eq=contrast=1.10:saturation=1.08,vignette=PI/4.8,noise=alls=3:allf=t[v];"
-          "[0:a]asplit=2[a0][a1];[1:a]volume=0.40[mus];"
-          "[mus][a0]sidechaincompress=threshold=0.04:ratio=8:attack=20:release=300[duck];"
-          "[a1][duck]amix=inputs=2:duration=first[mx];[mx]loudnorm=I=-14:TP=-1:LRA=11[a]")
-    r2 = subprocess.run(["ffmpeg", "-y", "-i", raw, "-stream_loop", "-1", "-i", music, "-filter_complex", fc,
+    brand_s = brand_reveal / FPS
+    twist_s = twist / FPS
+    intro_s = 1.2  # fade-in musique
+    # Enveloppe de volume dynamique (eval=frame). Base BASSE 0.13, swell avant reveals, dip juste après les boums.
+    # gain(t) : intro fade-in → base → +swell pré-reveal/twist → dip post-boum → remontée uplift.
+    bs = max(0.0, brand_s); ts = max(0.0, twist_s)
+    vol_expr = (
+        f"0.13"
+        f"*min(1,max(0,(t-0)/{intro_s}))"                                  # fade-in intro
+        f"*(1+0.85*max(0,1-abs(t-({bs}-0.7))/1.0))"                        # SWELL build avant brand reveal
+        f"*(1-0.45*max(0,1-abs(t-({bs}+0.45))/0.7))"                       # DIP juste après le boum brand
+        f"*(1+0.95*max(0,1-abs(t-({ts}-0.8))/1.1))"                        # SWELL build avant twist 200 IA
+        f"*(1-0.50*max(0,1-abs(t-({ts}+0.5))/0.8))"                        # DIP juste après le boum twist
+    )
+    if has_uplift:
+        # 2 tracks Suno : tension joue, uplift entre au brand reveal, crossfade 1.2s. Puis enveloppe + ducking.
+        xfade_dur = 1.2
+        fc = (
+            "[0:v]curves=b='0/0.06 0.5/0.55 1/1':r='0/0 0.5/0.46 1/0.95',eq=contrast=1.10:saturation=1.08,vignette=PI/4.8,noise=alls=3:allf=t[v];"
+            f"[1:a]afade=t=out:st={max(0.1, bs - 0.2):.2f}:d={xfade_dur}[mt];"   # tension fade-out au reveal
+            f"[2:a]adelay={int(max(0, (bs - xfade_dur)) * 1000)}|{int(max(0, (bs - xfade_dur)) * 1000)},afade=t=in:st={max(0.0, bs - xfade_dur):.2f}:d={xfade_dur}[mu];"  # uplift entre au reveal
+            "[mt][mu]amix=inputs=2:duration=first:normalize=0[mraw];"
+            f"[mraw]volume='{vol_expr}':eval=frame[musenv];"                  # AUTOMATION volume dynamique
+            "[0:a]asplit=2[a0][a1];"
+            "[musenv][a0]sidechaincompress=threshold=0.05:ratio=10:attack=15:release=320[duck];"  # ducking renforcé sous voix
+            "[a1][duck]amix=inputs=2:duration=first:normalize=0[mx];[mx]loudnorm=I=-14:TP=-1.2:LRA=12[a]"
+        )
+        music_inputs = ["-stream_loop", "-1", "-i", suno_mp3, "-stream_loop", "-1", "-i", suno_uplift]
+    else:
+        # 1 track Suno + enveloppe dynamique + ducking (dégradation propre si uplift échoue)
+        fc = (
+            "[0:v]curves=b='0/0.06 0.5/0.55 1/1':r='0/0 0.5/0.46 1/0.95',eq=contrast=1.10:saturation=1.08,vignette=PI/4.8,noise=alls=3:allf=t[v];"
+            f"[1:a]volume='{vol_expr}':eval=frame[musenv];"
+            "[0:a]asplit=2[a0][a1];"
+            "[musenv][a0]sidechaincompress=threshold=0.05:ratio=10:attack=15:release=320[duck];"
+            "[a1][duck]amix=inputs=2:duration=first:normalize=0[mx];[mx]loudnorm=I=-14:TP=-1.2:LRA=12[a]"
+        )
+        music_inputs = ["-stream_loop", "-1", "-i", suno_mp3]
+    r2 = subprocess.run(["ffmpeg", "-y", "-i", raw, *music_inputs, "-filter_complex", fc,
                          "-map", "[v]", "-map", "[a]", "-t", f"{audio_dur:.2f}",
                          "-c:v", "libx264", "-preset", "medium", "-crf", "22", "-maxrate", "10M", "-bufsize", "16M",
                          "-pix_fmt", "yuv420p", "-c:a", "aac", "-b:a", "160k", out_mp4],
