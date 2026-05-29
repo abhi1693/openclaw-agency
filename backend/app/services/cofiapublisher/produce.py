@@ -360,7 +360,17 @@ def _emit_manifest(rd, run_id, beats, shots, captions, audio_dur, suno_track, qv
     shot_list = [{"idx": j, "type": s.get("type"), "source": "Pexels video" if s.get("type") == "video" else "FLUX still",
                   "durationInFrames": s["durationInFrames"], "transition": s.get("transition"),
                   "justification": None if s.get("type") == "video" else "stock vidéo indispo pour la requête → fallback image FLUX (contrat §7)"} for j, s in enumerate(shots)]
-    audio_map = {"voix": {"provider": "ElevenLabs", "duration_s": round(audio_dur, 2), "timing": "word-level /with-timestamps"},
+    voice_qa = {}
+    try:
+        vqp = rd / "voice_qa_report.json"
+        if vqp.exists():
+            voice_qa = _json.loads(vqp.read_text())
+    except Exception:  # noqa: BLE001
+        voice_qa = {}
+    audio_map = {"voix": {"provider": "ElevenLabs", "duration_s": round(audio_dur, 2), "timing": "word-level /with-timestamps",
+                          "voice_director": {"verdict": voice_qa.get("verdict"), "voice_id": voice_qa.get("voice_id"),
+                                             "model": voice_qa.get("model"), "chosen_take": voice_qa.get("chosen_take"),
+                                             "params": voice_qa.get("forced_params")}},
                  "musique": {"provider": "Suno (compte Pro)", "track": os.path.basename(suno_track), "role": "bed dynamique + ducking sidechain"},
                  "sfx": ["drone_bed_lo", "boom hook", "riser avant reveals", "boom_heavy drops", "impact twist", "whoosh whip-only"],
                  "master": "loudnorm -14 LUFS"}
