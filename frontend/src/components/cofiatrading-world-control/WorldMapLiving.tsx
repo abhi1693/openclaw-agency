@@ -704,6 +704,20 @@ export function WorldMapLiving({
         </div>
       </div>
 
+      {/* ── LIVE FEED (events réels world-state, avec preuve) ── */}
+      {events.length > 0 && (
+        <div className="flex items-center gap-2 overflow-x-auto rounded-lg border border-emerald-300/15 bg-slate-950/70 px-3 py-1.5 text-[10px]">
+          <span className="shrink-0 font-black uppercase tracking-wide text-emerald-300">● Live feed</span>
+          {events.map((e) => (
+            <span key={e.id} title={e.proof ? `${e.source ?? ""} — ${e.proof}` : (e.source ?? "")} className="flex shrink-0 items-center gap-1 rounded border border-slate-700/50 px-1.5 py-0.5">
+              <span className="h-1.5 w-1.5 rounded-full" style={{ background: feedColor(e.status) }} />
+              <span className="text-slate-300">{e.label}</span>
+              {e.source && <span className="text-slate-500">· {e.source}</span>}
+            </span>
+          ))}
+        </div>
+      )}
+
       {/* ── TASKBAR mission (bas) ── */}
       <div className="flex flex-wrap items-center gap-2 rounded-lg border border-cyan-300/15 bg-slate-950/70 px-3 py-1.5 text-[10px] text-slate-300">
         <span className="font-black uppercase tracking-wide text-cyan-300">Taskbar</span>
@@ -711,7 +725,9 @@ export function WorldMapLiving({
         <span>{LEGACY_ZONES.length} maisons</span>
         <span>· {liveCount} LIVE</span>
         <span>· {angels.length} anges</span>
-        <span>· {angelRoster?.counts?.broken ?? 0} cassés</span>
+        <span>· {trucks.length} camions</span>
+        <span className="text-emerald-300/90">· {activeMissions} missions actives</span>
+        <span className="text-amber-300/90">· {blockerMissions} à débloquer</span>
         <span>· YouTube: <span className="text-rose-300">publish locked</span></span>
         <span className="ml-auto text-slate-500">registry :8767 {registryError ? "ERR" : syncStamp ? `sync ${syncStamp}` : "…"}</span>
       </div>
