@@ -180,19 +180,18 @@ def _gate(duration_s: float, model: str) -> dict | None:
 
 
 def _submit(payload: dict) -> dict:
-    """POST /generations (API officielle). Cookie fallback non implémenté en écriture (risque ToS) :
-    s'il est nécessaire, retourne COOKIE_PATH_REQUIRED pour traitement gardé séparé."""
+    """POST /generations. Auth = clé API si dispo, sinon JWT session 'comme Suno' (gated + guardé).
+    Jamais de billing : assert_no_billing sur l'endpoint."""
     st = status()
-    if st.get("api_ok"):
-        r = httpx.post(f"{BASE}/generations", headers=_headers(), json=payload, timeout=60)
-        return {"ok": r.status_code in (200, 201), "http": r.status_code,
-                "data": (r.json() if r.status_code in (200, 201) else r.text[:200])}
-    # API KO → cookie path (gardé) ; jamais de billing
-    if st["cookie_fallback_configured"] and st["cookie_gen_go"]:
-        assert_no_billing(f"{BASE}/generations")  # double sécurité
-        return {"ok": False, "status": "COOKIE_PATH_REQUIRED",
-                "reason": "API KO ; cookie autorisé mais chemin cookie non câblé en écriture (à implémenter sous garde stricte)"}
-    return {"ok": False, "status": "BLOCKED_LUMA", "reason": st.get("reason")}
+    if not st.get("can_generate"):
+        return {"ok": False, "status": "BLOCKED_LUMA", "reason": st.get("reason")}
+    assert_no_billing(f"{BASE}/generations")  # double sécurité anti-billing (vaut surtout chemin cookie)
+    tok, mode = _auth_token()
+    r = httpx.post(f"{BASE}/generations",
+                   headers={"Authorization": f"Bearer {tok}", "accept": "application/json", "content-type": "application/json"},
+                   json=payload, timeout=60)
+    return {"ok": r.status_code in (200, 201), "http": r.status_code, "auth_mode": mode,
+            "data": (r.json() if r.status_code in (200, 201) else r.text[:200])}
 
 
 def generate_text_to_video(prompt: str, out_path: str, shot_id: str = "hero",
