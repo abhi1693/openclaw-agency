@@ -139,7 +139,10 @@ export async function GET() {
   const [nySnapshot, nyRevenue, publisher, centralBrain] =
     await Promise.all([
     probeJson("World Control snapshot", `${MISSION_CONTROL_URL}/api/cofiatrading-world-control/snapshot`),
-    probeJson("Revenue summary", REVENUE_SUMMARY_URL),
+    (async (): Promise<JsonProbe> => {
+      const r = await readLocalRevenue();
+      return { ok: r.ok, status: r.status, proof: `Revenue summary (cof_state local, no-abidjan) ${r.ok ? "OK" : r.error}`, data: r.data };
+    })(),
     probe("CofiaPublisher", PUBLISHER_STATUS_URL),
     probe("Central Brain", CENTRAL_BRAIN_HEALTH_URL),
   ]);
