@@ -1442,7 +1442,14 @@ export default function ActivityPage() {
   ]);
 
   const orderedFeed = useMemo(() => {
-    return [...feedItems].sort((a, b) => {
+    const deduped = new Map<string, FeedItem>();
+    for (const item of feedItems) {
+      // Deduplicate by source_event_id so overlapping polls cannot briefly
+      // show the same session twice in the rendered list.
+      const key = item.source_event_id ?? item.id;
+      deduped.set(key, item);
+    }
+    return [...deduped.values()].sort((a, b) => {
       const aTime = apiDatetimeToMs(a.created_at) ?? 0;
       const bTime = apiDatetimeToMs(b.created_at) ?? 0;
       return bTime - aTime;
