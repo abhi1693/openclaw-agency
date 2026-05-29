@@ -448,11 +448,15 @@ export function WorldMapLiving({
 
           {/* routes animées inter-maisons (district flows) */}
           <g>
-            {ROUTES.map(([a, b2], i) => {
+            {(trucks.length > 0
+              ? trucks.map((t) => ({ a: t.from, b: t.to, kind: t.kind ?? "active", truck: t as Truck | null }))
+              : ROUTES.map(([a, b2, k]) => ({ a, b: b2, kind: k, truck: null as Truck | null }))
+            ).map((flow, i) => {
+              const a = flow.a, b2 = flow.b;
               const ca = centerById[a], cb = centerById[b2];
               if (!ca || !cb) return null;
               const za = LEGACY_ZONES.find((z) => z.id === a);
-              const col = DISTRICT_COLOR[za?.district ?? "command"] ?? "#22d3ee";
+              const col = flow.kind === "vip" ? "#ffd400" : (DISTRICT_COLOR[za?.district ?? "command"] ?? "#22d3ee");
               const mx = (ca.x + cb.x) / 2, my = (ca.y + cb.y) / 2 - 40;
               const d = `M ${ca.x} ${ca.y + 18} Q ${mx} ${my} ${cb.x} ${cb.y + 18}`;
               return (
