@@ -661,6 +661,8 @@ def execute_vip(voice_id=None) -> dict:
         except OSError: pass
     os.symlink(str(rd), link)
     VF = "scale=1080:1920:force_original_aspect_ratio=increase,crop=1080:1920,fps=30,setsar=1"
+    # #4 Darius : étalonnage Pexels vers la palette navy/cyan des hero IA (anti look délavé)
+    VF_PEX = VF + ",eq=saturation=1.18:contrast=1.06:brightness=-0.02,colorbalance=bs=0.10:bm=0.05:gm=0.02"
     shots, cum, badge_f, counter_f, cta_f, tix = [], 0, 0, 0, 0, 0
     trans = ["whip", "zoomblur", "flash"]
     used_pexels = used_hero = 0
