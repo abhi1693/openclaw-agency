@@ -470,7 +470,8 @@ export function WorldMapLiving({
                     </animateMotion>
                   </circle>
                   {/* navette qui ROULE sur la route (camion/agent vivant, pas figé) */}
-                  <g>
+                  <g style={{ cursor: flow.truck ? "help" : "default" }}>
+                    {flow.truck && <title>{`🚚 ${flow.truck.name} — ${flow.truck.payload} (${flow.truck.owner})`}</title>}
                     <animateMotion dur={`${7 + (i % 4)}s`} repeatCount="indefinite" begin={`${i * 1.3}s`} rotate="auto">
                       <mpath href={`#iso-route-${i}`} />
                     </animateMotion>
