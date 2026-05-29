@@ -50,6 +50,18 @@ export type Angel = {
   arr_impact_eur_year?: number;
 };
 
+export type Truck = {
+  id: string;
+  name: string;
+  from: string;
+  to: string;
+  payload: string;
+  owner: string;
+  cadence?: string;
+  kind?: string;
+  source?: string;
+};
+
 export type AngelRoster = {
   total_anges?: number;
   counts?: {
