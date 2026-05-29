@@ -458,6 +458,10 @@ function openInspector(id){
   insp.scrollTop=0;
 }
 
+/* auto-open via hash (#quant_rd_lab) — utile screenshots, inoffensif */
+if(location.hash){const id=location.hash.slice(1);if(ZONES.find(z=>z.id===id))openInspector(id);}
+window.addEventListener("hashchange",()=>{const id=location.hash.slice(1);if(ZONES.find(z=>z.id===id))openInspector(id);});
+
 /* recalcul compteur (cohérence) */
 document.getElementById("st-count").textContent=ZONES.length;
 document.getElementById("st-live").textContent=ZONES.filter(z=>z.status==="LIVE").length;
