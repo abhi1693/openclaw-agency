@@ -41,6 +41,13 @@ def search_pexels_video(query: str, per_page: int = 5, orientation: str = "portr
     return {"ok": True, "count": len(out), "videos": out}
 
 
+def pick_best(videos: list, min_dur: int = 3, max_dur: int = 25) -> dict | None:
+    """Choisit le meilleur clip : durée exploitable + résolution suffisante (≥1280 de haut)."""
+    cands = [v for v in (videos or [])
+             if min_dur <= (v.get("duration") or 0) <= max_dur and (v.get("height") or 0) >= 1280]
+    return cands[0] if cands else ((videos or [None])[0])
+
+
 def download(url: str, out_path: str) -> dict:
     """Télécharge un asset (vidéo/photo) vers out_path."""
     try:
