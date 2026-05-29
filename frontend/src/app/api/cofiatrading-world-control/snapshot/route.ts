@@ -678,7 +678,7 @@ async function readAgentsCanon() {
 export async function GET() {
   const [revenueResult, housesResult, publisherResult, ackResult, rtkResult, boardsResult, agentsResult, fieldsResult] =
     await Promise.all([
-      readJson(endpoints.revenue),
+      readLocalRevenue(),
       readJson(endpoints.houses),
       readJson(endpoints.publisher),
       readJson(endpoints.ack),
