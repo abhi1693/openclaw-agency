@@ -382,11 +382,18 @@ def execute_v4(beats=None, voice_id=None, counter_to=200, counter_suffix=" IA",
     total_frames = int(round(audio_dur * FPS))
 
     # ── HARD LOCK Erwin : musique = SUNO (compte Pro), à CHAQUE vidéo. Pas de fallback music_launch. ──
-    suno_mp3 = str(rd / "music_suno.mp3")
+    # Marcus : DEUX sections Suno pour une timeline DYNAMIQUE — tension (intro/problème) + uplift (reveal/CTA).
+    suno_mp3 = str(rd / "music_suno.mp3")          # track principal (tension/build)
+    suno_uplift = str(rd / "music_suno_uplift.mp3")  # track 2 (uplift/drop), crossfadé au reveal
     mr = music_suno.generate_track(music_prompt, suno_mp3, instrumental=True, timeout_s=220)
     if not mr.get("ok"):
         return {"ok": False, "error": "SUNO_REQUIRED_FAILED", "detail": mr,
                 "note": "HARD LOCK: chaque vidéo DOIT utiliser Suno. Relais :3300 / crédits à vérifier."}
+    uplift_prompt = ("cinematic finance trailer UPLIFT section, hybrid orchestral electronic, "
+                     "triumphant confident resolve after the drop, bright cyan synths, driving sub bass, "
+                     "premium hopeful, no vocals, 100 BPM")
+    mr2 = music_suno.generate_track(uplift_prompt, suno_uplift, instrumental=True, timeout_s=220)
+    has_uplift = bool(mr2.get("ok"))  # si la 2e échoue, on reste sur 1 track (dégradation propre)
 
     shots, shot_starts, wi, cum = [], [], 0, 0
     beat_first_shot = {}
