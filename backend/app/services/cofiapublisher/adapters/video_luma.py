@@ -140,24 +140,28 @@ def status() -> dict:
 
     api_res = _try(_key(), "api_key")
     out["api_key_probe"] = {k: api_res[k] for k in ("mode", "http", "ok", "reason")}
-    session_res = {"mode": "cookie_session", "ok": False, "reason": "non testé (cookie absent ou GO manquant)"}
-    if _session_jwt() and out["cookie_gen_go"]:
-        session_res = _try(_session_jwt(), "cookie_session")
-    out["session_probe"] = {k: session_res.get(k) for k in ("mode", "http", "ok", "reason")}
+
+    # Mode cookie RÉEL = BFF vespa (app.lumalabs.ai/api/vespa) via wos-session — prouvé
+    vespa = {"ok": False, "reason": "non testé (cookie/team/GO absent)"}
+    if _vespa_ready():
+        vespa = _vespa_usage()
+    out["vespa_probe"] = {"team": bool(VESPA_TEAM), "cookie": bool(_cookie_jar()), "go": out["cookie_gen_go"],
+                          "ok": vespa.get("ok"), "reason": vespa.get("reason") or vespa.get("error")}
 
     if api_res["ok"]:
         out.update({"api_ok": True, "auth_mode": "api_key", "credits": api_res.get("credits"), "verdict": "READY"})
-    elif session_res.get("ok"):
-        out.update({"api_ok": False, "auth_mode": "cookie_session", "credits": session_res.get("credits"),
-                    "verdict": "READY_COOKIE"})
+    elif vespa.get("ok"):
+        out.update({"api_ok": False, "auth_mode": "cookie_vespa", "verdict": "READY_COOKIE",
+                    "credits": {"tier": vespa.get("tier"), "limit": vespa.get("usage_limit"),
+                                "used": vespa.get("current_usage"), "remaining": vespa.get("credits_remaining")}})
     else:
-        reason = "API officielle KO (trial web sans accès API probable)."
-        if not _session_jwt():
-            reason += " Cookie 'comme Suno' non configuré (LUMA_COOKIE absent)."
+        reason = "API officielle KO (trial sans accès API)."
+        if not _cookie_jar():
+            reason += " Cookie session vespa non configuré (LUMA_COOKIE absent)."
         elif not out["cookie_gen_go"]:
-            reason += " Session présente mais LUMA_COOKIE_GEN_GO=1 manquant (GO Erwin)."
+            reason += " Cookie présent mais LUMA_COOKIE_GEN_GO=1 manquant."
         else:
-            reason += f" Session JWT refusée ({session_res.get('reason')})."
+            reason += f" Vespa KO ({vespa.get('reason') or vespa.get('error')})."
         out.update({"api_ok": False, "auth_mode": None, "verdict": "BLOCKED_LUMA", "reason": reason})
 
     out["can_generate"] = bool(out.get("api_ok") or out.get("verdict") == "READY_COOKIE")
