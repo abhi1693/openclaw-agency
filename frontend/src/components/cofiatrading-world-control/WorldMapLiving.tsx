@@ -276,6 +276,7 @@ export function WorldMapLiving({
   const [selectedHouse, setSelectedHouse] = useState<string | null>(null);
   const [selectedAngel, setSelectedAngel] = useState<Angel | null>(null);
   const [hoverHouse, setHoverHouse] = useState<string | null>(null);
+  const [houseTab, setHouseTab] = useState<"vue" | "kpis" | "anges" | "flux">("vue");
   const lastFetch = useRef<number>(0);
   const [syncStamp, setSyncStamp] = useState<string>("");
 
