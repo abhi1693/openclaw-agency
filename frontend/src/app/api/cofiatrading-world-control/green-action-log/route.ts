@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { getCofHost } from "../../../../lib/cof-runtime";
 
 export const dynamic = "force-dynamic";
 export const runtime = "nodejs";
@@ -21,7 +22,14 @@ type TodayPublishReview = {
   greenNextAction: string;
 };
 
-const HOST = "http://host.docker.internal";
+const HOST = getCofHost();
+const MISSION_CONTROL_URL = process.env.COF_MISSION_CONTROL_URL ?? "http://127.0.0.1:3000";
+const REVENUE_SUMMARY_URL =
+  process.env.COF_REVENUE_SUMMARY_URL ?? `${HOST}:8430/api/iron/revenue/summary`;
+const PUBLISHER_STATUS_URL =
+  process.env.COF_PUBLISHER_STATUS_URL ?? `${HOST}:8540/api/status`;
+const CENTRAL_BRAIN_HEALTH_URL =
+  process.env.COF_CENTRAL_BRAIN_HEALTH_URL ?? `${HOST}:8767/health`;
 const YOUTUBE_GREEN_PROOF =
   "YouTube video-01 local audit PASS: /Users/burakokyay/.openclaw/state/hub-visual-iterations/ny_full_publish_green_20260527/video_audit_20260527T131539Z/manifest.json; render=tip_v22bu_video01_anti_faux_gourou__ny-green-cta-20260527T1328Z; hard_fail=[]";
 
@@ -44,6 +52,52 @@ const probe = async (label: string, url: string): Promise<Probe> => {
       proof: `${label} ${error instanceof Error ? error.message : "UNKNOWN_ERROR"}`,
     };
   }
+};
+
+type JsonProbe = Probe & { data: unknown | null };
+
+const probeJson = async (label: string, url: string): Promise<JsonProbe> => {
+  const startedAt = Date.now();
+  try {
+    const response = await fetch(url, {
+      cache: "no-store",
+      signal: AbortSignal.timeout(3000),
+    });
+    let data: unknown = null;
+    try {
+      data = await response.json();
+    } catch {
+      data = null;
+    }
+    return {
+      ok: response.ok,
+      status: response.status,
+      proof: `${label} HTTP ${response.status} in ${Date.now() - startedAt}ms`,
+      data,
+    };
+  } catch (error) {
+    return {
+      ok: false,
+      status: null,
+      proof: `${label} ${error instanceof Error ? error.message : "UNKNOWN_ERROR"}`,
+      data: null,
+    };
+  }
+};
+
+const toRecord = (value: unknown): Record<string, unknown> =>
+  value && typeof value === "object" && !Array.isArray(value) ? (value as Record<string, unknown>) : {};
+
+const readNumber = (record: Record<string, unknown>, keys: string[]): number | null => {
+  for (const key of keys) {
+    const value = record[key];
+    if (typeof value === "number" && Number.isFinite(value)) return value;
+    if (typeof value === "string") {
+      const parsed = Number.parseFloat(value.replace(/[^0-9.-]/g, ""));
+      if (Number.isFinite(parsed)) return parsed;
+    }
+  }
+  return null;
 };
 
 const gate = ({
@@ -82,15 +136,26 @@ const gate = ({
 });
 
 export async function GET() {
-  const [nySnapshot, nyRevenue, nyPastDue, nyIron, publisher, centralBrain] =
+  const [nySnapshot, nyRevenue, publisher, centralBrain] =
     await Promise.all([
-    probe("New York snapshot", "http://127.0.0.1:3000/api/cofiatrading-world-control/snapshot"),
-    probe("NY backend revenue", `${HOST}:8000/api/v1/cof/revenue/summary`),
-    probe("NY backend past_due", `${HOST}:8000/api/v1/cof/past-due`),
-    probe("NY backend Iron summary", `${HOST}:8000/api/v1/cof/iron/summary`),
-    probe("CofiaPublisher", `${HOST}:8540/api/status`),
-    probe("Central Brain", `${HOST}:8767/health`),
+    probeJson("World Control snapshot", `${MISSION_CONTROL_URL}/api/cofiatrading-world-control/snapshot`),
+    probeJson("Revenue summary", REVENUE_SUMMARY_URL),
+    probe("CofiaPublisher", PUBLISHER_STATUS_URL),
+    probe("Central Brain", CENTRAL_BRAIN_HEALTH_URL),
   ]);
+
+  const snapshotRevenue = toRecord(toRecord(nySnapshot.data).revenue);
+  const pastDueEur = readNumber(snapshotRevenue, ["pastDueEur", "past_due_eur", "past_due_eur_total"]);
+  const pastDueCount = readNumber(snapshotRevenue, ["pastDueCount", "past_due_count"]);
+  const pastDueOk = pastDueEur !== null && pastDueCount !== null;
+  const pastDueProof = pastDueOk
+    ? `snapshot past_due=${pastDueEur} EUR / ${pastDueCount}`
+    : "snapshot past_due unavailable";
+  const revenueData = toRecord(nyRevenue.data);
+  const revenueOk =
+    nyRevenue.ok &&
+    readNumber(revenueData, ["mrr_eur", "mrr_active_eur"]) !== null &&
+    readNumber(revenueData, ["arr_eur"]) !== null;
 
   const gates = [
     gate({
@@ -109,13 +174,13 @@ export async function GET() {
       id: "revenue_command",
       label: "Revenue Command",
       building: "Revenue Command",
-      status: nyRevenue.ok && nyPastDue.ok && nyIron.ok ? "GREEN" : "LOCKED",
+      status: revenueOk && pastDueOk ? "GREEN" : "LOCKED",
       owner: "Iron + Codex",
-      source: "NY backend Stripe direct + NY Iron read-only summary",
-      target: "NY native revenue + brokers summary",
-      proof: `${nyRevenue.proof}; ${nyPastDue.proof}; iron=${nyIron.proof}`,
-      nextAction: "Revenue/past_due/brokers viennent de NY; garder Abidjan hors control/publish path.",
-      killCondition: "Aucun retour vers /api/iron/revenue/summary Abidjan.",
+      source: "Iron revenue summary + World Control snapshot past_due",
+      target: "Revenue command read-only proof",
+      proof: `${nyRevenue.proof}; ${pastDueProof}`,
+      nextAction: "Revenue/past_due/brokers restent lus en read-only; aucune action Stripe depuis ce gate.",
+      killCondition: "Aucune écriture Stripe ni faux GREEN sans snapshot revenue.",
     }),
     gate({
       id: "cofia_publisher",
@@ -145,11 +210,11 @@ export async function GET() {
       id: "full_publish_green",
       label: "Full Publish GREEN",
       building: "Acquisition Engine",
-      status: publisher.ok && nySnapshot.ok && nyRevenue.ok && nyPastDue.ok ? "GREEN" : "LOCKED",
+      status: publisher.ok && nySnapshot.ok && revenueOk && pastDueOk ? "GREEN" : "LOCKED",
       owner: "Reviewer + Copywriter + Codex",
       source: "Captions W22 + CofiaPublisher + Meta/Telegram/YouTube connectors",
       target: "NY publish control room",
-      proof: `Control plane GREEN: ${nySnapshot.proof}; ${publisher.proof}; revenue=${nyRevenue.proof}; past_due=${nyPastDue.proof}. ${YOUTUBE_GREEN_PROOF}.`,
+      proof: `Control plane GREEN: ${nySnapshot.proof}; ${publisher.proof}; revenue=${nyRevenue.proof}; ${pastDueProof}. ${YOUTUBE_GREEN_PROOF}.`,
       nextAction: "Executer les publishes via queue NY: channel, asset, reviewer_status, cadence_slot, rollback_url, proof_after_publish. Premier asset YouTube est GREEN_READY local.",
       killCondition: "Ne jamais fan-out robotique; chaque publish sort par la queue et revient avec preuve.",
     }),
@@ -161,7 +226,7 @@ export async function GET() {
       owner: "Codex",
       source: "Abidjan legacy read-only shadow",
       target: "New York remains the write/control plane",
-      proof: `${nyIron.proof}; snapshot/control path uses NY native Iron summary, not Abidjan revenue endpoint.`,
+      proof: `${nyRevenue.proof}; snapshot/control path uses read-only revenue proof and no publish/write path.`,
       nextAction: "Porter Iron CRM brokers/clients dans NY puis retirer le shadow legacy du snapshot.",
       killCondition: "No write/publish through Abidjan; kill final seulement quand brokers/clients Iron CRM sont dans NY et que rg :8430 retourne 0 hors docs/logs.",
     }),
