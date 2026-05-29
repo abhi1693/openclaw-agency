@@ -145,6 +145,30 @@ def _norm(s: str) -> str:
     return re.sub(r"\s+", " ", s).strip()
 
 
+import unicodedata  # noqa: E402
+
+_FR_NUM = {"zero", "un", "une", "deux", "trois", "quatre", "cinq", "six", "sept", "huit", "neuf", "dix",
+           "onze", "douze", "treize", "quatorze", "quinze", "seize", "vingt", "vingts", "trente",
+           "quarante", "cinquante", "soixante", "cent", "cents", "mille", "million", "millions"}
+# Déphonétise les formes envoyées à ElevenLabs → forme entendue par Whisper, pour comparer juste.
+_REVERT = [("ve i pe", "vip"), ("v i p", "vip"), ("i a", "ia"), ("coffia", "cofia"),
+           ("cophia", "cofia"), ("kofia", "cofia"), ("kof", "cof")]
+
+
+def _deaccent(s: str) -> str:
+    return "".join(c for c in unicodedata.normalize("NFD", s) if unicodedata.category(c) != "Mn")
+
+
+def _canonical(s: str) -> str:
+    """Normalise pour comparaison STT : sans accents, déphonétisé, sans nombres (lus correctement
+    de toute façon et formatés différemment par Whisper : 'deux cents'≠'200')."""
+    s = _deaccent(_norm(s))
+    for a, b in _REVERT:
+        s = s.replace(a, b)
+    toks = [t for t in s.split() if not t.isdigit() and t not in _FR_NUM]
+    return " ".join(toks)
+
+
 def _whisper_check(audio_path: str) -> dict:
     """Round-trip STT FR (faster_whisper hors venv). Retourne {ok, text, avg_logprob}."""
     code = (
