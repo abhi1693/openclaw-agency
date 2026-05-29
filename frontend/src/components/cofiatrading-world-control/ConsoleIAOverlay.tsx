@@ -1124,48 +1124,41 @@ export function ConsoleIAOverlay() {
                   </div>
                 )}
 
-                <div className="mt-4 rounded-2xl border border-cyan-300/20 bg-slate-950/70 p-3">
-                  <p className="text-[10px] font-black uppercase tracking-[0.18em] text-cyan-100">
-                    Pièces jointes locales
-                  </p>
-                  {attachments.length === 0 ? (
-                    <p className="mt-2 text-xs text-slate-500">Aucune pièce jointe. Ajoute micro, écran, caméra, photo ou fichier.</p>
-                  ) : (
-                    <div className="mt-3 grid gap-2 sm:grid-cols-2">
-                      {attachments.map((attachment) => (
-                        <div key={attachment.id} className="rounded-xl border border-slate-800 bg-slate-900/75 p-3">
-                          <div className="flex items-start justify-between gap-2">
-                            <div className="min-w-0">
-                              <p className="truncate text-xs font-black text-white">{attachment.name}</p>
-                              <p className="mt-1 text-[10px] uppercase tracking-[0.08em] text-slate-400">
-                                {attachment.kind} · {formatBytes(attachment.sizeBytes)}
-                              </p>
-                            </div>
-                            <button
-                              type="button"
-                              onClick={() => removeAttachment(attachment.id)}
-                              className="grid h-7 w-7 shrink-0 place-items-center rounded-lg border border-slate-700 text-slate-300 hover:border-rose-300 hover:text-rose-200"
-                              aria-label={`Retirer ${attachment.name}`}
-                            >
-                              <X className="h-3.5 w-3.5" />
-                            </button>
+                {attachments.length > 0 ? (
+                  <div className="mt-4 grid gap-2 sm:grid-cols-2">
+                    {attachments.map((attachment) => (
+                      <div key={attachment.id} className="rounded-xl border border-slate-800 bg-slate-900/75 p-3">
+                        <div className="flex items-start justify-between gap-2">
+                          <div className="min-w-0">
+                            <p className="truncate text-xs font-black text-white">{attachment.name}</p>
+                            <p className="mt-1 text-[10px] uppercase tracking-[0.08em] text-slate-400">
+                              {attachment.kind} · {formatBytes(attachment.sizeBytes)}
+                            </p>
                           </div>
-                          {attachment.previewUrl && attachment.mimeType.startsWith("image/") ? (
-                            // eslint-disable-next-line @next/next/no-img-element -- Local object URL preview; Next/Image cannot optimize this.
-                            <img
-                              src={attachment.previewUrl}
-                              alt=""
-                              className="mt-2 h-24 w-full rounded-lg border border-slate-800 object-cover"
-                            />
-                          ) : null}
-                          {attachment.previewUrl && attachment.kind === "audio" ? (
-                            <audio controls src={attachment.previewUrl} className="mt-2 w-full" />
-                          ) : null}
+                          <button
+                            type="button"
+                            onClick={() => removeAttachment(attachment.id)}
+                            className="grid h-7 w-7 shrink-0 place-items-center rounded-lg border border-slate-700 text-slate-300 hover:border-rose-300 hover:text-rose-200"
+                            aria-label={`Retirer ${attachment.name}`}
+                          >
+                            <X className="h-3.5 w-3.5" />
+                          </button>
                         </div>
-                      ))}
-                    </div>
-                  )}
-                </div>
+                        {attachment.previewUrl && attachment.mimeType.startsWith("image/") ? (
+                          // eslint-disable-next-line @next/next/no-img-element -- Local object URL preview; Next/Image cannot optimize this.
+                          <img
+                            src={attachment.previewUrl}
+                            alt=""
+                            className="mt-2 h-24 w-full rounded-lg border border-slate-800 object-cover"
+                          />
+                        ) : null}
+                        {attachment.previewUrl && attachment.kind === "audio" ? (
+                          <audio controls src={attachment.previewUrl} className="mt-2 w-full" />
+                        ) : null}
+                      </div>
+                    ))}
+                  </div>
+                ) : null}
 
 	                {packetResult ? (
 	                  <div className="mt-4 rounded-2xl border border-emerald-400/30 bg-emerald-400/10 p-3 text-xs leading-5 text-emerald-100">
