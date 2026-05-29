@@ -533,7 +533,10 @@ def execute_v4(beats=None, voice_id=None, counter_to=200, counter_suffix=" IA",
 
     props = {"shots": shots, "captions": captions, "voiceSrc": f"runs/{run_id}/voice_full.mp3",
              "shotStarts": shot_starts, "brandRevealFrame": brand_reveal, "twistFrame": twist,
-             "counterAt": counter_at, "counterTo": counter_to, "counterSuffix": counter_suffix, "logoSrc": "brand/logo_alpha.png"}
+             "counterAt": counter_at, "counterTo": counter_to, "counterSuffix": counter_suffix, "logoSrc": "brand/logo_alpha.png",
+             # (#9+#10 Darius) CTA animé + outro brandée
+             "endCardSrc": "brand/045_youtube_end_screen.png", "wordmarkSrc": "brand/007_wordmark_canal_vip.png",
+             "ctaText": "REJOINS LE VIP", "ctaUrl": "Lien en bio"}
     props_path = str(rd / "props.json")
     with open(props_path, "w", encoding="utf-8") as f:
         _json.dump(props, f, ensure_ascii=False)
