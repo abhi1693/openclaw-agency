@@ -426,13 +426,15 @@ def execute_v3(beats=None, voice_id=None) -> dict:
     music = os.path.join(REMOTION_DIR, "public", "music_launch.mp3")
     out_mp4 = str(rd / "video_v3.mp4")
     fc = ("[0:v]curves=b='0/0.06 0.5/0.55 1/1':r='0/0 0.5/0.46 1/0.95',eq=contrast=1.12:saturation=1.10,"
-          "vignette=PI/4.6,noise=alls=7:allf=t[v];"
-          "[1:a]asplit[m1][m2];[m2][0:a]sidechaincompress=threshold=0.04:ratio=8:attack=20:release=300[d];"
-          "[0:a][d]amix=inputs=2:duration=first[a]")
+          "vignette=PI/4.6,noise=alls=4:allf=t[v];"
+          "[0:a]asplit=2[a0][a1];[1:a]volume=0.5[mus];"
+          "[mus][a0]sidechaincompress=threshold=0.04:ratio=8:attack=20:release=300[duck];"
+          "[a1][duck]amix=inputs=2:duration=first[a]")
     r2 = subprocess.run(["ffmpeg", "-y", "-i", raw, "-stream_loop", "-1", "-i", music, "-filter_complex", fc,
                          "-map", "[v]", "-map", "[a]", "-t", f"{audio_dur:.2f}",
-                         "-c:v", "libx264", "-preset", "veryfast", "-crf", "19", "-pix_fmt", "yuv420p", "-c:a", "aac", out_mp4],
-                        capture_output=True, text=True, timeout=300)
+                         "-c:v", "libx264", "-preset", "medium", "-crf", "22", "-maxrate", "10M", "-bufsize", "16M",
+                         "-pix_fmt", "yuv420p", "-c:a", "aac", "-b:a", "160k", out_mp4],
+                        capture_output=True, text=True, timeout=400)
     if r2.returncode != 0 or not os.path.exists(out_mp4):
         out_mp4 = raw  # fallback : garder le raw si le post échoue
 
