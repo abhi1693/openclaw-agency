@@ -166,6 +166,36 @@ const TARGET_ROUTES: Record<string, { buses: string[]; owner: string; house: str
     house: "openclaw_agent_barracks",
     title: "Agents par maison",
   },
+  perplexity_local: {
+    buses: ["perplexity"],
+    owner: "perplexity",
+    house: "central_brain",
+    title: "Perplexity",
+  },
+  telegram_iron: {
+    buses: ["telegram_iron"],
+    owner: "telegram_iron",
+    house: "iron_office",
+    title: "Telegram Iron",
+  },
+  telegram_free: {
+    buses: ["telegram_free"],
+    owner: "telegram_free",
+    house: "iron_office",
+    title: "Telegram Free",
+  },
+  telegram_vip: {
+    buses: ["telegram_vip"],
+    owner: "telegram_vip",
+    house: "vip_gate",
+    title: "Telegram VIP",
+  },
+  telegram_erwin: {
+    buses: ["telegram_erwin"],
+    owner: "telegram_erwin",
+    house: "mission_control_tower",
+    title: "Telegram Erwin",
+  },
 };
 
 type ParsedRequest = {
