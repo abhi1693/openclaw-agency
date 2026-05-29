@@ -341,6 +341,109 @@ def execute_v2(beats=None, voice_id=None) -> dict:
             "note": "Vidéo P0 (moteur Remotion, captions kinetic). Non publiée (§18)."}
 
 
+def execute_v3(beats=None, voice_id=None) -> dict:
+    """v3 — effets A/V (Marcus) : punch-zoom beat + SFX réels + transitions + compteur + LUT/grain/ducking post.
+    Réutilise voix monolithique (sync exacte). GATED PRODUCE_GO + plafond."""
+    if os.environ.get("PRODUCE_GO") != "1":
+        return {"ok": False, "blocked": True, "reason": "PRODUCE_GO absent"}
+    beats = beats or LAUNCH_BEATS
+    est = tiers.estimate_cost_eur(["elevenlabs"] + ["flux_fal"] * len(beats), 6)
+    ceiling = float(os.environ.get("MAX_COST_EUR", "3"))
+    if est > ceiling:
+        return {"ok": False, "blocked": True, "reason": f"coût {est}€ > plafond {ceiling}€"}
+    FPS = 30
+    run_id = f"v3_{int(time.time())}"
+    rd = OUT_ROOT / run_id; rd.mkdir(parents=True, exist_ok=True)
+
+    full_script = " ".join(b["t"] for b in beats)
+    voice_full = str(rd / "voice_full.mp3")
+    vr = voice_elevenlabs.synthesize_with_timestamps(full_script, voice_full, voice_id=voice_id)
+    if not vr.get("ok"):
+        return {"ok": False, "error": "voice_full", "detail": vr}
+    words = captions_engine.words_from_elevenlabs(vr["alignment"])
+    captions = captions_engine.chunk_words(words)
+    try:
+        audio_dur = float(subprocess.run(["ffprobe", "-v", "error", "-show_entries", "format=duration", "-of", "csv=p=0", voice_full],
+                                         capture_output=True, text=True, timeout=20).stdout.strip() or 0)
+    except Exception:  # noqa: BLE001
+        audio_dur = (words[-1]["endMs"] / 1000) if words else 30
+    total_frames = int(round(audio_dur * FPS))
+
+    shots, shot_starts, wi, cum = [], [], 0, 0
+    transitions = ["zoomblur", "flash", "whip"]
+    for i, b in enumerate(beats):
+        nwords = len(b["t"].split())
+        wi_end = min(wi + nwords - 1, len(words) - 1)
+        end_ms = words[wi_end]["endMs"] if words else int((i + 1) * audio_dur * 1000 / len(beats))
+        beat_word_range = words[wi:wi_end + 1]
+        wi = wi_end + 1
+        end_frame = total_frames if i == len(beats) - 1 else int(round(end_ms / 1000 * FPS))
+        dur = max(15, end_frame - cum)
+        shot_starts.append(cum)
+        # beatFrames = mots accentués du beat, relatifs au début du shot
+        bf = [int(round(w["startMs"] / 1000 * FPS)) - cum for w in beat_word_range if w.get("emphasis")]
+        cum += dur
+        img = str(rd / f"img{i}.png")
+        fr = image_gen.flux_generate(b["v"], img, image_size="portrait_16_9")
+        if not fr.get("ok"):
+            sr = video_stock.search_pexels_video(b["t"][:40], per_page=2, orientation="portrait")
+            vids = sr.get("videos") or []
+            if vids:
+                video_stock.download(vids[0]["file_url"], str(rd / f"st{i}.mp4"))
+                subprocess.run(["ffmpeg", "-y", "-i", str(rd / f"st{i}.mp4"), "-vframes", "1",
+                                "-vf", "scale=1080:1920:force_original_aspect_ratio=increase,crop=1080:1920", img],
+                               capture_output=True, timeout=60)
+            if not os.path.exists(img):
+                return {"ok": False, "error": f"no_visual_beat_{i}"}
+        shots.append({"src": f"runs/{run_id}/img{i}.png", "durationInFrames": dur, "beatFrames": bf, "transition": transitions[i % 3]})
+
+    brand_reveal = shot_starts[2] if len(shot_starts) > 2 else 0
+    twist = shot_starts[3] if len(shot_starts) > 3 else 0
+
+    pub_runs = os.path.join(REMOTION_DIR, "public", "runs")
+    os.makedirs(pub_runs, exist_ok=True)
+    link = os.path.join(pub_runs, run_id)
+    if os.path.islink(link) or os.path.exists(link):
+        try: os.remove(link)
+        except OSError: pass
+    os.symlink(str(rd), link)
+
+    props = {"shots": shots, "captions": captions, "voiceSrc": f"runs/{run_id}/voice_full.mp3",
+             "shotStarts": shot_starts, "brandRevealFrame": brand_reveal, "twistFrame": twist,
+             "counterAt": twist, "counterTo": 200, "counterSuffix": " IA", "logoSrc": "brand/logo_alpha.png"}
+    props_path = str(rd / "props.json")
+    with open(props_path, "w", encoding="utf-8") as f:
+        _json.dump(props, f, ensure_ascii=False)
+
+    raw = str(rd / "raw.mp4")
+    r = subprocess.run(["npx", "remotion", "render", "src/index.ts", "CofiaPublisherV3", raw,
+                        f"--props={props_path}", "--concurrency=2", "--log=error"],
+                       cwd=REMOTION_DIR, capture_output=True, text=True, timeout=900)
+    if r.returncode != 0 or not os.path.exists(raw):
+        return {"ok": False, "error": "remotion_render_failed", "stderr": r.stderr[-600:], "run": run_id}
+
+    # ── post-render : LUT navy/cyan (curves) + grain + ducking musique sous voix (sidechain) ──
+    music = os.path.join(REMOTION_DIR, "public", "music_launch.mp3")
+    out_mp4 = str(rd / "video_v3.mp4")
+    fc = ("[0:v]curves=b='0/0.06 0.5/0.55 1/1':r='0/0 0.5/0.46 1/0.95',eq=contrast=1.12:saturation=1.10,"
+          "vignette=PI/4.6,noise=alls=7:allf=t[v];"
+          "[1:a]asplit[m1][m2];[m2][0:a]sidechaincompress=threshold=0.04:ratio=8:attack=20:release=300[d];"
+          "[0:a][d]amix=inputs=2:duration=first[a]")
+    r2 = subprocess.run(["ffmpeg", "-y", "-i", raw, "-stream_loop", "-1", "-i", music, "-filter_complex", fc,
+                         "-map", "[v]", "-map", "[a]", "-t", f"{audio_dur:.2f}",
+                         "-c:v", "libx264", "-preset", "veryfast", "-crf", "19", "-pix_fmt", "yuv420p", "-c:a", "aac", out_mp4],
+                        capture_output=True, text=True, timeout=300)
+    if r2.returncode != 0 or not os.path.exists(out_mp4):
+        out_mp4 = raw  # fallback : garder le raw si le post échoue
+
+    qv = qa.review(out_mp4)
+    return {"ok": True, "run": run_id, "engine": "remotion+ffmpeg-grade", "shots": len(shots), "cost_eur": est,
+            "output": out_mp4, "duration_s": round(audio_dur, 2), "captions_chunks": len(captions),
+            "qa": qv, "publish": distribution.PUBLISH_LOCK,
+            "effects": ["punch-zoom beat", "SFX whoosh/boom/riser", "transitions zoomblur/flash/whip", "compteur 200 IA", "LUT navy/cyan", "grain", "ducking musique", "logo alpha card", "captions kinetic synchro"],
+            "note": "Vidéo v3 (effets A/V Marcus). Non publiée (§18)."}
+
+
 def _build_srt(text: str, total_s: float, path: str) -> None:
     """SRT depuis le script connu (pas besoin de whisper) — découpe en segments timés."""
     words = text.split()
