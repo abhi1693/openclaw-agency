@@ -31,7 +31,7 @@ def connectivity() -> dict:
         try:
             r = httpx.get("https://queue.fal.run/fal-ai/flux/dev/requests/probe/status",
                           headers={"Authorization": f"Key {FAL_KEY}"}, timeout=15)
-            out["flux_fal"] = {"status": r.status_code, "auth": "valid" if r.status_code in (200, 400, 404, 422) else "rejected"}
+            out["flux_fal"] = {"status": r.status_code, "auth": "valid" if r.status_code in (200, 400, 404, 405, 422) else "rejected"}
         except Exception as e:  # noqa: BLE001
             out["flux_fal"] = {"error": f"{type(e).__name__}"}
     else:
