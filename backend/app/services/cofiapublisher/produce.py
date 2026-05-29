@@ -518,6 +518,12 @@ def execute_v4(beats=None, voice_id=None, counter_to=200, counter_suffix=" IA",
     with open(props_path, "w", encoding="utf-8") as f:
         _json.dump(props, f, ensure_ascii=False)
 
+    # Contrat §2 : timeline écrite AVANT la vidéo
+    with open(rd / "timeline.json", "w", encoding="utf-8") as tf:
+        _json.dump({"storyboard": [{"beat": i, "voix": b["t"]} for i, b in enumerate(beats)],
+                    "shot_list": [{"idx": j, "type": s.get("type"), "durationInFrames": s["durationInFrames"], "transition": s.get("transition")} for j, s in enumerate(shots)],
+                    "audio_dur_s": round(audio_dur, 2), "music": "Suno", "captions_chunks": len(captions)}, tf, ensure_ascii=False, indent=1)
+
     raw = str(rd / "raw.mp4")
     r = subprocess.run(["npx", "remotion", "render", "src/index.ts", "CofiaPublisherV3", raw,
                         f"--props={props_path}", "--concurrency=2", "--log=error"],
