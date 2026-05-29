@@ -51,6 +51,15 @@ export async function GET() {
   const lrManifest = await readJson(LIGHTRAG_MANIFEST);
   const notion = await readJson(NOTION_DBS);
   const cards = await readJsonl(PAPERCLIP_CARDS);
+  const calBusLines = await readJsonl(CALENDAR_BUS);
+  let academyModules: string[] = [];
+  try {
+    academyModules = (await readdir(ACADEMY_DIR, { withFileTypes: true }))
+      .filter((e) => e.isDirectory())
+      .map((e) => e.name);
+  } catch {
+    academyModules = [];
+  }
 
   const houses: Record<string, House> = {};
   const SRC_COF = "cof_state.json (local SSOT, non-Abidjan)";
