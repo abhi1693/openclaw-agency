@@ -201,14 +201,22 @@ function faceWindows(BL: Pt, BR: Pt, TL: Pt, TR: Pt, cols: number, rows: number,
   return out;
 }
 
+/* densification ville (Erwin 2026-05-29) : footprints plus gros + tours plus
+ * hautes pour matcher la densité de l'image de référence. Le footprint grossit
+ * autour de SON CENTRE (pas du coin) pour rester aligné sur la position canon. */
+const FOOTPRINT_SCALE = 1.7;
 function buildZone(z: Zone): Built {
-  const levels = z.tall ? 7 : z.district === "command" || z.district === "content" ? 5 : 4;
-  const h = 8 + levels * 6.5;
+  const levels = z.tall ? 8 : z.district === "command" || z.district === "content" ? 6 : 5;
+  const h = 12 + levels * 8.5;
+  const cw = z.w * FOOTPRINT_SCALE;
+  const ch = z.h * FOOTPRINT_SCALE;
+  const ox = z.x - (cw - z.w) / 2;
+  const oy = z.y - (ch - z.h) / 2;
   const corners = [
-    [z.x, z.y],
-    [z.x + z.w, z.y],
-    [z.x + z.w, z.y + z.h],
-    [z.x, z.y + z.h],
+    [ox, oy],
+    [ox + cw, oy],
+    [ox + cw, oy + ch],
+    [ox, oy + ch],
   ].map(([wx, wy]) => isoProject(wx, wy));
   const ground: Pt[] = corners.map((c) => ({ x: c.sx, y: c.sy }));
   const roofPts: Pt[] = ground.map((c) => ({ x: c.x, y: c.y - h }));
