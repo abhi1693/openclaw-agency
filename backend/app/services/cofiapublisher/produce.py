@@ -117,6 +117,139 @@ def execute(tier: str = "economy", mode: str = "manual", prompt: str = "COF Trad
             "note": "Vidéo LOCALE produite (0€). Non publiée (§18). Brand overlay + captions = itération suivante."}
 
 
+LAUNCH_BEATS = [
+    {"t": "Eh, les amis. Vous en avez pas marre des chaînes pourries ?",
+     "v": "dark moody cinematic vertical 9:16, chaotic phone screens with fake trading guru hype, red warning tones, distrust, no text"},
+    {"t": "Marre de suivre des escrocs qui ne font que mentir et vous arnaquer ?",
+     "v": "cinematic vertical 9:16, shadowy con-man silhouette flashing fake luxury cars and cash, ominous red lighting, scam, no text"},
+    {"t": "La solution : Cofiatrading.",
+     "v": "premium clean brand reveal, deep navy blue and cyan, cinematic vertical 9:16, calm confidence, futuristic minimal, no text"},
+    {"t": "Plus de deux cents intelligences artificielles, créées par Erwin, travaillent pour toi.",
+     "v": "futuristic AI network, hundreds of glowing connected nodes, premium dark blue and cyan, high-tech cinematic vertical 9:16, no text"},
+    {"t": "Des signaux, de la formation, un vrai cadre de contrôle du risque. Zéro promesse magique.",
+     "v": "clean premium trading dashboard, disciplined risk control, green confident tones, professional cinematic vertical 9:16, no text"},
+    {"t": "Rejoins Cofiatrading. Et arrête enfin de te faire avoir.",
+     "v": "confident trader facing sunrise over city skyline, premium hopeful, brand cyan accents, victory, cinematic vertical 9:16, no text"},
+]
+MUSIC_LAUNCH = "/Users/burakokyay/cof-trading/remotion/public/music_launch.mp3"
+OUTRO_MP4 = "/Users/burakokyay/cof-trading/remotion/out/tip_v22bu_video01_anti_faux_gourou_perf__sidq-live-20260527-053151z_chunk_outro.mp4"
+
+
+def _ts(s):
+    h = int(s // 3600); m = int((s % 3600) // 60); sec = s % 60
+    return f"{h:02d}:{m:02d}:{sec:06.3f}".replace(".", ",")
+
+
+def execute_multishot(beats=None, voice_id=None, with_outro=True) -> dict:
+    """MULTI-PLANS (recette Marcus) : N plans, voix ElevenLabs/beat + image FLUX/beat + Ken Burns alterné
+    + musique launch duckée + captions stylés + logo + outro. GATED PRODUCE_GO + plafond. Ne publie pas."""
+    if os.environ.get("PRODUCE_GO") != "1":
+        return {"ok": False, "blocked": True, "reason": "PRODUCE_GO absent"}
+    beats = beats or LAUNCH_BEATS
+    est = tiers.estimate_cost_eur(["elevenlabs"] * len(beats) + ["flux_fal"] * len(beats), 6)
+    ceiling = float(os.environ.get("MAX_COST_EUR", "3"))
+    if est > ceiling:
+        return {"ok": False, "blocked": True, "reason": f"coût {est}€ > plafond {ceiling}€"}
+    if not shutil.which("ffmpeg"):
+        return {"ok": False, "error": "ffmpeg_absent"}
+
+    run_id = f"launch_{int(time.time())}"
+    rd = OUT_ROOT / run_id; rd.mkdir(parents=True, exist_ok=True)
+    clips, srt_lines, cursor = [], [], 0.0
+
+    for i, b in enumerate(beats):
+        # voix ElevenLabs du beat
+        vmp3 = str(rd / f"v{i}.mp3")
+        vr = voice_elevenlabs.synthesize(b["t"], vmp3, voice_id=voice_id)
+        if not vr.get("ok"):
+            return {"ok": False, "error": f"voice_beat_{i}", "detail": vr}
+        try:
+            dur = float(subprocess.run(["ffprobe", "-v", "error", "-show_entries", "format=duration", "-of", "csv=p=0", vmp3],
+                                       capture_output=True, text=True, timeout=20).stdout.strip() or 3) + 0.35
+        except Exception:  # noqa: BLE001
+            dur = 3.5
+        # image IA FLUX du beat (fallback stock)
+        img = str(rd / f"img{i}.png")
+        fr = image_gen.flux_generate(b["v"], img, image_size="portrait_16_9")
+        frames = int(dur * 30)
+        clip = str(rd / f"clip{i}.mp4")
+        zin = "min(zoom+0.0010,1.35)" if i % 2 == 0 else "if(lte(zoom,1.0),1.35,max(1.001,zoom-0.0010))"
+        if fr.get("ok"):
+            vf = f"scale=1620:2880,zoompan=z='{zin}':d={frames}:s=1080x1920:fps=30,setsar=1"
+            inp = ["-loop", "1", "-i", img]
+        else:
+            sr = video_stock.search_pexels_video(b["t"][:40], per_page=2, orientation="portrait")
+            vids = sr.get("videos") or []
+            if not vids:
+                return {"ok": False, "error": f"no_visual_beat_{i}"}
+            video_stock.download(vids[0]["file_url"], str(rd / f"st{i}.mp4"))
+            vf = "scale=1080:1920:force_original_aspect_ratio=increase,crop=1080:1920,fps=30,setsar=1"
+            inp = ["-stream_loop", "-1", "-i", str(rd / f"st{i}.mp4")]
+        cmd = ["ffmpeg", "-y", *inp, "-i", vmp3, "-map", "0:v", "-map", "1:a", "-t", f"{dur:.2f}",
+               "-vf", vf, "-c:v", "libx264", "-preset", "veryfast", "-pix_fmt", "yuv420p", "-r", "30",
+               "-c:a", "aac", "-ar", "44100", clip]
+        r = subprocess.run(cmd, capture_output=True, text=True, timeout=180)
+        if r.returncode != 0:
+            return {"ok": False, "error": f"clip_{i}_ffmpeg", "stderr": r.stderr[-300:]}
+        clips.append(clip)
+        srt_lines.append(f"{i+1}\n{_ts(cursor)} --> {_ts(cursor+dur)}\n{b['t']}\n")
+        cursor += dur
+
+    # concat des plans
+    concat_txt = str(rd / "list.txt")
+    with open(concat_txt, "w") as f:
+        for c in clips:
+            f.write(f"file '{c}'\n")
+    body = str(rd / "body.mp4")
+    subprocess.run(["ffmpeg", "-y", "-f", "concat", "-safe", "0", "-i", concat_txt, "-c", "copy", body],
+                   capture_output=True, text=True, timeout=120)
+    # SRT global
+    srt = str(rd / "subs.srt"); open(srt, "w", encoding="utf-8").write("\n".join(srt_lines))
+    srt_esc = srt.replace(":", "\\:")
+    logo = brand_assets.BRAND["logo_remotion"]
+    final = str(rd / "video_launch.mp4")
+    total = cursor
+    # musique launch duckée sous la voix + logo watermark + captions stylés
+    music_in = ["-stream_loop", "-1", "-i", MUSIC_LAUNCH] if os.path.exists(MUSIC_LAUNCH) else []
+    fc = ("[2:v]scale=230:-1[lg];[0:v][lg]overlay=W-w-35:45[v1];"
+          f"[v1]subtitles='{srt_esc}':force_style='Fontname=Arial,Fontsize=20,Bold=1,PrimaryColour=&H00FFFFFF,OutlineColour=&H00202020,BorderStyle=1,Outline=3,Shadow=1,Alignment=2,MarginV=180'[v]")
+    if music_in:
+        fc += ";[1:a]volume=0.16[m];[0:a]volume=1.0[vo];[vo][m]amix=inputs=2:duration=first:dropout_transition=0[a]"
+        amap = "[a]"
+    else:
+        amap = "0:a"
+    cmd2 = ["ffmpeg", "-y", "-i", body, *music_in, "-i", logo, "-filter_complex", fc,
+            "-map", "[v]", "-map", amap, "-t", f"{total:.2f}",
+            "-c:v", "libx264", "-preset", "veryfast", "-pix_fmt", "yuv420p", "-c:a", "aac", final]
+    r2 = subprocess.run(cmd2, capture_output=True, text=True, timeout=240)
+    if r2.returncode != 0 or not os.path.exists(final):
+        return {"ok": False, "error": "final_ffmpeg", "stderr": r2.stderr[-400:], "run": run_id}
+
+    # outro (best-effort)
+    out_final = final
+    if with_outro and os.path.exists(OUTRO_MP4):
+        try:
+            norm_outro = str(rd / "outro_norm.mp4")
+            subprocess.run(["ffmpeg", "-y", "-i", OUTRO_MP4, "-vf", "scale=1080:1920:force_original_aspect_ratio=increase,crop=1080:1920,fps=30,setsar=1",
+                            "-c:v", "libx264", "-preset", "veryfast", "-pix_fmt", "yuv420p", "-c:a", "aac", "-ar", "44100", norm_outro],
+                           capture_output=True, text=True, timeout=120)
+            withoutro = str(rd / "video_launch_outro.mp4")
+            r3 = subprocess.run(["ffmpeg", "-y", "-i", final, "-i", norm_outro, "-filter_complex",
+                                 "[0:v][0:a][1:v][1:a]concat=n=2:v=1:a=1[v][a]", "-map", "[v]", "-map", "[a]",
+                                 "-c:v", "libx264", "-preset", "veryfast", "-pix_fmt", "yuv420p", "-c:a", "aac", withoutro],
+                                capture_output=True, text=True, timeout=180)
+            if r3.returncode == 0 and os.path.exists(withoutro):
+                out_final = withoutro
+        except Exception:  # noqa: BLE001
+            pass
+
+    qv = qa.review(out_final)
+    return {"ok": True, "run": run_id, "shots": len(beats), "cost_eur": est, "output": out_final,
+            "duration_s": round(total, 2), "qa": qv, "publish": distribution.PUBLISH_LOCK,
+            "tools_used": ["ElevenLabs (voix/beat)", "FLUX (image IA/beat)", "Ken Burns alterné", "music_launch duckée", "captions", "logo COF", "outro" if out_final != final else "outro_skipped"],
+            "note": "Vidéo MULTI-PLANS de lancement. Non publiée (§18)."}
+
+
 def _build_srt(text: str, total_s: float, path: str) -> None:
     """SRT depuis le script connu (pas besoin de whisper) — découpe en segments timés."""
     words = text.split()
