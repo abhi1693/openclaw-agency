@@ -80,32 +80,51 @@ def available() -> bool:
 def status() -> dict:
     """Audit non destructif : clé présente ? API répond ? crédits ? modèles ? modes ? cookie possible ?
     AUCUN secret renvoyé. Lecture seule (GET /credits). Zéro coût."""
-    key = _key()
     out = {
-        "key_present": bool(key),
+        "key_present": bool(_key()),
+        "session_jwt_present": bool(_session_jwt()),
         "api_base": BASE,
         "models": MODELS,
         "text_to_video": True, "image_to_video": True,
-        "cookie_fallback_configured": bool(os.environ.get("LUMA_COOKIE")),
+        "cookie_fallback_configured": bool(_session_jwt()),
         "cookie_gen_go": os.environ.get("LUMA_COOKIE_GEN_GO") == "1",
         "gen_dir": str(GEN_DIR),
     }
-    if not key:
-        out.update({"api_ok": False, "verdict": "BLOCKED_LUMA", "reason": "LUMA_API_KEY absente"})
-        return out
-    try:
-        r = httpx.get(f"{BASE}/credits", headers=_headers(), timeout=20)
-        out["http"] = r.status_code
-        if r.status_code == 200:
-            data = r.json()
-            out.update({"api_ok": True, "credits": data, "verdict": "READY"})
+
+    def _try(token: str, mode: str) -> dict:
+        if not token:
+            return {"mode": mode, "http": None, "ok": False, "reason": "token absent"}
+        try:
+            r = httpx.get(f"{BASE}/credits", headers={"Authorization": f"Bearer {token}", "accept": "application/json"}, timeout=20)
+            return {"mode": mode, "http": r.status_code, "ok": r.status_code == 200,
+                    "credits": (r.json() if r.status_code == 200 else None),
+                    "reason": (None if r.status_code == 200 else f"HTTP {r.status_code}: {r.text[:100]}")}
+        except Exception as e:  # noqa: BLE001
+            return {"mode": mode, "http": None, "ok": False, "reason": f"{type(e).__name__}:{str(e)[:90]}"}
+
+    api_res = _try(_key(), "api_key")
+    out["api_key_probe"] = {k: api_res[k] for k in ("mode", "http", "ok", "reason")}
+    session_res = {"mode": "cookie_session", "ok": False, "reason": "non testé (cookie absent ou GO manquant)"}
+    if _session_jwt() and out["cookie_gen_go"]:
+        session_res = _try(_session_jwt(), "cookie_session")
+    out["session_probe"] = {k: session_res.get(k) for k in ("mode", "http", "ok", "reason")}
+
+    if api_res["ok"]:
+        out.update({"api_ok": True, "auth_mode": "api_key", "credits": api_res.get("credits"), "verdict": "READY"})
+    elif session_res.get("ok"):
+        out.update({"api_ok": False, "auth_mode": "cookie_session", "credits": session_res.get("credits"),
+                    "verdict": "READY_COOKIE"})
+    else:
+        reason = "API officielle KO (trial web sans accès API probable)."
+        if not _session_jwt():
+            reason += " Cookie 'comme Suno' non configuré (LUMA_COOKIE absent)."
+        elif not out["cookie_gen_go"]:
+            reason += " Session présente mais LUMA_COOKIE_GEN_GO=1 manquant (GO Erwin)."
         else:
-            out.update({"api_ok": False, "verdict": "BLOCKED_LUMA",
-                        "reason": f"API HTTP {r.status_code}: {r.text[:120]} (probable: trial web sans accès API → plan API requis)"})
-    except Exception as e:  # noqa: BLE001
-        out.update({"api_ok": False, "verdict": "BLOCKED_LUMA", "reason": f"{type(e).__name__}:{str(e)[:120]}"})
-    # capacité réelle de génération = API OK, OU cookie configuré + GO explicite
-    out["can_generate"] = bool(out.get("api_ok")) or (out["cookie_fallback_configured"] and out["cookie_gen_go"])
+            reason += f" Session JWT refusée ({session_res.get('reason')})."
+        out.update({"api_ok": False, "auth_mode": None, "verdict": "BLOCKED_LUMA", "reason": reason})
+
+    out["can_generate"] = bool(out.get("api_ok") or out.get("verdict") == "READY_COOKIE")
     return out
 
 
