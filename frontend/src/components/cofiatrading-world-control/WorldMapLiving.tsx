@@ -50,6 +50,16 @@ export type Angel = {
   arr_impact_eur_year?: number;
 };
 
+export type FeedEvent = {
+  id: string;
+  kind?: string;
+  status?: string;
+  label: string;
+  source?: string;
+  proof?: string;
+  ts?: string;
+};
+
 export type Truck = {
   id: string;
   name: string;
