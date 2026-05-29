@@ -441,7 +441,7 @@ def execute_v4(beats=None, voice_id=None, counter_to=200, counter_suffix=" IA",
 
     props = {"shots": shots, "captions": captions, "voiceSrc": f"runs/{run_id}/voice_full.mp3",
              "shotStarts": shot_starts, "brandRevealFrame": brand_reveal, "twistFrame": twist,
-             "counterAt": twist, "counterTo": 200, "counterSuffix": " IA", "logoSrc": "brand/logo_alpha.png"}
+             "counterAt": counter_at, "counterTo": counter_to, "counterSuffix": counter_suffix, "logoSrc": "brand/logo_alpha.png"}
     props_path = str(rd / "props.json")
     with open(props_path, "w", encoding="utf-8") as f:
         _json.dump(props, f, ensure_ascii=False)
