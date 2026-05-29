@@ -26,6 +26,29 @@ import httpx
 
 from .no_luma_billing_guard import assert_no_billing  # garde-fou anti-billing
 
+
+def _bootstrap_cookie_env() -> None:
+    """Charge ~/.openclaw/credentials/luma_cookie.env nous-mêmes (le cookie contient ;/$/espaces →
+    `source` shell le casse). Parsing KEY=VALUE robuste, sans expansion. Ne loggue aucun secret."""
+    p = Path.home() / ".openclaw/credentials/luma_cookie.env"
+    if not p.exists():
+        return
+    try:
+        for raw in p.read_text(encoding="utf-8", errors="ignore").splitlines():
+            line = raw.strip()
+            if not line or line.startswith("#") or "=" not in line:
+                continue
+            k, v = line.split("=", 1)
+            k = k.strip()
+            v = v.strip().strip('"').strip("'")
+            if k and k not in os.environ:
+                os.environ[k] = v
+    except Exception:  # noqa: BLE001
+        pass
+
+
+_bootstrap_cookie_env()
+
 BASE = "https://api.lumalabs.ai/dream-machine/v1"
 GEN_DIR = Path(os.environ.get("LUMA_GEN_DIR", str(Path.home() / ".openclaw/state/cofiapublisher/luma_generations")))
 MODELS = ["ray-2", "ray-flash-2", "ray-1-6"]
