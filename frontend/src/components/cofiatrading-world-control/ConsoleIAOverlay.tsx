@@ -1193,17 +1193,6 @@ export function ConsoleIAOverlay() {
                   className="mt-3 min-h-20 w-full resize-y rounded-xl border border-slate-700 bg-slate-900/90 p-3 text-sm leading-6 text-slate-100 outline-none transition placeholder:text-slate-500 focus:border-cyan-300/60"
                 />
                 <input
-                  ref={imageInputRef}
-                  type="file"
-                  accept="image/*"
-                  multiple
-                  className="hidden"
-                  onChange={(event) => {
-                    if (event.currentTarget.files) addFiles(event.currentTarget.files, "image");
-                    event.currentTarget.value = "";
-                  }}
-                />
-                <input
                   ref={fileInputRef}
                   type="file"
                   multiple
