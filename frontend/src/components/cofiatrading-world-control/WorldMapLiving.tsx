@@ -544,7 +544,7 @@ export function WorldMapLiving({
 
         {/* légende bas */}
         <div className="absolute bottom-2 left-1/2 z-10 flex -translate-x-1/2 flex-wrap items-center justify-center gap-x-3 gap-y-1 rounded-lg border border-cyan-300/20 bg-slate-950/85 px-3 py-1.5 text-[9px] text-slate-300 backdrop-blur">
-          {([["LIVE", "#34d399"], ["DEGRADED", "#f59e0b"], ["SOURCE DOWN", "#ef4444"], ["ERR", "#fb7185"]] as Array<[string, string]>).map(([l, c]) => (
+          {([["LIVE", "#34d399"], ["EN VEILLE", "#64748b"], ["DEGRADED", "#f59e0b"], ["SOURCE DOWN", "#ef4444"], ["ERR", "#fb7185"]] as Array<[string, string]>).map(([l, c]) => (
             <span key={l} className="flex items-center gap-1.5"><span className="h-2 w-2 rounded-full" style={{ background: c, boxShadow: `0 0 6px ${c}` }} />{l}</span>
           ))}
           <span className="text-slate-500">· clic maison/ange → inspector</span>
