@@ -246,6 +246,7 @@ export function WorldMapLiving({
   onSelectHouse: (houseId: string) => void;
 }) {
   const [houseStatuses, setHouseStatuses] = useState<Record<string, string> | null>(null);
+  const [onDemandSet, setOnDemandSet] = useState<Set<string>>(new Set());
   const [registryError, setRegistryError] = useState(false);
   const [selectedHouse, setSelectedHouse] = useState<string | null>(null);
   const [selectedAngel, setSelectedAngel] = useState<Angel | null>(null);
