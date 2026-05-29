@@ -15,6 +15,8 @@ const LIGHTRAG_AUDIT = `${HOME}/.openclaw/state/lightrag_storage_hygiene_audit.j
 const LIGHTRAG_MANIFEST = `${HOME}/.openclaw/state/lightrag_manifest.json`;
 const NOTION_DBS = `${HOME}/.openclaw/state/notion_dbs.json`;
 const PAPERCLIP_CARDS = `${HOME}/.openclaw/state/paperclip_cards/cards.jsonl`;
+const CALENDAR_BUS = `${HOME}/.openclaw/state/agent_mesh/calendar_bus.jsonl`;
+const ACADEMY_DIR = `${HOME}/cof-trading/cofiatrading-site/src/content/academy`;
 
 type Kpi = { label: string; value: string; source?: string };
 type House = { kpis: Kpi[]; gap?: string };
