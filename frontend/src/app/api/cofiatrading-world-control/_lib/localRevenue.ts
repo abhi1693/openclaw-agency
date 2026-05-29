@@ -45,25 +45,63 @@ export async function readLocalRevenue(): Promise<FetchResultLike> {
       };
     }
 
+    // Base = cof_state local (brokers/ftd/clients + MRR snapshot 300s).
+    let mrrFinal = mrr;
+    let arrFinal = arr;
+    let vipFinal = num(r.stripe_active);
+    let pastDueEur: number | null = null;
+    let pastDueCount: number | null = null;
+    let sourceTag = "NY_LOCAL_REVENUE_FROM_COF_STATE_NO_ABIDJAN_20260529";
+
+    // Overlay LIVE = backend NY host-natif :8000 (Stripe direct, non-Abidjan) si dispo. Fallback gracieux.
+    try {
+      const ctrl = new AbortController();
+      const t = setTimeout(() => ctrl.abort(), 1800);
+      const [revRes, pdRes] = await Promise.all([
+        fetch("http://127.0.0.1:8000/api/v1/cof/revenue/summary", { cache: "no-store", signal: ctrl.signal }),
+        fetch("http://127.0.0.1:8000/api/v1/cof/past-due", { cache: "no-store", signal: ctrl.signal }),
+      ]);
+      clearTimeout(t);
+      if (revRes.ok) {
+        const rv = rec(await revRes.json());
+        const liveMrr = num(rv.mrr_eur);
+        if (liveMrr != null) {
+          mrrFinal = liveMrr;
+          arrFinal = liveMrr * 12;
+          vipFinal = num(rv.active_count) ?? vipFinal;
+          sourceTag = "NY_BACKEND_8000_STRIPE_LIVE_OVERLAY_NO_ABIDJAN_20260529";
+        }
+      }
+      if (pdRes.ok) {
+        const pd = rec(await pdRes.json());
+        const totalEur = num(pd.total_eur);
+        const items = Array.isArray(pd.items) ? pd.items : [];
+        if (totalEur != null) pastDueEur = totalEur;
+        else if (items.length) pastDueEur = items.reduce((s: number, it: unknown) => s + (num(rec(it).amount_due_eur) ?? 0), 0);
+        pastDueCount = items.length || null;
+      }
+    } catch {
+      /* backend down → on garde cof_state local, aucune régression */
+    }
+
     const data = {
       ok: true,
-      source_tag: "NY_LOCAL_REVENUE_FROM_COF_STATE_NO_ABIDJAN_20260529",
+      source_tag: sourceTag,
       cof_state_ts: rec(d.meta).ts_utc ?? null,
-      mrr_eur: mrr,
-      mrr_active_eur: mrr,
-      current_mrr_eur: mrr,
-      arr_eur: arr,
-      current_arr_eur: arr,
-      active_vip: num(r.stripe_active),
+      mrr_eur: mrrFinal,
+      mrr_active_eur: mrrFinal,
+      current_mrr_eur: mrrFinal,
+      arr_eur: arrFinal,
+      current_arr_eur: arrFinal,
+      active_vip: vipFinal,
       active_premium: null,
       active_elite: null,
       brokers_commission_lifetime_usd:
         num(r.brokers_commission_lifetime_usd) ?? num(totals.total_commissions),
       ftd_cumul: num(totals.ftd_count),
       clients_active: num(rec(d.iron).clients_total),
-      // past_due non porté par cof_state.hub_home.revenue ; les routes l'override (Stripe direct) ou l'ignorent.
-      past_due_count: null,
-      past_due_eur: null,
+      past_due_count: pastDueCount,
+      past_due_eur: pastDueEur,
       brokers,
     };
 
