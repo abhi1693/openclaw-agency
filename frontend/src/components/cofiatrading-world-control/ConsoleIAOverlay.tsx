@@ -2,12 +2,10 @@
 
 import { useEffect, useMemo, useRef, useState } from "react";
 import {
-  Bot,
   Brain,
   Camera,
   Cpu,
   FileUp,
-  Image as ImageIcon,
   Mic,
   MonitorUp,
   Paperclip,
