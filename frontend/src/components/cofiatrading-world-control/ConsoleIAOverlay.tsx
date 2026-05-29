@@ -1155,9 +1155,6 @@ export function ConsoleIAOverlay() {
 
               <footer className="border-t border-slate-800 bg-slate-950/90 p-3">
                 <div className="flex flex-wrap gap-2">
-                  <button type="button" className="tool-button is-primary">
-                    <Bot className="h-4 w-4" /> Texte
-                  </button>
                   <button
                     type="button"
                     onClick={isRecordingAudio ? stopAudioRecording : startAudioRecording}
@@ -1172,11 +1169,8 @@ export function ConsoleIAOverlay() {
                   <button type="button" onClick={captureCamera} className="tool-button is-media">
                     <Camera className="h-4 w-4" /> Caméra
                   </button>
-                  <button type="button" onClick={() => imageInputRef.current?.click()} className="tool-button">
-                    <ImageIcon className="h-4 w-4" /> Photo
-                  </button>
                   <button type="button" onClick={() => fileInputRef.current?.click()} className="tool-button">
-                    <FileUp className="h-4 w-4" /> Fichier
+                    <FileUp className="h-4 w-4" /> Joindre
                   </button>
                   <button
                     type="button"
