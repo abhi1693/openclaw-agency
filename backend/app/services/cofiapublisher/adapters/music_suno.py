@@ -20,12 +20,35 @@ WRAPPER_BASE = os.environ.get("SUNO_WRAPPER_BASE", "").strip()
 WRAPPER_KEY = os.environ.get("SUNO_WRAPPER_KEY", "").strip()
 
 
+# Méthode canon Erwin (abo Pro 9$ payé) : piloter SON compte via cookie de session,
+# relais local self-hosted gcui-art/suno-api (gratuit, pas de service tiers payant).
+SUNO_COOKIE = os.environ.get("SUNO_COOKIE", "").strip()
+SUNO_LOCAL_API = os.environ.get("SUNO_LOCAL_API", "http://127.0.0.1:3300").rstrip("/")
+
+
 def mode() -> str:
+    if SUNO_COOKIE:
+        return "compte_pro_cookie"  # utilise les 9$ d'Erwin, auto
     if WRAPPER_BASE and WRAPPER_KEY:
         return "wrapper_tiers"
     if SUNO_DROP_DIR.exists() and any(SUNO_DROP_DIR.glob("*.mp3")):
         return "semi_manuel_drop"
     return "manual_pending"
+
+
+def generate_via_account(prompt: str, instrumental: bool = True) -> dict:
+    """Génère sur le compte Pro d'Erwin via relais local suno-api (cookie). Auto, utilise ses crédits payés."""
+    if not SUNO_COOKIE:
+        return {"ok": False, "error": "SUNO_COOKIE_missing",
+                "fix": "Récupérer le cookie de session suno.com (Erwin connecté) → SUNO_COOKIE ; relais local gcui-art/suno-api sur :3300"}
+    import httpx
+    try:
+        r = httpx.post(f"{SUNO_LOCAL_API}/api/generate",
+                       json={"prompt": prompt, "make_instrumental": instrumental, "wait_audio": False},
+                       timeout=30)
+        return {"ok": r.status_code == 200, "status": r.status_code, "data": r.json() if r.status_code == 200 else r.text[:160]}
+    except Exception as e:  # noqa: BLE001
+        return {"ok": False, "error": f"relais_local_absent:{type(e).__name__}", "fix": "Lancer le relais gcui-art/suno-api local :3300"}
 
 
 def latest_drop() -> dict:
