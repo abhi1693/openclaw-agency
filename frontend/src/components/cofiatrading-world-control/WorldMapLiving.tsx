@@ -386,6 +386,41 @@ export function WorldMapLiving({
 
   const selZone = LEGACY_ZONES.find((z) => z.id === selectedHouse) ?? null;
 
+  // KPIs propres à chaque maison — UNIQUEMENT données réelles du snapshot NY (zéro invention).
+  // Maisons sans mapping = parité non atteinte → onglet KPIs affiche "à migrer" honnêtement.
+  const houseKpis = (id: string): Array<{ label: string; value: string }> => {
+    const r = snapshot?.revenue;
+    const a = snapshot?.assetsWarehouse;
+    const pubOk = services.find((s) => (s.id ?? "").includes("publisher") || (s.label ?? "").toLowerCase().includes("publisher"))?.ok;
+    switch (id) {
+      case "iron_office":
+        return [
+          { label: "MRR", value: fmtEur(r?.currentMrrEur) },
+          { label: "ARR", value: fmtEur(r?.currentArrEur) },
+          { label: "VIP actifs", value: fmtNum(r?.activeVip) },
+          { label: "Past due", value: `${fmtEur(r?.pastDueEur)} · ${fmtNum(r?.pastDueCount)} client(s)` },
+        ];
+      case "assets_warehouse":
+        return [
+          { label: "MP4", value: fmtNum(a?.mp4Count) },
+          { label: "Captions", value: fmtNum(a?.captionsCount) },
+          { label: "Assets inventoriés", value: fmtNum(a?.assetsInventoryCount) },
+        ];
+      case "youtube_studio":
+        return [
+          { label: "MP4 prêts", value: fmtNum(a?.mp4Count) },
+          { label: "CofiaPublisher", value: pubOk === true ? "LIVE" : pubOk === false ? "DOWN" : "UNKNOWN" },
+        ];
+      case "central_brain":
+        return [
+          { label: "Maisons registry", value: fmtNum(snapshot?.centralBrain?.housesCount) },
+          { label: "Services OK", value: `${servicesOk}/${services.length}` },
+        ];
+      default:
+        return [];
+    }
+  };
+
   return (
     <div className="flex w-full flex-col gap-2 rounded-2xl border border-cyan-300/15 bg-slate-950/85 p-3 text-slate-100 shadow-[0_0_40px_-12px_rgba(34,211,238,0.35)] backdrop-blur">
       {/* ── HEADER + KPIs (snapshot) ── */}
