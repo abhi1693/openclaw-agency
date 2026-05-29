@@ -417,11 +417,16 @@ def execute_v4(beats=None, voice_id=None, counter_to=200, counter_suffix=" IA",
 
     full_script = " ".join(b["t"] for b in beats)
     voice_full = str(rd / "voice_full.mp3")
-    vr = voice_elevenlabs.synthesize_with_timestamps(full_script, voice_full, voice_id=voice_id)
+    # ── GATE VOIX (voice_director) : oralisation + dico COF + params FR forcés + 3 prises auditées.
+    #    Aucune vidéo ne passe si voice_qa_report.json != PASS. ──
+    vr = voice_director.direct(full_script, voice_full, rd, voice_id=voice_id)
     if not vr.get("ok"):
-        return {"ok": False, "error": "voice_full", "detail": vr}
+        return {"ok": False, "error": vr.get("error", "VOICE_QA_FAILED"),
+                "verdict": vr.get("verdict"), "voice_qa_report": vr.get("report_path"),
+                "detail": vr.get("qa_report")}
     words = captions_engine.words_from_elevenlabs(vr["alignment"])
     captions = captions_engine.chunk_words(words)
+    captions = voice_director.restore_captions(captions, vr.get("display_restore", {}))
     try:
         audio_dur = float(subprocess.run(["ffprobe", "-v", "error", "-show_entries", "format=duration", "-of", "csv=p=0", voice_full],
                                          capture_output=True, text=True, timeout=20).stdout.strip() or 0)
