@@ -46,6 +46,41 @@ def credits_via_relay() -> dict:
         return {"ok": False, "error": f"relais_absent:{type(e).__name__}"}
 
 
+def generate_track(prompt: str, out_path: str, instrumental: bool = True, timeout_s: int = 180) -> dict:
+    """HARD LOCK Erwin : génère une musique sur SON compte Pro (relais :3300) + download.
+    POST /api/generate → poll /api/get?ids= jusqu'à audio_url → télécharge l'MP3. Utilise ses crédits."""
+    import time as _t
+    import httpx
+    try:
+        sub = httpx.post(f"{SUNO_LOCAL_API}/api/generate",
+                         json={"prompt": prompt, "make_instrumental": instrumental, "wait_audio": False}, timeout=30)
+        if sub.status_code != 200:
+            return {"ok": False, "status": sub.status_code, "error": sub.text[:160]}
+        clips = sub.json()
+        ids = ",".join(c.get("id") for c in clips if c.get("id"))
+        if not ids:
+            return {"ok": False, "error": "no_clip_id", "raw": str(clips)[:160]}
+        audio_url = None
+        deadline = _t.time() + timeout_s
+        while _t.time() < deadline:
+            _t.sleep(6)
+            g = httpx.get(f"{SUNO_LOCAL_API}/api/get?ids={ids}", timeout=20)
+            if g.status_code == 200:
+                for c in g.json():
+                    if c.get("audio_url"):
+                        audio_url = c["audio_url"]; break
+            if audio_url:
+                break
+        if not audio_url:
+            return {"ok": False, "error": "suno_timeout_no_audio"}
+        au = httpx.get(audio_url, timeout=120, follow_redirects=True)
+        with open(out_path, "wb") as f:
+            f.write(au.content)
+        return {"ok": True, "path": out_path, "bytes": len(au.content), "audio_url": audio_url}
+    except Exception as e:  # noqa: BLE001
+        return {"ok": False, "error": f"{type(e).__name__}:{str(e)[:160]}"}
+
+
 def generate_via_account(prompt: str, instrumental: bool = True) -> dict:
     """⚠️ RISQUE ToS — automation du compte Suno via cookie = violation ToS → BAN possible (cf. incident Hedra).
     VERROUILLÉ : nécessite SUNO_COOKIE_GEN_GO=1 (GO Erwin explicite, conscient du risque ban).
