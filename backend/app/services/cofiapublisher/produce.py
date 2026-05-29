@@ -341,6 +341,135 @@ def execute_v2(beats=None, voice_id=None) -> dict:
             "note": "Vidéo P0 (moteur Remotion, captions kinetic). Non publiée (§18)."}
 
 
+# Requêtes VISUELLES concrètes (mots-objets) par beat — pour chercher du VRAI footage qui bouge.
+LAUNCH_VISUAL_QUERIES = [
+    ["person scrolling phone night blue", "social media feed phone hand"],
+    ["luxury sports car money show off", "shady businessman cash flashing"],
+    ["futuristic blue technology abstract", "city skyline night cinematic blue"],
+    ["data center servers glowing", "ai network nodes blue technology"],
+    ["trading charts screen green", "person typing laptop focused dark"],
+    ["confident businessman sunrise city", "successful trader looking horizon"],
+]
+
+
+def execute_v4(beats=None, voice_id=None) -> dict:
+    """v4 — VRAI MONTAGE VIDÉO (Marcus) : footage Pexels qui bouge, coupé au beat, multi-clips,
+    + master loudnorm -14 (fin du PSHHH). FLUX seulement en secours. GATED PRODUCE_GO + plafond."""
+    if os.environ.get("PRODUCE_GO") != "1":
+        return {"ok": False, "blocked": True, "reason": "PRODUCE_GO absent"}
+    beats = beats or LAUNCH_BEATS
+    est = 0.4  # ElevenLabs voix ; stock vidéo = 0€
+    ceiling = float(os.environ.get("MAX_COST_EUR", "3"))
+    FPS = 30
+    run_id = f"v4_{int(time.time())}"
+    rd = OUT_ROOT / run_id; rd.mkdir(parents=True, exist_ok=True)
+
+    full_script = " ".join(b["t"] for b in beats)
+    voice_full = str(rd / "voice_full.mp3")
+    vr = voice_elevenlabs.synthesize_with_timestamps(full_script, voice_full, voice_id=voice_id)
+    if not vr.get("ok"):
+        return {"ok": False, "error": "voice_full", "detail": vr}
+    words = captions_engine.words_from_elevenlabs(vr["alignment"])
+    captions = captions_engine.chunk_words(words)
+    try:
+        audio_dur = float(subprocess.run(["ffprobe", "-v", "error", "-show_entries", "format=duration", "-of", "csv=p=0", voice_full],
+                                         capture_output=True, text=True, timeout=20).stdout.strip() or 0)
+    except Exception:  # noqa: BLE001
+        audio_dur = (words[-1]["endMs"] / 1000) if words else 30
+    total_frames = int(round(audio_dur * FPS))
+
+    shots, shot_starts, wi, cum = [], [], 0, 0
+    beat_first_shot = {}
+    transitions = ["flash", "whip", "zoomblur"]
+    tix = 0
+    for i, b in enumerate(beats):
+        nwords = len(b["t"].split())
+        wi_end = min(wi + nwords - 1, len(words) - 1)
+        end_ms = words[wi_end]["endMs"] if words else int((i + 1) * audio_dur * 1000 / len(beats))
+        wi = wi_end + 1
+        beat_end_frame = total_frames if i == len(beats) - 1 else int(round(end_ms / 1000 * FPS))
+        beat_span = max(15, beat_end_frame - cum)
+        beat_first_shot[i] = len(shots)
+        # 1-2 sous-plans par beat (montage rythmique) si le beat est assez long
+        queries = LAUNCH_VISUAL_QUERIES[i] if i < len(LAUNCH_VISUAL_QUERIES) else [b["v"][:40]]
+        n_sub = 2 if beat_span >= 90 else 1
+        sub_frames = [beat_span // n_sub] * n_sub
+        sub_frames[-1] += beat_span - sum(sub_frames)
+        for k in range(n_sub):
+            q = queries[k % len(queries)]
+            clip_out = str(rd / f"shot{len(shots)}.mp4")
+            sub_dur_s = max(0.6, sub_frames[k] / FPS)
+            got = False
+            sr = video_stock.search_pexels_video(q, per_page=10, orientation="portrait")
+            vid = video_stock.pick_best(sr.get("videos") or [])
+            if vid:
+                raw_clip = str(rd / f"raw{len(shots)}.mp4")
+                if video_stock.download(vid["file_url"], raw_clip).get("ok"):
+                    # crop vertical + trim à la durée du sous-plan, on GARDE le mouvement (-an)
+                    r = subprocess.run(["ffmpeg", "-y", "-ss", "0.8", "-i", raw_clip, "-t", f"{sub_dur_s:.2f}",
+                                        "-vf", "scale=1080:1920:force_original_aspect_ratio=increase,crop=1080:1920,fps=30,setsar=1",
+                                        "-an", "-c:v", "libx264", "-preset", "veryfast", "-pix_fmt", "yuv420p", clip_out],
+                                       capture_output=True, timeout=120)
+                    got = r.returncode == 0 and os.path.exists(clip_out)
+            if got:
+                shots.append({"src": f"runs/{run_id}/shot{len(shots)}.mp4", "type": "video", "durationInFrames": sub_frames[k], "beatFrames": [], "transition": transitions[tix % 3], "startFrom": 0})
+            else:
+                # secours : image FLUX animée
+                img = str(rd / f"img{len(shots)}.png")
+                fr = image_gen.flux_generate(b["v"], img, image_size="portrait_16_9")
+                if not fr.get("ok"):
+                    return {"ok": False, "error": f"no_visual_beat_{i}_sub{k}"}
+                shots.append({"src": f"runs/{run_id}/img{len(shots)}.png", "type": "image", "durationInFrames": sub_frames[k], "beatFrames": [], "transition": transitions[tix % 3]})
+            shot_starts.append(cum); cum += sub_frames[k]; tix += 1
+
+    brand_reveal = shot_starts[beat_first_shot.get(2, 0)] if len(shot_starts) > beat_first_shot.get(2, 0) else 0
+    twist = shot_starts[beat_first_shot.get(3, 0)] if len(shot_starts) > beat_first_shot.get(3, 0) else 0
+
+    pub_runs = os.path.join(REMOTION_DIR, "public", "runs")
+    os.makedirs(pub_runs, exist_ok=True)
+    link = os.path.join(pub_runs, run_id)
+    if os.path.islink(link) or os.path.exists(link):
+        try: os.remove(link)
+        except OSError: pass
+    os.symlink(str(rd), link)
+
+    props = {"shots": shots, "captions": captions, "voiceSrc": f"runs/{run_id}/voice_full.mp3",
+             "shotStarts": shot_starts, "brandRevealFrame": brand_reveal, "twistFrame": twist,
+             "counterAt": twist, "counterTo": 200, "counterSuffix": " IA", "logoSrc": "brand/logo_alpha.png"}
+    props_path = str(rd / "props.json")
+    with open(props_path, "w", encoding="utf-8") as f:
+        _json.dump(props, f, ensure_ascii=False)
+
+    raw = str(rd / "raw.mp4")
+    r = subprocess.run(["npx", "remotion", "render", "src/index.ts", "CofiaPublisherV3", raw,
+                        f"--props={props_path}", "--concurrency=2", "--log=error"],
+                       cwd=REMOTION_DIR, capture_output=True, text=True, timeout=1200)
+    if r.returncode != 0 or not os.path.exists(raw):
+        return {"ok": False, "error": "remotion_render_failed", "stderr": r.stderr[-700:], "run": run_id, "shots": len(shots)}
+
+    music = os.path.join(REMOTION_DIR, "public", "music_launch.mp3")
+    out_mp4 = str(rd / "video_v4.mp4")
+    fc = ("[0:v]curves=b='0/0.06 0.5/0.55 1/1':r='0/0 0.5/0.46 1/0.95',eq=contrast=1.10:saturation=1.08,vignette=PI/4.8,noise=alls=3:allf=t[v];"
+          "[0:a]asplit=2[a0][a1];[1:a]volume=0.40[mus];"
+          "[mus][a0]sidechaincompress=threshold=0.04:ratio=8:attack=20:release=300[duck];"
+          "[a1][duck]amix=inputs=2:duration=first[mx];[mx]loudnorm=I=-14:TP=-1:LRA=11[a]")
+    r2 = subprocess.run(["ffmpeg", "-y", "-i", raw, "-stream_loop", "-1", "-i", music, "-filter_complex", fc,
+                         "-map", "[v]", "-map", "[a]", "-t", f"{audio_dur:.2f}",
+                         "-c:v", "libx264", "-preset", "medium", "-crf", "22", "-maxrate", "10M", "-bufsize", "16M",
+                         "-pix_fmt", "yuv420p", "-c:a", "aac", "-b:a", "160k", out_mp4],
+                        capture_output=True, text=True, timeout=400)
+    if r2.returncode != 0 or not os.path.exists(out_mp4):
+        return {"ok": False, "error": "post_render_failed", "stderr": r2.stderr[-500:], "run": run_id, "raw": raw}
+
+    n_video = sum(1 for s in shots if s.get("type") == "video")
+    qv = qa.review(out_mp4)
+    return {"ok": True, "run": run_id, "engine": "remotion+ffmpeg", "shots": len(shots), "video_shots": n_video,
+            "cost_eur": est, "output": out_mp4, "duration_s": round(audio_dur, 2), "captions_chunks": len(captions),
+            "qa": qv, "publish": distribution.PUBLISH_LOCK,
+            "upgrades": [f"{n_video}/{len(shots)} plans = VRAI footage vidéo (Pexels, ça bouge)", "montage multi-plans coupé au beat", "master loudnorm -14 LUFS (fin du PSHHH)", "whoosh 0.22 sur whip only", "LUT+grain léger+ducking", "captions kinetic synchro"],
+            "note": "Vidéo v4 (vrai montage vidéo). Non publiée (§18)."}
+
+
 def execute_v3(beats=None, voice_id=None) -> dict:
     """v3 — effets A/V (Marcus) : punch-zoom beat + SFX réels + transitions + compteur + LUT/grain/ducking post.
     Réutilise voix monolithique (sync exacte). GATED PRODUCE_GO + plafond."""
