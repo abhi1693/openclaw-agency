@@ -911,24 +911,37 @@ export function ConsoleIAOverlay() {
           aria-label="Console IA Central Brain"
           className="fixed bottom-24 left-5 z-50 grid max-h-[78vh] w-[min(1180px,calc(100vw-40px))] grid-rows-[auto_1fr] overflow-hidden rounded-2xl border border-cyan-300/50 bg-slate-950/96 text-slate-100 shadow-[0_28px_100px_rgba(0,0,0,.72)] backdrop-blur"
         >
-          <header className="flex items-start justify-between gap-3 border-b border-slate-700/40 bg-cyan-950/35 p-4">
+          <header className="grid gap-3 border-b border-slate-700/40 bg-cyan-950/35 p-4 sm:grid-cols-[1fr_auto]">
             <div>
               <p className="text-[10px] font-black uppercase tracking-[0.2em] text-cyan-200">
-                Central Brain
+                Chat natif + contexte complet
               </p>
-              <h2 className="mt-1 text-2xl font-black tracking-tight text-white">Console IA</h2>
-              <p className="mt-1.5 text-xs leading-5 text-slate-400">
-                Packet local durable · aucune API externe cachée.
+              <h2 className="mt-1 text-2xl font-black tracking-tight text-white">Console IA Central Brain</h2>
+              <p className="mt-2 max-w-4xl text-xs leading-5 text-slate-300">
+                Texte, micro, capture écran, photo, fichiers et cible agent/groupe. La console crée un packet local
+                durable, stocke les uploads sur disque et route vers le bus agent sans API payante cachée. ChatGPT =
+                Desktop/brief local, Kevin = Gemini perception.
               </p>
             </div>
-            <button
-              type="button"
-              onClick={() => setIsOpen(false)}
-              className="grid h-8 w-8 shrink-0 place-items-center rounded-xl border border-slate-600 bg-slate-900 text-slate-200 transition hover:border-cyan-300"
-              aria-label="Fermer console IA"
-            >
-              <X className="h-4 w-4" />
-            </button>
+            <div className="flex flex-wrap items-start justify-start gap-2 sm:justify-end">
+              <span className="rounded-full border border-emerald-400/30 bg-emerald-400/10 px-3 py-1 text-[10px] font-black text-emerald-100">
+                Texte
+              </span>
+              <span className="rounded-full border border-cyan-300/30 bg-cyan-400/10 px-3 py-1 text-[10px] font-black text-cyan-100">
+                Captures volontaires
+              </span>
+              <span className="rounded-full border border-sky-400/35 bg-sky-400/10 px-3 py-1 text-[10px] font-black text-sky-100">
+                Modèles sélectionnables
+              </span>
+              <button
+                type="button"
+                onClick={() => setIsOpen(false)}
+                className="grid h-8 w-8 place-items-center rounded-xl border border-slate-600 bg-slate-900 text-slate-200 transition hover:border-cyan-300"
+                aria-label="Fermer console IA"
+              >
+                <X className="h-4 w-4" />
+              </button>
+            </div>
           </header>
 
           <div className="grid min-h-0 grid-cols-1 overflow-hidden lg:grid-cols-[260px_1fr_310px]">
@@ -975,19 +988,20 @@ export function ConsoleIAOverlay() {
 
             <main className="grid min-h-0 grid-rows-[auto_1fr_auto] overflow-hidden">
 	              <div className="border-b border-slate-800/80 p-4">
-                <div className="grid gap-3 rounded-2xl border border-cyan-300/20 bg-slate-950/55 p-3 sm:grid-cols-3">
-                  <div className="min-w-0">
-                    <p className="text-[9px] font-black uppercase tracking-[0.16em] text-slate-500">Cible</p>
-                    <p className="mt-1 truncate text-sm font-black text-white">{selectedTarget.label}</p>
-                  </div>
-                  <div className="min-w-0 sm:border-l sm:border-slate-800 sm:pl-3">
-                    <p className="text-[9px] font-black uppercase tracking-[0.16em] text-slate-500">Modèle</p>
-                    <p className="mt-1 truncate text-sm font-black text-cyan-100">{selectedModelMode.label}</p>
-                  </div>
-                  <div className="min-w-0 sm:border-l sm:border-slate-800 sm:pl-3">
-                    <p className="text-[9px] font-black uppercase tracking-[0.16em] text-slate-500">Action</p>
-                    <p className="mt-1 truncate text-sm font-black text-emerald-100">{selectedActionMode}</p>
-                  </div>
+                <p className="text-[10px] font-black uppercase tracking-[0.18em] text-cyan-100">
+                  Conversation Central Brain
+                </p>
+                <h3 className="mt-1 text-lg font-black text-white">
+                  Central Brain → {selectedTarget.label}
+                </h3>
+                <p className="mt-1 text-xs leading-5 text-slate-400">
+                  Comme dans les apps IA : tu peux écrire, parler, montrer ton écran, déposer une image ou un fichier,
+                  choisir le modèle/lane, puis cibler l’agent ou le groupe.
+                </p>
+                <div className="mt-3 grid gap-2 rounded-2xl border border-cyan-300/15 bg-slate-950/45 p-2 text-[10px] uppercase tracking-[0.08em] text-slate-300 sm:grid-cols-3">
+                  <span><b className="text-cyan-100">Agent</b> · {selectedTarget.label}</span>
+                  <span><b className="text-cyan-100">Modèle</b> · {selectedModelMode.label}</span>
+                  <span><b className="text-cyan-100">Action</b> · {selectedActionMode}</span>
                 </div>
                 <div className="mt-3 rounded-2xl border border-slate-800 bg-slate-950/55 p-3">
                   <div className="mb-2 flex items-center gap-2 text-[10px] font-black uppercase tracking-[0.16em] text-cyan-100">
@@ -1063,12 +1077,16 @@ export function ConsoleIAOverlay() {
                     })}
                   </div>
                 ) : (
-                  <div className="grid place-items-center rounded-2xl border border-slate-800 bg-slate-950/40 p-8 text-center">
-                    <p className="text-sm font-black text-slate-300">Prêt à envoyer un packet</p>
-                    <p className="mt-1 max-w-md text-xs leading-5 text-slate-500">
-                      Écris ton message, ajoute micro / écran / caméra / fichier si besoin, puis envoie.
-                    </p>
-                  </div>
+                  <>
+                    <div className="ml-auto max-w-[82%] rounded-2xl border border-blue-300/35 bg-blue-950/35 p-3 text-sm leading-6 text-blue-50">
+                      <p className="mb-1 text-[10px] font-black uppercase tracking-[0.15em] text-blue-200">Erwin</p>
+                      Écris à Codex, Claude local, ChatGPT Desktop, Kevin/Gemini, Jarod, Qwen ou un groupe maison. Micro, écran, caméra, photo et fichiers sont attachés au packet.
+                    </div>
+                    <div className="mt-3 max-w-[86%] rounded-2xl border border-slate-700 bg-slate-900/80 p-3 text-sm leading-6 text-slate-100">
+                      <p className="mb-1 text-[10px] font-black uppercase tracking-[0.15em] text-cyan-200">Central Brain</p>
+                      Cible active : {selectedTarget.label}. Modèle : {selectedModelMode.label}. À l’envoi, la console crée un thread local et poll les réponses agents.
+                    </div>
+                  </>
                 )}
 
                 <div className="mt-4 rounded-2xl border border-cyan-300/20 bg-slate-950/70 p-3">
