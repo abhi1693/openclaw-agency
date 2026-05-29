@@ -725,21 +725,26 @@ export function WorldMapLiving({
 
                     {houseTab === "kpis" && (
                       <div className="mt-2">
-                        {kpis.length ? (
-                          <>
-                            <div className="flex flex-col gap-1">
-                              {kpis.map((row) => (
-                                <div key={row.label} className="flex items-baseline justify-between gap-2 rounded border border-slate-700/50 px-1.5 py-1">
+                        {kpis.length > 0 && (
+                          <div className="flex flex-col gap-1">
+                            {kpis.map((row) => (
+                              <div key={row.label} className="rounded border border-slate-700/50 px-1.5 py-1">
+                                <div className="flex items-baseline justify-between gap-2">
                                   <span className="text-[9.5px] uppercase text-slate-400">{row.label}</span>
                                   <span className="text-[11px] font-bold text-slate-100">{row.value}</span>
                                 </div>
-                              ))}
-                            </div>
-                            <p className="mt-1 text-[8.5px] text-emerald-300/70">Source : snapshot NY · backend :8000 (pas de pipe Abidjan)</p>
-                          </>
-                        ) : (
-                          <p className="rounded bg-amber-500/10 px-1.5 py-1 text-[10px] leading-snug text-amber-300/90">KPIs propres à cette maison <b>à migrer</b> depuis l&apos;ancien hub vers le backend NY :8000. Parité non atteinte — ne pas supprimer Abidjan.</p>
+                                {row.source && <span className="block text-[8px] text-emerald-300/55">▸ {row.source}</span>}
+                              </div>
+                            ))}
+                          </div>
                         )}
+                        {hk.gap && (
+                          <p className="mt-1 rounded bg-amber-500/10 px-1.5 py-1 text-[9.5px] leading-snug text-amber-300/90">⚠ {hk.gap}</p>
+                        )}
+                        {kpis.length === 0 && !hk.gap && (
+                          <p className="rounded bg-amber-500/10 px-1.5 py-1 text-[10px] leading-snug text-amber-300/90">KPIs propres à cette maison <b>à migrer</b> (source locale non encore câblée). Parité non atteinte — ne pas supprimer Abidjan.</p>
+                        )}
+                        {kpis.length > 0 && <p className="mt-1 text-[8px] text-emerald-300/50">Sources locales (cof_state.json / fichiers d&apos;état) — zéro pipe Abidjan :8430.</p>}
                       </div>
                     )}
 
