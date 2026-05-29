@@ -254,6 +254,94 @@ def execute_multishot(beats=None, voice_id=None, with_outro=True) -> dict:
             "note": "Vidéo MULTI-PLANS de lancement. Non publiée (§18)."}
 
 
+def execute_v2(beats=None, voice_id=None) -> dict:
+    """P0 — moteur REMOTION multi-shot + captions kinetic word-level + look.
+    Voix ElevenLabs+timestamps/beat (horloge maître) · images FLUX · rendu Remotion. GATED PRODUCE_GO + plafond."""
+    if os.environ.get("PRODUCE_GO") != "1":
+        return {"ok": False, "blocked": True, "reason": "PRODUCE_GO absent"}
+    beats = beats or LAUNCH_BEATS
+    est = tiers.estimate_cost_eur(["elevenlabs"] * len(beats) + ["flux_fal"] * len(beats), 6)
+    ceiling = float(os.environ.get("MAX_COST_EUR", "3"))
+    if est > ceiling:
+        return {"ok": False, "blocked": True, "reason": f"coût {est}€ > plafond {ceiling}€"}
+
+    run_id = f"v2_{int(time.time())}"
+    rd = OUT_ROOT / run_id; rd.mkdir(parents=True, exist_ok=True)
+    voices, shots, all_words, cursor_ms = [], [], [], 0.0
+
+    for i, b in enumerate(beats):
+        vmp3 = str(rd / f"v{i}.mp3")
+        vr = voice_elevenlabs.synthesize_with_timestamps(b["t"], vmp3, voice_id=voice_id)
+        if not vr.get("ok"):
+            return {"ok": False, "error": f"voice_beat_{i}", "detail": vr}
+        try:
+            dur = float(subprocess.run(["ffprobe", "-v", "error", "-show_entries", "format=duration", "-of", "csv=p=0", vmp3],
+                                       capture_output=True, text=True, timeout=20).stdout.strip() or 3) + 0.3
+        except Exception:  # noqa: BLE001
+            dur = 3.3
+        # captions du beat, offsetées au temps global
+        for w in captions_engine.words_from_elevenlabs(vr["alignment"]):
+            all_words.append({**w, "startMs": w["startMs"] + int(cursor_ms), "endMs": w["endMs"] + int(cursor_ms)})
+        # image IA FLUX (fallback stock)
+        img = str(rd / f"img{i}.png")
+        fr = image_gen.flux_generate(b["v"], img, image_size="portrait_16_9")
+        if not fr.get("ok"):
+            sr = video_stock.search_pexels_video(b["t"][:40], per_page=2, orientation="portrait")
+            vids = sr.get("videos") or []
+            if vids:
+                # extraire une frame du clip stock comme image
+                video_stock.download(vids[0]["file_url"], str(rd / f"st{i}.mp4"))
+                subprocess.run(["ffmpeg", "-y", "-i", str(rd / f"st{i}.mp4"), "-vframes", "1",
+                                "-vf", "scale=1080:1920:force_original_aspect_ratio=increase,crop=1080:1920", img],
+                               capture_output=True, timeout=60)
+            if not os.path.exists(img):
+                return {"ok": False, "error": f"no_visual_beat_{i}"}
+        voices.append(vmp3)
+        shots.append({"src": f"runs/{run_id}/img{i}.png", "durationInFrames": int(round(dur * 30))})
+        cursor_ms += dur * 1000
+
+    # concat voix → voice_full.mp3
+    lst = str(rd / "vlist.txt")
+    with open(lst, "w") as f:
+        for v in voices:
+            f.write(f"file '{v}'\n")
+    voice_full = str(rd / "voice_full.mp3")
+    subprocess.run(["ffmpeg", "-y", "-f", "concat", "-safe", "0", "-i", lst, "-c", "copy", voice_full],
+                   capture_output=True, text=True, timeout=120)
+
+    captions = captions_engine.chunk_words(all_words)
+    # symlink assets dans public/ pour Remotion
+    pub_runs = os.path.join(REMOTION_DIR, "public", "runs")
+    os.makedirs(pub_runs, exist_ok=True)
+    link = os.path.join(pub_runs, run_id)
+    if os.path.islink(link) or os.path.exists(link):
+        try:
+            os.remove(link)
+        except OSError:
+            pass
+    os.symlink(str(rd), link)
+
+    props = {"shots": shots, "captions": captions, "voiceSrc": f"runs/{run_id}/voice_full.mp3",
+             "musicSrc": "music_launch.mp3", "logoSrc": "brand/cofiatrading-logo-official.png"}
+    props_path = str(rd / "props.json")
+    with open(props_path, "w", encoding="utf-8") as f:
+        _json.dump(props, f, ensure_ascii=False)
+
+    out_mp4 = str(rd / "video_v2.mp4")
+    r = subprocess.run(["npx", "remotion", "render", "src/index.ts", "CofiaPublisherV2", out_mp4,
+                        f"--props={props_path}", "--concurrency=2", "--log=error"],
+                       cwd=REMOTION_DIR, capture_output=True, text=True, timeout=900)
+    if r.returncode != 0 or not os.path.exists(out_mp4):
+        return {"ok": False, "error": "remotion_render_failed", "stderr": r.stderr[-600:], "run": run_id, "shots": len(shots)}
+
+    qv = qa.review(out_mp4)
+    return {"ok": True, "run": run_id, "engine": "remotion", "shots": len(shots), "cost_eur": est,
+            "output": out_mp4, "duration_s": round(cursor_ms / 1000, 2), "captions_chunks": len(captions),
+            "qa": qv, "publish": distribution.PUBLISH_LOCK,
+            "tools_used": ["ElevenLabs+timestamps", "FLUX", "Remotion timeline", "captions kinetic word-level", "look/vignette", "logo", "music_launch"],
+            "note": "Vidéo P0 (moteur Remotion, captions kinetic). Non publiée (§18)."}
+
+
 def _build_srt(text: str, total_s: float, path: str) -> None:
     """SRT depuis le script connu (pas besoin de whisper) — découpe en segments timés."""
     words = text.split()
