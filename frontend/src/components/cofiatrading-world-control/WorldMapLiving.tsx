@@ -141,6 +141,7 @@ const ROUTES: Array<[string, string, "active" | "vip"]> = [
 function houseStatusStyle(status: string): { color: string; label: string } {
   switch (status) {
     case "LIVE": return { color: "#34d399", label: "LIVE" };
+    case "SLEEPING": return { color: "#64748b", label: "EN VEILLE" };
     case "SOURCE_DOWN": return { color: "#ef4444", label: "SOURCE DOWN" };
     case "DEGRADED": return { color: "#f59e0b", label: "DEGRADED" };
     case "REGISTERED": return { color: "#f59e0b", label: "REGISTERED" };
