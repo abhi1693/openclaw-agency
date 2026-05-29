@@ -438,14 +438,14 @@ def execute_v4(beats=None, voice_id=None, counter_to=200, counter_suffix=" IA",
                                        capture_output=True, timeout=120)
                     got = r.returncode == 0 and os.path.exists(clip_out)
             if got:
-                shots.append({"src": f"runs/{run_id}/shot{len(shots)}.mp4", "type": "video", "durationInFrames": sub_frames[k], "beatFrames": [], "transition": transitions[tix % 3], "startFrom": 0})
+                shots.append({"src": f"runs/{run_id}/shot{len(shots)}.mp4", "type": "video", "durationInFrames": sub_frames[k], "beatFrames": bf, "transition": transitions[tix % 3], "startFrom": 0})
             else:
                 # secours : image FLUX animée
                 img = str(rd / f"img{len(shots)}.png")
                 fr = image_gen.flux_generate(b["v"], img, image_size="portrait_16_9")
                 if not fr.get("ok"):
                     return {"ok": False, "error": f"no_visual_beat_{i}_sub{k}"}
-                shots.append({"src": f"runs/{run_id}/img{len(shots)}.png", "type": "image", "durationInFrames": sub_frames[k], "beatFrames": [], "transition": transitions[tix % 3]})
+                shots.append({"src": f"runs/{run_id}/img{len(shots)}.png", "type": "image", "durationInFrames": sub_frames[k], "beatFrames": bf, "transition": transitions[tix % 3]})
             shot_starts.append(cum); cum += sub_frames[k]; tix += 1
 
     def _sf(bi):
