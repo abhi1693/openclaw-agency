@@ -194,6 +194,10 @@ const ROUTES: Array<[string, string, "active" | "vip"]> = [
   ["youtube_studio", "assets_warehouse", "vip"],
   ["central_brain", "paperclip_factory", "active"],
   ["iron_office", "mission_control_tower", "vip"],
+  ["mt4_signal_tower", "quant_rd_lab", "active"],
+  ["quant_rd_lab", "central_brain", "active"],
+  ["mission_control_tower", "personal_trading_control", "active"],
+  ["personal_trading_control", "compliance_port", "active"],
 ];
 
 const SERVICE_HOME_BY_ID: Record<string, string> = {
