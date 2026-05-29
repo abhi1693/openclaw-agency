@@ -17,7 +17,7 @@ const OPENCLAW_API = getOpenClawApiBase();
 const LOCAL_AUTH_TOKEN = getLocalAuthToken();
 
 const endpoints = {
-  revenue: process.env.COF_REVENUE_SUMMARY_URL ?? `${HOST}:8430/api/iron/revenue/summary`,
+  revenue: "local://cof_state.json (readLocalRevenue — fallback Abidjan :8430 COUPÉ 20260529)",
   houses: process.env.COF_CENTRAL_BRAIN_HOUSES_URL ?? `${HOST}:8767/api/central-brain/houses`,
   publisher: process.env.COF_PUBLISHER_STATUS_URL ?? `${HOST}:8540/api/status`,
   ack: process.env.COF_ACK_HEALTH_URL ?? `${HOST}:8443/health`,
