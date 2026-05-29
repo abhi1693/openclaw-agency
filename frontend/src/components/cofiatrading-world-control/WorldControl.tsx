@@ -24,355 +24,35 @@ import {
 import { DashboardShell } from "@/components/templates/DashboardShell";
 import { WorldMapLiving } from "./WorldMapLiving";
 
-type AssetsWarehouseSnapshot = {
-  ok?: boolean;
-  sourceTag?: string;
-  mp4Count?: number | null;
-  captionsCount?: number | null;
-  assetsInventoryCount?: number | null;
-  paths?: {
-    remotionOutDir?: string;
-    captionsDir?: string;
-    assetsInventoryPath?: string;
-  };
-  errors?: string[];
-};
-
-type Snapshot = {
-  ok: boolean;
-  fetchedAt: string;
-  sourceTag: string;
-  endpoints: Record<string, { ok: boolean; status: number | null }>;
-  revenue: {
-    sourceTag: string | null;
-    currentMrrEur: number | null;
-    currentArrEur: number | null;
-    activeVip: number | null;
-    pastDueCount: number | null;
-    pastDueEur: number | null;
-    ftdCumul: number | null;
-    brokersLifetimeUsd: number | null;
-    clientsActive: number | null;
-    revenue_drift_detected?: boolean;
-  };
-  agents?: {
-    total: number;
-    fresh: number;
-    stale: number;
-    fresh_names: string[];
-    stale_names_top: string[];
-    freshness_ratio: number;
-  };
-  commerce_machine?: Array<{
-    id: string;
-    name: string;
-    status: "LIVE" | "PARTIAL" | "CANON_GATE" | "AWAITING_SETUP" | "BROKEN";
-    problem: string;
-    next_action: string;
-    owner_agent: string;
-    proof_source: string;
-  }>;
-  centralBrain: {
-    housesCount: number | null;
-    houses: Array<{ key: string; title: string; status: string }>;
-  };
-  publisher: {
-    ok: boolean;
-    status: string;
-    service: string;
-    outputDirCount: number | null;
-  };
-  services: Array<{ id: string; label: string; ok: boolean; status?: string; http_code?: number | null; url?: string; role?: string }>;
-  knowledge?: Record<KnowledgeId, KnowledgeRecord>;
-  offers: OfferRecord[];
-  routes?: RoutesSnapshot;
-  investor_room?: InvestorRoomSnapshot;
-  openclaw?: {
-    sourceTag: string;
-    boards: Array<{ id: string; name: string; slug: string }>;
-    agents: Array<{
-      id: string;
-      name: string;
-      status: string;
-      boardId: string | null;
-      role: string;
-      authorizedTrucks: string;
-      dailyOutput: string;
-      forbiddenActions: string;
-    }>;
-    customFields: Array<{ key: string; label: string; type: string }>;
-    garageTrucks: OpenClawTruck[];
-    approvals: Array<{ id: string; actionType: string; status: string; taskTitles: unknown[] }>;
-    buildings: Array<{
-      id: string;
-      name: string;
-      slug: string;
-      activeTasks: number;
-      trucks: string[];
-      proof: string;
-      arrImpact: string;
-    }>;
-  };
-  assetsWarehouse?: AssetsWarehouseSnapshot;
-  agentsCanon?: {
-    ok: boolean;
-    count: number;
-    sourceTag: string;
-    agents: Array<{
-      no: number | null;
-      id: string;
-      name: string;
-      glyph: string;
-      avatarEmoji: string;
-      colorPrimary: string;
-      colorAccent: string;
-      roleBadge: string;
-      house: string;
-      houseColor: string;
-      rankLayer: string;
-      boss: string;
-      engine: string;
-      responsibilities: string[];
-    }>;
-  };
-  writeBlocked: boolean;
-  piiBlocked: boolean;
-  dangerousActions: string[];
-};
-
-type CofiaAgent = NonNullable<Snapshot["agentsCanon"]>["agents"][number];
-
-type OpenClawTruck = {
-  id: string;
-  title: string;
-  status: string;
-  priority: string;
-  boardId: string | null;
-  assignedAgentId: string | null;
-  truckId: string | null;
-  truckName: string | null;
-  truckType: string | null;
-  truckStatus: string;
-  driverAgent: string;
-  destinationBoard: string;
-  currentJob: string;
-  route: string;
-  payloadType: string;
-  sourceOfTruth: string;
-  lastRunAt: string | null;
-  lastPayloadSummary: string;
-  lastProof: string;
-  writeLock: boolean;
-  approvalGate: string;
-  arrImpact: string;
-  riskLevel: string;
-  nextAction: string;
-  failureMode: string;
-  owner: string;
-  proofRequired: string;
-  oldCityFlag: boolean;
-};
-
-type OfferRecord = {
-  id: string;
-  taskTitle: string;
-  offerId: string;
-  offerName: string;
-  priceEur: number | null;
-  priceLabel: string;
-  billingPeriod: string;
-  stripeLink: string;
-  stripeLinks: string[];
-  statusCanon: string;
-  subsCount: number | null;
-  subsCountLastProof: string;
-  publicUseBlockedAlias: boolean;
-  homeHouseCanon: string;
-  arrImpact: string;
-  nextAction: string;
-  sourceTag: string;
-  lastRunAt: string | null;
-  lastProof: string;
-};
-
-type KnowledgeId = "obsidian" | "notion" | "drive";
-
-type KnowledgeRecord = {
-  id: KnowledgeId;
-  truckTaskId: string;
-  truckName: string;
-  status: string;
-  lastProof: string;
-  lastRunAt: string | null;
-  sourceTag: string;
-  sourceOfTruth: string;
-  nextAction: string;
-  proofRequired: string;
-};
-
-type RouteRecord = {
-  id: string;
-  label: string;
-  source: string;
-  status: string;
-  key_metrics: Record<string, unknown>;
-  last_proof: string;
-  next_checkpoint: string;
-  gate_required: string;
-  blockers: string[];
-};
-
-type RoutesSnapshot = {
-  revenue_route: RouteRecord;
-  acquisition_route: RouteRecord;
-  knowledge_route: RouteRecord;
-  broker_route: RouteRecord;
-  support_route: RouteRecord;
-  compliance_route: RouteRecord;
-};
-
-type InvestorRoomSnapshot = {
-  current_arr_eur: number | null;
-  current_mrr_eur: number | null;
-  target_arr_eur: number;
-  target_date: string;
-  gap_eur: number | null;
-  gap_pct: number | null;
-  top_blockers: string[];
-  next_7_days_tasks: Array<{
-    title: string;
-    board_id: string | null;
-    status: string;
-    priority: string;
-    due_time: string | null;
-    arr_impact: string;
-    source_tag: string;
-    next_action: string;
-  }>;
-  last_proof_per_route: Record<string, string>;
-};
-
-type Status = "GREEN" | "LIVE" | "AMBER" | "UNKNOWN" | "PAUSED" | "QUARANTINE" | "LOCKED";
-
-type TruckRow = {
-  label: string;
-  status: Status;
-  owner: string;
-  proof: string;
-  nextAction: string;
-  writeBlocked: boolean;
-};
-
-type OpenClawBoard = NonNullable<Snapshot["openclaw"]>["boards"][number];
-type OpenClawAgent = NonNullable<Snapshot["openclaw"]>["agents"][number];
-type OpenClawBuilding = NonNullable<Snapshot["openclaw"]>["buildings"][number];
-
-type HouseId =
-  | "mission_control_tower"
-  | "youtube_studio"
-  | "iron_office"
-  | "vip_gate"
-  | "mt4_signal_tower"
-  | "site_seo_lab"
-  | "openclaw_agent_barracks"
-  | "paperclip_factory"
-  | "lightrag_observatory"
-  | "obsidian_library"
-  | "calendar_tower"
-  | "compliance_port"
-  | "central_brain"
-  | "trading_academy"
-  | "assets_warehouse";
-
-type HouseDefinition = {
-  id: HouseId;
-  name: string;
-  owners: string[];
-  primaryBoardSlug: string;
-  boardAliases: string[];
-};
-
-type HouseView = HouseDefinition & {
-  boards: OpenClawBoard[];
-  buildings: OpenClawBuilding[];
-  agents: OpenClawAgent[];
-  trucks: OpenClawTruck[];
-  activeTasks: number;
-  status: Status;
-};
-
-type HouseWorkforceStatus = "LIVE" | "ACTION" | "BACKSTAGE" | "RISK";
-
-type HouseWorkforce = {
-  businessName: string;
-  owner: string;
-  workers: string[];
-  mission: string;
-  nextAction: string;
-  impact: string;
-  blocker: string;
-  proof: string;
-  badge: HouseWorkforceStatus;
-  tone: Status;
-};
-
-type WorldNode = {
-  id: HouseId;
-  label: string;
-  zone: string;
-  x: number;
-  y: number;
-  icon: string;
-  owner: string;
-  mission: string;
-  status: Status;
-  assetKey: string;
-};
-
-type WorldAgent = {
-  name: string;
-  from: HouseId;
-  to: HouseId;
-  mission: string;
-  payload: string;
-  color: string;
-  duration: number;
-  delay: number;
-};
-
-type WorldTruck = {
-  label: string;
-  route: HouseId[];
-  status: "urgent" | "blocked" | "live" | "build";
-  duration: number;
-  delay: number;
-};
-
-type CityDistrict = {
-  id: HouseId;
-  title: string;
-  subtitle: string;
-  x: number;
-  y: number;
-  width: number;
-  height: number;
-  visual: "castle" | "tower" | "factory" | "gate" | "vault" | "port" | "lab" | "barracks";
-  accent: string;
-  glow: string;
-  workers: string[];
-  machines: string[];
-  role: string;
-  next: string;
-  blocker: string;
-  metric?: string;
-};
-
-type CityRoute = {
-  id: string;
-  points: HouseId[];
-  label: string;
-  tone: "cyan" | "emerald" | "amber" | "rose";
-};
+import type {
+  AssetsWarehouseSnapshot,
+  Snapshot,
+  CofiaAgent,
+  OpenClawTruck,
+  OfferRecord,
+  KnowledgeId,
+  KnowledgeRecord,
+  RouteRecord,
+  RoutesSnapshot,
+  InvestorRoomSnapshot,
+  Status,
+  TruckRow,
+  OpenClawBoard,
+  OpenClawAgent,
+  OpenClawBuilding,
+  HouseId,
+  HouseDefinition,
+  HouseView,
+  HouseWorkforceStatus,
+  HouseWorkforce,
+  WorldNode,
+  WorldAgent,
+  WorldTruck,
+  CityDistrict,
+  CityRoute,
+  RailStep,
+  CityMachine,
+} from "./world-control.types";
 
 type MovingAgent = {
   name: string;
@@ -394,17 +74,7 @@ type MovingTruck = {
   delay: number;
 };
 
-type RailStep = {
-  label: string;
-  value: string;
-  tone?: "cyan" | "emerald" | "amber" | "rose";
-};
 
-type CityMachine = {
-  label: string;
-  district: HouseId;
-  tone: "cyan" | "emerald" | "amber" | "rose" | "slate";
-};
 
 const TARGET_ARR_EUR = 100_000_000;
 const TARGET_DATE = "2026-12-31";
@@ -1563,7 +1233,7 @@ function exactKpiLive(id: string, s: Snapshot | null): string {
   }
 }
 
-function ExactImageWorldControl({
+function _ExactImageWorldControl({
   snapshot,
   onSelectHouse,
   onOpenRoutes,
@@ -1875,7 +1545,7 @@ const T11_TRUCK_OVERLAYS = [
   { name: "Calendar", route: ["calendar_tower", "mission_control_tower"], color: "#e5e7eb", box: [1075, 525, 1150, 585] },
 ] as Array<{ name: string; route: HouseId[]; color: string; box: [number, number, number, number] }>;
 
-function MapSceneWorldControl({
+function _MapSceneWorldControl({
   snapshot,
   onSelectHouse,
   onSelectAgentHouse,
@@ -2030,7 +1700,7 @@ function MapSceneWorldControl({
   );
 }
 
-function WorldControlInspectorPanel({
+function _WorldControlInspectorPanel({
   snapshot,
   error,
   secondsSinceSync,
