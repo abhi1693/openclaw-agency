@@ -335,7 +335,7 @@ def execute_v2(beats=None, voice_id=None) -> dict:
 
     qv = qa.review(out_mp4)
     return {"ok": True, "run": run_id, "engine": "remotion", "shots": len(shots), "cost_eur": est,
-            "output": out_mp4, "duration_s": round(cursor_ms / 1000, 2), "captions_chunks": len(captions),
+            "output": out_mp4, "duration_s": round(audio_dur, 2), "captions_chunks": len(captions),
             "qa": qv, "publish": distribution.PUBLISH_LOCK,
             "tools_used": ["ElevenLabs+timestamps", "FLUX", "Remotion timeline", "captions kinetic word-level", "look/vignette", "logo", "music_launch"],
             "note": "Vidéo P0 (moteur Remotion, captions kinetic). Non publiée (§18)."}
