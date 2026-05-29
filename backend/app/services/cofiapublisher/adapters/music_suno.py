@@ -1,32 +1,45 @@
-"""CofiaPublisher — adapter MUSIQUE Suno (tier PREMIUM, Erwin abonné Pro 2026-05-29).
+"""CofiaPublisher — MUSIQUE (réalité honnête Suno).
 
-source_tag: NY_COFIAPUB_MUSIC_SUNO_20260529
-Clé : SUNO_API_KEY (à générer sur suno.com/settings → coller dans content-apis.env).
-L'abonnement Pro donne les crédits ; la clé API est séparée. Outil créatif (pas LLM, §15 ok).
-Génération chanson (async) = P3 ; ici connectivité.
+source_tag: NY_COFIAPUB_MUSIC_20260529
+⚠️ Suno n'a AUCUNE API officielle / portail dev / clé self-service (vérifié 2026-05-29).
+L'abo Pro d'Erwin = crédits dans l'app web suno.com, PAS un accès API.
+Donc 3 modes :
+  - ÉCONOMIE  : MusicGen local (full-auto, 0€).
+  - SEMI-MANUEL (Suno) : Erwin génère dans l'app web → export MP3 → dépose dans SUNO_DROP_DIR ;
+                          le pipeline ingère le dernier track déposé. (recommandé pour qualité Suno)
+  - WRAPPER TIERS (optionnel) : si SUNO_WRAPPER_BASE + SUNO_WRAPPER_KEY fournis (Sunor/sunoapi.org/PiAPI),
+                          génération auto via service tiers (compte séparé, zone grise ToS).
 """
 from __future__ import annotations
 
 import os
+from pathlib import Path
 
-import httpx
-
-SUNO_KEY = os.environ.get("SUNO_API_KEY", "").strip()
-SUNO_BASE = os.environ.get("SUNO_API_BASE", "https://studio-api.suno.ai/api/v2").rstrip("/")
-
-
-def available() -> bool:
-    return bool(SUNO_KEY)
+SUNO_DROP_DIR = Path(os.environ.get("SUNO_DROP_DIR", "/Users/burakokyay/.openclaw/content/suno_drop"))
+WRAPPER_BASE = os.environ.get("SUNO_WRAPPER_BASE", "").strip()
+WRAPPER_KEY = os.environ.get("SUNO_WRAPPER_KEY", "").strip()
 
 
-def connectivity() -> dict:
-    """Vérifie présence + auth clé Suno. Sans clé → message clair (génère sur suno.com/settings)."""
-    if not SUNO_KEY:
-        return {"ok": False, "error": "SUNO_API_KEY_missing",
-                "fix": "Générer la clé sur suno.com/settings (abo Pro actif) → ajouter SUNO_API_KEY dans content-apis.env"}
+def mode() -> str:
+    if WRAPPER_BASE and WRAPPER_KEY:
+        return "wrapper_tiers"
+    if SUNO_DROP_DIR.exists() and any(SUNO_DROP_DIR.glob("*.mp3")):
+        return "semi_manuel_drop"
+    return "manual_pending"
+
+
+def latest_drop() -> dict:
+    """Dernier MP3 Suno exporté manuellement (semi-auto)."""
     try:
-        r = httpx.get(f"{SUNO_BASE}/credits", headers={"Authorization": f"Bearer {SUNO_KEY}"}, timeout=15)
+        mp3s = sorted(SUNO_DROP_DIR.glob("*.mp3"), key=lambda p: p.stat().st_mtime, reverse=True)
+        if mp3s:
+            return {"ok": True, "path": str(mp3s[0]), "bytes": mp3s[0].stat().st_size}
+        return {"ok": False, "error": "no_track_in_drop", "drop_dir": str(SUNO_DROP_DIR)}
     except Exception as e:  # noqa: BLE001
-        return {"ok": False, "error": f"{type(e).__name__}:{str(e)[:160]}"}
-    return {"ok": r.status_code in (200, 401, 403, 404), "status": r.status_code,
-            "auth": "valid" if r.status_code == 200 else "check_key_or_endpoint"}
+        return {"ok": False, "error": f"{type(e).__name__}"}
+
+
+def status() -> dict:
+    return {"ok": True, "mode": mode(),
+            "note": "Suno = pas d'API officielle. Eco=MusicGen local | Suno=export manuel→drop | wrapper tiers optionnel.",
+            "drop_dir": str(SUNO_DROP_DIR), "wrapper_configured": bool(WRAPPER_BASE and WRAPPER_KEY)}
