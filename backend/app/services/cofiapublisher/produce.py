@@ -267,21 +267,34 @@ def execute_v2(beats=None, voice_id=None) -> dict:
 
     run_id = f"v2_{int(time.time())}"
     rd = OUT_ROOT / run_id; rd.mkdir(parents=True, exist_ok=True)
-    voices, shots, all_words, cursor_ms = [], [], [], 0.0
+    FPS = 30
 
+    # ── FIX SYNC (Marcus FROID) : UNE seule voix monolithique = horloge maître, zéro concat, zéro offset ──
+    full_script = " ".join(b["t"] for b in beats)
+    voice_full = str(rd / "voice_full.mp3")
+    vr = voice_elevenlabs.synthesize_with_timestamps(full_script, voice_full, voice_id=voice_id)
+    if not vr.get("ok"):
+        return {"ok": False, "error": "voice_full", "detail": vr}
+    words = captions_engine.words_from_elevenlabs(vr["alignment"])   # timings EXACTS, aucun offset
+    captions = captions_engine.chunk_words(words)
+    try:
+        audio_dur = float(subprocess.run(["ffprobe", "-v", "error", "-show_entries", "format=duration", "-of", "csv=p=0", voice_full],
+                                         capture_output=True, text=True, timeout=20).stdout.strip() or 0)
+    except Exception:  # noqa: BLE001
+        audio_dur = (words[-1]["endMs"] / 1000) if words else 30
+    total_frames = int(round(audio_dur * FPS))
+
+    # ── Shots : découpés aux frontières de mots du MÊME alignement (vidéo suit l'audio) ──
+    shots, wi = [], 0
+    cum_frames = 0
     for i, b in enumerate(beats):
-        vmp3 = str(rd / f"v{i}.mp3")
-        vr = voice_elevenlabs.synthesize_with_timestamps(b["t"], vmp3, voice_id=voice_id)
-        if not vr.get("ok"):
-            return {"ok": False, "error": f"voice_beat_{i}", "detail": vr}
-        try:
-            dur = float(subprocess.run(["ffprobe", "-v", "error", "-show_entries", "format=duration", "-of", "csv=p=0", vmp3],
-                                       capture_output=True, text=True, timeout=20).stdout.strip() or 3) + 0.3
-        except Exception:  # noqa: BLE001
-            dur = 3.3
-        # captions du beat, offsetées au temps global
-        for w in captions_engine.words_from_elevenlabs(vr["alignment"]):
-            all_words.append({**w, "startMs": w["startMs"] + int(cursor_ms), "endMs": w["endMs"] + int(cursor_ms)})
+        nwords = len(b["t"].split())
+        wi_end = min(wi + nwords - 1, len(words) - 1)
+        end_ms = words[wi_end]["endMs"] if words else int((i + 1) * audio_dur * 1000 / len(beats))
+        wi = wi_end + 1
+        end_frame = total_frames if i == len(beats) - 1 else int(round(end_ms / 1000 * FPS))
+        dur_frames = max(15, end_frame - cum_frames)
+        cum_frames += dur_frames
         # image IA FLUX (fallback stock)
         img = str(rd / f"img{i}.png")
         fr = image_gen.flux_generate(b["v"], img, image_size="portrait_16_9")
@@ -289,27 +302,13 @@ def execute_v2(beats=None, voice_id=None) -> dict:
             sr = video_stock.search_pexels_video(b["t"][:40], per_page=2, orientation="portrait")
             vids = sr.get("videos") or []
             if vids:
-                # extraire une frame du clip stock comme image
                 video_stock.download(vids[0]["file_url"], str(rd / f"st{i}.mp4"))
                 subprocess.run(["ffmpeg", "-y", "-i", str(rd / f"st{i}.mp4"), "-vframes", "1",
                                 "-vf", "scale=1080:1920:force_original_aspect_ratio=increase,crop=1080:1920", img],
                                capture_output=True, timeout=60)
             if not os.path.exists(img):
                 return {"ok": False, "error": f"no_visual_beat_{i}"}
-        voices.append(vmp3)
-        shots.append({"src": f"runs/{run_id}/img{i}.png", "durationInFrames": int(round(dur * 30))})
-        cursor_ms += dur * 1000
-
-    # concat voix → voice_full.mp3
-    lst = str(rd / "vlist.txt")
-    with open(lst, "w") as f:
-        for v in voices:
-            f.write(f"file '{v}'\n")
-    voice_full = str(rd / "voice_full.mp3")
-    subprocess.run(["ffmpeg", "-y", "-f", "concat", "-safe", "0", "-i", lst, "-c", "copy", voice_full],
-                   capture_output=True, text=True, timeout=120)
-
-    captions = captions_engine.chunk_words(all_words)
+        shots.append({"src": f"runs/{run_id}/img{i}.png", "durationInFrames": dur_frames})
     # symlink assets dans public/ pour Remotion
     pub_runs = os.path.join(REMOTION_DIR, "public", "runs")
     os.makedirs(pub_runs, exist_ok=True)
