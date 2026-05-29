@@ -393,7 +393,7 @@ def execute_v4(beats=None, voice_id=None, counter_to=200, counter_suffix=" IA",
         beat_span = max(15, beat_end_frame - cum)
         beat_first_shot[i] = len(shots)
         # 1-2 sous-plans par beat (montage rythmique) si le beat est assez long
-        queries = LAUNCH_VISUAL_QUERIES[i] if i < len(LAUNCH_VISUAL_QUERIES) else [b["v"][:40]]
+        queries = b.get("q") or (LAUNCH_VISUAL_QUERIES[i] if i < len(LAUNCH_VISUAL_QUERIES) else [b["v"][:40]])
         n_sub = 2 if beat_span >= 90 else 1
         sub_frames = [beat_span // n_sub] * n_sub
         sub_frames[-1] += beat_span - sum(sub_frames)
