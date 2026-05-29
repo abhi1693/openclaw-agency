@@ -321,6 +321,18 @@ export function WorldMapLiving({
     return () => { cancelled = true; };
   }, []);
 
+  // Live feed — events réels (world-state), refetch 30s. Chaque event a une preuve.
+  useEffect(() => {
+    let cancelled = false;
+    const load = () => fetch("/api/cofiatrading-world-control/world-state", { cache: "no-store" })
+      .then((r) => (r.ok ? r.json() : null))
+      .then((d) => { if (!cancelled && Array.isArray(d?.events)) setEvents(d.events); })
+      .catch(() => {});
+    void load();
+    const iv = window.setInterval(load, 30_000);
+    return () => { cancelled = true; window.clearInterval(iv); };
+  }, []);
+
   const statusFor = (id: string): string => {
     if (houseStatuses && houseStatuses[id]) {
       const raw = houseStatuses[id];
