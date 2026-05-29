@@ -697,7 +697,8 @@ export function WorldMapLiving({
               {(() => {
                 const houseAngels = angelsByHome[selZone.id] ?? [];
                 const houseTrucks = trucks.filter((t) => t.from === selZone.id || t.to === selZone.id);
-                const kpis = houseKpis(selZone.id);
+                const hk = houseKpis(selZone.id);
+                const kpis = hk.kpis;
                 const tabs: Array<[typeof houseTab, string]> = [
                   ["vue", "Vue"],
                   ["kpis", "KPIs"],
