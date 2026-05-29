@@ -676,36 +676,104 @@ export function WorldMapLiving({
               {(() => { const st = houseStatusStyle(statusFor(selZone.id)); return (
                 <span className="mt-2 inline-block rounded-full px-2 py-0.5 text-[9px] font-bold uppercase" style={{ background: `${st.color}22`, color: st.color, border: `1px solid ${st.color}55` }}>● {st.label}</span>
               ); })()}
-              <p className="mt-2 text-[10px] font-semibold uppercase text-cyan-300">Rôle</p>
-              <p className="text-[11px] leading-snug text-slate-300">{selZone.role}</p>
+              {/* ── ONGLETS maison (déménagement Abidjan→NY, clic interactif, zéro nouvelle page) ── */}
               {(() => {
                 const houseAngels = angelsByHome[selZone.id] ?? [];
-                const live = houseAngels.filter((a) => a.status === "LIVE").length;
-                const arrAtRisk = houseAngels.reduce((s, a) => s + (a.arr_impact_eur_year && a.arr_impact_eur_year < 0 ? a.arr_impact_eur_year : 0), 0);
-                const nextActions = houseAngels.filter((a) => a.status === "BROKEN" || a.status === "DEGRADED" || a.status === "AWAITING_SETUP");
+                const houseTrucks = trucks.filter((t) => t.from === selZone.id || t.to === selZone.id);
+                const kpis = houseKpis(selZone.id);
+                const tabs: Array<[typeof houseTab, string]> = [
+                  ["vue", "Vue"],
+                  ["kpis", "KPIs"],
+                  ["anges", `Anges ${houseAngels.length}`],
+                  ["flux", `Flux ${houseTrucks.length}`],
+                ];
                 return (
                   <>
-                    <p className="mt-2 text-[10px] font-semibold uppercase text-cyan-300">Anges en poste ({houseAngels.length}) · {live} LIVE</p>
-                    {arrAtRisk < 0 && (
-                      <p className="mt-1 rounded bg-rose-500/10 px-1.5 py-0.5 text-[10px] font-bold text-rose-300">⚠ ARR à risque : {arrAtRisk.toLocaleString("fr-FR")} €/an</p>
-                    )}
-                    <div className="mt-1 flex flex-col gap-1">
-                      {houseAngels.map((a) => (
-                        <button key={a.id} type="button" onClick={() => setSelectedAngel(a)} className="flex items-start gap-1.5 rounded border border-slate-700/60 px-1.5 py-1 text-left hover:border-slate-500">
-                          <span className="mt-0.5 h-2 w-2 shrink-0 rounded-full" style={{ background: ANGEL_STATUS[a.status].color }} />
-                          <span className="min-w-0">
-                            <span className="text-[10px] font-bold text-slate-200">{a.name}</span>
-                            <span className="ml-1 text-[8.5px] font-semibold uppercase" style={{ color: ANGEL_STATUS[a.status].color }}>{ANGEL_STATUS[a.status].label}</span>
-                            <span className="block truncate text-[9px] text-slate-400">{a.mission}</span>
-                          </span>
-                        </button>
+                    <div className="mt-2 flex gap-1 border-b border-slate-700/50">
+                      {tabs.map(([k, label]) => (
+                        <button key={k} type="button" onClick={() => setHouseTab(k)}
+                          className={`px-1.5 pb-1 text-[9.5px] font-bold uppercase tracking-wide ${houseTab === k ? "border-b-2 border-cyan-300 text-cyan-200" : "text-slate-400 hover:text-slate-200"}`}>{label}</button>
                       ))}
-                      {!houseAngels.length && <span className="text-[10px] text-slate-500">—</span>}
                     </div>
-                    {nextActions.length > 0 && (
-                      <p className="mt-2 text-[9px] text-amber-300/80">▸ {nextActions.length} ange(s) à débloquer/activer — clic pour le détail.</p>
+
+                    {houseTab === "vue" && (
+                      <div className="mt-2">
+                        <p className="text-[10px] font-semibold uppercase text-cyan-300">Rôle</p>
+                        <p className="text-[11px] leading-snug text-slate-300">{selZone.role}</p>
+                        <p className="mt-2 text-[10px] font-semibold uppercase text-cyan-300">Synthèse</p>
+                        <p className="text-[10px] text-slate-300">{houseAngels.filter((a) => a.status === "LIVE").length}/{houseAngels.length} anges LIVE · {houseTrucks.length} flux · {kpis.length ? `${kpis.length} KPIs` : "KPIs à migrer"}</p>
+                      </div>
                     )}
-                    <p className="mt-2 text-[9px] text-slate-500">Assets/KPI : globaux (non ventilés par maison) — voir HUD.</p>
+
+                    {houseTab === "kpis" && (
+                      <div className="mt-2">
+                        {kpis.length ? (
+                          <>
+                            <div className="flex flex-col gap-1">
+                              {kpis.map((row) => (
+                                <div key={row.label} className="flex items-baseline justify-between gap-2 rounded border border-slate-700/50 px-1.5 py-1">
+                                  <span className="text-[9.5px] uppercase text-slate-400">{row.label}</span>
+                                  <span className="text-[11px] font-bold text-slate-100">{row.value}</span>
+                                </div>
+                              ))}
+                            </div>
+                            <p className="mt-1 text-[8.5px] text-emerald-300/70">Source : snapshot NY · backend :8000 (pas de pipe Abidjan)</p>
+                          </>
+                        ) : (
+                          <p className="rounded bg-amber-500/10 px-1.5 py-1 text-[10px] leading-snug text-amber-300/90">KPIs propres à cette maison <b>à migrer</b> depuis l&apos;ancien hub vers le backend NY :8000. Parité non atteinte — ne pas supprimer Abidjan.</p>
+                        )}
+                      </div>
+                    )}
+
+                    {houseTab === "anges" && (
+                      <div className="mt-2">
+                        {(() => {
+                          const arrAtRisk = houseAngels.reduce((s, a) => s + (a.arr_impact_eur_year && a.arr_impact_eur_year < 0 ? a.arr_impact_eur_year : 0), 0);
+                          const nextActions = houseAngels.filter((a) => a.status === "BROKEN" || a.status === "DEGRADED" || a.status === "AWAITING_SETUP");
+                          return (
+                            <>
+                              {arrAtRisk < 0 && (
+                                <p className="mb-1 rounded bg-rose-500/10 px-1.5 py-0.5 text-[10px] font-bold text-rose-300">⚠ ARR à risque : {arrAtRisk.toLocaleString("fr-FR")} €/an</p>
+                              )}
+                              <div className="flex flex-col gap-1">
+                                {houseAngels.map((a) => (
+                                  <button key={a.id} type="button" onClick={() => setSelectedAngel(a)} className="flex items-start gap-1.5 rounded border border-slate-700/60 px-1.5 py-1 text-left hover:border-slate-500">
+                                    <span className="mt-0.5 h-2 w-2 shrink-0 rounded-full" style={{ background: ANGEL_STATUS[a.status].color }} />
+                                    <span className="min-w-0">
+                                      <span className="text-[10px] font-bold text-slate-200">{a.name}</span>
+                                      <span className="ml-1 text-[8.5px] font-semibold uppercase" style={{ color: ANGEL_STATUS[a.status].color }}>{ANGEL_STATUS[a.status].label}</span>
+                                      <span className="block truncate text-[9px] text-slate-400">{a.mission}</span>
+                                    </span>
+                                  </button>
+                                ))}
+                                {!houseAngels.length && <span className="text-[10px] text-slate-500">—</span>}
+                              </div>
+                              {nextActions.length > 0 && (
+                                <p className="mt-2 text-[9px] text-amber-300/80">▸ {nextActions.length} ange(s) à débloquer/activer — clic pour le détail.</p>
+                              )}
+                            </>
+                          );
+                        })()}
+                      </div>
+                    )}
+
+                    {houseTab === "flux" && (
+                      <div className="mt-2">
+                        {houseTrucks.length ? (
+                          <div className="flex flex-col gap-1">
+                            {houseTrucks.map((t) => (
+                              <div key={t.id} className="rounded border border-slate-700/50 px-1.5 py-1">
+                                <span className="text-[10px] font-bold text-slate-200">{t.name}</span>
+                                <span className="block text-[9px] text-slate-400">{t.from} → {t.to} · {t.payload}</span>
+                                <span className="block text-[8.5px] text-slate-500">{t.owner}{t.cadence ? ` · ${t.cadence}` : ""}</span>
+                              </div>
+                            ))}
+                          </div>
+                        ) : (
+                          <p className="text-[10px] text-slate-500">Aucun camion (flux inter-maison) ne touche cette maison.</p>
+                        )}
+                      </div>
+                    )}
                   </>
                 );
               })()}
