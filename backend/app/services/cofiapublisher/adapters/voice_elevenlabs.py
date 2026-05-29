@@ -40,7 +40,7 @@ def synthesize(
     text: str,
     out_path: str,
     voice_id: str | None = None,
-    model_id: str = "eleven_multilingual_v2",
+    model_id: str | None = None,
 ) -> dict:
     """Génère un MP3 depuis du texte. Retourne {ok, path, bytes} ou {ok:False, error}."""
     if not EL_KEY:
@@ -48,12 +48,12 @@ def synthesize(
     vid = (voice_id or DEFAULT_VOICE).strip()
     if not vid:
         return {"ok": False, "error": "no_voice_id"}
+    model_id = (model_id or DEFAULT_MODEL).strip()
     try:
         r = httpx.post(
             f"{API}/text-to-speech/{vid}",
             headers={"xi-api-key": EL_KEY, "accept": "audio/mpeg", "content-type": "application/json"},
-            json={"text": text, "model_id": model_id,
-                  "voice_settings": {"stability": 0.5, "similarity_boost": 0.75}},
+            json={"text": text, "model_id": model_id, "voice_settings": _voice_settings()},
             timeout=60,
         )
     except Exception as e:  # noqa: BLE001
