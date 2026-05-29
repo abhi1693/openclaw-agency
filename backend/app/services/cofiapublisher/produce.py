@@ -394,7 +394,9 @@ def _emit_manifest(rd, run_id, beats, shots, captions, audio_dur, suno_track, qv
     cost_ledger = {"ElevenLabs_voix_eur": 0.30, "Suno_eur": 0.0, "Suno_credits_approx": 10, "Pexels_eur": 0.0,
                    "FLUX_eur": round(0.03 * n_flux, 2), "total_eur": est, "plafond_eur": float(os.environ.get("MAX_COST_EUR", "3"))}
     qa_ledger = {"qa": qv, "sync_caption_end_ms": last_cap, "audio_dur_ms": int(audio_dur * 1000),
-                 "sync_drift_ms": drift, "sync_ok": abs(drift) < 400}
+                 "sync_drift_ms": drift, "sync_ok": abs(drift) < 400,
+                 "voice_gate": {"verdict": voice_qa.get("verdict"), "report": "voice_qa_report.json",
+                                "takes": len(voice_qa.get("takes", []))}}
     manifest = {"run": run_id, "contract": "CofiaPublisher_v1", "storyboard": storyboard, "audio_map": audio_map,
                 "shot_list": shot_list, "tool_ledger": tool_ledger, "cost_ledger": cost_ledger, "qa_ledger": qa_ledger,
                 "final_mp4": out_mp4, "publish": distribution.PUBLISH_LOCK}
