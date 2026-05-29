@@ -33,7 +33,15 @@ def words_from_elevenlabs(alignment: dict, emphasis_lexicon: set[str] | None = N
             cur += ch
     if cur.strip():
         words.append(_mk(cur, cur_start, ends[-1] if ends else cur_start, lex))
-    return words
+    # fusionne la ponctuation isolée (FR: espace avant ? ! : ;) dans le mot précédent → pas d'orphelin
+    merged: list[dict] = []
+    for w in words:
+        if merged and all(c in ".,!?;:»«…-" for c in w["text"]):
+            merged[-1]["text"] += " " + w["text"]
+            merged[-1]["endMs"] = w["endMs"]
+        else:
+            merged.append(w)
+    return merged
 
 
 def _mk(word: str, start_s, end_s, lex: set[str]) -> dict:
