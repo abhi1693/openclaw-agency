@@ -901,6 +901,61 @@ export function ConsoleIAOverlay() {
     }
   };
 
+  const kevinPerception: "ready" | "inactive" | "degraded" = mediaError
+    ? "degraded"
+    : isRecordingAudio || attachments.some((a) => a.kind === "screen" || a.kind === "camera" || a.kind === "audio")
+      ? "ready"
+      : "inactive";
+  const openProofs = () => {
+    setProofsOpen(true);
+    setOpenInspectorSection("proofs");
+  };
+
+  const renderTargetButton = (target: ConsoleTarget) => {
+    const bus = TARGET_BUS_BY_ID[target.id];
+    const visual = targetVisualStatus(target, selectedTargetId, activeRouteBuses, bus ? participantStatusById.get(bus) : undefined);
+    const isKevin = target.id === "kevin_gemini";
+    return (
+      <button
+        key={target.id}
+        type="button"
+        onClick={() => setSelectedTargetId(target.id)}
+        className={`rounded-xl border p-3 text-left transition focus-visible:outline focus-visible:outline-1 focus-visible:outline-cyan-200/50 ${
+          target.id === selectedTargetId
+            ? "border-cyan-300/60 bg-cyan-400/10"
+            : "border-slate-800 bg-slate-900/70 hover:border-cyan-300/25"
+        }`}
+      >
+        <div className="flex items-start gap-2">
+          <span className="grid h-8 w-8 shrink-0 place-items-center rounded-lg border border-cyan-200/20 bg-cyan-400/10 text-[10px] font-black text-cyan-100">
+            {target.label.slice(0, 2).toUpperCase()}
+          </span>
+          <span className="min-w-0">
+            <span className="block truncate text-sm font-black text-white">{target.label}</span>
+            <span className="mt-0.5 block truncate text-[10px] uppercase tracking-[0.08em] text-slate-400">
+              {target.scope}
+            </span>
+          </span>
+        </div>
+        {isKevin ? (
+          <span className={`mt-2 inline-flex items-center gap-1 rounded-full border px-2 py-0.5 text-[9px] font-black uppercase tracking-[0.06em] ${
+            kevinPerception === "ready"
+              ? "border-emerald-300/40 bg-emerald-400/10 text-emerald-100"
+              : kevinPerception === "degraded"
+                ? "border-amber-300/40 bg-amber-400/10 text-amber-100"
+                : "border-slate-600/60 bg-slate-900/50 text-slate-400"
+          }`}>
+            Perception · {kevinPerception}
+          </span>
+        ) : visual.showBadge ? (
+          <span className={`mt-2 inline-flex rounded-full border px-2 py-0.5 text-[9px] font-black ${visualClassFor(visual.tone)}`}>
+            {visual.label}
+          </span>
+        ) : null}
+      </button>
+    );
+  };
+
   return (
     <>
       <button
