@@ -16,7 +16,7 @@ const LIGHTRAG_MANIFEST = `${HOME}/.openclaw/state/lightrag_manifest.json`;
 const NOTION_DBS = `${HOME}/.openclaw/state/notion_dbs.json`;
 const PAPERCLIP_CARDS = `${HOME}/.openclaw/state/paperclip_cards/cards.jsonl`;
 
-type Kpi = { label: string; value: string };
+type Kpi = { label: string; value: string; source?: string };
 type House = { kpis: Kpi[]; gap?: string };
 
 const fr = (n: unknown): string =>
