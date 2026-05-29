@@ -354,7 +354,7 @@ export function WorldMapLiving({
       </div>
 
       {/* ── SCÈNE ISO + INSPECTOR ── */}
-      <div className="relative h-[560px] w-full overflow-hidden rounded-xl border border-cyan-300/15 bg-[#02040a]">
+      <div className="relative h-[calc(100vh-220px)] min-h-[560px] w-full overflow-hidden rounded-xl border border-cyan-300/15 bg-[#02040a]">
         <svg viewBox={viewBox} className="h-full w-full" preserveAspectRatio="xMidYMid meet" onClick={() => { setSelectedHouse(null); setSelectedAngel(null); }}>
           <defs>
             <radialGradient id="iso-ground" cx="50%" cy="42%" r="75%">
