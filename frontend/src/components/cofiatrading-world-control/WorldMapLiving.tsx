@@ -308,7 +308,7 @@ export function WorldMapLiving({
       }
       center[z.zone.id] = { x: z.base.x, y: z.base.y - z.height };
     }
-    const pad = 90;
+    const pad = 55;
     const vb = `${(minX - pad).toFixed(0)} ${(minY - pad).toFixed(0)} ${(maxX - minX + pad * 2).toFixed(0)} ${(maxY - minY + pad * 2).toFixed(0)}`;
     // tri painter (depth iso) : (x+y) croissant
     b.sort((p, q) => (p.zone.x + p.zone.y) - (q.zone.x + q.zone.y));
