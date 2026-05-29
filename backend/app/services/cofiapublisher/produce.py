@@ -352,9 +352,11 @@ LAUNCH_VISUAL_QUERIES = [
 ]
 
 
-def execute_v4(beats=None, voice_id=None) -> dict:
+def execute_v4(beats=None, voice_id=None, counter_to=200, counter_suffix=" IA",
+               counter_beat=3, brand_beat=2, twist_beat=3) -> dict:
     """v4 — VRAI MONTAGE VIDÉO (Marcus) : footage Pexels qui bouge, coupé au beat, multi-clips,
-    + master loudnorm -14 (fin du PSHHH). FLUX seulement en secours. GATED PRODUCE_GO + plafond."""
+    + master loudnorm -14 (fin du PSHHH). FLUX seulement en secours. Scénario-agnostique : chaque beat
+    peut porter sa liste de requêtes visuelles via b['q']. GATED PRODUCE_GO + plafond."""
     if os.environ.get("PRODUCE_GO") != "1":
         return {"ok": False, "blocked": True, "reason": "PRODUCE_GO absent"}
     beats = beats or LAUNCH_BEATS
