@@ -911,37 +911,24 @@ export function ConsoleIAOverlay() {
           aria-label="Console IA Central Brain"
           className="fixed bottom-24 left-5 z-50 grid max-h-[78vh] w-[min(1180px,calc(100vw-40px))] grid-rows-[auto_1fr] overflow-hidden rounded-2xl border border-cyan-300/50 bg-slate-950/96 text-slate-100 shadow-[0_28px_100px_rgba(0,0,0,.72)] backdrop-blur"
         >
-          <header className="grid gap-3 border-b border-slate-700/40 bg-cyan-950/35 p-4 sm:grid-cols-[1fr_auto]">
+          <header className="flex items-start justify-between gap-3 border-b border-slate-700/40 bg-cyan-950/35 p-4">
             <div>
               <p className="text-[10px] font-black uppercase tracking-[0.2em] text-cyan-200">
-                Chat natif + contexte complet
+                Central Brain
               </p>
-              <h2 className="mt-1 text-2xl font-black tracking-tight text-white">Console IA Central Brain</h2>
-              <p className="mt-2 max-w-4xl text-xs leading-5 text-slate-300">
-                Texte, micro, capture écran, photo, fichiers et cible agent/groupe. La console crée un packet local
-                durable, stocke les uploads sur disque et route vers le bus agent sans API payante cachée. ChatGPT =
-                Desktop/brief local, Kevin = Gemini perception.
+              <h2 className="mt-1 text-2xl font-black tracking-tight text-white">Console IA</h2>
+              <p className="mt-1.5 text-xs leading-5 text-slate-400">
+                Packet local durable · aucune API externe cachée.
               </p>
             </div>
-            <div className="flex flex-wrap items-start justify-start gap-2 sm:justify-end">
-              <span className="rounded-full border border-emerald-400/30 bg-emerald-400/10 px-3 py-1 text-[10px] font-black text-emerald-100">
-                Texte
-              </span>
-              <span className="rounded-full border border-cyan-300/30 bg-cyan-400/10 px-3 py-1 text-[10px] font-black text-cyan-100">
-                Captures volontaires
-              </span>
-              <span className="rounded-full border border-sky-400/35 bg-sky-400/10 px-3 py-1 text-[10px] font-black text-sky-100">
-                Modèles sélectionnables
-              </span>
-              <button
-                type="button"
-                onClick={() => setIsOpen(false)}
-                className="grid h-8 w-8 place-items-center rounded-xl border border-slate-600 bg-slate-900 text-slate-200 transition hover:border-cyan-300"
-                aria-label="Fermer console IA"
-              >
-                <X className="h-4 w-4" />
-              </button>
-            </div>
+            <button
+              type="button"
+              onClick={() => setIsOpen(false)}
+              className="grid h-8 w-8 shrink-0 place-items-center rounded-xl border border-slate-600 bg-slate-900 text-slate-200 transition hover:border-cyan-300"
+              aria-label="Fermer console IA"
+            >
+              <X className="h-4 w-4" />
+            </button>
           </header>
 
           <div className="grid min-h-0 grid-cols-1 overflow-hidden lg:grid-cols-[260px_1fr_310px]">
