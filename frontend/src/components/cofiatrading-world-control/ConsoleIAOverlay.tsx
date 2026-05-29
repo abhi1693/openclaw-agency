@@ -1246,7 +1246,19 @@ export function ConsoleIAOverlay() {
               </footer>
             </main>
 
+            {proofsOpen ? (
             <aside className="max-h-64 overflow-auto border-t border-slate-800 p-3 lg:max-h-none lg:border-l lg:border-t-0">
+              <div className="mb-3 flex items-center justify-between gap-2">
+                <p className="text-[10px] font-black uppercase tracking-[0.18em] text-cyan-100">Détails / Preuves</p>
+                <button
+                  type="button"
+                  onClick={() => setProofsOpen(false)}
+                  className="grid h-7 w-7 place-items-center rounded-lg border border-slate-700 text-slate-300 transition hover:border-cyan-300"
+                  aria-label="Fermer détails"
+                >
+                  <X className="h-3.5 w-3.5" />
+                </button>
+              </div>
               <div className="mb-3 rounded-xl border border-cyan-300/20 bg-slate-950/70 p-3">
                 <p className="text-[10px] font-black uppercase tracking-[0.18em] text-cyan-100">Thread local</p>
                 <h4 className="mt-2 truncate text-sm font-black text-white">
