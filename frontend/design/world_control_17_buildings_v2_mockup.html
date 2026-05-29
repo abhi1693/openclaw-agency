@@ -1,0 +1,467 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>COFIATRADING WORLD CONTROL — 17 maisons · MAQUETTE V2</title>
+<!-- ===========================================================
+     MAQUETTE STANDALONE V2 — NON BRANCHÉE AU HUB LIVE
+     source_tag: WORLD_CONTROL_17_BUILDINGS_V2_MOCKUP_20260529
+     - Reproduit le design iso du World Control :3000 (WorldMapLiving.tsx)
+     - 17 maisons : 15 canon + Quant R&D Lab (LIVE) + Personal Trading Control (DEGRADED)
+     - Aucun backend, aucun fetch, aucun bouton actif réel. Données mock.
+     =========================================================== -->
+<style>
+  :root{
+    --bg:#04060d; --bg2:#070b16; --panel:#0a1020; --panel2:#0d1424;
+    --line:#16203a; --txt:#e6edf7; --txt2:#93a3bd; --txt3:#5d6e8c;
+    --live:#34d399; --degraded:#f59e0b; --err:#fb7185; --sleep:#64748b;
+  }
+  *{box-sizing:border-box;margin:0;padding:0}
+  html,body{height:100%}
+  body{
+    font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Inter,Roboto,sans-serif;
+    background:radial-gradient(1200px 700px at 30% -10%, #0b1430 0%, var(--bg) 60%);
+    color:var(--txt); overflow:hidden;
+  }
+  .app{display:flex;flex-direction:column;height:100vh}
+  /* header */
+  header{
+    display:flex;align-items:center;gap:18px;padding:12px 22px;
+    border-bottom:1px solid var(--line);background:linear-gradient(180deg,#070d1c,#05070f);
+    flex-shrink:0;
+  }
+  .logo{display:flex;align-items:center;gap:10px}
+  .logo .dot{width:30px;height:30px;border-radius:8px;background:linear-gradient(135deg,#0066ff,#00b9ff);
+    display:flex;align-items:center;justify-content:center;font-weight:900;font-size:13px;color:#04060d}
+  .logo h1{font-size:15px;font-weight:800;letter-spacing:.5px}
+  .logo p{font-size:10px;color:var(--txt2);letter-spacing:2px;text-transform:uppercase}
+  .mockup-badge{
+    margin-left:6px;padding:4px 12px;border-radius:999px;font-size:10px;font-weight:900;letter-spacing:1.5px;
+    background:repeating-linear-gradient(45deg,#f59e0b22,#f59e0b22 8px,#f59e0b11 8px,#f59e0b11 16px);
+    border:1px solid #f59e0b88;color:#fbbf24;text-transform:uppercase;
+  }
+  .stats{margin-left:auto;display:flex;gap:10px;flex-wrap:wrap}
+  .stat{background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:6px 12px;min-width:78px}
+  .stat .k{font-size:9px;color:var(--txt3);text-transform:uppercase;letter-spacing:1px}
+  .stat .v{font-size:15px;font-weight:800;margin-top:2px}
+  /* body */
+  .main{display:flex;flex:1;min-height:0}
+  .map-wrap{flex:1;position:relative;min-width:0}
+  .map-wrap svg{width:100%;height:100%;display:block}
+  .map-title{position:absolute;top:14px;left:22px;z-index:5}
+  .map-title h2{font-size:20px;font-weight:900;letter-spacing:.5px}
+  .map-title p{font-size:11px;color:var(--txt2);margin-top:2px}
+  .legend{position:absolute;bottom:14px;left:22px;display:flex;gap:14px;z-index:5;
+    background:#05070fcc;padding:8px 14px;border-radius:10px;border:1px solid var(--line);backdrop-filter:blur(6px)}
+  .legend span{display:flex;align-items:center;gap:6px;font-size:11px;color:var(--txt2)}
+  .legend i{width:9px;height:9px;border-radius:50%}
+  /* inspector */
+  .inspector{width:380px;flex-shrink:0;background:linear-gradient(180deg,var(--panel),#06090f);
+    border-left:1px solid var(--line);overflow-y:auto;padding:18px}
+  .inspector::-webkit-scrollbar{width:7px}.inspector::-webkit-scrollbar-thumb{background:#1c2740;border-radius:4px}
+  .insp-head{display:flex;align-items:flex-start;gap:12px;margin-bottom:14px}
+  .insp-head .ic{width:44px;height:44px;border-radius:12px;flex-shrink:0;display:flex;align-items:center;justify-content:center;font-size:20px}
+  .insp-head h3{font-size:18px;font-weight:900;line-height:1.1}
+  .insp-head .sub{font-size:11px;color:var(--txt2);margin-top:3px}
+  .pill{display:inline-flex;align-items:center;gap:5px;padding:3px 11px;border-radius:999px;font-size:10px;font-weight:900;letter-spacing:1px;text-transform:uppercase;margin-top:8px}
+  .insp-role{font-size:12px;color:var(--txt2);line-height:1.5;margin:12px 0;padding:11px;background:#070c18;border:1px solid var(--line);border-radius:10px}
+  .sec{margin-top:16px}
+  .sec h4{font-size:11px;text-transform:uppercase;letter-spacing:1.5px;color:var(--txt3);margin-bottom:8px;display:flex;align-items:center;gap:7px}
+  .sec h4::before{content:"";width:3px;height:12px;border-radius:2px;background:currentColor;opacity:.6}
+  .grid2{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+  .card{background:#080e1c;border:1px solid var(--line);border-radius:10px;padding:9px 11px}
+  .card .lab{font-size:9px;color:var(--txt3);text-transform:uppercase;letter-spacing:.5px}
+  .card .val{font-size:15px;font-weight:800;margin-top:3px}
+  .card .val.sm{font-size:12px}
+  .rowlist{display:flex;flex-direction:column;gap:6px}
+  .rowitem{display:flex;align-items:center;justify-content:space-between;gap:10px;padding:7px 11px;background:#080e1c;border:1px solid var(--line);border-radius:9px;font-size:12px}
+  .rowitem .nm{display:flex;align-items:center;gap:8px;color:var(--txt)}
+  .rowitem .st{font-size:9px;font-weight:800;padding:2px 8px;border-radius:999px;text-transform:uppercase;letter-spacing:.5px}
+  .tag{font-size:9px;padding:2px 7px;border-radius:6px;font-weight:700}
+  .btnrow{display:flex;gap:8px;flex-wrap:wrap;margin-top:8px}
+  .mbtn{flex:1;min-width:90px;padding:9px;border-radius:9px;border:1px solid var(--line);background:#0c1428;color:var(--txt2);
+    font-size:11px;font-weight:700;cursor:not-allowed;position:relative;text-align:center;opacity:.85}
+  .mbtn::after{content:"MOCK";position:absolute;top:-6px;right:6px;font-size:7px;background:#f59e0b;color:#04060d;padding:1px 4px;border-radius:4px;font-weight:900}
+  .mbtn.danger{border-color:#ef233c55;color:#fca5b4}
+  .hint{font-size:10px;color:var(--txt3);margin-top:6px;line-height:1.4}
+  /* mini charts */
+  .chartbox{background:#070c18;border:1px solid var(--line);border-radius:10px;padding:10px}
+  .chartbox .ct{font-size:10px;color:var(--txt3);margin-bottom:6px;text-transform:uppercase;letter-spacing:.5px}
+  .placeholder{color:var(--txt3);font-size:12px;text-align:center;padding:40px 0;line-height:1.6}
+  .lvtag{font-size:9px;font-weight:800;padding:2px 7px;border-radius:999px;letter-spacing:.5px}
+</style>
+</head>
+<body>
+<div class="app">
+  <header>
+    <div class="logo">
+      <div class="dot">CF</div>
+      <div><h1>COFIATRADING WORLD CONTROL</h1><p>Ville isométrique · maquette</p></div>
+    </div>
+    <span class="mockup-badge">● Mockup only — non branché</span>
+    <div class="stats">
+      <div class="stat"><div class="k">Maisons</div><div class="v" id="st-count">17</div></div>
+      <div class="stat"><div class="k">Live</div><div class="v" style="color:var(--live)" id="st-live">16</div></div>
+      <div class="stat"><div class="k">Degraded</div><div class="v" style="color:var(--degraded)" id="st-deg">1</div></div>
+      <div class="stat"><div class="k">Districts</div><div class="v" style="color:#00b9ff">8</div></div>
+    </div>
+  </header>
+
+  <div class="main">
+    <div class="map-wrap">
+      <div class="map-title"><h2>Ville COFIATRADING</h2><p>17 maisons · clic bâtiment → inspecteur · design iso V2</p></div>
+      <svg id="map" preserveAspectRatio="xMidYMid meet"></svg>
+      <div class="legend">
+        <span><i style="background:var(--live)"></i> Live</span>
+        <span><i style="background:var(--degraded)"></i> Degraded</span>
+        <span><i style="background:var(--sleep)"></i> En veille</span>
+        <span><i style="background:var(--err)"></i> Source down</span>
+      </div>
+    </div>
+    <aside class="inspector" id="inspector">
+      <div class="placeholder">🏙️<br/>Clic sur un bâtiment<br/>pour ouvrir l'inspecteur.<br/><br/>Quant R&D Lab (violet) et<br/>Personal Trading Control (vert)<br/>ont des panneaux riches.</div>
+    </aside>
+  </div>
+</div>
+
+<script>
+/* ============ projection iso (identique WorldMapLiving.tsx) ============ */
+const ISO_W=30, ISO_H=16;
+const isoProject=(wx,wy)=>({sx:(wx-wy)*(ISO_W/2), sy:(wx+wy)*(ISO_H/2)});
+
+/* ============ 17 zones (15 canon + 2 nouvelles, placement propre) ============ */
+const ZONES=[
+  {id:"obsidian_library",name:"Knowledge Vault",sub:"Obsidian & Drive",x:50,y:10,w:5,h:4,color:"#f8fafc",roof:"#020617",accent:"#0f172a",district:"knowledge",status:"LIVE",role:"Canon, Drive index et bundles sources"},
+  {id:"lightrag_observatory",name:"LightRAG Observatory",sub:"Semantic graph",x:58,y:17,w:5,h:4,color:"#1e1b4b",roof:"#0f0820",accent:"#a78bfa",district:"knowledge",status:"LIVE",role:"Mémoire sémantique LightRAG, recall sourcé"},
+  {id:"paperclip_factory",name:"Paperclip Factory",sub:"Backlog scoring",x:44,y:20,w:5,h:4,color:"#24143f",roof:"#0f0820",accent:"#7c3aed",district:"knowledge",status:"LIVE",role:"Scoring tâches Paperclip et nettoyage backlog"},
+  /* ↓ NOUVEAU 1 — Quant R&D Lab : placé entre Trading Tower / Central Brain / Knowledge Vault / Paperclip, sans collision route */
+  {id:"quant_rd_lab",name:"Quant R&D Lab",sub:"STRAT-17/18 · research",x:34,y:14,w:5,h:4,color:"#1a0f3a",roof:"#0a0518",accent:"#a878ff",district:"research",status:"LIVE",tall:true,role:"Laboratoire recherche STRAT-17/18 : backtest replay, walk-forward, red-team, variants, paper forward. Agents existants (Quant, Lab, Risk, MiroFish, Marco) — cap 38, aucun nouvel agent."},
+  {id:"mt4_signal_tower",name:"Trading Tower",sub:"Markets & Research",x:24,y:25,w:5,h:5,color:"#0b1b14",roof:"#030705",accent:"#00e676",district:"trading",status:"LIVE",tall:true,role:"Recherche trading, paper analytics, STRAT-17/18 LIVE"},
+  {id:"central_brain",name:"Central Brain",sub:"AI Meta-Surveillance",x:47,y:31,w:5,h:5,color:"#24104f",roof:"#100520",accent:"#8b5cf6",district:"command",status:"LIVE",tall:true,role:"Orchestration cross-IA, mémoire vivante, routing missions"},
+  {id:"mission_control_tower",name:"Command Tower",sub:"Command & Control",x:56,y:35,w:6,h:5,color:"#102a43",roof:"#06121f",accent:"#008cff",district:"command",status:"LIVE",tall:true,role:"Tour de contrôle, board, priorités, routing GO"},
+  {id:"trading_academy",name:"Trading Academy",sub:"cofiatrading Academy",x:36,y:42,w:6,h:4,color:"#17324a",roof:"#07131f",accent:"#38bdf8",district:"education",status:"LIVE",role:"Académie : site public → modules → preuves → Trading Tower"},
+  {id:"assets_warehouse",name:"Publisher Suite",sub:"Assets · Voice · Distribution",x:96,y:38,w:5,h:4,color:"#082f2e",roof:"#031414",accent:"#14b8a6",district:"content",status:"LIVE",role:"Assets brand, render gallery, voix, packaging, distribution"},
+  {id:"site_seo_lab",name:"Site & SEO Lab",sub:"Website & Growth",x:13,y:48,w:5,h:4,color:"#111827",roof:"#f8fafc",accent:"#ffffff",district:"ops",status:"LIVE",role:"Site, SEO, tests locaux et deploy readiness"},
+  {id:"openclaw_agent_barracks",name:"Agents Village",sub:"OpenClaw agents",x:68,y:49,w:7,h:4,color:"#3b1f06",roof:"#120904",accent:"#ff7a00",district:"command",status:"LIVE",role:"Runtime OpenClaw et performance agents"},
+  {id:"iron_office",name:"Revenue & CRM",sub:"MRR / VIP / Brokers",x:31,y:54,w:5,h:4,color:"#4a3412",roof:"#1c1305",accent:"#ffd400",district:"crm",status:"LIVE",role:"Revenue, CRM, VIP, FTD et diagnostic brokers"},
+  {id:"calendar_tower",name:"Calendar Tower",sub:"Recurring missions",x:95,y:56,w:5,h:4,color:"#3a2500",roof:"#120b00",accent:"#ffb000",district:"security",status:"LIVE",tall:true,role:"Cadence missions et tâches agents récurrentes"},
+  /* ↓ NOUVEAU 2 — Personal Trading Control : placé près Command Tower / Revenue & CRM / Compliance Gate, sans collision route */
+  {id:"personal_trading_control",name:"Personal Trading Control",sub:"Accounts · risk · copy",x:64,y:61,w:5,h:4,color:"#0f2a1a",roof:"#05140a",accent:"#6fe39a",district:"perso",status:"DEGRADED",role:"Comptes perso ATAS/Rithmic/Apex/MT4/MT5, FXcess copy, prop, positions, risk. DEGRADED : live money NON armé (auto-exec Apex BLOCKED, FXcess master mort) — dry-run/sim OK. Distinct du Command Tower."},
+  {id:"vip_gate",name:"Telegram Community",sub:"Free / VIP channels",x:40,y:68,w:5,h:4,color:"#0d3b66",roof:"#061a2d",accent:"#00d9ff",district:"crm",status:"LIVE",role:"Acquisition Telegram, gate VIP et rétention"},
+  {id:"compliance_port",name:"Compliance Gate",sub:"CNMV · AEPD · ESMA",x:82,y:70,w:5,h:4,color:"#3a0710",roof:"#130206",accent:"#ef233c",district:"security",status:"LIVE",role:"Compliance CNMV/AEPD/ESMA, safety, DLP, GO packets"},
+  {id:"youtube_studio",name:"COF IA Publisher",sub:"Video Production Machine",x:92,y:22,w:5,h:4,color:"#40111b",roof:"#16050a",accent:"#ff1744",district:"content",status:"LIVE",role:"Machine vidéo : scénarios, render, review, timeline, drafts"},
+];
+
+const DISTRICT_COLOR={command:"#008cff",content:"#ff1744",crm:"#ffd400",trading:"#00e676",knowledge:"#a78bfa",security:"#ef233c",ops:"#cbd5e1",education:"#38bdf8",research:"#a878ff",perso:"#6fe39a"};
+const ROUTES=[
+  ["central_brain","mission_control_tower","active"],
+  ["mission_control_tower","openclaw_agent_barracks","active"],
+  ["iron_office","vip_gate","vip"],
+  ["mt4_signal_tower","trading_academy","active"],
+  ["youtube_studio","assets_warehouse","vip"],
+  ["central_brain","paperclip_factory","active"],
+  ["iron_office","mission_control_tower","vip"],
+  /* routes des 2 nouvelles maisons (choisies pour éviter collision visuelle) */
+  ["quant_rd_lab","mt4_signal_tower","active"],
+  ["quant_rd_lab","central_brain","active"],
+  ["personal_trading_control","mission_control_tower","active"],
+  ["personal_trading_control","compliance_port","vip"],
+];
+
+const STATUS_META={
+  LIVE:{color:"#34d399",label:"LIVE"},
+  DEGRADED:{color:"#f59e0b",label:"DEGRADED"},
+  SLEEPING:{color:"#64748b",label:"EN VEILLE"},
+  SOURCE_DOWN:{color:"#fb7185",label:"SOURCE DOWN"},
+};
+const statusStyle=s=>STATUS_META[s]||{color:"#fb7185",label:s||"ERR"};
+
+/* ============ géométrie bâtiment (identique buildZone) ============ */
+function buildZone(z){
+  const levels = z.tall?7 : (z.district==="command"||z.district==="content")?5:4;
+  const h = 8 + levels*6.5;
+  const corners=[[z.x,z.y],[z.x+z.w,z.y],[z.x+z.w,z.y+z.h],[z.x,z.y+z.h]].map(([wx,wy])=>isoProject(wx,wy));
+  const ground=corners.map(c=>({x:c.sx,y:c.sy}));
+  const roofPts=ground.map(c=>({x:c.x,y:c.y-h}));
+  const P=pt=>`${pt.x.toFixed(1)},${pt.y.toFixed(1)}`;
+  const roofPoly=roofPts.map(P).join(" ");
+  const leftWall=[ground[3],ground[2],roofPts[2],roofPts[3]].map(P).join(" ");
+  const rightWall=[ground[1],ground[2],roofPts[2],roofPts[1]].map(P).join(" ");
+  const cols=Math.max(2,Math.round(z.w*1.1));
+  const rows=Math.max(3,levels);
+  const seed=z.id.length+Math.round(z.x)+Math.round(z.y);
+  const lerp=(a,b,t)=>({x:a.x+(b.x-a.x)*t,y:a.y+(b.y-a.y)*t});
+  const at=(BL,BR,TL,TR,u,v)=>lerp(lerp(BL,BR,u),lerp(TL,TR,u),v);
+  function faceWindows(BL,BR,TL,TR,sd){
+    const out=[],mx=0.16,my=0.2;
+    for(let r=0;r<rows;r++)for(let c=0;c<cols;c++){
+      const a=at(BL,BR,TL,TR,(c+mx)/cols,(r+my)/rows);
+      const b=at(BL,BR,TL,TR,(c+1-mx)/cols,(r+my)/rows);
+      const d=at(BL,BR,TL,TR,(c+1-mx)/cols,(r+1-my)/rows);
+      const e=at(BL,BR,TL,TR,(c+mx)/cols,(r+1-my)/rows);
+      const lit=((c*7+r*13+sd)%7)!==0;
+      out.push({pts:`${P(a)} ${P(b)} ${P(d)} ${P(e)}`,lit});
+    }
+    return out;
+  }
+  const leftWindows=faceWindows(ground[3],ground[2],roofPts[3],roofPts[2],seed);
+  const rightWindows=faceWindows(ground[1],ground[2],roofPts[1],roofPts[2],seed+3);
+  return {zone:z,base:{x:(ground[0].x+ground[2].x)/2,y:(ground[0].y+ground[2].y)/2},ground,roofPts,leftWall,rightWall,roofPoly,height:h,leftWindows,rightWindows};
+}
+
+/* ============ rendu SVG ============ */
+const NS="http://www.w3.org/2000/svg";
+const built=ZONES.map(buildZone);
+const centerById={};
+let minX=1e9,minY=1e9,maxX=-1e9,maxY=-1e9;
+for(const b of built){
+  for(const pt of [...b.ground,...b.roofPts]){minX=Math.min(minX,pt.x);minY=Math.min(minY,pt.y);maxX=Math.max(maxX,pt.x);maxY=Math.max(maxY,pt.y);}
+  centerById[b.zone.id]={x:b.base.x,y:b.base.y-b.height};
+}
+const pad=90;
+const vb=`${(minX-pad).toFixed(0)} ${(minY-pad).toFixed(0)} ${(maxX-minX+pad*2).toFixed(0)} ${(maxY-minY+pad*2).toFixed(0)}`;
+built.sort((p,q)=>(p.zone.x+p.zone.y)-(q.zone.x+q.zone.y));
+
+const svg=document.getElementById("map");
+svg.setAttribute("viewBox",vb);
+const el=(t,a={})=>{const e=document.createElementNS(NS,t);for(const k in a)e.setAttribute(k,a[k]);return e;};
+
+// defs (glow + roof sheen)
+const defs=el("defs");
+defs.innerHTML=`
+ <filter id="iso-glow" x="-50%" y="-50%" width="200%" height="200%"><feGaussianBlur stdDeviation="2.4" result="b"/><feMerge><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge></filter>
+ <filter id="soft-glow" x="-80%" y="-80%" width="260%" height="260%"><feGaussianBlur stdDeviation="14"/></filter>
+ <linearGradient id="roof-sheen" x1="0" y1="0" x2="1" y2="1"><stop offset="0%" stop-color="#ffffff" stop-opacity="0.10"/><stop offset="100%" stop-color="#ffffff" stop-opacity="0"/></linearGradient>`;
+svg.appendChild(defs);
+
+// halos district au sol
+const gHalo=el("g");
+for(const b of built){
+  const col=DISTRICT_COLOR[b.zone.district]||"#22d3ee";
+  gHalo.appendChild(el("ellipse",{cx:b.base.x,cy:b.base.y+8,rx:b.zone.w*13,ry:b.zone.w*6,fill:col,opacity:0.09,filter:"url(#soft-glow)"}));
+}
+svg.appendChild(gHalo);
+
+// routes
+const gR=el("g");
+ROUTES.forEach(([a,b2,kind],i)=>{
+  const ca=centerById[a],cb=centerById[b2]; if(!ca||!cb)return;
+  const za=ZONES.find(z=>z.id===a);
+  const col=kind==="vip"?"#ffd400":(DISTRICT_COLOR[za?za.district:"command"]||"#22d3ee");
+  const mx=(ca.x+cb.x)/2, my=(ca.y+cb.y)/2-40;
+  const d=`M ${ca.x} ${ca.y+18} Q ${mx} ${my} ${cb.x} ${cb.y+18}`;
+  const path=el("path",{id:`rt-${i}`,d,fill:"none",stroke:col,"stroke-width":1.6,"stroke-dasharray":"5 7",opacity:0.5});
+  const anim=el("animate",{attributeName:"stroke-dashoffset",from:"24",to:"0",dur:"1.1s",repeatCount:"indefinite"});
+  path.appendChild(anim); gR.appendChild(path);
+  const dot=el("circle",{r:2.6,fill:col,filter:"url(#iso-glow)"});
+  const am=el("animateMotion",{dur:"6s",repeatCount:"indefinite",begin:`${i*0.6}s`});
+  am.appendChild(el("mpath",{href:`#rt-${i}`})); dot.appendChild(am); gR.appendChild(dot);
+});
+svg.appendChild(gR);
+
+// bâtiments
+for(const b of built){
+  const z=b.zone, st=statusStyle(z.status);
+  const g=el("g",{style:"cursor:pointer"}); g.dataset.id=z.id;
+  const cx=b.base.x, cyTop=b.base.y-b.height;
+  g.appendChild(el("ellipse",{cx,cy:b.base.y+6,rx:z.w*9,ry:z.w*4.4,fill:st.color,opacity:0.12,class:"halo"}));
+  g.appendChild(el("polygon",{points:b.leftWall,fill:z.color,opacity:0.96}));
+  g.appendChild(el("polygon",{points:b.rightWall,fill:z.color,opacity:0.72}));
+  b.leftWindows.forEach(w=>g.appendChild(el("polygon",{points:w.pts,fill:w.lit?z.accent:"#0a0f1c",opacity:0.5})));
+  b.rightWindows.forEach(w=>g.appendChild(el("polygon",{points:w.pts,fill:w.lit?z.accent:"#070b14",opacity:w.lit?0.32:0.55})));
+  const lwE=el("polygon",{points:b.leftWall,fill:"none",stroke:st.color,"stroke-width":0.9,opacity:0.7,class:"edge"}); g.appendChild(lwE);
+  const rwE=el("polygon",{points:b.rightWall,fill:"none",stroke:st.color,"stroke-width":0.7,opacity:0.5,class:"edge2"}); g.appendChild(rwE);
+  g.appendChild(el("polygon",{points:b.roofPoly,fill:z.roof}));
+  g.appendChild(el("polygon",{points:b.roofPoly,fill:"url(#roof-sheen)"}));
+  const roofE=el("polygon",{points:b.roofPoly,fill:"none",stroke:z.accent,"stroke-width":1.3,class:"roofedge"}); g.appendChild(roofE);
+  const crest=el("circle",{cx,cy:cyTop,r:3.2,fill:z.accent,filter:"url(#iso-glow)"});
+  if(z.status==="DEGRADED"||z.status==="SOURCE_DOWN"){const a=el("animate",{attributeName:"opacity",values:"1;0.3;1",dur:"1.4s",repeatCount:"indefinite"});crest.appendChild(a);}
+  g.appendChild(crest);
+  // label
+  const lblY=cyTop-12;
+  const lbl=el("text",{x:cx,y:lblY,"text-anchor":"middle","font-size":12,"font-weight":800,fill:"#e6edf7",style:"paint-order:stroke;stroke:#04060d;stroke-width:3px;pointer-events:none"});
+  lbl.textContent=z.name; g.appendChild(lbl);
+  const sub=el("text",{x:cx,y:lblY+12,"text-anchor":"middle","font-size":9,"font-weight":700,fill:st.color,style:"paint-order:stroke;stroke:#04060d;stroke-width:2.5px;pointer-events:none"});
+  sub.textContent="● "+st.label; g.appendChild(sub);
+  // hover + click
+  g.addEventListener("mouseenter",()=>{lwE.setAttribute("stroke-width",1.8);lwE.setAttribute("opacity",1);roofE.setAttribute("stroke-width",2);roofE.setAttribute("filter","url(#iso-glow)");g.querySelector(".halo").setAttribute("opacity",0.26);});
+  g.addEventListener("mouseleave",()=>{lwE.setAttribute("stroke-width",0.9);lwE.setAttribute("opacity",0.7);roofE.setAttribute("stroke-width",1.3);roofE.removeAttribute("filter");g.querySelector(".halo").setAttribute("opacity",0.12);});
+  g.addEventListener("click",e=>{e.stopPropagation();openInspector(z.id);});
+  svg.appendChild(g);
+}
+svg.addEventListener("click",()=>{document.getElementById("inspector").innerHTML=defaultPanel;});
+
+/* ============ panneaux inspecteur ============ */
+const defaultPanel=document.getElementById("inspector").innerHTML;
+
+function spark(values,color,h=46,w=320){
+  const min=Math.min(...values),max=Math.max(...values),rng=(max-min)||1;
+  const pts=values.map((v,i)=>`${(i/(values.length-1)*w).toFixed(1)},${(h-((v-min)/rng)*h).toFixed(1)}`).join(" ");
+  return `<svg viewBox="0 0 ${w} ${h}" width="100%" height="${h}"><polyline points="${pts}" fill="none" stroke="${color}" stroke-width="2"/><polyline points="0,${h} ${pts} ${w},${h}" fill="${color}22" stroke="none"/></svg>`;
+}
+function tradeChart(){ // mini chart entry/SL/TP1/TP2/TP3
+  const w=320,h=120;
+  const price=[60,58,55,52,50,48,49,51,54,58,63,68,72,76];
+  const min=44,max=80,rng=max-min;
+  const Y=v=>h-((v-min)/rng)*h;
+  const pts=price.map((v,i)=>`${(i/(price.length-1)*w).toFixed(1)},${Y(v).toFixed(1)}`).join(" ");
+  const line=(v,c,t)=>`<line x1="0" y1="${Y(v)}" x2="${w}" y2="${Y(v)}" stroke="${c}" stroke-width="1" stroke-dasharray="4 4" opacity="0.8"/><text x="3" y="${Y(v)-3}" font-size="8" fill="${c}">${t}</text>`;
+  return `<svg viewBox="0 0 ${w} ${h}" width="100%" height="${h}">
+    ${line(50,"#38bdf8","ENTRY")}${line(46,"#ef233c","SL")}${line(58,"#34d399","TP1")}${line(66,"#34d399","TP2")}${line(76,"#34d399","TP3")}
+    <polyline points="${pts}" fill="none" stroke="#a878ff" stroke-width="2"/>
+  </svg>`;
+}
+
+const RICH={
+  quant_rd_lab:()=>`
+    <div class="insp-head">
+      <div class="ic" style="background:linear-gradient(135deg,#a878ff,#00b9ff)">🔬</div>
+      <div><h3>Quant R&D Lab</h3><div class="sub">STRAT-17/18 · research lab</div>
+        <span class="pill" style="background:#34d39922;color:#34d399;border:1px solid #34d39955">● LIVE · RESEARCH</span></div>
+    </div>
+    <div class="insp-role">Laboratoire de recherche STRAT-17/18 — backtest replay, walk-forward, red-team, variants, paper forward. Agents <b>existants</b> (Quant · Lab · Risk · MiroFish · Marco). Cap 38, aucun nouvel agent.</div>
+
+    <div class="sec" style="color:#a878ff"><h4>Stratégies</h4>
+      <div class="grid2">
+        <div class="card"><div class="lab">STRAT-17 AOKIJI</div><div class="val sm">Mean-reversion NQ</div></div>
+        <div class="card"><div class="lab">STRAT-18 KAIDO</div><div class="val sm">Momentum / drive NQ</div></div>
+      </div>
+    </div>
+
+    <div class="sec" style="color:#a878ff"><h4>Mini chart · entry / SL / TP1·2·3</h4>
+      <div class="chartbox">${tradeChart()}</div>
+    </div>
+
+    <div class="sec" style="color:#a878ff"><h4>Equity curve</h4>
+      <div class="chartbox"><div class="ct">paper forward cumulé</div>${spark([0,4,3,8,12,10,16,22,20,28,34,40],"#34d399")}</div>
+    </div>
+    <div class="sec" style="color:#a878ff"><h4>Drawdown</h4>
+      <div class="chartbox"><div class="ct">max DD −21%</div>${spark([0,-3,-8,-21,-12,-6,-9,-4,-2,-7,-3,-1],"#ef233c")}</div>
+    </div>
+
+    <div class="sec" style="color:#a878ff"><h4>Variant leaderboard</h4>
+      <div class="rowlist">
+        <div class="rowitem"><span class="nm"><span class="tag" style="background:#34d39922;color:#34d399">#1</span> KAIDO v18.4</span><span>PF 16.92</span></div>
+        <div class="rowitem"><span class="nm"><span class="tag" style="background:#34d39922;color:#34d399">#2</span> AOKIJI v17.2</span><span>PF 16.57</span></div>
+        <div class="rowitem"><span class="nm"><span class="tag" style="background:#a78bfa22;color:#a78bfa">#3</span> KAIDO v18.1</span><span>PF 14.92</span></div>
+        <div class="rowitem"><span class="nm"><span class="tag" style="background:#64748b22;color:#94a3b8">#4</span> AOKIJI base</span><span>PF 11.43</span></div>
+      </div>
+    </div>
+
+    <div class="sec" style="color:#a878ff"><h4>Validation</h4>
+      <div class="grid2">
+        <div class="card"><div class="lab">Walk-forward</div><div class="val sm" style="color:#34d399">4 quarters OK</div></div>
+        <div class="card"><div class="lab">Sanity gate</div><div class="val sm" style="color:#34d399">5/5 PASS</div></div>
+        <div class="card"><div class="lab">Red-team</div><div class="val sm" style="color:#f59e0b">OOS fragile</div></div>
+        <div class="card"><div class="lab">Paper forward</div><div class="val sm">running</div></div>
+      </div>
+    </div>
+
+    <div class="sec" style="color:#a878ff"><h4>Rejected filters</h4>
+      <div class="rowlist">
+        <div class="rowitem"><span class="nm">RSI div confirm</span><span class="st" style="background:#ef233c22;color:#fca5b4">rejeté</span></div>
+        <div class="rowitem"><span class="nm">VWAP band 2σ</span><span class="st" style="background:#ef233c22;color:#fca5b4">rejeté</span></div>
+        <div class="rowitem"><span class="nm">Session filter EU open</span><span class="st" style="background:#f59e0b22;color:#fbbf24">à tester</span></div>
+      </div>
+    </div>
+
+    <div class="sec" style="color:#a878ff"><h4>Actions (mock)</h4>
+      <div class="btnrow"><button class="mbtn">Run backtest</button><button class="mbtn">Replay</button></div>
+      <div class="btnrow"><button class="mbtn">Walk-forward</button><button class="mbtn">Red-team</button></div>
+      <div class="hint">Boutons inertes — maquette. La passe canon branchera GET read-only /api/rd/* d'abord.</div>
+    </div>`,
+
+  personal_trading_control:()=>`
+    <div class="insp-head">
+      <div class="ic" style="background:linear-gradient(135deg,#6fe39a,#ffc864)">💼</div>
+      <div><h3>Personal Trading Control</h3><div class="sub">Comptes · risk · copy trading</div>
+        <span class="pill" style="background:#f59e0b22;color:#f59e0b;border:1px solid #f59e0b55">● DEGRADED · LIVE MONEY NON ARMÉ</span></div>
+    </div>
+    <div class="insp-role" style="border-color:#ef233c44">Comptes perso ATAS/Rithmic/Apex/MT4/MT5, FXcess copy, prop, positions, risk. <b style="color:#fbbf24">DEGRADED</b> : auto-exec Apex <b style="color:#fca5b4">BLOCKED</b>, FXcess master mort. Dry-run / simulateur OK uniquement.</div>
+
+    <div class="sec" style="color:#6fe39a"><h4>Accounts</h4>
+      <div class="rowlist">
+        <div class="rowitem"><span class="nm">APEX-46219-472 · Rithmic</span><span class="st" style="background:#f59e0b22;color:#fbbf24">SIM / DRY-RUN</span></div>
+        <div class="rowitem"><span class="nm">MT4 1150061258 · FXcess master</span><span class="st" style="background:#ef233c22;color:#fca5b4">BLOCKED</span></div>
+        <div class="rowitem"><span class="nm">Mirror PM000697 · copy slave</span><span class="st" style="background:#f59e0b22;color:#fbbf24">DEGRADED</span></div>
+      </div>
+    </div>
+
+    <div class="sec" style="color:#6fe39a"><h4>Connecteurs</h4>
+      <div class="grid2">
+        <div class="card"><div class="lab">ATAS / Rithmic</div><div class="val sm" style="color:#34d399">connecté (sim)</div></div>
+        <div class="card"><div class="lab">Apex auto-exec</div><div class="val sm" style="color:#fca5b4">BLOCKED</div></div>
+        <div class="card"><div class="lab">MT4 / MT5</div><div class="val sm" style="color:#f59e0b">heartbeat only</div></div>
+        <div class="card"><div class="lab">FXcess copy</div><div class="val sm" style="color:#fca5b4">master mort</div></div>
+      </div>
+    </div>
+
+    <div class="sec" style="color:#6fe39a"><h4>Equity (sim)</h4>
+      <div class="chartbox"><div class="ct">paper / dry-run cumulé</div>${spark([0,2,5,3,7,9,6,11,14,12,15,18],"#6fe39a")}</div>
+    </div>
+    <div class="sec" style="color:#6fe39a"><h4>Drawdown</h4>
+      <div class="chartbox"><div class="ct">risk monitor</div>${spark([0,-2,-5,-9,-6,-3,-7,-4,-2,-5,-3,-1],"#ef233c")}</div>
+    </div>
+
+    <div class="sec" style="color:#6fe39a"><h4>Positions ouvertes</h4>
+      <div class="rowlist">
+        <div class="rowitem"><span class="nm">MNQ · 3 micro · LONG</span><span class="st" style="background:#34d39922;color:#34d399">+18 pts (sim)</span></div>
+        <div class="rowitem"><span class="nm">aucune position live</span><span class="st" style="background:#64748b22;color:#94a3b8">armé OFF</span></div>
+      </div>
+    </div>
+
+    <div class="sec" style="color:#6fe39a"><h4>Risk rules</h4>
+      <div class="grid2">
+        <div class="card"><div class="lab">Daily loss cap</div><div class="val sm">−500 $ (sim)</div></div>
+        <div class="card"><div class="lab">Max micros</div><div class="val sm">3 MNQ</div></div>
+        <div class="card"><div class="lab">Trailing DD Apex</div><div class="val sm" style="color:#f59e0b">monitor</div></div>
+        <div class="card"><div class="lab">Copy suitability</div><div class="val sm">95.8</div></div>
+      </div>
+    </div>
+
+    <div class="sec" style="color:#6fe39a"><h4>Compliance gate</h4>
+      <div class="rowlist">
+        <div class="rowitem"><span class="nm">Auto-exec réel Apex</span><span class="st" style="background:#ef233c22;color:#fca5b4">BLOCKED</span></div>
+        <div class="rowitem"><span class="nm">Dry-run bracket OCO</span><span class="st" style="background:#34d39922;color:#34d399">OK</span></div>
+        <div class="rowitem"><span class="nm">Simulateur DEMO</span><span class="st" style="background:#34d39922;color:#34d399">OK</span></div>
+        <div class="rowitem"><span class="nm">Copy FXcess</span><span class="st" style="background:#ef233c22;color:#fca5b4">bloqué (master mort)</span></div>
+      </div>
+    </div>
+
+    <div class="sec" style="color:#6fe39a"><h4>Actions (mock)</h4>
+      <div class="btnrow"><button class="mbtn">Pause account</button><button class="mbtn">Copy mode</button></div>
+      <div class="btnrow"><button class="mbtn danger">Arm live</button><button class="mbtn">Dry-run</button></div>
+      <div class="hint">Boutons inertes — maquette. « Arm live » jamais activé sans autorisation algo écrite Apex + master FXcess réparé.</div>
+    </div>`,
+};
+
+function genericPanel(z){
+  const st=statusStyle(z.status);
+  return `
+    <div class="insp-head">
+      <div class="ic" style="background:${z.accent}22;border:1px solid ${z.accent}55;color:${z.accent}">🏛️</div>
+      <div><h3>${z.name}</h3><div class="sub">${z.sub}</div>
+        <span class="pill" style="background:${st.color}22;color:${st.color};border:1px solid ${st.color}55">● ${st.label}</span></div>
+    </div>
+    <div class="insp-role">${z.role}</div>
+    <div class="sec" style="color:${z.accent}"><h4>District</h4>
+      <div class="card"><div class="lab">Zone</div><div class="val sm" style="text-transform:capitalize">${z.district}</div></div>
+    </div>
+    <div class="hint" style="margin-top:14px">Maison canon — panneau standard. (Les 2 maisons en cours d'ajout ont un inspecteur enrichi.)</div>`;
+}
+
+function openInspector(id){
+  const z=ZONES.find(x=>x.id===id);
+  const insp=document.getElementById("inspector");
+  insp.innerHTML = RICH[id] ? RICH[id]() : genericPanel(z);
+  insp.scrollTop=0;
+}
+
+/* recalcul compteur (cohérence) */
+document.getElementById("st-count").textContent=ZONES.length;
+document.getElementById("st-live").textContent=ZONES.filter(z=>z.status==="LIVE").length;
+document.getElementById("st-deg").textContent=ZONES.filter(z=>z.status==="DEGRADED").length;
+</script>
+</body>
+</html>
