@@ -171,7 +171,7 @@ export async function POST() {
   const mrr = readNumber(revenue, ["mrr_eur", "mrr_active_eur"]);
   const vip = readNumber(revenue, ["active_vip"]);
   const pastDue = readNumber(revenue, ["past_due_eur", "past_due_eur_total"]);
-  const lastProof = `MRR=${mrr ?? "UNKNOWN"} EUR · VIP=${vip ?? "UNKNOWN"} · past_due=${pastDue ?? "UNKNOWN"} EUR · src=hub-iron-revenue-summary · ts=${timestamp}`;
+  const lastProof = `MRR=${mrr ?? "UNKNOWN"} EUR · VIP=${vip ?? "UNKNOWN"} · past_due=${pastDue ?? "UNKNOWN"} EUR · src=cof_state-local (no-abidjan) · ts=${timestamp}`;
 
   const fields = toRecord(stripe.task.custom_field_values);
   const customFieldValues = {
