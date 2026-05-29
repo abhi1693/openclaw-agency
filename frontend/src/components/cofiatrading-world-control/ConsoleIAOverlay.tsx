@@ -1081,7 +1081,7 @@ export function ConsoleIAOverlay() {
                       return (
                         <div
                           key={item.id}
-                          className={`max-w-[88%] rounded-2xl border p-3 text-sm leading-6 ${
+                          className={`max-w-[88%] rounded-2xl border p-3 text-[15px] leading-7 ${
                             item.role === "user"
                               ? "ml-auto border-blue-300/35 bg-blue-950/35 text-blue-50"
                               : item.role === "agent"
