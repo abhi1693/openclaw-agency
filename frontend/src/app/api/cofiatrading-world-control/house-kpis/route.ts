@@ -148,15 +148,41 @@ export async function GET() {
         { label: "Subs actifs / past_due", value: `${fr(g(site, "revenue", "active_subscriptions"))} / ${fr(g(site, "revenue", "recoverable_past_due_mrr"))}€`, source: "site snapshot" } as Kpi,
       ],
     };
-    // calendar : seul KPI non-Abidjan dispo = events_to_dec31 du site snapshot ; reste = gap
+  }
+
+  // ── calendar_tower : missions récurrentes (cadence) depuis calendar_bus.jsonl LOCAL (no-Abidjan).
+  // Lignes type {t,f,r,k,s} où s = "job=<name> interval=<n>s next=<iso> loaded=True".
+  {
+    const recent = calBusLines.slice(-400);
+    const jobs = new Set<string>();
+    const nexts: number[] = [];
+    const nowSec = Math.floor(Date.parse(new Date().toISOString()) / 1000);
+    for (const line of recent) {
+      try {
+        const o = rec(JSON.parse(line));
+        const s = typeof o.s === "string" ? o.s : "";
+        const jm = s.match(/job=([^\s]+)/);
+        if (jm) jobs.add(jm[1]);
+        const nm = s.match(/next=([0-9T:\-.Z]+)/);
+        if (nm) {
+          const ts = Math.floor(Date.parse(nm[1]) / 1000);
+          if (Number.isFinite(ts) && ts >= nowSec) nexts.push(ts);
+        }
+      } catch { /* skip */ }
+    }
+    nexts.sort((a, b) => a - b);
+    const nextEvent = nexts.length
+      ? new Date(nexts[0] * 1000).toISOString().replace("T", " ").slice(0, 16) + " UTC"
+      : "—";
+    const events31 = site ? fr(g(site, "calendar", "events_to_dec31")) : "UNKNOWN";
     houses.calendar_tower = {
       kpis: [
-        { label: "Events → 31 déc", value: fr(g(site, "calendar", "events_to_dec31")), source: "site snapshot (local)" } as Kpi,
+        { label: "Jobs récurrents actifs", value: fr(jobs.size), source: "agent_mesh/calendar_bus.jsonl (local)" } as Kpi,
+        { label: "Prochaine échéance", value: nextEvent, source: "calendar_bus next= (local)" } as Kpi,
+        { label: "Events bus (400 derniers)", value: fr(recent.length), source: "calendar_bus.jsonl" } as Kpi,
+        { label: "Events → 31 déc", value: events31, source: "site snapshot (local)" } as Kpi,
       ],
-      gap: "Calendar live (events à venir) : seule route NY pointe Abidjan :8430 → backend NY requis pour parité complète.",
     };
-  } else {
-    houses.calendar_tower = { kpis: [], gap: "Calendar : source non-Abidjan absente → backend NY requis." };
   }
 
   // ── obsidian_library : notion DBs + lightrag manifest (lectures cheap, local)
