@@ -46,3 +46,35 @@ def connectivity() -> dict:
     else:
         out["imagen_google"] = {"key": False}
     return {"ok": True, "providers": out}
+
+
+def flux_generate(prompt: str, out_path: str, image_size: str = "portrait_16_9") -> dict:
+    """Génère une vraie image IA via Fal FLUX (submit + poll + download). Coût ~0,03€."""
+    if not FAL_KEY:
+        return {"ok": False, "error": "FAL_KEY_missing"}
+    import time
+    hdr = {"Authorization": f"Key {FAL_KEY}", "Content-Type": "application/json"}
+    try:
+        sub = httpx.post("https://queue.fal.run/fal-ai/flux/dev",
+                         headers=hdr, json={"prompt": prompt, "image_size": image_size, "num_images": 1}, timeout=30)
+        if sub.status_code not in (200, 201):
+            return {"ok": False, "status": sub.status_code, "error": sub.text[:160]}
+        j = sub.json(); req = j.get("request_id")
+        url_base = "https://queue.fal.run/fal-ai/flux"
+        img_url = None
+        for _ in range(40):
+            time.sleep(2)
+            st = httpx.get(f"{url_base}/requests/{req}/status", headers=hdr, timeout=20)
+            if st.json().get("status") == "COMPLETED":
+                res = httpx.get(f"{url_base}/requests/{req}", headers=hdr, timeout=20).json()
+                imgs = res.get("images") or []
+                if imgs:
+                    img_url = imgs[0].get("url"); break
+        if not img_url:
+            return {"ok": False, "error": "flux_timeout_or_no_image"}
+        img = httpx.get(img_url, timeout=60)
+        with open(out_path, "wb") as f:
+            f.write(img.content)
+        return {"ok": True, "path": out_path, "bytes": len(img.content), "provider": "flux_fal"}
+    except Exception as e:  # noqa: BLE001
+        return {"ok": False, "error": f"{type(e).__name__}:{str(e)[:160]}"}
