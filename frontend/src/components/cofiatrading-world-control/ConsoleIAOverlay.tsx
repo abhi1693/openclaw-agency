@@ -1026,20 +1026,21 @@ export function ConsoleIAOverlay() {
 
             <main className="grid min-h-0 grid-rows-[auto_1fr_auto] overflow-hidden">
 	              <div className="border-b border-slate-800/80 p-4">
-                <div className="grid gap-3 rounded-2xl border border-cyan-300/20 bg-slate-950/55 p-3 sm:grid-cols-3">
-                  <div className="min-w-0">
-                    <p className="text-[9px] font-black uppercase tracking-[0.16em] text-slate-500">Cible</p>
-                    <p className="mt-1 truncate text-sm font-black text-white">{selectedTarget.label}</p>
-                  </div>
-                  <div className="min-w-0 sm:border-l sm:border-slate-800 sm:pl-3">
-                    <p className="text-[9px] font-black uppercase tracking-[0.16em] text-slate-500">Modèle</p>
-                    <p className="mt-1 truncate text-sm font-black text-cyan-100">{selectedModelMode.label}</p>
-                  </div>
-                  <div className="min-w-0 sm:border-l sm:border-slate-800 sm:pl-3">
-                    <p className="text-[9px] font-black uppercase tracking-[0.16em] text-slate-500">Action</p>
-                    <p className="mt-1 truncate text-sm font-black text-emerald-100">{selectedActionMode}</p>
-                  </div>
-                </div>
+                <button
+                  type="button"
+                  onClick={() => setPickerOpen((value) => !value)}
+                  className="flex w-full items-center gap-2 rounded-2xl border border-cyan-300/25 bg-slate-950/55 px-3 py-2.5 text-left transition hover:border-cyan-300/45"
+                >
+                  <span className="truncate text-sm font-black text-white">{selectedTarget.label}</span>
+                  <span className="shrink-0 text-slate-500">▸</span>
+                  <span className="truncate text-sm font-black text-cyan-100">{selectedModelMode.label}</span>
+                  <span className="shrink-0 text-slate-500">▸</span>
+                  <span className="truncate text-sm font-black text-emerald-100">{selectedActionMode}</span>
+                  <span className="ml-auto shrink-0 text-[10px] font-black uppercase tracking-[0.12em] text-slate-500">
+                    {pickerOpen ? "Fermer ▾" : "Changer ▸"}
+                  </span>
+                </button>
+                {pickerOpen ? (
                 <div className="mt-3 rounded-2xl border border-slate-800 bg-slate-950/55 p-3">
                   <div className="mb-2 flex items-center gap-2 text-[10px] font-black uppercase tracking-[0.16em] text-cyan-100">
                     <Brain className="h-3.5 w-3.5" />
