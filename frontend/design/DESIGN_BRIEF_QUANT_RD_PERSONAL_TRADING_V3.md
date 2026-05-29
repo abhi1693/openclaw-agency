@@ -1,5 +1,10 @@
 # DESIGN BRIEF — Quant R&D Lab + Personal Trading Control (World Control V3)
 
+> ⛔ **SUPERSEDED / V3 REJETÉE (Erwin 2026-05-29).** Ce brief visait une maquette « bâtiments dans une carte iso ».
+> Erwin veut un **produit** (Quant R&D OS + Personal Trading OS complets, bâtiments = portes d'entrée/launchers),
+> pas un petit inspector. Repartir d'un **PRODUCT BRIEF** neuf — voir
+> `HANDOFF_WORLD_CONTROL_PRODUCT_RESET_*.md`. Ne pas réutiliser ce brief tel quel.
+
 > **généré:** 2026-05-29 · **source_tag:** `DESIGN_BRIEF_QUANT_RD_PERSONAL_TRADING_V3_20260529`
 > **statut:** DESIGN ONLY — aucune intégration canon avant GO Erwin explicite.
 > **handoff parent:** `~/.openclaw/workspace-quant/databento_alpha_research/reports/HANDOFF_STRAT17_18_WORLD_CONTROL_20260529T200918Z.md`
