@@ -431,6 +431,24 @@ export function WorldMapLiving({
                       <mpath href={`#iso-route-${i}`} />
                     </animateMotion>
                   </circle>
+                  {/* navette qui ROULE sur la route (camion/agent vivant, pas figé) */}
+                  <g>
+                    <animateMotion dur={`${7 + (i % 4)}s`} repeatCount="indefinite" begin={`${i * 1.3}s`} rotate="auto">
+                      <mpath href={`#iso-route-${i}`} />
+                    </animateMotion>
+                    <rect x="-4.2" y="-2.4" width="8.4" height="4.8" rx="1.3" fill={col} opacity="0.95" filter="url(#iso-glow)" />
+                    <rect x="-2.6" y="-1.4" width="3" height="2.8" rx="0.5" fill="#02040a" opacity="0.85" />
+                    <circle cx="-2.4" cy="2.6" r="0.9" fill="#0a0f1c" />
+                    <circle cx="2.4" cy="2.6" r="0.9" fill="#0a0f1c" />
+                  </g>
+                  {/* agent piéton qui marche dans l'autre sens */}
+                  <g>
+                    <animateMotion dur={`${9 + (i % 3)}s`} repeatCount="indefinite" begin={`${i * 0.9 + 2}s`} keyPoints="1;0" keyTimes="0;1" calcMode="linear">
+                      <mpath href={`#iso-route-${i}`} />
+                    </animateMotion>
+                    <circle cx="0" cy="-1.6" r="1.1" fill="#e2e8f0" opacity="0.9" />
+                    <rect x="-0.8" y="-0.5" width="1.6" height="3" rx="0.7" fill={col} opacity="0.9" />
+                  </g>
                 </g>
               );
             })}
