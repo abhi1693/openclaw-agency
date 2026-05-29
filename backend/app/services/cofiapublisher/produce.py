@@ -395,6 +395,9 @@ def execute_v4(beats=None, voice_id=None, counter_to=200, counter_suffix=" IA",
     mr2 = music_suno.generate_track(uplift_prompt, suno_uplift, instrumental=True, timeout_s=220)
     has_uplift = bool(mr2.get("ok"))  # si la 2e échoue, on reste sur 1 track (dégradation propre)
 
+    # accents globaux (frames absolues) — mots à emphasis = temps forts pour punch-zoom synchro beat
+    accent_frames_abs = sorted(int(round(w["startMs"] / 1000 * FPS)) for w in words if w.get("emphasis"))
+
     shots, shot_starts, wi, cum = [], [], 0, 0
     beat_first_shot = {}
     transitions = ["flash", "whip", "zoomblur"]
