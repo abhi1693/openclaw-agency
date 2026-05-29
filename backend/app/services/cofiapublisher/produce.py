@@ -378,6 +378,8 @@ def _emit_manifest(rd, run_id, beats, shots, captions, audio_dur, suno_track, qv
         {"outil": "Suno", "statut": "USED" if suno_track and os.path.exists(suno_track) else "FAIL", "detail": "musique générée compte Pro (obligatoire §4)"},
         {"outil": "Remotion", "statut": "USED", "detail": "montage timeline final (obligatoire §5)"},
         {"outil": "ElevenLabs", "statut": "USED", "detail": "voix"},
+        {"outil": "Voice Director (gate)", "statut": voice_qa.get("verdict") or "N/A",
+         "detail": f"oralisation+dico COF+params FR forcés, prise {voice_qa.get('chosen_take')} (3 max), audit Whisper FR"},
         {"outil": "Captions word-level", "statut": "USED", "detail": "sync au mot ElevenLabs (§6)"},
         {"outil": "Footage vidéo Pexels", "statut": "USED" if n_video else "UNUSED", "detail": f"{n_video}/{len(shots)} plans réels (§7)"},
         {"outil": "FLUX", "statut": "USED" if n_flux else "STANDBY", "detail": f"{n_flux} fallback image"},
