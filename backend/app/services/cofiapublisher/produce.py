@@ -419,6 +419,12 @@ def execute_v4(beats=None, voice_id=None, counter_to=200, counter_suffix=" IA",
             q = queries[k % len(queries)]
             clip_out = str(rd / f"shot{len(shots)}.mp4")
             sub_dur_s = max(0.6, sub_frames[k] / FPS)
+            # beatFrames RELATIFS au début de ce sous-plan = accents tombant dans [cum, cum+sub_frames]
+            sub_start, sub_end = cum, cum + sub_frames[k]
+            bf = [a - sub_start for a in accent_frames_abs if sub_start <= a < sub_end]
+            # garantit au moins 1 punch par sous-plan (sinon plan plat) : punch à ~20% du plan
+            if not bf:
+                bf = [int(sub_frames[k] * 0.18)]
             got = False
             sr = video_stock.search_pexels_video(q, per_page=10, orientation="portrait")
             vid = video_stock.pick_best(sr.get("videos") or [])
