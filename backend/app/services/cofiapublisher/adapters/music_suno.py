@@ -36,19 +36,31 @@ def mode() -> str:
     return "manual_pending"
 
 
+def credits_via_relay() -> dict:
+    """Lecture seule des crédits du compte Pro (relais :3300). SAFE — aucune génération, aucun risque ToS."""
+    import httpx
+    try:
+        r = httpx.get(f"{SUNO_LOCAL_API}/api/get_limit", timeout=15)
+        return {"ok": r.status_code == 200, "data": r.json() if r.status_code == 200 else r.text[:120]}
+    except Exception as e:  # noqa: BLE001
+        return {"ok": False, "error": f"relais_absent:{type(e).__name__}"}
+
+
 def generate_via_account(prompt: str, instrumental: bool = True) -> dict:
-    """Génère sur le compte Pro d'Erwin via relais local suno-api (cookie). Auto, utilise ses crédits payés."""
-    if not SUNO_COOKIE:
-        return {"ok": False, "error": "SUNO_COOKIE_missing",
-                "fix": "Récupérer le cookie de session suno.com (Erwin connecté) → SUNO_COOKIE ; relais local gcui-art/suno-api sur :3300"}
+    """⚠️ RISQUE ToS — automation du compte Suno via cookie = violation ToS → BAN possible (cf. incident Hedra).
+    VERROUILLÉ : nécessite SUNO_COOKIE_GEN_GO=1 (GO Erwin explicite, conscient du risque ban).
+    Par défaut on NE génère PAS via cookie. Musique = MusicGen local (auto safe) OU export manuel Suno (drop)."""
+    if os.environ.get("SUNO_COOKIE_GEN_GO") != "1":
+        return {"ok": False, "blocked": True,
+                "reason": "Génération Suno par cookie = risque ban ToS. Bloqué par défaut. Musique → MusicGen local ou export manuel (drop). GO conscient = SUNO_COOKIE_GEN_GO=1.",
+                "safe_alternatives": ["musicgen_local", "semi_manuel_drop", "credits_via_relay (lecture seule)"]}
     import httpx
     try:
         r = httpx.post(f"{SUNO_LOCAL_API}/api/generate",
-                       json={"prompt": prompt, "make_instrumental": instrumental, "wait_audio": False},
-                       timeout=30)
+                       json={"prompt": prompt, "make_instrumental": instrumental, "wait_audio": False}, timeout=30)
         return {"ok": r.status_code == 200, "status": r.status_code, "data": r.json() if r.status_code == 200 else r.text[:160]}
     except Exception as e:  # noqa: BLE001
-        return {"ok": False, "error": f"relais_local_absent:{type(e).__name__}", "fix": "Lancer le relais gcui-art/suno-api local :3300"}
+        return {"ok": False, "error": f"relais_absent:{type(e).__name__}"}
 
 
 def latest_drop() -> dict:
