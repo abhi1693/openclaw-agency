@@ -461,7 +461,7 @@ def execute_v4(beats=None, voice_id=None, counter_to=200, counter_suffix=" IA",
     if r.returncode != 0 or not os.path.exists(raw):
         return {"ok": False, "error": "remotion_render_failed", "stderr": r.stderr[-700:], "run": run_id, "shots": len(shots)}
 
-    music = os.path.join(REMOTION_DIR, "public", "music_launch.mp3")
+    music = suno_mp3  # HARD LOCK : musique SUNO générée pour CETTE vidéo (compte Pro Erwin)
     out_mp4 = str(rd / "video_v4.mp4")
     fc = ("[0:v]curves=b='0/0.06 0.5/0.55 1/1':r='0/0 0.5/0.46 1/0.95',eq=contrast=1.10:saturation=1.08,vignette=PI/4.8,noise=alls=3:allf=t[v];"
           "[0:a]asplit=2[a0][a1];[1:a]volume=0.40[mus];"
