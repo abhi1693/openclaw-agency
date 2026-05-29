@@ -17,7 +17,7 @@ from pathlib import Path
 
 import json as _json
 
-from . import brand_assets, captions_engine, distribution, qa, tiers
+from . import brand_assets, captions_engine, distribution, qa, tiers, voice_director
 from .adapters import image_gen, music_suno, video_stock, voice_elevenlabs, voice_local
 
 REMOTION_DIR = "/Users/burakokyay/cof-trading/remotion"
