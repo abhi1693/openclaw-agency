@@ -582,13 +582,37 @@ export function WorldMapLiving({
               ); })()}
               <p className="mt-2 text-[10px] font-semibold uppercase text-cyan-300">Rôle</p>
               <p className="text-[11px] leading-snug text-slate-300">{selZone.role}</p>
-              <p className="mt-2 text-[10px] font-semibold uppercase text-cyan-300">Anges en poste ({(angelsByHome[selZone.id] ?? []).length})</p>
-              <div className="mt-1 flex flex-wrap gap-1">
-                {(angelsByHome[selZone.id] ?? []).map((a) => (
-                  <button key={a.id} type="button" onClick={() => setSelectedAngel(a)} className="rounded border px-1.5 py-0.5 text-[9px]" style={{ borderColor: `${ANGEL_STATUS[a.status].color}66`, color: ANGEL_STATUS[a.status].color }}>{a.name}</button>
-                ))}
-                {!(angelsByHome[selZone.id] ?? []).length && <span className="text-[10px] text-slate-500">—</span>}
-              </div>
+              {(() => {
+                const houseAngels = angelsByHome[selZone.id] ?? [];
+                const live = houseAngels.filter((a) => a.status === "LIVE").length;
+                const arrAtRisk = houseAngels.reduce((s, a) => s + (a.arr_impact_eur_year && a.arr_impact_eur_year < 0 ? a.arr_impact_eur_year : 0), 0);
+                const nextActions = houseAngels.filter((a) => a.status === "BROKEN" || a.status === "DEGRADED" || a.status === "AWAITING_SETUP");
+                return (
+                  <>
+                    <p className="mt-2 text-[10px] font-semibold uppercase text-cyan-300">Anges en poste ({houseAngels.length}) · {live} LIVE</p>
+                    {arrAtRisk < 0 && (
+                      <p className="mt-1 rounded bg-rose-500/10 px-1.5 py-0.5 text-[10px] font-bold text-rose-300">⚠ ARR à risque : {arrAtRisk.toLocaleString("fr-FR")} €/an</p>
+                    )}
+                    <div className="mt-1 flex flex-col gap-1">
+                      {houseAngels.map((a) => (
+                        <button key={a.id} type="button" onClick={() => setSelectedAngel(a)} className="flex items-start gap-1.5 rounded border border-slate-700/60 px-1.5 py-1 text-left hover:border-slate-500">
+                          <span className="mt-0.5 h-2 w-2 shrink-0 rounded-full" style={{ background: ANGEL_STATUS[a.status].color }} />
+                          <span className="min-w-0">
+                            <span className="text-[10px] font-bold text-slate-200">{a.name}</span>
+                            <span className="ml-1 text-[8.5px] font-semibold uppercase" style={{ color: ANGEL_STATUS[a.status].color }}>{ANGEL_STATUS[a.status].label}</span>
+                            <span className="block truncate text-[9px] text-slate-400">{a.mission}</span>
+                          </span>
+                        </button>
+                      ))}
+                      {!houseAngels.length && <span className="text-[10px] text-slate-500">—</span>}
+                    </div>
+                    {nextActions.length > 0 && (
+                      <p className="mt-2 text-[9px] text-amber-300/80">▸ {nextActions.length} ange(s) à débloquer/activer — clic pour le détail.</p>
+                    )}
+                    <p className="mt-2 text-[9px] text-slate-500">Assets/KPI : globaux (non ventilés par maison) — voir HUD.</p>
+                  </>
+                );
+              })()}
             </div>
           ) : (
             <div>
