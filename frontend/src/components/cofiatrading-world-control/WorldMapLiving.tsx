@@ -531,7 +531,7 @@ export function WorldMapLiving({
               <g
                 key={b.zone.id}
                 style={{ cursor: "pointer" }}
-                onClick={(e) => { e.stopPropagation(); setSelectedHouse(b.zone.id); setSelectedAngel(null); onSelectHouse(b.zone.id); }}
+                onClick={(e) => { e.stopPropagation(); setSelectedHouse(b.zone.id); setSelectedAngel(null); setHouseTab("vue"); onSelectHouse(b.zone.id); }}
                 onMouseEnter={() => setHoverHouse(b.zone.id)}
                 onMouseLeave={() => setHoverHouse(null)}
                 opacity={selectedHouse && !isSel ? 0.82 : 1}
