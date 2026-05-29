@@ -595,7 +595,7 @@ export function WorldMapLiving({
               <p className="text-[11px] font-black uppercase tracking-wide text-cyan-200">Mission Control</p>
               <p className="mt-1 text-[10px] text-slate-400">{LEGACY_ZONES.length} maisons · {angels.length} anges · clic pour inspecter.</p>
               <div className="mt-2 grid grid-cols-2 gap-1 text-[9.5px]">
-                {(["LIVE", "DEGRADED", "SOURCE_DOWN", "ERR"]).map((s) => {
+                {(["LIVE", "SLEEPING", "DEGRADED", "SOURCE_DOWN", "ERR"]).map((s) => {
                   const n = LEGACY_ZONES.filter((z) => statusFor(z.id) === s).length;
                   const st = houseStatusStyle(s);
                   return <div key={s} className="flex items-center gap-1.5"><span className="h-2 w-2 rounded-full" style={{ background: st.color }} /><span className="text-slate-300">{st.label}</span><span className="ml-auto font-bold">{n}</span></div>;
