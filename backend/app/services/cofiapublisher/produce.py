@@ -633,14 +633,14 @@ def execute_vip(voice_id=None) -> dict:
     LD = Path.home() / ".openclaw/state/cofiapublisher/luma_generations"
     hero1, hero2 = str(LD / "hero_09155fc4.mp4"), str(LD / "hero2_runway.mp4")
     beats = [
-        {"t": "Il est deux heures du matin. T'es seul devant tes écrans. Le marché bouge, ton cœur s'emballe, et personne pour te dire si t'as raison.", "dur": 11, "q": "lone trader night dark screens stressed face", "role": "hook"},
-        {"t": "Pas de cadre. Pas de signaux fiables. Juste du bruit permanent, des promesses de riche en une semaine, et des faux gourous qui crient plus fort que les autres.", "dur": 12, "q": "phone notifications scam social media chaos dark", "role": "douleur"},
-        {"t": "Alors tu hésites. Tu entres trop tard, tu sors trop tôt. Et pendant que tu doutes, tout seul, le marché part sans toi.", "dur": 10, "q": "fast stock ticker red falling chart city night", "role": "douleur2"},
-        {"t": "Le VIP Cofiatrading, c'est exactement l'inverse de cette solitude. Un vrai cadre, une vraie équipe, des gens qui avancent ensemble au lieu de gourous qui crient.", "dur": 11, "q": "premium modern trading team office blue collaboration", "role": "solution", "badge": True},
-        {"t": "Deux cents intelligences artificielles, créées sur mesure, scannent les marchés pour toi, vingt-quatre heures sur vingt-quatre. Sans dormir, sans émotion, sans peur.", "dur": 9, "hero": hero1, "role": "ia", "counter": True},
-        {"t": "Des signaux réels, expliqués pas à pas. Pas des flèches au hasard. Et surtout un vrai contrôle du risque : avant chaque position, tu sais exactement ce que tu peux perdre.", "dur": 11, "hero": hero2, "role": "preuve"},
-        {"t": "Tu n'es plus seul à improviser. Tu as un plan, une méthode, une discipline. Zéro promesse magique, juste un edge, et de la rigueur, jour après jour.", "dur": 10, "q": "confident calm trader focused premium desk", "role": "valeur"},
-        {"t": "Si t'en as marre de trader seul dans le bruit, rejoins le VIP Cofiatrading. Le lien est juste en dessous. On t'attend de l'autre côté.", "dur": 8, "q": "finger tapping phone screen confident sunrise", "role": "cta", "cta": True},
+        {"t": "Il est deux heures du matin. T'es seul devant tes écrans. Le marché bouge, ton cœur s'emballe, et personne pour te dire si t'as raison, ou si tu vas encore tout perdre.", "dur": 12, "q": "lone trader night dark screens stressed face", "role": "hook"},
+        {"t": "Pas de cadre. Pas de signaux fiables. Juste du bruit permanent, des promesses de riche en une semaine, et des faux gourous qui crient plus fort que les autres pour te vendre du rêve.", "dur": 12, "q": "phone notifications scam social media chaos dark", "role": "douleur"},
+        {"t": "Alors tu hésites. Tu entres trop tard, tu sors trop tôt, tu coupes au pire moment. Et pendant que tu doutes, tout seul, le marché part sans toi.", "dur": 10, "q": "fast stock ticker red falling chart city night", "role": "douleur2"},
+        {"t": "Le VIP Cofiatrading, c'est exactement l'inverse de cette solitude. Un vrai cadre, une vraie équipe, des gens qui avancent ensemble, et les vraies infos partagées en temps réel, au lieu de gourous qui crient.", "dur": 12, "q": "premium modern trading team office blue collaboration", "role": "solution", "badge": True},
+        {"t": "Deux cents intelligences artificielles, créées sur mesure, scannent les marchés pour toi, vingt-quatre heures sur vingt-quatre. Sans dormir, sans émotion, et sans la moindre peur.", "dur": 9, "hero": hero1, "role": "ia", "counter": True},
+        {"t": "Des signaux réels, expliqués pas à pas. Pas des flèches au hasard. Et surtout un vrai contrôle du risque : avant chaque position, tu sais exactement ce que tu peux perdre. Chaque trade est cadré, chiffré, justifié.", "dur": 12, "hero": hero2, "role": "preuve"},
+        {"t": "Tu n'es plus seul à improviser. Tu as un plan, une méthode, une discipline. Zéro promesse magique, juste un edge, et de la rigueur. Tu arrêtes de subir le marché, tu commences enfin à le lire.", "dur": 11, "q": "confident calm trader focused premium desk", "role": "valeur"},
+        {"t": "Si t'en as vraiment marre de trader seul dans le bruit, rejoins le VIP Cofiatrading. Le lien est juste en dessous. On t'attend de l'autre côté.", "dur": 9, "q": "finger tapping phone screen confident sunrise", "role": "cta", "cta": True},
     ]
     full_script = " ".join(b["t"] for b in beats)
     voice_full = str(rd / "voice_full.mp3")
