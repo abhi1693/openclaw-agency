@@ -1117,9 +1117,9 @@ export function ConsoleIAOverlay() {
                   </div>
                 ) : (
                   <div className="grid place-items-center rounded-2xl border border-slate-800 bg-slate-950/40 p-8 text-center">
-                    <p className="text-sm font-black text-slate-300">Prêt à envoyer un packet</p>
-                    <p className="mt-1 max-w-md text-xs leading-5 text-slate-500">
-                      Écris ton message, ajoute micro / écran / caméra / fichier si besoin, puis envoie.
+                    <p className="text-base font-black text-slate-200">Démarre la conversation</p>
+                    <p className="mt-1 max-w-md text-sm leading-6 text-slate-500">
+                      Écris à {selectedTarget.label}, ou ajoute micro / écran / caméra / fichier, puis envoie.
                     </p>
                   </div>
                 )}
