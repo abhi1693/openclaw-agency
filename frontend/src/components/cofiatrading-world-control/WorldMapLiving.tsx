@@ -287,7 +287,12 @@ export function WorldMapLiving({
   }, []);
 
   const statusFor = (id: string): string => {
-    if (houseStatuses && houseStatuses[id]) return houseStatuses[id];
+    if (houseStatuses && houseStatuses[id]) {
+      const raw = houseStatuses[id];
+      // Maison on-demand : SOURCE_DOWN/DEGRADED = endormie par design, pas cassée.
+      if (onDemandSet.has(id) && (raw === "SOURCE_DOWN" || raw === "DEGRADED")) return "SLEEPING";
+      return raw;
+    }
     if (registryError) return "ERR";
     if (houseStatuses === null) return "LOADING";
     return "ERR";
