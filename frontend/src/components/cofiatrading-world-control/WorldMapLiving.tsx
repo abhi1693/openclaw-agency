@@ -225,7 +225,7 @@ function buildZone(z: Zone): Built {
   const roofPoly = roofPts.map(p).join(" ");
   const leftWall = [ground[3], ground[2], roofPts[2], roofPts[3]].map(p).join(" ");
   const rightWall = [ground[1], ground[2], roofPts[2], roofPts[1]].map(p).join(" ");
-  const cols = Math.max(2, Math.round(z.w * 1.1));
+  const cols = Math.max(3, Math.round(cw * 0.95));
   const rows = Math.max(3, levels);
   const seed = z.id.length + Math.round(z.x) + Math.round(z.y);
   const leftWindows = faceWindows(ground[3], ground[2], roofPts[3], roofPts[2], cols, rows, seed);
