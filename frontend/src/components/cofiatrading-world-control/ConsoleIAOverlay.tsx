@@ -1224,6 +1224,11 @@ export function ConsoleIAOverlay() {
                       <Paperclip className="h-4 w-4" /> Vider
                     </button>
                   ) : null}
+                  {proofItems.length > 0 && !proofsOpen ? (
+                    <button type="button" onClick={openProofs} className="tool-button">
+                      {proofItems.length} preuves ›
+                    </button>
+                  ) : null}
                   <button
                     type="button"
                     onClick={submitPacket}
