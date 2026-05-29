@@ -174,7 +174,6 @@ BRAND_CHECK = {
     r"cofiatrading": ("CofiaTrading", {"cofia", "coffia", "cophia", "kofia"}),
     r"\bCOF\b": ("COF", {"cof", "kof"}),
     r"\bErwin\b": ("Erwin", {"erwin", "erwine", "irwin", "erouine"}),
-    r"\bsignaux\b": ("signaux", {"signaux", "signal", "signos"}),
 }
 
 
