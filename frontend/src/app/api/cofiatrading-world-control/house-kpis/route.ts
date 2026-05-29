@@ -204,11 +204,21 @@ export async function GET() {
     ],
   };
 
-  // ── trading_academy : maison DEFERRED (gap honnête, pas de runtime)
-  houses.trading_academy = {
-    kpis: [],
-    gap: "Maison DEFERRED_2027 (aucun asset P0 runtime). Contenu = fichiers academy.mdx du site ; pas d'état live à migrer.",
-  };
+  // ── trading_academy : modules RÉELS (dossiers content/academy/*, chacun index.mdx).
+  if (academyModules.length > 0) {
+    const sample = academyModules.slice(0, 5).map((m) => m.replace(/-/g, " ")).join(" · ");
+    houses.trading_academy = {
+      kpis: [
+        { label: "Modules academy", value: fr(academyModules.length), source: "site content/academy (local)" } as Kpi,
+        { label: "Exemples", value: sample + (academyModules.length > 5 ? " …" : ""), source: "readdir content/academy" } as Kpi,
+      ],
+    };
+  } else {
+    houses.trading_academy = {
+      kpis: [],
+      gap: "Aucun module academy trouvé en local (content/academy vide).",
+    };
+  }
 
   return Response.json({
     ok: true,
