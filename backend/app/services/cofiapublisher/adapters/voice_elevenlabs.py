@@ -70,9 +70,15 @@ def synthesize_with_timestamps(
     out_path: str,
     voice_id: str | None = None,
     model_id: str | None = None,
+    language_code: str | None = None,
+    apply_text_normalization: str | None = None,
+    optimize_streaming_latency: int | None = None,
+    seed: int | None = None,
+    voice_settings: dict | None = None,
 ) -> dict:
     """Génère le MP3 + l'alignement caractère-par-caractère (horloge maître captions kinetic).
-    Retourne {ok, path, alignment:{characters[], starts_s[], ends_s[]}}."""
+    Params optionnels forçables par le voice_director (language_code, normalisation, latence, seed,
+    voice_settings override). Retourne {ok, path, alignment:{characters[], starts_s[], ends_s[]}}."""
     import base64
     if not EL_KEY:
         return {"ok": False, "error": "ELEVENLABS_API_KEY_missing"}
@@ -80,11 +86,21 @@ def synthesize_with_timestamps(
     if not vid:
         return {"ok": False, "error": "no_voice_id"}
     model_id = (model_id or DEFAULT_MODEL).strip()
+    payload: dict = {"text": text, "model_id": model_id,
+                     "voice_settings": voice_settings or _voice_settings()}
+    if language_code:
+        payload["language_code"] = language_code
+    if apply_text_normalization:
+        payload["apply_text_normalization"] = apply_text_normalization
+    if optimize_streaming_latency is not None:
+        payload["optimize_streaming_latency"] = optimize_streaming_latency
+    if seed is not None:
+        payload["seed"] = seed
     try:
         r = httpx.post(
             f"{API}/text-to-speech/{vid}/with-timestamps",
             headers={"xi-api-key": EL_KEY, "content-type": "application/json"},
-            json={"text": text, "model_id": model_id, "voice_settings": _voice_settings()},
+            json=payload,
             timeout=90,
         )
     except Exception as e:  # noqa: BLE001
