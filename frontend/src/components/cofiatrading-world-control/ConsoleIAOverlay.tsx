@@ -199,6 +199,11 @@ const TARGETS: ConsoleTarget[] = [
   { id: "qwen_local", label: "Qwen local", scope: "Bulk, contradiction, cheap lane", status: "AMBER" },
   { id: "kevin_gemini", label: "Kevin / Gemini", scope: "Yeux, caméra, écran, perception", status: "AMBER" },
   { id: "jarod_openclaw", label: "Jarod / OpenClaw", scope: "Runtime, Lobster, agents terrain", status: "AMBER" },
+  { id: "perplexity_local", label: "Perplexity", scope: "Recherche, sources, evidence", status: "AMBER" },
+  { id: "telegram_iron", label: "Telegram Iron", scope: "CRM Iron broker (draft)", status: "AMBER" },
+  { id: "telegram_free", label: "Telegram Free", scope: "Canal gratuit (draft)", status: "AMBER" },
+  { id: "telegram_vip", label: "Telegram VIP", scope: "Canal VIP (draft)", status: "AMBER" },
+  { id: "telegram_erwin", label: "Telegram Erwin", scope: "Compte perso Erwin (draft)", status: "AMBER" },
 ];
 
 const MODEL_MODES: ConsoleModelMode[] = [
