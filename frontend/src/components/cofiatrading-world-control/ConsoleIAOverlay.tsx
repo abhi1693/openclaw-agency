@@ -1400,6 +1400,7 @@ export function ConsoleIAOverlay() {
                 </div>
               ) : null}
             </aside>
+            ) : null}
           </div>
         </section>
       ) : null}
