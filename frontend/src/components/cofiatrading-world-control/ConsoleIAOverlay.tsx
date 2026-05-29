@@ -1063,16 +1063,12 @@ export function ConsoleIAOverlay() {
                     })}
                   </div>
                 ) : (
-                  <>
-                    <div className="ml-auto max-w-[82%] rounded-2xl border border-blue-300/35 bg-blue-950/35 p-3 text-sm leading-6 text-blue-50">
-                      <p className="mb-1 text-[10px] font-black uppercase tracking-[0.15em] text-blue-200">Erwin</p>
-                      Écris à Codex, Claude local, ChatGPT Desktop, Kevin/Gemini, Jarod, Qwen ou un groupe maison. Micro, écran, caméra, photo et fichiers sont attachés au packet.
-                    </div>
-                    <div className="mt-3 max-w-[86%] rounded-2xl border border-slate-700 bg-slate-900/80 p-3 text-sm leading-6 text-slate-100">
-                      <p className="mb-1 text-[10px] font-black uppercase tracking-[0.15em] text-cyan-200">Central Brain</p>
-                      Cible active : {selectedTarget.label}. Modèle : {selectedModelMode.label}. À l’envoi, la console crée un thread local et poll les réponses agents.
-                    </div>
-                  </>
+                  <div className="grid place-items-center rounded-2xl border border-slate-800 bg-slate-950/40 p-8 text-center">
+                    <p className="text-sm font-black text-slate-300">Prêt à envoyer un packet</p>
+                    <p className="mt-1 max-w-md text-xs leading-5 text-slate-500">
+                      Écris ton message, ajoute micro / écran / caméra / fichier si besoin, puis envoie.
+                    </p>
+                  </div>
                 )}
 
                 <div className="mt-4 rounded-2xl border border-cyan-300/20 bg-slate-950/70 p-3">
