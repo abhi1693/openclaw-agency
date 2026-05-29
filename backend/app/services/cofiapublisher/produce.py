@@ -696,6 +696,9 @@ def execute_vip(voice_id=None) -> dict:
     mr = music_suno.generate_track("cinematic finance, hopeful confident orchestral electronic, tension building to an uplifting drop, premium institutional, no vocals, sub bass, 100 BPM", suno, instrumental=True, timeout_s=220)
     if not mr.get("ok"):
         return {"ok": False, "error": "SUNO_REQUIRED_FAILED", "detail": mr}
+    # #2 Darius : couper les captions qui chevauchent l'outro (anti texte fantôme sur l'écran CTA)
+    _outro_cut_ms = (total_frames - 75) / FPS * 1000
+    captions = [c for c in captions if c.get("startMs", 0) < _outro_cut_ms - 150]
     props = {"shots": shots, "captions": captions, "voiceSrc": f"runs/{run_id}/voice_full.mp3",
              "badgeFrame": badge_f, "counterFrame": counter_f, "counterTo": 200, "ctaFrame": cta_f,
              "logoSrc": "brand/004_logo_mark_icon_light.png", "endCardSrc": "brand/045_youtube_end_screen.png"}
