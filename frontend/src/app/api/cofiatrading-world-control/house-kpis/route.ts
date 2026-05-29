@@ -1,4 +1,4 @@
-import { readFile } from "fs/promises";
+import { readFile, readdir } from "fs/promises";
 
 /**
  * house-kpis — KPIs réels PAR MAISON pour l'inspecteur (déménagement Abidjan→New York).
