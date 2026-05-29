@@ -71,8 +71,44 @@ def _headers() -> dict:
     return {"Authorization": f"Bearer {tok}", "accept": "application/json", "content-type": "application/json"}
 
 
+# ── Mode "comme Suno" RÉEL : BFF web vespa (app.lumalabs.ai/api/vespa) authentifié par le cookie
+#    de session (wos-session) extrait de Chrome. Prouvé HTTP 200 le 2026-05-29 (crédits live). ──
+VESPA_BASE = os.environ.get("LUMA_VESPA_BASE", "https://app.lumalabs.ai/api/vespa").rstrip("/")
+VESPA_TEAM = os.environ.get("LUMA_VESPA_TEAM", "").strip()
+# endpoint de génération vespa (confirmé au 1er run GO ; surchargeable sans toucher au code)
+VESPA_GEN_PATH = os.environ.get("LUMA_VESPA_GEN_PATH", "/generations")
+
+
+def _cookie_jar() -> str:
+    return os.environ.get("LUMA_COOKIE", "").strip()
+
+
+def _vespa_ready() -> bool:
+    return bool(_cookie_jar() and VESPA_TEAM and os.environ.get("LUMA_COOKIE_GEN_GO") == "1")
+
+
+def _vespa_headers() -> dict:
+    return {"Cookie": _cookie_jar(), "accept": "application/json", "content-type": "application/json",
+            "user-agent": "Mozilla/5.0", "referer": "https://app.lumalabs.ai/"}
+
+
+def _vespa_usage() -> dict:
+    """GET /teams/{team}/usage via cookie de session. Lecture seule, zéro coût. Jamais billing."""
+    assert_no_billing(f"{VESPA_BASE}/teams/{VESPA_TEAM}/usage")
+    try:
+        r = httpx.get(f"{VESPA_BASE}/teams/{VESPA_TEAM}/usage", headers=_vespa_headers(), timeout=20, follow_redirects=True)
+        if r.status_code == 200:
+            d = r.json()
+            return {"ok": True, "tier": d.get("tier"), "usage_limit": d.get("usage_limit"),
+                    "current_usage": d.get("current_usage"), "credits_remaining": (d.get("usage_limit", 0) - d.get("current_usage", 0)),
+                    "subscription_end": d.get("subscription_end")}
+        return {"ok": False, "http": r.status_code, "reason": r.text[:120]}
+    except Exception as e:  # noqa: BLE001
+        return {"ok": False, "error": f"{type(e).__name__}:{str(e)[:100]}"}
+
+
 def available() -> bool:
-    return bool(_key() or _session_jwt())
+    return bool(_key() or _vespa_ready())
 
 
 # ──────────────────────────── STATUS ────────────────────────────
