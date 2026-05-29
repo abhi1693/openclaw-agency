@@ -287,6 +287,16 @@ export function WorldMapLiving({
     return () => { cancelled = true; window.clearInterval(iv); };
   }, []);
 
+  // Camions canon (flux inter-maisons réels) — trucks_manifest.json via route serveur.
+  useEffect(() => {
+    let cancelled = false;
+    fetch("/api/cofiatrading-world-control/trucks", { cache: "no-store" })
+      .then((r) => (r.ok ? r.json() : null))
+      .then((d) => { if (!cancelled && Array.isArray(d?.trucks)) setTrucks(d.trucks); })
+      .catch(() => {});
+    return () => { cancelled = true; };
+  }, []);
+
   const statusFor = (id: string): string => {
     if (houseStatuses && houseStatuses[id]) {
       const raw = houseStatuses[id];
