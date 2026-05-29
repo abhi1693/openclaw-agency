@@ -601,6 +601,19 @@ export function WorldMapLiving({
                   return <div key={s} className="flex items-center gap-1.5"><span className="h-2 w-2 rounded-full" style={{ background: st.color }} /><span className="text-slate-300">{st.label}</span><span className="ml-auto font-bold">{n}</span></div>;
                 })}
               </div>
+              {angels.length > 0 && (
+                <>
+                  <p className="mt-2 text-[9px] font-bold uppercase tracking-wide text-slate-400">{angels.length} anges — état réel</p>
+                  <div className="mt-1 grid grid-cols-2 gap-1 text-[9.5px]">
+                    {(Object.keys(ANGEL_STATUS) as AngelStatus[]).map((s) => {
+                      const n = angels.filter((a) => a.status === s).length;
+                      if (n === 0) return null;
+                      const st = ANGEL_STATUS[s];
+                      return <div key={s} className="flex items-center gap-1.5"><span className="h-2 w-2 rounded-full" style={{ background: st.color }} /><span className="text-slate-300">{st.label}</span><span className="ml-auto font-bold">{n}</span></div>;
+                    })}
+                  </div>
+                </>
+              )}
               <p className="mt-2 text-[9px] text-slate-500">sync registry {syncStamp || "…"}</p>
             </div>
           )}
