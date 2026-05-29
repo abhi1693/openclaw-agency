@@ -323,6 +323,18 @@ export function WorldMapLiving({
     return () => { cancelled = true; };
   }, []);
 
+  // KPIs réels par maison (déménagement Abidjan→NY) — source locale cof_state.json, jamais :8430. Refetch 60s.
+  useEffect(() => {
+    let cancelled = false;
+    const load = () => fetch("/api/cofiatrading-world-control/house-kpis", { cache: "no-store" })
+      .then((r) => (r.ok ? r.json() : null))
+      .then((d) => { if (!cancelled && d?.houses) setHouseKpiData(d.houses); })
+      .catch(() => {});
+    void load();
+    const iv = window.setInterval(load, 60_000);
+    return () => { cancelled = true; window.clearInterval(iv); };
+  }, []);
+
   // Live feed — events réels (world-state), refetch 30s. Chaque event a une preuve.
   useEffect(() => {
     let cancelled = false;
