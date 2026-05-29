@@ -46,3 +46,39 @@ def synthesize(
     with open(out_path, "wb") as f:
         f.write(r.content)
     return {"ok": True, "path": out_path, "bytes": len(r.content), "model": model_id, "voice_id": vid}
+
+
+def synthesize_with_timestamps(
+    text: str,
+    out_path: str,
+    voice_id: str | None = None,
+    model_id: str = "eleven_multilingual_v2",
+) -> dict:
+    """Génère le MP3 + l'alignement caractère-par-caractère (horloge maître captions kinetic).
+    Retourne {ok, path, alignment:{characters[], starts_s[], ends_s[]}}."""
+    import base64
+    if not EL_KEY:
+        return {"ok": False, "error": "ELEVENLABS_API_KEY_missing"}
+    vid = (voice_id or DEFAULT_VOICE).strip()
+    if not vid:
+        return {"ok": False, "error": "no_voice_id"}
+    try:
+        r = httpx.post(
+            f"{API}/text-to-speech/{vid}/with-timestamps",
+            headers={"xi-api-key": EL_KEY, "content-type": "application/json"},
+            json={"text": text, "model_id": model_id,
+                  "voice_settings": {"stability": 0.55, "similarity_boost": 0.75}},
+            timeout=90,
+        )
+    except Exception as e:  # noqa: BLE001
+        return {"ok": False, "error": f"{type(e).__name__}:{str(e)[:160]}"}
+    if r.status_code != 200:
+        return {"ok": False, "status": r.status_code, "error": r.text[:200]}
+    j = r.json()
+    with open(out_path, "wb") as f:
+        f.write(base64.b64decode(j["audio_base64"]))
+    al = j.get("alignment") or j.get("normalized_alignment") or {}
+    return {"ok": True, "path": out_path,
+            "alignment": {"characters": al.get("characters", []),
+                          "starts_s": al.get("character_start_times_seconds", []),
+                          "ends_s": al.get("character_end_times_seconds", [])}}
