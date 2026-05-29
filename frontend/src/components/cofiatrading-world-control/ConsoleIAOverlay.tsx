@@ -1070,6 +1070,7 @@ export function ConsoleIAOverlay() {
 	                  </div>
 	                  <PacketModeSelector value={selectedActionMode} onChange={setSelectedActionMode} />
 	                </div>
+                ) : null}
 	              </div>
 
               <div className="overflow-auto p-4">
