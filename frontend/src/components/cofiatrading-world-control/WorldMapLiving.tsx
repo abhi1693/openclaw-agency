@@ -566,6 +566,12 @@ export function WorldMapLiving({
               <p className="text-[11px] text-slate-300">{selectedAngel.manzilah}</p>
               <p className="mt-2 text-[10px] font-semibold uppercase text-cyan-300">Mission</p>
               <p className="text-[11px] leading-snug text-slate-300">{selectedAngel.mission}</p>
+              {selectedAngel.stack && <p className="mt-1 text-[9px] text-slate-400">Stack: {selectedAngel.stack}</p>}
+              {typeof selectedAngel.arr_impact_eur_year === "number" && selectedAngel.arr_impact_eur_year !== 0 && (
+                <p className="mt-1 text-[10px] font-bold" style={{ color: selectedAngel.arr_impact_eur_year < 0 ? "#fb7185" : "#34d399" }}>
+                  ARR impact: {selectedAngel.arr_impact_eur_year.toLocaleString("fr-FR")} €/an
+                </p>
+              )}
               {selectedAngel.proof_url && <p className="mt-1 break-words text-[9px] text-emerald-300/80">Preuve: {selectedAngel.proof_url}</p>}
             </div>
           ) : selZone ? (
