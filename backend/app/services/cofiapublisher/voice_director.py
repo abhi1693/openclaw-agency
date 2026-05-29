@@ -166,10 +166,41 @@ def _whisper_check(audio_path: str) -> dict:
         return {"ok": False, "error": f"{type(e).__name__}:{str(e)[:120]}", "stderr": (r.stderr[:200] if 'r' in dir() else "")}
 
 
-def audit_take(audio_path: str, alignment: dict, expected_spoken: str) -> dict:
-    """Audite une prise : intelligibilité+prononciation (Whisper), débit, robotique (avg_logprob).
-    Retourne {pass, score, reasons, metrics}."""
+# Termes de marque à vérifier dans le round-trip Whisper : terme écrit → variantes acceptées entendues.
+BRAND_CHECK = {
+    r"\bVIP\b": ("VIP", {"vip"}),
+    r"\bIA\b": ("IA", {"ia"}),
+    r"\bI\.A\.\b": ("IA", {"ia"}),
+    r"cofiatrading": ("CofiaTrading", {"cofia", "coffia", "cophia", "kofia"}),
+    r"\bCOF\b": ("COF", {"cof", "kof"}),
+    r"\bErwin\b": ("Erwin", {"erwin", "erwine", "irwin", "erouine"}),
+    r"\bsignaux\b": ("signaux", {"signaux", "signal", "signos"}),
+}
+
+
+def _brand_terms_in(raw: str) -> list[tuple[str, set]]:
+    """Termes de marque présents dans le script écrit (à vérifier ensuite dans l'audio)."""
+    out = []
+    for pat, (label, variants) in BRAND_CHECK.items():
+        if re.search(pat, raw, flags=re.IGNORECASE):
+            out.append((label, variants))
+    return out
+
+
+def _elongations(stt_text: str) -> list[str]:
+    """Détecte les mots allongés type 'taperrr' : 3+ lettres identiques consécutives (hors cas FR normaux)."""
+    bad = []
+    for m in re.finditer(r"\b\w*(\w)\1{2,}\w*\b", stt_text.lower()):
+        bad.append(m.group(0))
+    return bad
+
+
+def audit_take(audio_path: str, alignment: dict, expected_spoken: str,
+               brand_terms: list | None = None) -> dict:
+    """Audite une prise : intelligibilité+prononciation (Whisper), débit, robotique (avg_logprob),
+    mots allongés ('taperrr'), termes de marque bien lus (VIP/IA/CofiaTrading). Retourne {pass, score, reasons, metrics}."""
     reasons, metrics = [], {}
+    brand_terms = brand_terms or []
     ends = alignment.get("ends_s") or [0]
     dur = float(ends[-1]) if ends else 0.0
     n_words = max(1, len(_norm(expected_spoken).split()))
@@ -181,22 +212,40 @@ def audit_take(audio_path: str, alignment: dict, expected_spoken: str) -> dict:
 
     w = _whisper_check(audio_path)
     sim = 0.0
+    brand_ok = True
+    elong = []
     if w.get("ok"):
-        sim = difflib.SequenceMatcher(None, _norm(expected_spoken), _norm(w["text"])).ratio()
+        heard = _norm(w["text"])
+        heard_tokens = set(heard.split())
+        sim = difflib.SequenceMatcher(None, _norm(expected_spoken), heard).ratio()
         metrics["stt_similarity"] = round(sim, 3)
         metrics["avg_logprob"] = round(w["avg_logprob"], 3)
-        metrics["stt_text"] = w["text"][:200]
+        metrics["stt_text"] = w["text"][:240]
         if sim < 0.78:
             reasons.append(f"mal_prononcé_sim_{sim:.2f}")
         if w["avg_logprob"] < -0.85:
             reasons.append(f"voix_robotique_logprob_{w['avg_logprob']:.2f}")
+        # mots allongés ('taperrr')
+        elong = _elongations(w["text"])
+        if elong:
+            reasons.append(f"mot_allongé:{','.join(elong[:3])}")
+        # termes de marque réellement entendus
+        missed = []
+        for label, variants in brand_terms:
+            if not any(v in heard_tokens or any(v in t for t in heard_tokens) for v in variants):
+                missed.append(label)
+        if missed:
+            brand_ok = False
+            reasons.append(f"marque_mal_lue:{','.join(missed)}")
+        metrics["brand_checked"] = [b[0] for b in brand_terms]
+        metrics["brand_missed"] = missed
     else:
         metrics["stt_error"] = w.get("error")
-        reasons.append("stt_indisponible_audit_structurel_seul")
+        reasons.append("stt_indisponible_REJET")  # sans audit acoustique réel → pas de PASS
 
     structural_ok = 1.5 <= wps <= 4.5 and dur > 0
-    acoustic_ok = (not w.get("ok")) or (sim >= 0.78 and w["avg_logprob"] >= -0.85)
-    passed = structural_ok and acoustic_ok and w.get("ok", False)  # exige l'audit acoustique réel
+    acoustic_ok = w.get("ok", False) and sim >= 0.78 and w.get("avg_logprob", -9) >= -0.85
+    passed = structural_ok and acoustic_ok and not elong and brand_ok
     score = round((sim * 0.7) + (min(1.0, max(0.0, (metrics.get("avg_logprob", -2) + 1.0))) * 0.3), 3)
     return {"pass": bool(passed), "score": score, "reasons": reasons or ["ok"], "metrics": metrics}
 
