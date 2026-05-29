@@ -19,11 +19,22 @@ class Tier(str, Enum):
 TIER_MAP: dict[str, dict[Tier, str]] = {
     "script": {Tier.ECONOMY: "qwen_local_11435", Tier.MEDIUM: "gemini_flash", Tier.PREMIUM: "claude_opus"},
     "voice": {Tier.ECONOMY: "xtts_local", Tier.MEDIUM: "openai_tts", Tier.PREMIUM: "elevenlabs"},
+    "image": {Tier.ECONOMY: "stock_pexels", Tier.MEDIUM: "flux_fal", Tier.PREMIUM: "imagen3_google"},
+    "thumbnail": {Tier.ECONOMY: "stock_pexels", Tier.MEDIUM: "ideogram", Tier.PREMIUM: "ideogram"},
     "video": {Tier.ECONOMY: "stock_pexels", Tier.MEDIUM: "kling_fal", Tier.PREMIUM: "veo_vertex"},
+    "video_alt": {Tier.ECONOMY: "stock_pexels", Tier.MEDIUM: "seedance_fal", Tier.PREMIUM: "runway_gen4"},
     "avatar": {Tier.ECONOMY: "wav2lip_local", Tier.MEDIUM: "latentsync_fal", Tier.PREMIUM: "hedra"},
-    "music": {Tier.ECONOMY: "musicgen_local", Tier.MEDIUM: "suno", Tier.PREMIUM: "suno_v5"},
+    "music": {Tier.ECONOMY: "musicgen_local", Tier.MEDIUM: "suno", Tier.PREMIUM: "suno"},
     "captions": {Tier.ECONOMY: "whisper_local", Tier.MEDIUM: "whisper_local", Tier.PREMIUM: "whisper_local"},
     "qa": {Tier.ECONOMY: "perception_v3", Tier.MEDIUM: "perception_v3", Tier.PREMIUM: "claude_vision"},
+}
+
+# Outils de design/montage NON-API : pilotés via MCP (Canva, Figma) ou manuels (CapCut).
+# Le brand layer (logo, mascottes CorsiKaan/KatiKaan, outro V20->V30 immutable, tokens) = brand_assets.py.
+DESIGN_TOOLS = {
+    "canva": "MCP claude_ai_Canva (templates, export, brand kit)",
+    "figma": "MCP claude_ai_Figma (brand kit, composants, design context)",
+    "capcut": "MANUEL (finition humaine — pas d'API, étape optionnelle hors auto)",
 }
 
 # Coût indicatif EUR par vidéo ~60s (estimation, affiché avant lancement).
