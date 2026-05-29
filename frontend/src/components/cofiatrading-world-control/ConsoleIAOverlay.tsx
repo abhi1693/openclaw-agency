@@ -1235,7 +1235,7 @@ export function ConsoleIAOverlay() {
                     disabled={!canSubmit || isSubmitting}
                     className="tool-button is-send ml-auto disabled:cursor-not-allowed disabled:opacity-45"
                   >
-                    <Send className="h-4 w-4" /> {isSubmitting ? "Envoi…" : "Envoyer →"}
+                    <Send className="h-4 w-4" /> {isSubmitting ? "Envoi…" : "Envoyer"}
                   </button>
                 </div>
                 <input
