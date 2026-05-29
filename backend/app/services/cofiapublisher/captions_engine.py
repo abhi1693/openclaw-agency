@@ -22,7 +22,19 @@ def words_from_elevenlabs(alignment: dict, emphasis_lexicon: set[str] | None = N
     ends = alignment.get("ends_s", [])
     words: list[dict] = []
     cur, cur_start = "", None
+    in_tag = 0  # profondeur de crochet : les audio tags eleven_v3 [pause]/[excited] NE sont PAS prononcés → exclus des captions
     for i, ch in enumerate(chars):
+        if ch == "[":
+            if cur.strip():
+                words.append(_mk(cur, cur_start, ends[i - 1] if i > 0 else cur_start, lex))
+            cur, cur_start = "", None
+            in_tag += 1
+            continue
+        if ch == "]":
+            in_tag = max(0, in_tag - 1)
+            continue
+        if in_tag > 0:
+            continue
         if ch == " " or ch == "\n":
             if cur.strip():
                 words.append(_mk(cur, cur_start, ends[i - 1] if i > 0 else cur_start, lex))
