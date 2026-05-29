@@ -155,12 +155,12 @@ export async function POST() {
     return NextResponse.json({ ok: false, error: stripe.error }, { status: 502 });
   }
 
-  const revenueResult = await fetchJson(REVENUE_URL, {}, 5000);
+  const revenueResult = await readLocalRevenue();
   if (!revenueResult.ok) {
     return NextResponse.json(
       {
         ok: false,
-        error: `HUB_IRON_REVENUE_${revenueResult.status ?? "NO_STATUS"}:${revenueResult.error}`,
+        error: `LOCAL_REVENUE_COF_STATE_${revenueResult.status ?? "NO_STATUS"}:${revenueResult.error}`,
       },
       { status: 502 },
     );
