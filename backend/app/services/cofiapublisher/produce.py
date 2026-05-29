@@ -424,8 +424,12 @@ def execute_v4(beats=None, voice_id=None, counter_to=200, counter_suffix=" IA",
                 shots.append({"src": f"runs/{run_id}/img{len(shots)}.png", "type": "image", "durationInFrames": sub_frames[k], "beatFrames": [], "transition": transitions[tix % 3]})
             shot_starts.append(cum); cum += sub_frames[k]; tix += 1
 
-    brand_reveal = shot_starts[beat_first_shot.get(2, 0)] if len(shot_starts) > beat_first_shot.get(2, 0) else 0
-    twist = shot_starts[beat_first_shot.get(3, 0)] if len(shot_starts) > beat_first_shot.get(3, 0) else 0
+    def _sf(bi):
+        idx = beat_first_shot.get(bi, 0)
+        return shot_starts[idx] if 0 <= idx < len(shot_starts) else 0
+    brand_reveal = _sf(brand_beat)
+    twist = _sf(twist_beat)
+    counter_at = _sf(counter_beat)
 
     pub_runs = os.path.join(REMOTION_DIR, "public", "runs")
     os.makedirs(pub_runs, exist_ok=True)
