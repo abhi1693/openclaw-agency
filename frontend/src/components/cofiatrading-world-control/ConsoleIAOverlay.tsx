@@ -192,19 +192,23 @@ type ProofItem = {
 };
 
 const TARGETS: ConsoleTarget[] = [
-  { id: "central_council", label: "Central Council", scope: "Codex + Claude + Jarod", status: "AMBER" },
-  { id: "codex_local", label: "Codex local", scope: "Patch, architecture, tests", status: "LOCAL" },
-  { id: "claude_local", label: "Claude local", scope: "Mémoire, synthèse, QA locale", status: "AMBER" },
-  { id: "chatgpt_sync", label: "ChatGPT sync", scope: "Brief local, pas API cachée", status: "AMBER" },
-  { id: "qwen_local", label: "Qwen local", scope: "Bulk, contradiction, cheap lane", status: "AMBER" },
-  { id: "kevin_gemini", label: "Kevin / Gemini", scope: "Yeux, caméra, écran, perception", status: "AMBER" },
-  { id: "jarod_openclaw", label: "Jarod / OpenClaw", scope: "Runtime, Lobster, agents terrain", status: "AMBER" },
+  { id: "chatgpt_sync", label: "ChatGPT", scope: "Brief local, pas API cachée", status: "AMBER" },
+  { id: "codex_local", label: "Codex", scope: "Patch, architecture, tests", status: "LOCAL" },
+  { id: "claude_local", label: "Claude", scope: "Mémoire, synthèse, QA locale", status: "AMBER" },
+  { id: "qwen_local", label: "Qwen", scope: "Bulk, contradiction, cheap lane", status: "AMBER" },
   { id: "perplexity_local", label: "Perplexity", scope: "Recherche, sources, evidence", status: "AMBER" },
-  { id: "telegram_iron", label: "Telegram Iron", scope: "CRM Iron broker (draft)", status: "AMBER" },
-  { id: "telegram_free", label: "Telegram Free", scope: "Canal gratuit (draft)", status: "AMBER" },
-  { id: "telegram_vip", label: "Telegram VIP", scope: "Canal VIP (draft)", status: "AMBER" },
-  { id: "telegram_erwin", label: "Telegram Erwin", scope: "Compte perso Erwin (draft)", status: "AMBER" },
+  { id: "jarod_openclaw", label: "Jarod + team", scope: "Runtime, Lobster, agents terrain", status: "AMBER" },
+  { id: "kevin_gemini", label: "Kevin / Gemini", scope: "Yeux, caméra, écran, perception", status: "AMBER" },
+  { id: "central_council", label: "Central Council", scope: "Codex + Claude + Jarod", status: "AMBER" },
+  { id: "telegram_iron", label: "Iron", scope: "CRM Iron broker", status: "AMBER" },
+  { id: "telegram_free", label: "Free", scope: "Canal gratuit", status: "AMBER" },
+  { id: "telegram_vip", label: "VIP", scope: "Canal VIP", status: "AMBER" },
+  { id: "telegram_erwin", label: "Erwin", scope: "Compte perso Erwin", status: "AMBER" },
 ];
+
+const CHANNEL_TARGET_IDS = new Set(["telegram_iron", "telegram_free", "telegram_vip", "telegram_erwin"]);
+const AGENT_TARGETS = TARGETS.filter((target) => !CHANNEL_TARGET_IDS.has(target.id));
+const CHANNEL_TARGETS = TARGETS.filter((target) => CHANNEL_TARGET_IDS.has(target.id));
 
 const MODEL_MODES: ConsoleModelMode[] = [
   {
