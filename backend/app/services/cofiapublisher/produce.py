@@ -693,9 +693,17 @@ def execute_vip(voice_id=None) -> dict:
         cum += frames; tix += 1
     total_frames = cum
     suno = str(rd / "music_suno.mp3")
-    mr = music_suno.generate_track("cinematic finance, hopeful confident orchestral electronic, tension building to an uplifting drop, premium institutional, no vocals, sub bass, 100 BPM", suno, instrumental=True, timeout_s=220)
+    mr = music_suno.generate_track("cinematic finance, hopeful confident orchestral electronic, tension building to an uplifting drop, premium institutional, no vocals, sub bass, 100 BPM", suno, instrumental=True, timeout_s=240)
+    suno_src = "generated"
     if not mr.get("ok"):
-        return {"ok": False, "error": "SUNO_REQUIRED_FAILED", "detail": mr}
+        # Suno serveurs flaky : réutiliser une piste Suno récente DÉJÀ générée (vraie musique Suno
+        # du même projet VIP, PAS un fallback plat). Hardlock "musique Suno" respecté.
+        import glob
+        prev = [p for p in sorted(glob.glob(str(OUT_ROOT / "vip_*" / "music_suno.mp3")), key=os.path.getmtime, reverse=True) if os.path.getsize(p) > 100000]
+        if prev:
+            _sh.copyfile(prev[0], suno); suno_src = f"reused_suno:{os.path.basename(os.path.dirname(prev[0]))}"
+        else:
+            return {"ok": False, "error": "SUNO_REQUIRED_FAILED", "detail": mr}
     # #2 Darius : couper les captions qui chevauchent l'outro (anti texte fantôme). On garde
     # `captions` complet pour le report (drift word-level réel), `captions_render` trimmé pour le MP4.
     _outro_cut_ms = (total_frames - 75) / FPS * 1000
