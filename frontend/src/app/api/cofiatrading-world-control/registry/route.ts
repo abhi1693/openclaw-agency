@@ -12,6 +12,12 @@ const REGISTRY_URL =
   process.env.COF_CENTRAL_BRAIN_REGISTRY_URL ??
   `${HOST}:8767/api/central-brain/registry`;
 
+// Maisons dont le service backend est classé `on_demand` (dort par design via le governor).
+// Source : ~/.openclaw/config/on_demand_runtime.json (on_demand_contains: "lightrag").
+// obsidian_library (:9621) + lightrag_observatory sont backés par LightRAG → un statut
+// SOURCE_DOWN/DEGRADED y signifie "endormi", PAS "cassé". On annote (sans falsifier le statut brut).
+const ON_DEMAND_HOUSES = new Set<string>(["obsidian_library", "lightrag_observatory"]);
+
 export async function GET() {
   try {
     const upstream = await fetch(REGISTRY_URL, { cache: "no-store" });
@@ -22,8 +28,13 @@ export async function GET() {
       );
     }
     const data = await upstream.json();
+    const rawHouses = (data?.houses ?? {}) as Record<string, Record<string, unknown>>;
+    const houses: Record<string, Record<string, unknown>> = {};
+    for (const [id, v] of Object.entries(rawHouses)) {
+      houses[id] = { ...v, on_demand: ON_DEMAND_HOUSES.has(id) };
+    }
     return NextResponse.json(
-      { ok: true, houses: data?.houses ?? {}, source: REGISTRY_URL, fetchedAt: new Date().toISOString() },
+      { ok: true, houses, source: REGISTRY_URL, fetchedAt: new Date().toISOString() },
       { status: 200 },
     );
   } catch (e) {
