@@ -381,6 +381,13 @@ def execute_v4(beats=None, voice_id=None, counter_to=200, counter_suffix=" IA",
         audio_dur = (words[-1]["endMs"] / 1000) if words else 30
     total_frames = int(round(audio_dur * FPS))
 
+    # ── HARD LOCK Erwin : musique = SUNO (compte Pro), à CHAQUE vidéo. Pas de fallback music_launch. ──
+    suno_mp3 = str(rd / "music_suno.mp3")
+    mr = music_suno.generate_track(music_prompt, suno_mp3, instrumental=True, timeout_s=220)
+    if not mr.get("ok"):
+        return {"ok": False, "error": "SUNO_REQUIRED_FAILED", "detail": mr,
+                "note": "HARD LOCK: chaque vidéo DOIT utiliser Suno. Relais :3300 / crédits à vérifier."}
+
     shots, shot_starts, wi, cum = [], [], 0, 0
     beat_first_shot = {}
     transitions = ["flash", "whip", "zoomblur"]
