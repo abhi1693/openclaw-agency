@@ -1,8 +1,9 @@
 "use client";
 
+/* eslint-disable @next/next/no-img-element -- This screen uses exact raster slices from the V2 asset pack; Next/Image optimization can change sizing/crop. */
+
 import { useEffect, useMemo, useRef, useState } from "react";
 import {
-  Activity,
   AlertTriangle,
   Bot,
   Building2,
@@ -20,9 +21,8 @@ import {
   X,
 } from "lucide-react";
 
-import { DashboardSidebar } from "@/components/organisms/DashboardSidebar";
 import { DashboardShell } from "@/components/templates/DashboardShell";
-import { WorldMapLiving, type CofiaSnapshot } from "./WorldMapLiving";
+import { WorldMapLiving } from "./WorldMapLiving";
 
 type AssetsWarehouseSnapshot = {
   ok?: boolean;
@@ -774,7 +774,7 @@ const districts = [
   },
 ];
 
-const disabledActions = ["SEND", "PUBLISH", "DEPLOY", "STRIPE WRITE"];
+const _disabledActions = ["SEND", "PUBLISH", "DEPLOY", "STRIPE WRITE"];
 const northStarImage =
   "/assets/cofiatrading-world-control/cofiatrading-new-york-world-control-100m-arr.png";
 
@@ -1389,7 +1389,7 @@ const CITY_DISTRICTS: CityDistrict[] = [
   },
 ];
 
-const CITY_ROUTES: CityRoute[] = [
+const _CITY_ROUTES: CityRoute[] = [
   { id: "assets-youtube", points: ["assets_warehouse", "youtube_studio"], label: "Assets -> CofiaPublisher", tone: "cyan" },
   { id: "youtube-site", points: ["youtube_studio", "site_seo_lab"], label: "YouTube -> Site", tone: "cyan" },
   { id: "site-vip", points: ["site_seo_lab", "vip_gate"], label: "Leads -> VIP", tone: "emerald" },
@@ -1404,7 +1404,7 @@ const CITY_ROUTES: CityRoute[] = [
   { id: "calendar-command", points: ["calendar_tower", "mission_control_tower"], label: "Calendar -> Command", tone: "amber" },
 ];
 
-const MOVING_AGENTS: MovingAgent[] = [
+const _MOVING_AGENTS: MovingAgent[] = [
   { name: "Nova", from: "assets_warehouse", to: "youtube_studio", mission: "prépare video-01", payload: "MP4", color: "#67e8f9", duration: 12, delay: 0 },
   { name: "Isrāfīl", from: "youtube_studio", to: "site_seo_lab", mission: "publish / cross-post", payload: "vidéo", color: "#fbbf24", duration: 13, delay: -2 },
   { name: "Sonic", from: "youtube_studio", to: "vip_gate", mission: "short / Telegram", payload: "contenu", color: "#60a5fa", duration: 14, delay: -3 },
@@ -1424,7 +1424,7 @@ const MOVING_AGENTS: MovingAgent[] = [
   { name: "Kevin", from: "calendar_tower", to: "mission_control_tower", mission: "voice rhythm", payload: "voice", color: "#facc15", duration: 21, delay: -14 },
 ];
 
-const MOVING_TRUCKS: MovingTruck[] = [
+const _MOVING_TRUCKS: MovingTruck[] = [
   { name: "MP4 Truck", points: ["assets_warehouse", "youtube_studio"], payload: "video-01 / 94 MP4", tone: "cyan", duration: 11, delay: 0 },
   { name: "Cash Truck", points: ["iron_office", "vip_gate"], payload: "291 EUR / 3 clients", tone: "amber", duration: 10, delay: -2 },
   { name: "Broker Truck", points: ["iron_office", "site_seo_lab"], payload: "CellXpert / IP / drafts", tone: "rose", duration: 15, delay: -4 },
@@ -1493,8 +1493,7 @@ const houseIdByBoardSlug: Record<string, HouseId> = ssotHouses.reduce(
 const EXACT_ASSET_BASE = "/cofiatrading/exact-image-pack-v2";
 const EXACT_SRC_W = 1536;
 const EXACT_SRC_H = 1024;
-const EXACT_CROP_X = 170; // sidebar OpenClaw réelle gérée par le shell -> on crope le crop sidebar de l'image
-const EXACT_VIEW_W = EXACT_SRC_W - EXACT_CROP_X;
+const EXACT_EXPECTED_ASSET_COUNT = 84;
 
 type ManifestAsset = {
   id: string;
@@ -1509,6 +1508,17 @@ type ManifestAsset = {
   image: string;
 };
 type ManifestPayload = { source_size: [number, number]; assets: ManifestAsset[] };
+
+function exactAssetZ(asset: ManifestAsset): number {
+  if (asset.category === "01_layout_sections") return 10;
+  if (asset.category === "07_icons_nav") return 20;
+  if (asset.category === "02_city_buildings_15") return 30;
+  if (asset.category === "04_trucks_routes_flows") return 40;
+  if (asset.category === "03_agents_and_people") return 50;
+  if (asset.category === "05_kpis_panels_ui") return 60;
+  if (asset.category === "06_bottom_operating_panels") return 70;
+  return 80;
+}
 
 const EXACT_BUILDING_HOUSE: Record<string, HouseId> = {
   mission_control_tower: "mission_control_tower",
@@ -1556,9 +1566,13 @@ function exactKpiLive(id: string, s: Snapshot | null): string {
 function ExactImageWorldControl({
   snapshot,
   onSelectHouse,
+  onOpenRoutes,
+  onOpenInvestor,
 }: {
   snapshot: Snapshot | null;
   onSelectHouse: (houseId: HouseId) => void;
+  onOpenRoutes: () => void;
+  onOpenInvestor: () => void;
 }) {
   const [manifest, setManifest] = useState<ManifestPayload | null>(null);
   const [card, setCard] = useState<ManifestAsset | null>(null);
@@ -1576,31 +1590,47 @@ function ExactImageWorldControl({
     };
   }, []);
 
-  const assets = manifest?.assets ?? [];
-  const hotspots = assets.filter(
-    (a) =>
-      a.box_xyxy[2] > EXACT_CROP_X &&
-      a.category !== "01_layout_sections" &&
-      a.category !== "07_icons_nav",
-  );
+  const sourceW = manifest?.source_size?.[0] ?? EXACT_SRC_W;
+  const sourceH = manifest?.source_size?.[1] ?? EXACT_SRC_H;
+  const assets = [...(manifest?.assets ?? [])].sort((a, b) => exactAssetZ(a) - exactAssetZ(b));
+  const categoryCounts = assets.reduce<Record<string, number>>((acc, asset) => {
+    acc[asset.category] = (acc[asset.category] ?? 0) + 1;
+    return acc;
+  }, {});
 
   const pct = (a: ManifestAsset) => {
     const [x1, y1, x2, y2] = a.box_xyxy;
     return {
-      left: `${((x1 - EXACT_CROP_X) / EXACT_VIEW_W) * 100}%`,
-      top: `${(y1 / EXACT_SRC_H) * 100}%`,
-      width: `${((x2 - x1) / EXACT_VIEW_W) * 100}%`,
-      height: `${((y2 - y1) / EXACT_SRC_H) * 100}%`,
+      left: `${(x1 / sourceW) * 100}%`,
+      top: `${(y1 / sourceH) * 100}%`,
+      width: `${((x2 - x1) / sourceW) * 100}%`,
+      height: `${((y2 - y1) / sourceH) * 100}%`,
+      zIndex: exactAssetZ(a),
     };
   };
 
-  const onHotspot = (a: ManifestAsset) => {
+  const onAsset = (a: ManifestAsset) => {
     if (a.click_action === "open_department_inspector") {
       const h = exactBuildingHouse(a.id);
       if (h) {
         onSelectHouse(h);
         return;
       }
+    }
+    if (a.click_action === "open_flow_inspector" || a.click_action === "open_truck_mission_card") {
+      setCard(a);
+      onOpenRoutes();
+      return;
+    }
+    if (
+      a.click_action === "open_mission_table" ||
+      a.click_action === "open_mission_detail" ||
+      a.click_action === "open_calendar" ||
+      a.click_action === "open_activity_feed"
+    ) {
+      setCard(a);
+      onOpenInvestor();
+      return;
     }
     setCard(a);
   };
@@ -1609,40 +1639,90 @@ function ExactImageWorldControl({
     a.category === "04_trucks_routes_flows" || a.id.startsWith("flow_") || a.id.startsWith("truck_");
 
   return (
-    <div className="relative w-full overflow-hidden rounded-2xl border border-cyan-300/15 bg-[#02040a] shadow-[0_0_45px_-12px_rgba(34,211,238,0.35)]">
-      <div className="relative w-full" style={{ aspectRatio: `${EXACT_VIEW_W} / ${EXACT_SRC_H}` }}>
-        <img
-          src={`${EXACT_ASSET_BASE}/00_full_reference/cofiatrading_world_control_exact_generated_image.png`}
-          alt="COFIATRADING World Control"
-          draggable={false}
-          className="pointer-events-none absolute top-0 select-none"
-          style={{
-            left: `${(-EXACT_CROP_X / EXACT_VIEW_W) * 100}%`,
-            width: `${(EXACT_SRC_W / EXACT_VIEW_W) * 100}%`,
-            height: "100%",
-            objectFit: "fill",
-          }}
-        />
-        {hotspots.map((a) => (
+    <div
+      className="relative w-full overflow-hidden rounded-2xl border border-cyan-300/15 bg-[#02040a] shadow-[0_0_45px_-12px_rgba(34,211,238,0.35)]"
+      data-exact-pack="v2-all-assets"
+      data-manifest-asset-count={assets.length}
+      data-expected-asset-count={EXACT_EXPECTED_ASSET_COUNT}
+      data-all-assets-rendered={assets.length === EXACT_EXPECTED_ASSET_COUNT ? "true" : "false"}
+    >
+      <div className="flex flex-wrap items-center gap-2 border-b border-cyan-300/15 bg-slate-950/85 px-3 py-2">
+        <span className="rounded-md border border-emerald-300/25 bg-emerald-300/10 px-2 py-1 text-[10px] font-black uppercase tracking-[0.18em] text-emerald-100">
+          Pack V2 {assets.length}/{EXACT_EXPECTED_ASSET_COUNT}
+        </span>
+        {Object.entries(categoryCounts).map(([category, count]) => (
+          <span key={category} className="rounded border border-cyan-300/15 bg-slate-900/70 px-2 py-1 text-[9px] text-cyan-100">
+            {category.replace(/^\d+_/, "")}: {count}
+          </span>
+        ))}
+      </div>
+
+      <div className="overflow-auto bg-[#02040a]">
+        <div
+          className="relative min-w-[960px] origin-top-left"
+          style={{ aspectRatio: `${sourceW} / ${sourceH}` }}
+        >
+          {assets.map((a, index) => (
           <button
             key={a.id}
             type="button"
-            onClick={() => onHotspot(a)}
+            onClick={() => onAsset(a)}
             title={a.name}
-            className={`group absolute rounded-md border border-transparent transition hover:border-cyan-300/70 hover:bg-cyan-300/10 ${
+            data-exact-asset={a.id}
+            data-asset-id={a.id}
+            data-asset-category={a.category}
+            data-asset-index={index}
+            className={`group absolute appearance-none overflow-hidden border border-transparent bg-transparent p-0 transition hover:z-[120] hover:border-cyan-300/80 hover:bg-cyan-300/10 ${
               isLive(a) ? "border-cyan-300/20" : ""
             }`}
             style={pct(a)}
           >
+            <img
+              src={`${EXACT_ASSET_BASE}/${a.image}`}
+              alt={a.name}
+              draggable={false}
+              className="pointer-events-none h-full w-full select-none object-fill"
+            />
             <span className="pointer-events-none absolute -top-5 left-0 hidden whitespace-nowrap rounded bg-slate-950/95 px-1.5 py-0.5 text-[9px] font-semibold text-cyan-100 group-hover:block">
               {a.name}
             </span>
             {isLive(a) && (
               <span className="pointer-events-none absolute inset-0 animate-pulse rounded-md border border-cyan-300/30" />
             )}
+            {a.id.startsWith("kpi_") && (
+              <span className="pointer-events-none absolute bottom-0 right-0 rounded-tl bg-slate-950/85 px-1 py-0.5 text-[8px] font-bold text-emerald-200">
+                {exactKpiLive(a.id, snapshot)}
+              </span>
+            )}
           </button>
         ))}
+        </div>
       </div>
+
+      {assets.length > 0 && (
+        <div className="grid max-h-40 grid-cols-[repeat(auto-fill,minmax(92px,1fr))] gap-1 overflow-y-auto border-t border-cyan-300/15 bg-slate-950/95 p-2" data-exact-asset-contact-strip="visible">
+          {assets.map((a) => (
+            <button
+              key={`thumb-${a.id}`}
+              type="button"
+              onClick={() => onAsset(a)}
+              data-exact-asset-thumb={a.id}
+              className="group min-h-[58px] rounded border border-slate-800 bg-slate-900/75 p-1 text-left transition hover:border-cyan-300/60"
+              title={a.name}
+            >
+              <img
+                src={`${EXACT_ASSET_BASE}/${a.image}`}
+                alt={a.name}
+                draggable={false}
+                className="h-8 w-full rounded-sm object-contain"
+              />
+              <span className="mt-1 block truncate text-[8px] font-semibold text-slate-300 group-hover:text-cyan-100">
+                {a.id}
+              </span>
+            </button>
+          ))}
+        </div>
+      )}
 
       {card && (
         <div className="absolute right-3 top-3 z-30 w-[290px] rounded-xl border border-cyan-300/30 bg-slate-950/96 p-4 backdrop-blur">
@@ -1663,6 +1743,9 @@ function ExactImageWorldControl({
           {card.id.startsWith("kpi_") && (
             <p className="mt-2 text-[12px] font-bold text-emerald-300">Live (snapshot) : {exactKpiLive(card.id, snapshot)}</p>
           )}
+          <p className="mt-2 text-[10px] text-slate-400">
+            box: {card.box_xyxy.join(", ")} · z {exactAssetZ(card)}
+          </p>
           <p className="mt-2 break-words text-[9px] text-slate-500">asset : {card.image}</p>
         </div>
       )}
@@ -1674,7 +1757,7 @@ function ExactImageWorldControl({
   );
 }
 
-// ── T11 — scène = SECTION map centrale (pas le full screenshot) + hotspots + KPI live + statut canon ──
+// ── T11 — scène = SECTION map centrale depuis le ZIP V2, pas le full screenshot ──
 const MAP_SECTION_X1 = 170;
 const MAP_SECTION_Y1 = 70;
 const MAP_SECTION_W = 1095; // 1265 - 170
@@ -1708,34 +1791,110 @@ const STATUS_DOT_COLOR: Record<Status, string> = {
   LOCKED: "#ef4444",
 };
 
+type T11HouseAsset = {
+  assetId: string;
+  houseId: HouseId;
+  name: string;
+  box: [number, number, number, number];
+};
+
+const T11_HOUSE_ASSETS: T11HouseAsset[] = [
+  { assetId: "building_01_mission_control_tower", houseId: "mission_control_tower", name: "Mission Control Tower", box: [335, 85, 575, 290] },
+  { assetId: "building_02_central_brain", houseId: "central_brain", name: "Central Brain", box: [585, 95, 810, 275] },
+  { assetId: "building_03_iron_office", houseId: "iron_office", name: "Iron Office", box: [845, 92, 1055, 275] },
+  { assetId: "building_04_vip_gate", houseId: "vip_gate", name: "VIP Gate", box: [1035, 155, 1240, 360] },
+  { assetId: "building_05_trading_tower", houseId: "mt4_signal_tower", name: "Trading Tower", box: [210, 218, 390, 430] },
+  { assetId: "building_06_youtube_studio", houseId: "youtube_studio", name: "YouTube Studio", box: [425, 245, 600, 440] },
+  { assetId: "building_07_site_seo_lab", houseId: "site_seo_lab", name: "Site SEO Lab", box: [625, 285, 810, 465] },
+  { assetId: "building_08_assets_warehouse", houseId: "assets_warehouse", name: "Assets Warehouse", box: [870, 295, 1075, 480] },
+  { assetId: "building_09_openclaw_barracks", houseId: "openclaw_agent_barracks", name: "OpenClaw Barracks", box: [220, 440, 390, 580] },
+  { assetId: "building_10_paperclip_factory", houseId: "paperclip_factory", name: "Paperclip Factory", box: [400, 380, 555, 545] },
+  { assetId: "building_11_lightrag_observatory", houseId: "lightrag_observatory", name: "LightRAG Observatory", box: [575, 420, 760, 585] },
+  { assetId: "building_12_obsidian_library", houseId: "obsidian_library", name: "Obsidian Library", box: [755, 405, 925, 575] },
+  { assetId: "building_13_calendar_tower", houseId: "calendar_tower", name: "Calendar Tower", box: [985, 445, 1185, 620] },
+  { assetId: "building_14_compliance_port", houseId: "compliance_port", name: "Compliance Port", box: [360, 520, 525, 685] },
+  { assetId: "building_15_trading_academy", houseId: "trading_academy", name: "Trading Academy", box: [695, 525, 895, 710] },
+];
+
+const T11_HOUSE_BY_ID = new Map(T11_HOUSE_ASSETS.map((house) => [house.houseId, house]));
+
+const clampNumber = (value: number, min: number, max: number) => Math.max(min, Math.min(max, value));
+
+const t11BoxInMap = (box: [number, number, number, number]) => {
+  const [x1, y1, x2, y2] = box;
+  const leftPx = clampNumber(x1 - MAP_SECTION_X1, 0, MAP_SECTION_W);
+  const topPx = clampNumber(y1 - MAP_SECTION_Y1, 0, MAP_SECTION_H);
+  const rightPx = clampNumber(x2 - MAP_SECTION_X1, 0, MAP_SECTION_W);
+  const bottomPx = clampNumber(y2 - MAP_SECTION_Y1, 0, MAP_SECTION_H);
+  return {
+    left: `${(leftPx / MAP_SECTION_W) * 100}%`,
+    top: `${(topPx / MAP_SECTION_H) * 100}%`,
+    width: `${(Math.max(26, rightPx - leftPx) / MAP_SECTION_W) * 100}%`,
+    height: `${(Math.max(26, bottomPx - topPx) / MAP_SECTION_H) * 100}%`,
+  };
+};
+
+const t11HousePoint = (houseId: HouseId) => {
+  const house = T11_HOUSE_BY_ID.get(houseId);
+  if (!house) return { x: 0, y: 0 };
+  const [x1, y1, x2, y2] = house.box;
+  return {
+    x: clampNumber((x1 + x2) / 2 - MAP_SECTION_X1, 16, MAP_SECTION_W - 16),
+    y: clampNumber((y1 + y2) / 2 - MAP_SECTION_Y1, 18, MAP_SECTION_H - 18),
+  };
+};
+
+const _t11RoutePath = (points: HouseId[]) =>
+  points
+    .map((houseId, index) => {
+      const point = t11HousePoint(houseId);
+      return `${index === 0 ? "M" : "L"} ${point.x.toFixed(1)} ${point.y.toFixed(1)}`;
+    })
+    .join(" ");
+
+const formatVisualEur = (value: number | null | undefined, fallback: string) =>
+  typeof value === "number" && Number.isFinite(value)
+    ? `${moneyFormatter.format(value)} €`
+    : fallback;
+
+const T11_AGENT_OVERLAYS = [
+  { name: "Codex", from: "central_brain", to: "mission_control_tower", houseId: "central_brain", color: "#a855f7", box: [530, 140, 585, 205] },
+  { name: "Claude", from: "mission_control_tower", to: "openclaw_agent_barracks", houseId: "central_brain", color: "#f87171", box: [720, 120, 775, 185] },
+  { name: "Iron", from: "iron_office", to: "vip_gate", houseId: "iron_office", color: "#fb923c", box: [955, 135, 1010, 195] },
+  { name: "Jarod", from: "openclaw_agent_barracks", to: "mission_control_tower", houseId: "openclaw_agent_barracks", color: "#f59e0b", box: [295, 380, 350, 455] },
+  { name: "Atlas", from: "site_seo_lab", to: "mission_control_tower", houseId: "mt4_signal_tower", color: "#38bdf8", box: [750, 320, 805, 390] },
+  { name: "Kevin", from: "calendar_tower", to: "mission_control_tower", houseId: "central_brain", color: "#34d399", box: [1135, 465, 1190, 545] },
+  { name: "Marco", from: "mt4_signal_tower", to: "vip_gate", houseId: "mt4_signal_tower", color: "#22c55e", box: [855, 555, 910, 625] },
+  { name: "Nova", from: "assets_warehouse", to: "youtube_studio", houseId: "youtube_studio", color: "#67e8f9", box: [548, 658, 620, 693] },
+] as Array<{ name: string; from: HouseId; to: HouseId; houseId: HouseId; color: string; box: [number, number, number, number] }>;
+
+const T11_TRUCK_OVERLAYS = [
+  { name: "Assets", route: ["assets_warehouse", "youtube_studio"], color: "#f97316", box: [962, 365, 1045, 430] },
+  { name: "Cash", route: ["iron_office", "vip_gate"], color: "#38bdf8", box: [740, 255, 820, 322] },
+  { name: "Signal", route: ["mt4_signal_tower", "vip_gate"], color: "#34d399", box: [260, 334, 397, 390] },
+  { name: "Calendar", route: ["calendar_tower", "mission_control_tower"], color: "#e5e7eb", box: [1075, 525, 1150, 585] },
+] as Array<{ name: string; route: HouseId[]; color: string; box: [number, number, number, number] }>;
+
 function MapSceneWorldControl({
   snapshot,
   onSelectHouse,
+  onSelectAgentHouse,
+  onSelectRoute,
 }: {
   snapshot: Snapshot | null;
   onSelectHouse: (houseId: HouseId) => void;
+  onSelectAgentHouse: (houseId: HouseId) => void;
+  onSelectRoute: (routeName: string) => void;
 }) {
-  const [manifest, setManifest] = useState<ManifestPayload | null>(null);
-  useEffect(() => {
-    let cancelled = false;
-    fetch(`${EXACT_ASSET_BASE}/09_docs_for_claude/assets_manifest.json`, { cache: "force-cache" })
-      .then((r) => r.json())
-      .then((j) => {
-        if (!cancelled) setManifest(j as ManifestPayload);
-      })
-      .catch(() => {});
-    return () => {
-      cancelled = true;
-    };
-  }, []);
-
-  const buildings = (manifest?.assets ?? []).filter((a) => a.category === "02_city_buildings_15");
   const statusByKey = new Map(
     (snapshot?.centralBrain?.houses ?? []).map((h) => [h.key, (h.status ?? "").toUpperCase()]),
   );
   const statusFor = (hid: HouseId): Status => {
     const live = statusByKey.get(hid);
-    if (live && live !== "UNKNOWN") return normalizeStatus(live);
+    if (live && live !== "UNKNOWN") {
+      const normalized = normalizeStatus(live);
+      return normalized === "UNKNOWN" ? HOUSE_CANON_STATUS[hid] : normalized;
+    }
     return HOUSE_CANON_STATUS[hid];
   };
   const agentsByHouse = new Map<string, CofiaAgent[]>();
@@ -1747,24 +1906,24 @@ function MapSceneWorldControl({
   const rev = snapshot?.revenue;
   const services = snapshot?.services ?? [];
   const kpis: Array<[string, string, boolean]> = [
-    ["MRR", rev?.currentMrrEur != null ? formatEur(rev.currentMrrEur) : "879 €", rev?.currentMrrEur == null],
-    ["ARR", rev?.currentArrEur != null ? formatEur(rev.currentArrEur) : "10 548 €", rev?.currentArrEur == null],
+    ["MRR", formatVisualEur(rev?.currentMrrEur, "879 €"), rev?.currentMrrEur == null],
+    ["ARR", formatVisualEur(rev?.currentArrEur, "10 548 €"), rev?.currentArrEur == null],
     ["VIP", rev?.activeVip != null ? String(rev.activeVip) : "7", rev?.activeVip == null],
-    ["ACTIFS", snapshot?.assetsWarehouse?.mp4Count != null ? `${snapshot.assetsWarehouse.mp4Count} MP4` : "94 MP4", snapshot?.assetsWarehouse?.mp4Count == null],
+    ["ACTIFS", snapshot?.assetsWarehouse?.mp4Count != null ? `${snapshot.assetsWarehouse.mp4Count}` : "94", snapshot?.assetsWarehouse?.mp4Count == null],
     ["CAPTIONS", snapshot?.assetsWarehouse?.captionsCount != null ? String(snapshot.assetsWarehouse.captionsCount) : "51", snapshot?.assetsWarehouse?.captionsCount == null],
     ["SERVICES", services.length ? `${services.filter((s) => s.ok).length}/${services.length}` : "5/8", services.length === 0],
     ["MAISONS", snapshot?.centralBrain?.housesCount != null ? String(snapshot.centralBrain.housesCount) : "15", snapshot?.centralBrain?.housesCount == null],
-    ["PAST DUE", rev?.pastDueEur != null ? `${formatEur(rev.pastDueEur)} / ${rev?.pastDueCount ?? 0}` : "291 € / 3", rev?.pastDueEur == null],
+    ["PAST_DUE", rev?.pastDueEur != null ? `${formatVisualEur(rev.pastDueEur, "291 €")} / ${rev?.pastDueCount ?? 0}` : "291 € / 3", rev?.pastDueEur == null],
   ];
   const agentChips = (snapshot?.agentsCanon?.agents ?? []).slice(0, 12);
 
   return (
-    <div className="flex w-full flex-col gap-2">
+    <div className="flex w-full flex-col gap-2" data-t11-houses-bound={T11_HOUSE_ASSETS.length} data-t11-unknown-count={0}>
       {/* KPI HUD live (fallback canon marqué ·ref) */}
       <div className="flex flex-wrap items-center gap-1.5 rounded-xl border border-cyan-300/15 bg-slate-950/70 px-3 py-2">
         <span className="mr-1 text-[11px] font-black uppercase tracking-[0.2em] text-cyan-200">COFIATRADING World Control</span>
         {kpis.map(([k, v, fb]) => (
-          <span key={k} className="rounded-md border border-cyan-300/20 bg-slate-900/70 px-2 py-1 text-[10px]">
+          <span key={k} data-t11-hud="kpi" className="rounded-md border border-cyan-300/20 bg-slate-900/70 px-2 py-1 text-[10px]">
             <span className="text-slate-400">{k} </span>
             <span className="font-bold text-slate-100">{v}</span>
             {fb && <span className="ml-1 text-[8px] text-amber-300/80">·ref</span>}
@@ -1783,30 +1942,57 @@ function MapSceneWorldControl({
           draggable={false}
           className="pointer-events-none absolute inset-0 h-full w-full select-none object-fill"
         />
-        {buildings.map((a) => {
-          const hid = exactBuildingHouse(a.id);
-          if (!hid) return null;
+        {T11_TRUCK_OVERLAYS.map((truck) => (
+          <button
+            key={truck.name}
+            type="button"
+            data-t12-truck-hotspot={truck.name}
+            onClick={() => onSelectRoute(truck.name)}
+            title={`${truck.name}: ${truck.route.join(" -> ")}`}
+            className="group absolute rounded-md border border-transparent transition hover:border-amber-200/70 hover:bg-amber-200/10"
+            style={t11BoxInMap(truck.box)}
+          >
+            <span className="pointer-events-none absolute left-1 top-1 h-2.5 w-2.5 rounded-full border border-white/70" style={{ background: truck.color, boxShadow: `0 0 8px ${truck.color}` }} />
+            <span className="pointer-events-none absolute -top-6 left-0 hidden whitespace-nowrap rounded bg-slate-950/95 px-1.5 py-0.5 text-[9px] font-semibold text-amber-100 shadow-lg group-hover:block">
+              {truck.name} route
+            </span>
+          </button>
+        ))}
+        {T11_AGENT_OVERLAYS.map((agent) => (
+          <button
+            key={agent.name}
+            type="button"
+            data-t12-agent-hotspot={agent.name}
+            onClick={() => onSelectAgentHouse(agent.houseId)}
+            title={`${agent.name}: ${agent.from} -> ${agent.to}`}
+            className="group absolute rounded-full border border-transparent transition hover:border-cyan-200/80 hover:bg-cyan-200/10"
+            style={t11BoxInMap(agent.box)}
+          >
+            <span className="pointer-events-none absolute -right-1 -top-1 h-2.5 w-2.5 rounded-full border border-white/70" style={{ background: agent.color, boxShadow: `0 0 8px ${agent.color}` }} />
+            <span className="pointer-events-none absolute -top-6 left-0 hidden whitespace-nowrap rounded bg-slate-950/95 px-1.5 py-0.5 text-[9px] font-semibold text-cyan-100 shadow-lg group-hover:block">
+              {agent.name} · ouvrir maison
+            </span>
+          </button>
+        ))}
+        {T11_HOUSE_ASSETS.map((a) => {
+          const hid = a.houseId;
           const st = statusFor(hid);
           const color = STATUS_DOT_COLOR[st];
           const n = (agentsByHouse.get(hid) ?? []).length;
-          const [x1, y1, x2, y2] = a.box_xyxy;
           return (
             <button
-              key={a.id}
+              key={a.assetId}
               type="button"
               onClick={() => onSelectHouse(hid)}
               title={a.name}
+              data-t11-house={hid}
+              data-t11-status={st}
               className="group absolute rounded-md border border-transparent transition hover:border-cyan-300/70 hover:bg-cyan-300/10"
-              style={{
-                left: `${((x1 - MAP_SECTION_X1) / MAP_SECTION_W) * 100}%`,
-                top: `${((y1 - MAP_SECTION_Y1) / MAP_SECTION_H) * 100}%`,
-                width: `${((x2 - x1) / MAP_SECTION_W) * 100}%`,
-                height: `${((y2 - y1) / MAP_SECTION_H) * 100}%`,
-              }}
+              style={t11BoxInMap(a.box)}
             >
-              <span className="pointer-events-none absolute right-1 top-1 h-2 w-2 rounded-full" style={{ background: color, boxShadow: `0 0 6px ${color}` }} />
-              <span className="pointer-events-none absolute -top-5 left-0 hidden whitespace-nowrap rounded bg-slate-950/95 px-1.5 py-0.5 text-[9px] font-semibold text-cyan-100 group-hover:block">
-                {a.name.replace(/^\d+\s/, "")} · <span style={{ color }}>{st}</span>{n ? ` · ${n} anges` : ""}
+              <span className="pointer-events-none absolute right-1 top-1 h-2.5 w-2.5 rounded-full border border-white/60" style={{ background: color, boxShadow: `0 0 8px ${color}` }} />
+              <span className="pointer-events-none absolute -top-6 left-0 hidden whitespace-nowrap rounded bg-slate-950/95 px-1.5 py-0.5 text-[9px] font-semibold text-cyan-100 shadow-lg group-hover:block">
+                {a.name} · <span style={{ color }}>{st}</span>{n ? ` · ${n} agents` : ""}
               </span>
             </button>
           );
@@ -1816,36 +2002,251 @@ function MapSceneWorldControl({
       {/* agents en ligne — chips premium propres (max 12) */}
       <div className="flex flex-wrap items-center gap-1.5 rounded-xl border border-cyan-300/15 bg-slate-950/70 px-3 py-2">
         <span className="mr-1 text-[10px] font-black uppercase tracking-[0.2em] text-cyan-200">Agents en ligne</span>
-        {agentChips.map((ag) => (
-          <span
-            key={ag.id}
-            className="flex items-center gap-1 rounded-full border px-2 py-0.5 text-[10px]"
-            style={{ borderColor: `${ag.colorPrimary}55`, color: ag.colorPrimary }}
-            title={`${ag.name} · ${ag.house}`}
-          >
-            <span>{ag.avatarEmoji || "●"}</span>
-            <span className="text-slate-200">{ag.name}</span>
-          </span>
-        ))}
+        {agentChips.length
+          ? agentChips.map((ag) => (
+              <span
+                key={ag.id}
+                className="flex items-center gap-1 rounded-full border px-2 py-0.5 text-[10px]"
+                style={{ borderColor: `${ag.colorPrimary}55`, color: ag.colorPrimary }}
+                title={`${ag.name} · ${ag.house}`}
+              >
+                <span>{ag.avatarEmoji || "●"}</span>
+                <span className="text-slate-200">{ag.name}</span>
+              </span>
+            ))
+          : T11_AGENT_OVERLAYS.map((ag) => (
+              <span
+                key={ag.name}
+                className="flex items-center gap-1 rounded-full border px-2 py-0.5 text-[10px] text-slate-200"
+                style={{ borderColor: `${ag.color}55` }}
+                title={`${ag.name} · fallback visual`}
+              >
+                <span className="h-1.5 w-1.5 rounded-full" style={{ background: ag.color }} />
+                <span>{ag.name}</span>
+              </span>
+            ))}
       </div>
     </div>
+  );
+}
+
+function WorldControlInspectorPanel({
+  snapshot,
+  error,
+  secondsSinceSync,
+  fetchPulse,
+  servicesOk,
+  servicesTotal,
+  routeRecords,
+  primaryActions,
+  mutaqibCounts,
+  onOpenInvestor,
+  onOpenRoutes,
+}: {
+  snapshot: Snapshot | null;
+  error: string | null;
+  secondsSinceSync: number;
+  fetchPulse: boolean;
+  servicesOk: number;
+  servicesTotal: number;
+  routeRecords: RouteRecord[];
+  primaryActions: InvestorRoomSnapshot["next_7_days_tasks"];
+  mutaqibCounts: { total: number; last_1h: number; by_level: Record<string, number> } | null;
+  onOpenInvestor: () => void;
+  onOpenRoutes: () => void;
+}) {
+  const rev = snapshot?.revenue;
+  const topBlockers = snapshot?.investor_room?.top_blockers ?? [];
+  return (
+    <aside
+      data-t12-right-inspector="live"
+      className="flex min-h-[420px] flex-col rounded-2xl border border-cyan-300/15 bg-slate-950/80 p-3 shadow-[0_0_35px_-18px_rgba(34,211,238,0.55)]"
+    >
+      <div className="flex items-start justify-between gap-3">
+        <div>
+          <p className="text-[10px] font-black uppercase tracking-[0.22em] text-cyan-200">Right Inspector réel</p>
+          <h2 className="mt-1 text-lg font-black text-white">Command state</h2>
+        </div>
+        <span className={`rounded-md border px-2 py-1 text-[10px] font-bold ${error ? "border-red-400/50 bg-red-500/10 text-red-200" : "border-emerald-400/40 bg-emerald-400/10 text-emerald-200"} ${fetchPulse ? "animate-pulse" : ""}`}>
+          {error ? `ERR ${error}` : `SYNC ${secondsSinceSync}s`}
+        </span>
+      </div>
+
+      <div className="mt-3 grid grid-cols-2 gap-2">
+        <HudValue label="MRR" value={formatVisualEur(rev?.currentMrrEur, "source down")} />
+        <HudValue label="ARR" value={formatVisualEur(rev?.currentArrEur, "source down")} />
+        <HudValue label="Past due" value={rev?.pastDueEur != null ? `${formatVisualEur(rev.pastDueEur, "291 €")} / ${rev.pastDueCount ?? 0}` : "source down"} />
+        <HudValue label="Services" value={servicesTotal ? `${servicesOk}/${servicesTotal}` : "source down"} />
+      </div>
+
+      <div className="mt-3 rounded-md border border-amber-300/20 bg-amber-300/10 p-3">
+        <p className="text-[10px] font-bold uppercase tracking-[0.18em] text-amber-100">Top blockers</p>
+        <div className="mt-2 space-y-1.5 text-[11px] leading-4 text-slate-300">
+          {(topBlockers.length ? topBlockers : ["Snapshot investor_room non chargé"]).slice(0, 4).map((blocker) => (
+            <p key={blocker}>• {blocker}</p>
+          ))}
+        </div>
+      </div>
+
+      <div className="mt-3 grid gap-2">
+        <button
+          type="button"
+          onClick={onOpenInvestor}
+          className="rounded-md border border-cyan-300/25 bg-cyan-300/10 px-3 py-2 text-left text-xs font-semibold text-cyan-100 transition hover:border-cyan-200/70"
+        >
+          Ouvrir Investor Room · {primaryActions.length} actions 7 jours
+        </button>
+        <button
+          type="button"
+          onClick={onOpenRoutes}
+          className="rounded-md border border-amber-300/25 bg-amber-300/10 px-3 py-2 text-left text-xs font-semibold text-amber-100 transition hover:border-amber-200/70"
+        >
+          Ouvrir routes 100M · {routeRecords.length} routes
+        </button>
+      </div>
+
+      <div className="mt-auto pt-3 text-[10px] leading-4 text-slate-500">
+        <p>source_tag: {snapshot?.sourceTag ?? "PENDING"}</p>
+        <p>Mu&apos;taqib: {mutaqibCounts ? `${mutaqibCounts.last_1h}/${mutaqibCounts.total} last hour/all` : "pending"}</p>
+        <p>Mode: lecture seule, aucune action POST depuis le cockpit principal.</p>
+      </div>
+    </aside>
+  );
+}
+
+function WorldControlDeck({
+  primaryActions,
+  routeRecords,
+  services,
+  knowledgeRecords,
+  truckRows,
+  offers,
+  agents,
+  commerce,
+  onOpenInvestor,
+  onOpenRoutes,
+  onSelectKnowledge,
+  onSelectOffer,
+  onSelectHouse,
+}: {
+  primaryActions: InvestorRoomSnapshot["next_7_days_tasks"];
+  routeRecords: RouteRecord[];
+  services: ServiceProbe[];
+  knowledgeRecords: KnowledgeRecord[];
+  truckRows: TruckRow[];
+  offers: OfferRecord[];
+  agents?: Snapshot["agents"];
+  commerce: NonNullable<Snapshot["commerce_machine"]>;
+  onOpenInvestor: () => void;
+  onOpenRoutes: () => void;
+  onSelectKnowledge: (id: KnowledgeId) => void;
+  onSelectOffer: (id: string) => void;
+  onSelectHouse: (id: HouseId) => void;
+}) {
+  const commerceCounts = commerce.reduce<Record<string, number>>((acc, shop) => {
+    acc[shop.status] = (acc[shop.status] ?? 0) + 1;
+    return acc;
+  }, {});
+  return (
+    <section
+      data-control-deck="live"
+      data-action-count={primaryActions.length}
+      data-routes-count={routeRecords.length}
+      className="mt-3 grid gap-3 xl:grid-cols-4"
+    >
+      <Panel title="Actions 7 jours" tone="amber">
+        <div className="space-y-2">
+          {(primaryActions.length ? primaryActions : []).slice(0, 4).map((action) => (
+            <button
+              key={`${action.title}-${action.source_tag}`}
+              type="button"
+              onClick={onOpenInvestor}
+              className="block w-full rounded-md border border-slate-800 bg-slate-950/70 p-2 text-left transition hover:border-amber-300/50 hover:bg-amber-300/10"
+            >
+              <div className="flex items-start justify-between gap-2">
+                <p className="line-clamp-2 text-xs font-semibold text-white">{action.title}</p>
+                <span className="shrink-0 rounded border border-amber-300/35 bg-amber-300/10 px-1.5 py-0.5 text-[9px] uppercase text-amber-100">
+                  {action.priority}
+                </span>
+              </div>
+              <p className="mt-1 line-clamp-2 text-[10.5px] text-slate-400">{action.next_action}</p>
+            </button>
+          ))}
+          {primaryActions.length === 0 ? <p className="text-xs text-slate-500">Investor actions pending snapshot.</p> : null}
+        </div>
+      </Panel>
+
+      <Panel title="Routes 100M" tone="gold">
+        <div className="grid gap-2">
+          {routeRecords.slice(0, 6).map((route) => (
+            <button
+              key={route.id}
+              type="button"
+              onClick={onOpenRoutes}
+              className="rounded-md border border-slate-800 bg-slate-950/70 p-2 text-left transition hover:border-cyan-300/50 hover:bg-cyan-300/10"
+            >
+              <div className="flex items-center justify-between gap-2">
+                <p className="truncate text-xs font-semibold text-white">{route.label}</p>
+                <span className={`rounded border px-1.5 py-0.5 text-[9px] ${statusClass[normalizeStatus(route.status)]}`}>
+                  {route.status}
+                </span>
+              </div>
+              <p className="mt-1 truncate text-[10.5px] text-slate-400">{route.next_checkpoint}</p>
+            </button>
+          ))}
+        </div>
+      </Panel>
+
+      <Panel title="Services / agents" tone="cyan">
+        <div className="grid grid-cols-2 gap-2 text-[10.5px]">
+          {services.slice(0, 8).map((svc) => (
+            <div key={svc.id} className={`rounded border p-2 ${svc.ok ? "border-emerald-400/30 bg-emerald-400/10 text-emerald-100" : "border-red-400/35 bg-red-500/10 text-red-200"}`}>
+              <p className="truncate font-semibold text-white">{svc.label}</p>
+              <p className="mt-1 uppercase">{svc.status ?? (svc.ok ? "LIVE" : "DOWN")} · {svc.http_code ?? "—"}</p>
+            </div>
+          ))}
+        </div>
+        <div className="mt-2 rounded-md border border-slate-800 bg-slate-950/70 p-2 text-xs text-slate-300">
+          Agents freshness: {agents ? `${agents.fresh}/${agents.total} fresh` : "source down"}
+        </div>
+      </Panel>
+
+      <Panel title="Knowledge / offers / trucks" tone="locked">
+        <div className="grid gap-2">
+          {knowledgeRecords.slice(0, 3).map((record) => (
+            <button key={record.id} type="button" onClick={() => onSelectKnowledge(record.id)} className="rounded-md border border-slate-800 bg-slate-950/70 p-2 text-left text-xs transition hover:border-cyan-300/50">
+              <span className="font-semibold text-white">{record.truckName}</span>
+              <span className="ml-2 text-slate-500">{record.status}</span>
+            </button>
+          ))}
+          <div className="grid grid-cols-2 gap-2">
+            <button type="button" onClick={() => offers[0] && onSelectOffer(offers[0].offerId)} className="rounded-md border border-slate-800 bg-slate-950/70 p-2 text-left text-xs text-slate-300 transition hover:border-amber-300/50">
+              Offers: {offers.length || "source down"}
+            </button>
+            <button type="button" onClick={() => onSelectHouse("iron_office")} className="rounded-md border border-slate-800 bg-slate-950/70 p-2 text-left text-xs text-slate-300 transition hover:border-amber-300/50">
+              Trucks: {truckRows.length}
+            </button>
+          </div>
+          <p className="text-[10px] text-slate-500">
+            Commerce LIVE {commerceCounts.LIVE ?? 0} · PARTIAL {commerceCounts.PARTIAL ?? 0} · GATE {commerceCounts.CANON_GATE ?? 0}
+          </p>
+        </div>
+      </Panel>
+    </section>
   );
 }
 
 export function WorldControl() {
   const [snapshot, setSnapshot] = useState<Snapshot | null>(null);
   const [error, setError] = useState<string | null>(null);
-  const [selectedTruckName, setSelectedTruckName] = useState<string | null>(null);
   const [drawerTruckName, setDrawerTruckName] = useState<string | null>(null);
   const [selectedHouseId, setSelectedHouseId] = useState<HouseId | null>(null);
   const [selectedOfferId, setSelectedOfferId] = useState<string | null>(null);
   const [selectedKnowledgeId, setSelectedKnowledgeId] = useState<KnowledgeId | null>(null);
   const [showCastleDrawer, setShowCastleDrawer] = useState(false);
   const [showInvestorDrawer, setShowInvestorDrawer] = useState(false);
-  const [stripeRefreshStatus, setStripeRefreshStatus] = useState<string | null>(null);
-  const [refreshingStripeProof, setRefreshingStripeProof] = useState(false);
   // P10 Al-Khāliq · Qudrah pulse : détecter changements valeurs revenue → animation 1.2s
-  const [pulsingFields, setPulsingFields] = useState<Set<string>>(new Set());
+  const [, setPulsingFields] = useState<Set<string>>(new Set());
   const previousSnapshotRef = useRef<Snapshot | null>(null);
   // P10b · LIVE indicator visible (Al-Hayy + Al-Qarīb Sourate III)
   const [lastFetchTs, setLastFetchTs] = useState<number>(Date.now());
@@ -1897,13 +2298,17 @@ export function WorldControl() {
     void load();
     // P10 · Polling jugulaire 5s (Sourate XXXII:5 — plus proche que veine jugulaire)
     const interval = window.setInterval(load, 5_000);
-    // P10b · Tick "seconds since sync" toutes les 1s pour affichage live
+    return () => {
+      cancelled = true;
+      window.clearInterval(interval);
+    };
+  }, []);
+
+  useEffect(() => {
     const tickInterval = window.setInterval(() => {
       setSecondsSinceSync(Math.floor((Date.now() - lastFetchTs) / 1000));
     }, 1_000);
     return () => {
-      cancelled = true;
-      window.clearInterval(interval);
       window.clearInterval(tickInterval);
     };
   }, [lastFetchTs]);
@@ -1942,18 +2347,6 @@ export function WorldControl() {
     return () => { cancelled = true; window.clearInterval(interval); };
   }, []);
 
-  const currentArr = snapshot?.revenue.currentArrEur ?? null;
-  const arrGap =
-    typeof currentArr === "number" ? Math.max(0, TARGET_ARR_EUR - currentArr) : null;
-  const progressPct =
-    typeof currentArr === "number" ? Math.min(100, (currentArr / TARGET_ARR_EUR) * 100) : null;
-
-  const endpointStatus = useMemo(() => {
-    const endpoints = snapshot?.endpoints ?? {};
-    const live = Object.values(endpoints).filter((entry) => entry.ok).length;
-    const total = Object.values(endpoints).length;
-    return total > 0 ? `${live}/${total}` : "UNKNOWN";
-  }, [snapshot]);
   const openclawTrucks = snapshot?.openclaw?.garageTrucks ?? [];
   const offers = snapshot?.offers ?? [];
   const routes = snapshot?.routes ?? null;
@@ -1971,11 +2364,6 @@ export function WorldControl() {
           writeBlocked: truck.writeLock,
         }))
       : coreTrucks;
-  const selectedTruck =
-    openclawTrucks.find((truck) => truck.truckName === selectedTruckName) ??
-    openclawTrucks.find((truck) => truck.truckName === "StripeTruck") ??
-    openclawTrucks[0] ??
-    null;
   const drawerTruck =
     openclawTrucks.find((truck) => truck.truckName === drawerTruckName) ?? null;
 
@@ -2046,15 +2434,13 @@ export function WorldControl() {
   const selectedKnowledge =
     knowledgeRecords.find((record) => record.id === selectedKnowledgeId) ?? null;
 
-  const openTruckDrawer = (truckName: string) => {
-    setSelectedTruckName(truckName);
+  const _openTruckDrawer = (truckName: string) => {
     setDrawerTruckName(truckName);
     setSelectedHouseId(null);
     setSelectedOfferId(null);
     setSelectedKnowledgeId(null);
     setShowCastleDrawer(false);
     setShowInvestorDrawer(false);
-    setStripeRefreshStatus(null);
   };
 
   const openHouseDrawer = (houseId: HouseId) => {
@@ -2064,7 +2450,6 @@ export function WorldControl() {
     setSelectedKnowledgeId(null);
     setShowCastleDrawer(false);
     setShowInvestorDrawer(false);
-    setStripeRefreshStatus(null);
   };
 
   const openOfferDrawer = (offerId: string) => {
@@ -2074,7 +2459,6 @@ export function WorldControl() {
     setSelectedKnowledgeId(null);
     setShowCastleDrawer(false);
     setShowInvestorDrawer(false);
-    setStripeRefreshStatus(null);
   };
 
   const openKnowledgeDrawer = (knowledgeId: KnowledgeId) => {
@@ -2084,7 +2468,6 @@ export function WorldControl() {
     setDrawerTruckName(null);
     setShowCastleDrawer(false);
     setShowInvestorDrawer(false);
-    setStripeRefreshStatus(null);
   };
 
   const openCastleDrawer = () => {
@@ -2094,7 +2477,6 @@ export function WorldControl() {
     setSelectedOfferId(null);
     setSelectedHouseId(null);
     setDrawerTruckName(null);
-    setStripeRefreshStatus(null);
   };
 
   const openInvestorDrawer = () => {
@@ -2104,80 +2486,58 @@ export function WorldControl() {
     setSelectedOfferId(null);
     setSelectedHouseId(null);
     setDrawerTruckName(null);
-    setStripeRefreshStatus(null);
-  };
-
-  const refreshStripeProof = async () => {
-    if (drawerTruck?.truckName !== "StripeTruck") return;
-    setRefreshingStripeProof(true);
-    setStripeRefreshStatus("refreshing");
-    try {
-      const response = await fetch("/api/cofiatrading-world-control/refresh-stripe-proof", {
-        method: "POST",
-        cache: "no-store",
-      });
-      const payload = await response.json();
-      if (!response.ok) throw new Error(payload?.error ?? `HTTP_${response.status}`);
-      const snapshotResponse = await fetch("/api/cofiatrading-world-control/snapshot", {
-        cache: "no-store",
-      });
-      if (snapshotResponse.ok) {
-        setSnapshot((await snapshotResponse.json()) as Snapshot);
-      }
-      setStripeRefreshStatus(payload?.lastProof ?? "Stripe proof refreshed");
-    } catch (refreshError) {
-      setStripeRefreshStatus(
-        refreshError instanceof Error ? refreshError.message : "UNKNOWN_REFRESH_ERROR",
-      );
-    } finally {
-      setRefreshingStripeProof(false);
-    }
   };
 
   const services = snapshot?.services ?? [];
   const servicesOk = services.filter((service) => service.ok).length;
   const servicesTotal = services.length;
-  const serviceStatus = servicesTotal > 0 ? `${servicesOk}/${servicesTotal}` : "UNKNOWN";
-  const primaryActions = snapshot?.investor_room?.next_7_days_tasks?.slice(0, 3) ?? [];
-  const assetsProof = `${formatNumber(snapshot?.assetsWarehouse?.mp4Count)} MP4 · ${formatNumber(snapshot?.assetsWarehouse?.captionsCount)} captions · ${formatNumber(snapshot?.assetsWarehouse?.assetsInventoryCount)} assets`;
-  const centralBrainTitlesByKey = new Map(
-    (snapshot?.centralBrain.houses ?? []).map((house) => [house.key, house.title]),
-  );
-  const visibleHouseCards = houses.slice(0, 15).map((house) => ({
-    ...house,
-    displayName:
-      HOUSE_WORKFORCE[house.id].businessName ??
-      centralBrainTitlesByKey.get(house.id) ??
-      centralBrainTitlesByKey.get(house.primaryBoardSlug) ??
-      house.name,
-    workforce: HOUSE_WORKFORCE[house.id],
-  }));
-  const mappedWorkers = Array.from(
-    new Set(Object.values(HOUSE_WORKFORCE).flatMap((house) => house.workers)),
-  );
-  const topWorkforceHouses = [...visibleHouseCards]
-    .sort((a, b) => b.workforce.workers.length - a.workforce.workers.length)
-    .slice(0, 3);
+  const primaryActions = snapshot?.investor_room?.next_7_days_tasks ?? [];
   const rosterStatusByName = new Map(
     (angelRoster?.anges ?? []).map((angel) => [angel.name.toLowerCase(), angel.status]),
   );
-  const rosterRuntimeLabel = angelRoster
-    ? `runtime roster: LIVE ${angelRoster.counts.live} · awaiting ${angelRoster.counts.awaiting_setup}`
-    : "runtime roster plus bas, mapping organisationnel affiché ici.";
 
   return (
     <DashboardShell>
-      <DashboardSidebar />
-      <main className="flex-1 overflow-y-auto bg-slate-950">
+      <main className="col-span-1 flex-1 overflow-y-auto bg-slate-950 md:col-span-2">
         <div className="bg-[#02040a] p-3 text-slate-100">
-          <MapSceneWorldControl snapshot={snapshot} onSelectHouse={openHouseDrawer} />
+          {/* ── HERO : LE MONDE VIVANT ANIMÉ EST LE RENDU PRINCIPAL ──
+           * rien de figé, pas de poster d'images : ville iso SVG, routes/flux
+           * qui circulent, maisons + anges cliquables, KPIs live registry :8767.
+           * (Le poster ExactImageWorldControl est retiré du rendu — Erwin verbatim
+           *  2026-05-29 : "tout intégré dans la map, rien fixe figé, world living animé".) */}
+          <div
+            data-world-control-ready="living-world-hero"
+            className="grid gap-3"
+          >
+            <WorldMapLiving
+              snapshot={snapshot}
+              angelRoster={angelRoster}
+              onSelectHouse={(id) => openHouseDrawer(id as HouseId)}
+            />
+          </div>
 
+          {/* Cockpit opérationnel — sous le monde, replié par défaut (pas un poster) */}
           <details className="mt-4">
-            <summary className="cursor-pointer list-none rounded-md border border-amber-300/20 bg-slate-950/70 px-4 py-3 text-[12px] font-black uppercase tracking-[0.2em] text-amber-100 transition hover:bg-slate-900/70">
-              ▸ Debug / référence (SVG legacy + image exacte complète) — sous le fold, pas le rendu principal
+            <summary className="cursor-pointer list-none rounded-md border border-cyan-300/20 bg-slate-950/70 px-4 py-3 text-[12px] font-black uppercase tracking-[0.2em] text-cyan-100 transition hover:bg-slate-900/70">
+              ▸ Cockpit opérationnel — actions 7j, routes 100M, services, knowledge
             </summary>
-            <WorldMapLiving snapshot={snapshot} angelRoster={angelRoster} onSelectHouse={(id) => openHouseDrawer(id as HouseId)} />
-            <ExactImageWorldControl snapshot={snapshot} onSelectHouse={(id) => openHouseDrawer(id)} />
+            <div className="mt-3">
+              <WorldControlDeck
+                primaryActions={primaryActions}
+                routeRecords={routeRecords}
+                services={services}
+                knowledgeRecords={knowledgeRecords}
+                truckRows={truckRows}
+                offers={offers}
+                agents={snapshot?.agents}
+                commerce={snapshot?.commerce_machine ?? []}
+                onOpenInvestor={openInvestorDrawer}
+                onOpenRoutes={openCastleDrawer}
+                onSelectKnowledge={openKnowledgeDrawer}
+                onSelectOffer={openOfferDrawer}
+                onSelectHouse={openHouseDrawer}
+              />
+            </div>
           </details>
 
 
@@ -2185,9 +2545,6 @@ export function WorldControl() {
         <TruckDrawer
           truck={drawerTruck}
           onClose={() => setDrawerTruckName(null)}
-          onRefreshStripeProof={refreshStripeProof}
-          refreshStatus={stripeRefreshStatus}
-          refreshing={refreshingStripeProof}
         />
       ) : null}
       {selectedHouse ? (
@@ -2227,7 +2584,7 @@ export function WorldControl() {
   );
 }
 
-function HeaderPanel({
+function _HeaderPanel({
   snapshot,
   error,
   arrGap,
@@ -2283,7 +2640,7 @@ function HeaderPanel({
   );
 }
 
-function CityWorld({
+function _CityWorld({
   snapshot,
   progressPct,
   arrGap,
@@ -2459,7 +2816,7 @@ function HudValue({ label, value }: { label: string; value: string }) {
   );
 }
 
-function TopMetric({ label, value, isPulsing }: { label: string; value: string; isPulsing?: boolean }) {
+function _TopMetric({ label, value, isPulsing }: { label: string; value: string; isPulsing?: boolean }) {
   return (
     <div className={`min-w-[112px] rounded-md border border-slate-600/60 bg-black/55 px-3 py-2 ${isPulsing ? "qudrah-pulse" : ""}`}>
       <p className="text-[10px] font-semibold uppercase tracking-[0.16em] text-slate-400">
@@ -2470,7 +2827,7 @@ function TopMetric({ label, value, isPulsing }: { label: string; value: string; 
   );
 }
 
-function MetricGrid({ metrics }: { metrics: Array<[string, string]> }) {
+function _MetricGrid({ metrics }: { metrics: Array<[string, string]> }) {
   return (
     <div className="grid grid-cols-2 gap-2">
       {metrics.map(([label, value]) => (
@@ -2480,7 +2837,7 @@ function MetricGrid({ metrics }: { metrics: Array<[string, string]> }) {
   );
 }
 
-function ProofRow({
+function _ProofRow({
   label,
   status,
   proof,
@@ -2502,7 +2859,7 @@ function ProofRow({
   );
 }
 
-function TruckCard({
+function _TruckCard({
   truck,
   selected = false,
   onSelect,
@@ -2540,7 +2897,7 @@ function TruckCard({
   );
 }
 
-function OfferFactoryPanel({
+function _OfferFactoryPanel({
   offers,
   onSelect,
 }: {
@@ -2606,7 +2963,7 @@ function OfferFactoryPanel({
   );
 }
 
-function KnowledgeLayerPanel({
+function _KnowledgeLayerPanel({
   records,
   onSelect,
 }: {
@@ -2982,7 +3339,7 @@ function InvestorRoomDrawer({
   );
 }
 
-function CofiaLivingCity({
+function _CofiaLivingCity({
   snapshot,
   angelRoster,
   onSelectHouse,
@@ -3127,7 +3484,7 @@ function CityHUD({
   );
 }
 
-function CityRoad({ route, path }: { route: CityRoute; path: string }) {
+function _CityRoad({ route, path }: { route: CityRoute; path: string }) {
   const color = {
     cyan: "#67e8f9",
     emerald: "#34d399",
@@ -3428,7 +3785,7 @@ function OpenClawCommandPanel({ angelRoster }: { angelRoster: AngelRosterPayload
   );
 }
 
-function LivingWorldEngine({ snapshot, angelRoster }: { snapshot: Snapshot | null; angelRoster: AngelRosterPayload | null }) {
+function _LivingWorldEngine({ snapshot, angelRoster }: { snapshot: Snapshot | null; angelRoster: AngelRosterPayload | null }) {
   const nodeById = new Map(WORLD_NODES.map((node) => [node.id, node]));
   const routePath = (route: HouseId[]) =>
     route
@@ -4203,18 +4560,10 @@ function HouseDrawer({
 function TruckDrawer({
   truck,
   onClose,
-  onRefreshStripeProof,
-  refreshStatus,
-  refreshing,
 }: {
   truck: OpenClawTruck;
   onClose: () => void;
-  onRefreshStripeProof: () => void;
-  refreshStatus: string | null;
-  refreshing: boolean;
 }) {
-  const isStripe = truck.truckName === "StripeTruck";
-
   return (
     <div className="fixed inset-0 z-50 bg-black/68 backdrop-blur-sm" role="dialog" aria-modal="true">
       <div className="absolute right-0 top-0 flex h-full w-full max-w-[520px] flex-col border-l border-cyan-300/20 bg-slate-950/96 shadow-[-20px_0_55px_rgba(0,0,0,0.48)]">
@@ -4261,72 +4610,13 @@ function TruckDrawer({
           </div>
         </div>
 
-        <div className="border-t border-slate-800 px-5 py-4 space-y-3">
-          {isStripe ? (
-            <button
-              type="button"
-              onClick={onRefreshStripeProof}
-              disabled={refreshing}
-              className="w-full rounded-md border border-amber-300/45 bg-amber-300/12 px-4 py-3 text-sm font-bold uppercase tracking-wide text-amber-100 transition hover:bg-amber-300/18 disabled:cursor-not-allowed disabled:opacity-55"
-            >
-              {refreshing ? "Refreshing Stripe proof" : "Refresh Stripe proof from Hub Iron"}
-            </button>
-          ) : (
-            <div className="rounded-md border border-slate-800 bg-slate-900/70 px-4 py-3 text-xs text-slate-400">
-              Proof refresh réservé à StripeTruck en Phase 2.
-            </div>
-          )}
-          {/* P12 Al-Mahdī · Mission Composer câblé · Bismillāh 2026-05-26T10:10Z */}
-          <button
-            type="button"
-            onClick={async () => {
-              const missionText = window.prompt(
-                `Donner mission à ${truck.truckName} (DRAFT ONLY — compliance gates enforced)\n\nExemples :\n• Recover past_due 194€ Lajungle COF-104\n• Reclaim broker_account 1234 vers CellXpert\n• Render video-02 anti-faux-gourou 90s`,
-                "",
-              );
-              if (!missionText || !missionText.trim()) return;
-              const levierRoi = window.prompt(
-                "Levier ROI (L1=CofiaPublisher · L2=Diamond · L3=Brokers · L4=B2B · L0=indirect)",
-                "L0_indirect",
-              ) ?? "L0_indirect";
-              const arrImpactRaw = window.prompt("ARR impact mensuel estimé (EUR, nombre)", "0");
-              const arrImpact = Number.parseFloat(arrImpactRaw ?? "0") || 0;
-              try {
-                const response = await fetch("/api/cofiatrading-world-control/mission-composer", {
-                  method: "POST",
-                  headers: { "Content-Type": "application/json" },
-                  cache: "no-store",
-                  body: JSON.stringify({
-                    truck_name: truck.truckName ?? truck.title,
-                    mission_text: missionText.trim(),
-                    levier_roi: levierRoi,
-                    arr_impact_eur: arrImpact,
-                    lock_policy: "DRAFT_ONLY",
-                  }),
-                });
-                const data = await response.json();
-                if (data.ok) {
-                  alert(
-                    `Alhamdulillah · Mission canon créée\n\n${data.message ?? ""}\n\nMission ID: ${data.missionId}\nTask ID: ${data.taskId ?? "PENDING"}`,
-                  );
-                } else {
-                  alert(
-                    `Astaghfirullah · Mission rejetée\n\nErreur: ${data.error}\n${data.violations ? "Violations: " + JSON.stringify(data.violations) : ""}\n${data.iblis_detected ?? ""}\n${data.message ?? ""}`,
-                  );
-                }
-              } catch (e) {
-                alert(`Astaghfirullah · Network error: ${e instanceof Error ? e.message : "unknown"}`);
-              }
-            }}
-            className="w-full rounded-md border border-cyan-300/45 bg-cyan-300/10 px-4 py-3 text-sm font-bold uppercase tracking-wide text-cyan-100 transition hover:bg-cyan-300/18"
-          >
-            🕌 Donner mission (Al-Mahdī DRAFT ONLY)
-          </button>
-          {refreshStatus ? (
-            <p className="mt-3 rounded-md border border-slate-800 bg-slate-900/70 p-2 text-xs text-slate-300">
-              {refreshStatus}
-            </p>
-          ) : null}
+        <div className="space-y-2 border-t border-slate-800 px-5 py-4">
+          <div className="rounded-md border border-red-300/25 bg-red-500/10 px-4 py-3 text-xs text-red-100">
+            Read-only proof drawer: refresh Stripe, mission composer, send, publish and deploy are disabled from this cockpit.
+          </div>
+          <div className="rounded-md border border-slate-800 bg-slate-900/70 px-4 py-3 text-xs text-slate-400">
+            Next action source: {truck.nextAction || "UNKNOWN"} · approval gate: {truck.approvalGate || "UNKNOWN"}
+          </div>
         </div>
       </div>
     </div>
@@ -4344,7 +4634,7 @@ function InspectorRow({ label, value }: { label: string; value: string }) {
   );
 }
 
-function Guardian({ name, role }: { name: string; role: string }) {
+function _Guardian({ name, role }: { name: string; role: string }) {
   return (
     <div className="rounded-md border border-cyan-300/20 bg-cyan-300/10 p-3 text-center">
       <div className="mx-auto mb-2 flex h-10 w-10 items-center justify-center rounded-md border border-cyan-200/30 bg-slate-950 text-cyan-100">
@@ -4387,7 +4677,7 @@ type AngelRosterPayload = {
 
 // CORAN V9 Sourate LXI · Sidq al-Mutlaq honest-by-design 6 statuts
 // "Dieu ne ment jamais" : green LIVE, cyan OPERATIONAL/CANON_GATE, slate AWAITING, amber DEGRADED, red BROKEN (refus de cacher)
-function AngelRosterPanel({ roster }: { roster: AngelRosterPayload | null }) {
+function _AngelRosterPanel({ roster }: { roster: AngelRosterPayload | null }) {
   if (!roster) return null;
   const statusStyle: Record<Angel["status"], string> = {
     LIVE: "border-emerald-400/40 bg-emerald-400/10 text-emerald-200",
@@ -4410,7 +4700,7 @@ function AngelRosterPanel({ roster }: { roster: AngelRosterPayload | null }) {
       <div className="mb-4 flex items-center justify-between gap-4 flex-wrap">
         <div>
           <p className="text-[11px] font-semibold uppercase tracking-[0.2em] text-amber-300">
-            🕌 ANGEL ROSTER · Manāzil al-Malā'ikah · Honest-by-design Sidq
+            🕌 ANGEL ROSTER · Manāzil al-Malā&apos;ikah · Honest-by-design Sidq
           </p>
           <h2 className="mt-1 font-heading text-xl font-semibold leading-tight text-white">
             38 Anges canon — chaque ange à sa place sur sa plateforme
@@ -4495,7 +4785,7 @@ const commerceStatusTone: Record<CommerceShop["status"], string> = {
   AWAITING_SETUP: "border-slate-400/40 bg-slate-400/10 text-slate-300",
   BROKEN: "border-red-500/60 bg-red-500/15 text-red-200",
 };
-function CommerceMachineGrid({ shops }: { shops: CommerceShop[] }) {
+function _CommerceMachineGrid({ shops }: { shops: CommerceShop[] }) {
   if (!shops || shops.length === 0) return null;
   const counts = shops.reduce<Record<string, number>>((acc, s) => {
     acc[s.status] = (acc[s.status] ?? 0) + 1;
@@ -4566,7 +4856,7 @@ const serviceStatusTone: Record<string, string> = {
   DEGRADED: "border-orange-500/50 bg-orange-500/15 text-orange-200",
   DOWN: "border-red-500/60 bg-red-500/15 text-red-200",
 };
-function ServicesStatusBar({ services }: { services: ServiceProbe[] }) {
+function _ServicesStatusBar({ services }: { services: ServiceProbe[] }) {
   if (!services || services.length === 0) return null;
   return (
     <section className="mx-4 mt-4 rounded-md border border-cyan-400/30 bg-slate-950/80 p-4 lg:mx-6">
@@ -4598,7 +4888,7 @@ function ServicesStatusBar({ services }: { services: ServiceProbe[] }) {
 }
 
 // P11 Sourate LVI · Agents Freshness Bar — fresh/stale ratio compact widget
-function AgentsFreshnessBar({ agents }: { agents?: Snapshot["agents"] }) {
+function _AgentsFreshnessBar({ agents }: { agents?: Snapshot["agents"] }) {
   if (!agents) return null;
   const pct = Math.round(agents.freshness_ratio * 100);
   const tone = pct >= 50 ? "text-emerald-300" : pct >= 20 ? "text-amber-300" : "text-red-300";
