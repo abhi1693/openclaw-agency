@@ -40,12 +40,39 @@ def _key() -> str:
     return (os.environ.get("LUMA_API_KEY") or os.environ.get("LUMALABS_API_KEY") or "").strip()
 
 
+def _session_jwt() -> str:
+    """JWT de session Clerk du compte web (mode 'comme Suno'). Source : LUMA_SESSION_JWT,
+    ou extrait de LUMA_COOKIE (`__session=<jwt>`). Jamais loggé."""
+    j = os.environ.get("LUMA_SESSION_JWT", "").strip()
+    if j:
+        return j
+    cookie = os.environ.get("LUMA_COOKIE", "")
+    for part in cookie.split(";"):
+        part = part.strip()
+        if part.startswith("__session="):
+            return part[len("__session="):].strip()
+    return ""
+
+
+def _cookie_mode() -> bool:
+    """Mode cookie/session autorisé ? (API KO + cookie présent + GO explicite Erwin)."""
+    return bool(_session_jwt()) and os.environ.get("LUMA_COOKIE_GEN_GO") == "1"
+
+
+def _auth_token() -> tuple[str, str]:
+    """Retourne (token, mode). API officielle prioritaire ; sinon session JWT si GO cookie."""
+    if _cookie_mode():
+        return _session_jwt(), "cookie_session"
+    return _key(), "api_key"
+
+
 def _headers() -> dict:
-    return {"Authorization": f"Bearer {_key()}", "accept": "application/json", "content-type": "application/json"}
+    tok, _ = _auth_token()
+    return {"Authorization": f"Bearer {tok}", "accept": "application/json", "content-type": "application/json"}
 
 
 def available() -> bool:
-    return bool(_key())
+    return bool(_key() or _session_jwt())
 
 
 # ──────────────────────────── STATUS ────────────────────────────
