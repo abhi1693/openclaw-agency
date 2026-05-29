@@ -399,38 +399,42 @@ export function WorldMapLiving({
 
   const selZone = LEGACY_ZONES.find((z) => z.id === selectedHouse) ?? null;
 
-  // KPIs propres à chaque maison — UNIQUEMENT données réelles du snapshot NY (zéro invention).
-  // Maisons sans mapping = parité non atteinte → onglet KPIs affiche "à migrer" honnêtement.
-  const houseKpis = (id: string): Array<{ label: string; value: string }> => {
-    const r = snapshot?.revenue;
+  // KPIs propres à chaque maison — données RÉELLES uniquement, JAMAIS Abidjan :8430, zéro invention.
+  // Priorité : route serveur house-kpis (cof_state.json + fichiers locaux). Fallback : props non-Abidjan
+  // déjà dispo côté client (assets local, registry :8767, angel-roster). Sinon gap honnête.
+  type HouseKpis = { kpis: Array<{ label: string; value: string; source?: string }>; gap?: string };
+  const houseKpis = (id: string): HouseKpis => {
+    const fromServer = houseKpiData?.[id];
+    if (fromServer && (fromServer.kpis.length > 0 || fromServer.gap)) return fromServer;
+
     const a = snapshot?.assetsWarehouse;
     const pubOk = services.find((s) => (s.id ?? "").includes("publisher") || (s.label ?? "").toLowerCase().includes("publisher"))?.ok;
+    const houseAngels = angelsByHome[id] ?? [];
     switch (id) {
-      case "iron_office":
-        return [
-          { label: "MRR", value: fmtEur(r?.currentMrrEur) },
-          { label: "ARR", value: fmtEur(r?.currentArrEur) },
-          { label: "VIP actifs", value: fmtNum(r?.activeVip) },
-          { label: "Past due", value: `${fmtEur(r?.pastDueEur)} · ${fmtNum(r?.pastDueCount)} client(s)` },
-        ];
       case "assets_warehouse":
-        return [
-          { label: "MP4", value: fmtNum(a?.mp4Count) },
-          { label: "Captions", value: fmtNum(a?.captionsCount) },
-          { label: "Assets inventoriés", value: fmtNum(a?.assetsInventoryCount) },
-        ];
+        return { kpis: [
+          { label: "MP4", value: fmtNum(a?.mp4Count), source: "inventaire assets local" },
+          { label: "Captions", value: fmtNum(a?.captionsCount), source: "inventaire assets local" },
+          { label: "Assets inventoriés", value: fmtNum(a?.assetsInventoryCount), source: "inventaire assets local" },
+        ] };
       case "youtube_studio":
-        return [
-          { label: "MP4 prêts", value: fmtNum(a?.mp4Count) },
-          { label: "CofiaPublisher", value: pubOk === true ? "LIVE" : pubOk === false ? "DOWN" : "UNKNOWN" },
-        ];
+        return { kpis: [
+          { label: "MP4 prêts", value: fmtNum(a?.mp4Count), source: "inventaire assets local" },
+          { label: "CofiaPublisher", value: pubOk === true ? "LIVE" : pubOk === false ? "DOWN" : "UNKNOWN", source: "probe :8540" },
+        ] };
       case "central_brain":
-        return [
-          { label: "Maisons registry", value: fmtNum(snapshot?.centralBrain?.housesCount) },
-          { label: "Services OK", value: `${servicesOk}/${services.length}` },
-        ];
+        return { kpis: [
+          { label: "Maisons registry", value: fmtNum(snapshot?.centralBrain?.housesCount), source: "registry :8767" },
+          { label: "Services OK", value: `${servicesOk}/${services.length}`, source: "probes services locaux" },
+        ] };
+      case "openclaw_agent_barracks":
+        return { kpis: [
+          { label: "Anges (cap §45)", value: `${houseAngels.length} ici · ${angels.length} total`, source: "angel-roster" },
+          { label: "Anges LIVE", value: fmtNum(angels.filter((x) => x.status === "LIVE").length), source: "angel-roster" },
+          { label: "Camions", value: fmtNum(trucks.length), source: "trucks manifest" },
+        ] };
       default:
-        return [];
+        return { kpis: [] };
     }
   };
 
