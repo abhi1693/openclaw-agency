@@ -4,21 +4,20 @@
 
 import { NextResponse } from "next/server";
 
+import { readLocalRevenue } from "../_lib/localRevenue";
+
 export async function GET() {
-  // Source 1 : Hub Iron revenue summary (Stripe MRR + past_due réels)
+  // Source 1 : revenue LOCAL (cof_state.json) — fallback Abidjan :8430 COUPÉ 20260529
   let revenue: Record<string, any> = {};
   try {
-    const r = await fetch("http://host.docker.internal:8430/api/iron/revenue/summary", {
-      signal: AbortSignal.timeout(3000),
-      cache: "no-store",
-    });
-    if (r.ok) revenue = await r.json();
+    const res = await readLocalRevenue();
+    if (res.ok && res.data) revenue = res.data as Record<string, any>;
   } catch { /* silent fallback */ }
 
-  // Source 2 : CofiaPublisher status (89 MP4 prêts = Prophètes inventory)
+  // Source 2 : CofiaPublisher status local :8540 (89 MP4 prêts = Prophètes inventory)
   let publisher: Record<string, any> = {};
   try {
-    const r = await fetch("http://host.docker.internal:8540/api/status", {
+    const r = await fetch("http://127.0.0.1:8540/api/status", {
       signal: AbortSignal.timeout(3000),
       cache: "no-store",
     });
