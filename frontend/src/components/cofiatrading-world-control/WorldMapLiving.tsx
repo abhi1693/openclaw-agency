@@ -375,6 +375,9 @@ export function WorldMapLiving({
   }, [angels]);
 
   const liveCount = LEGACY_ZONES.filter((z) => statusFor(z.id) === "LIVE").length;
+  const activeMissions = angels.filter((a) => a.status === "LIVE" || a.status === "OPERATIONAL_PARTIAL" || a.status === "CANON_GATE").length;
+  const blockerMissions = angels.filter((a) => a.status === "BROKEN" || a.status === "DEGRADED" || a.status === "AWAITING_SETUP").length;
+  const feedColor = (s?: string) => (s === "LIVE" ? "#34d399" : s === "UNKNOWN" ? "#64748b" : "#f59e0b");
   const rev = snapshot?.revenue;
   const assets = snapshot?.assetsWarehouse;
   const services = snapshot?.services ?? [];
