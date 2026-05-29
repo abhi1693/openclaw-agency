@@ -651,7 +651,7 @@ export function WorldMapLiving({
           ) : (
             <div>
               <p className="text-[11px] font-black uppercase tracking-wide text-cyan-200">Mission Control</p>
-              <p className="mt-1 text-[10px] text-slate-400">{LEGACY_ZONES.length} maisons · {angels.length} anges · clic pour inspecter.</p>
+              <p className="mt-1 text-[10px] text-slate-400">{LEGACY_ZONES.length} maisons · {angels.length} anges · {trucks.length} camions · clic pour inspecter.</p>
               <div className="mt-2 grid grid-cols-2 gap-1 text-[9.5px]">
                 {(["LIVE", "SLEEPING", "DEGRADED", "SOURCE_DOWN", "ERR"]).map((s) => {
                   const n = LEGACY_ZONES.filter((z) => statusFor(z.id) === s).length;
