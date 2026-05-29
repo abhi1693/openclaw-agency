@@ -12,12 +12,10 @@ type FetchResult = {
   error: string | null;
 };
 
-const HOST = "http://host.docker.internal";
 const OPENCLAW_API =
   process.env.OPENCLAW_BACKEND_INTERNAL_URL ?? "http://backend:8000";
 const LOCAL_AUTH_TOKEN = process.env.LOCAL_AUTH_TOKEN;
-const REVENUE_URL =
-  process.env.COF_REVENUE_SUMMARY_URL ?? `${HOST}:8430/api/iron/revenue/summary`;
+// REVENUE_URL Abidjan :8430 COUPÉ 20260529 → revenue lu en local via readLocalRevenue (cof_state.json).
 
 const toRecord = (value: unknown): Record<string, unknown> =>
   value && typeof value === "object" && !Array.isArray(value)
