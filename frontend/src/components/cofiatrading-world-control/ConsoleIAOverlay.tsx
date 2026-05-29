@@ -1160,25 +1160,17 @@ export function ConsoleIAOverlay() {
                   </div>
                 ) : null}
 
-	                {packetResult ? (
-	                  <div className="mt-4 rounded-2xl border border-emerald-400/30 bg-emerald-400/10 p-3 text-xs leading-5 text-emerald-100">
-                    <p className="font-black uppercase tracking-[0.14em]">
-                      {packetResult.status ?? "Packet local créé"}
-                    </p>
-                    <p className="mt-1">ID : {packetResult.packetId}</p>
-                    <p>{proofItems.length} preuves locales disponibles.</p>
-	                    {packetResult.files?.length ? <p>Fichiers stockés : {packetResult.files.length}</p> : null}
-	                    {packetResult.routes?.length ? <p>Routes bus : {packetResult.routes.length}</p> : null}
-	                    {packetResult.approval?.required ? <p>Action réelle : validation requise, aucune exécution dispatchée.</p> : null}
-                    <button
-                      type="button"
-                      onClick={() => setOpenInspectorSection("proofs")}
-                      className="mt-2 rounded-lg border border-emerald-300/35 px-2 py-1 text-[10px] font-black uppercase tracking-[0.08em] text-emerald-100 hover:border-emerald-200"
-                    >
-                      Voir preuves
-                    </button>
-	                  </div>
-	                ) : null}
+                {packetResult ? (
+                  <button
+                    type="button"
+                    onClick={openProofs}
+                    className="mt-4 flex flex-wrap items-center gap-2 rounded-xl border border-slate-700 bg-slate-900/60 px-3 py-2 text-xs font-bold text-slate-300 transition hover:border-cyan-300/50"
+                  >
+                    <span className={`h-2 w-2 shrink-0 rounded-full ${packetResult.approval?.required ? "bg-amber-300" : "bg-emerald-300"}`} />
+                    {packetResult.approval?.required ? "Validation requise — aucune exécution" : "Message local enregistré"}
+                    <span className="ml-1 text-cyan-200">{proofItems.length} preuves locales ›</span>
+                  </button>
+                ) : null}
 
                 {submitError || mediaError ? (
                   <div className="mt-4 rounded-2xl border border-rose-400/35 bg-rose-500/10 p-3 text-xs text-rose-100">
