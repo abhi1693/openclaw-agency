@@ -677,7 +677,18 @@ function drawBacktest(){const o=ctx('btEquity');if(o){const{x,w,h}=o;axis(x,w,h)
   const d=sets[si][vi];const tail=si==1?'1.7%':'15.9%';
   $('#btTitle').innerHTML=$('#btStrat').value+' · '+$('#btVar').value+' <span class="badge b-real">REAL</span>';
   $('#btKpis').innerHTML=[['PF',d[0],'cyan'],['WR',d[1]+'%',''],['maxDD','$'+((d[2]*f)|0).toLocaleString('fr-FR'),'amber'],['n trades',d[3],'']].map(k=>`<div class="card tight" style="padding:8px 9px"><div class="kpi"><span class="v ${k[2]}" style="font-size:18px">${k[1]}</span><span class="l">${k[0]}</span></div></div>`).join('');
-  $('#btWarn').innerHTML=`<span class="warn">⚠ OOS paper sum R: ${d[4]}</span><span class="warn amber">⚠ tail: drop top10% → ${tail}</span><span class="warn amber">⚠ ${MNQ?'MNQ':'NQ'} · slippage ${$('#btSlip').value}</span>`;}
+  $('#btWarn').innerHTML=`<span class="warn">⚠ OOS paper sum R: ${d[4]}</span><span class="warn amber">⚠ tail: drop top10% → ${tail}</span><span class="warn amber">⚠ ${MNQ?'MNQ':'NQ'} · slippage ${$('#btSlip').value}</span>`;
+  const neg=String(d[4]).indexOf('−')>=0||String(d[4]).indexOf('coupé')>=0||String(d[4]).indexOf('reject')>=0;
+  $('#btConsole').innerHTML=[
+    ['pmt','quant@research:~$ run_backtest --strat '+$('#btStrat').value.toLowerCase().replace(/ /g,'')+' --variant '+(['baseline','vnext','rejected'][vi])+' --slip '+$('#btSlip').value.replace(/ /g,'')+' --inst '+(MNQ?'MNQ':'NQ')],
+    ['mut','> loading '+d[3]+' trades · window 2025-04-01→2026-04-01 · commission $4/RT'],
+    ['ok','✓ PF='+d[0]+'  WR='+d[1]+'%  maxDD=$'+((d[2]*f)|0).toLocaleString('fr-FR')+'  ('+(MNQ?'MNQ $2/pt':'NQ $20/pt')+')'],
+    ['wn','⚠ multiple-testing: 32 variantes · PBO/Deflated-Sharpe NON calculé'],
+    ['wn','⚠ fat-tail: drop top-10% → PnL restant '+tail],
+    [neg?'er':'wn','⚠ OOS paper sum R = '+d[4]+(neg?'  → edge non confirmé en réel':'')],
+    [neg?'er':'ok',(neg?'✗ candidate REJECTED — OOS paper negative. RESEARCH ONLY.':'✓ candidate eligible PAPER-FORWARD (sous réserve PBO/DSR).')],
+    ['mut','> next: re-backtest MNQ natif · estimer PBO (CSCV) · forward-record 100+ trades']
+  ].map(l=>`<div class="ln"><span class="${l[0]}">${l[1]}</span></div>`).join('');}
 
 let curT=0,scrubVal=100;
 function buildTradeBar(){const b=$('#tradeBar');b.innerHTML='';TRADES.forEach((t,i)=>{const e=document.createElement('div');e.className='tchip '+(t.win?'win':'loss')+(i===curT?' on':'');e.textContent=t.id+'  '+(t.r>=0?'+':'')+t.r.toFixed(2)+'R';e.onclick=()=>{curT=i;buildTradeBar();drawReplay();fillRail();};b.appendChild(e);});}
