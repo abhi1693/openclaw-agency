@@ -659,7 +659,39 @@ function lineC(id,arr,c,fill){const o=ctx(id);if(!o)return;const{x,w,h}=o;axis(x
 function barsP(id,arr){const o=ctx(id);if(!o)return;const{x,w,h}=o;const mx=Math.max(...arr.map(Math.abs));const bw=(w-40)/arr.length;const zero=h/2;arr.forEach((v,i)=>{const bh=(v/mx)*(h/2-14);const px=34+i*bw;x.fillStyle=v>=0?col('--green'):col('--red');x.fillRect(px,zero-(v>=0?bh:0),bw*.6,Math.abs(bh));});x.strokeStyle='rgba(255,255,255,.12)';x.beginPath();x.moveTo(32,zero);x.lineTo(w-8,zero);x.stroke();}
 
 function redrawAll(){try{drawEquity();drawMC();drawSlip();drawScatter();drawRollWR();drawReplay();bindScrub();bindCross();if($('#btStrat'))drawBtEquity([11.43,40,5728,215,'−0.44'],MNQ?.1:1);lineC('cmdEq',[183600,183100,183400,182800,182200,181900,182400,182100,181600,182000,181400,182600,181200,182400],col('--cyan'),'rgba(0,185,255,.16)');donut('alloc',[['Apex',50,col('--cyan')],['ATAS',24,col('--blue')],['MT4',31,'#1bb877'],['MT5',18,col('--amber')]]);lineC('detEq',[50000,49800,50100,49600,49200,48900,49100,48760],col('--cyan'),'rgba(0,185,255,.16)');barsP('detPnl',[200,-300,400,-600,-300,200,-240,110]);}catch(e){console.warn(e);}}
-function init(){flowSync();buildRules('STRAT-17');buildTradeBar();fillRail();syncPersonalFromTrade();buildQuantTables();buildTpl();buildPersonal();runBacktest(true);redrawAll();}
+/* ===== V3.1: Account Detail dynamique ===== */
+const ACCT_DETAIL={
+ 'APEX-247':{bal:'$50 000',eq:'$48 760',dd:'$1 240 / $2 500',ddl:'Distance trailing DD',exec:'OFF',pos:[['MNQ LONG ×1','+$14','up'],['@30 361.5 SL 30 326.8','sim','']],ord:[['Bracket 3×MNQ','DRY-RUN','sim']],exe:[['05-29 15:58','DRY-RUN bracket'],['05-28 16:21','SIM SL −1R']],comp:[['Daily loss','$2 500',''],['Algo auto','interdit','red'],['État','PASS','on']],notes:"Apex eval : manuel/sim only, ne jamais armer l'auto-exec. Forward-record paper."},
+ 'ATAS-LIVE':{bal:'$24 100',eq:'$24 040',dd:'−$60 jour',ddl:'Daily PnL',exec:'SIM',pos:[['MNQ LONG ×1','+$14','up']],ord:[['Manual pending','PENDING','man']],exe:[['05-27 15:49','manual/sim +3.28R']],comp:[['Mode','sim/manual',''],['État','PASS','on']],notes:'ATAS/Rithmic — exécution sim/manual uniquement.'},
+ 'MT4-9981':{bal:'$31 200',eq:'$31 200',dd:'0%',ddl:'Drawdown',exec:'DOWN',pos:[['—','—','']],ord:[['—','—','']],exe:[['—','—']],comp:[['Master copy','disabled','red'],['État','DOWN','down']],notes:'FXcess master MT4 DOWN / safe-disabled. Copy off.'},
+ 'FXC-MIRROR':{bal:'—',eq:'—',dd:'—',ddl:'—',exec:'DOWN',pos:[['—','—','']],ord:[['—','—','']],exe:[['—','—']],comp:[['Copy','BLOCKED','red'],['Master','mort','down']],notes:'FXcess Mirror PM000697 — master mort, copy bloqué (géré dans Revenue/CRM).'},
+ 'MT5-2207':{bal:'$18 400',eq:'$18 510',dd:'+$110 jour',ddl:'Daily PnL',exec:'SIM',pos:[['EURUSD SHORT ×0.5','+$22','up']],ord:[['—','—','']],exe:[['—','—']],comp:[['Mode','manuel',''],['État','PASS','on']],notes:'MT5 FXcess — manuel.'},
+ 'PROP-FT1':{bal:'$0',eq:'$0',dd:'—',ddl:'—',exec:'OFF',pos:[['—','—','']],ord:[['—','—','']],exe:[['—','—']],comp:[['Compte','non ouvert','']],notes:'Prop challenge futur — non ouvert.'},
+ 'AGGREGATE':{bal:'$182 400',eq:'$181 160',dd:'−4.2%',ddl:'DD agrégé',exec:'OFF',pos:[['MNQ LONG ×1','+$14','up'],['EURUSD SHORT ×0.5','+$22','up']],ord:[['Bracket 3×MNQ','DRY-RUN','sim'],['Manual pending','PENDING','man']],exe:[['05-29 15:58','DRY-RUN'],['05-27 15:49','manual +3.28R']],comp:[['Comptes','6',''],['Exec auto','0','red'],['État','WATCH','down']],notes:'Vue agrégée 6 comptes. Aucun ordre auto. EXEC OFF.'},
+};
+function setAccountDetail(name){const a=ACCT_DETAIL[name];if(!a||!$('#dBal'))return;STATE.account=name;$('#dBal').textContent=a.bal;$('#dEq').textContent=a.eq;$('#dDD').textContent=a.dd;$('#dDDl').innerHTML=a.ddl+' <span class="badge b-np">NOT PROVEN</span>';$('#dExec').textContent=a.exec;$('#dExecState')&&($('#dExecState').textContent=a.exec);
+ $('#dPos').innerHTML=a.pos.map(p=>`<div class="kv" style="padding:4px 0"><span class="k">${p[0]}</span><span class="v ${p[2]}">${p[1]}</span></div>`).join('');
+ $('#dOrd').innerHTML=a.ord.map(o=>`<div class="kv" style="padding:4px 0"><span class="k">${o[0]}</span><span class="v">${o[2]?'<span class="st '+o[2]+'">'+o[1]+'</span>':o[1]}</span></div>`).join('');
+ $('#dExecList').innerHTML=a.exe.map(e=>`<div class="kv" style="padding:4px 0"><span class="k">${e[0]}</span><span class="v" style="font-size:10px">${e[1]}</span></div>`).join('');
+ $('#dComp').innerHTML=a.comp.map(c=>`<div class="kv" style="padding:4px 0"><span class="k">${c[0]}</span><span class="v" style="${c[2]==='red'?'color:var(--red)':''}">${c[2]==='on'||c[2]==='down'?'<span class="st '+c[2]+'">'+c[1]+'</span>':c[1]}</span></div>`).join('');
+ $('#dNotes').textContent=a.notes;persist();}
+
+/* ===== V3.1: persistance légère + deep-link ===== */
+function persist(){try{localStorage.setItem('tros_v31',JSON.stringify({tab:STATE.tab,strategy:STATE.strategy,instrument:STATE.instrument,slippage:STATE.slippage,trade:STATE.trade,account:STATE.account,mode:STATE.mode}));}catch(e){}}
+function restore(){let s={};try{s=JSON.parse(localStorage.getItem('tros_v31')||'{}');}catch(e){}
+ const url=new URLSearchParams(location.search);const urlTab=url.get('tab');
+ if(s.strategy){STATE.strategy=s.strategy;$('#stratSel').value=s.strategy;}
+ if(s.instrument==='NQ'){MNQ=false;}
+ if(s.slippage){STATE.slippage=s.slippage;$('#slipSel').value=s.slippage;$('#btSlip')&&($('#btSlip').value=s.slippage);}
+ if(typeof s.trade==='number'&&TRADES[s.trade]){curT=s.trade;STATE.trade=s.trade;}
+ if(s.account&&ACCT_DETAIL[s.account]){STATE.account=s.account;}
+ if(s.mode){STATE.mode=s.mode;$$('#modeSeg button').forEach(b=>b.classList.toggle('on',b.dataset.m===s.mode));}
+ STATE.tab=urlTab==='personal'?'personal':(urlTab==='quant'?'quant':(s.tab||'quant'));}
+
+function init(){restore();setInst();flowSync();buildRules('STRAT-17');buildTradeBar();fillRail();syncPersonalFromTrade();buildQuantTables();buildTpl();buildPersonal();
+ const detSel=$('#detSel');if(detSel){detSel.value=ACCT_DETAIL[STATE.account]?STATE.account:'APEX-247';detSel.onchange=()=>setAccountDetail(detSel.value);}
+ setAccountDetail(ACCT_DETAIL[STATE.account]?STATE.account:'APEX-247');
+ applyStrat();runBacktest(true);setTab(STATE.tab);persist();redrawAll();}
 window.addEventListener('resize',()=>setTimeout(redrawAll,80));
 init();
 </script>
