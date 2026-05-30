@@ -1295,7 +1295,7 @@ export function ConsoleIAOverlay() {
             </button>
           </header>
 
-          <div className={`grid min-h-0 grid-cols-1 overflow-hidden ${proofsOpen ? "lg:grid-cols-[240px_1fr_330px]" : "lg:grid-cols-[240px_1fr]"}`}>
+          <div className="grid min-h-0 grid-cols-1 overflow-hidden lg:grid-cols-[230px_1fr_350px]">
             <aside className="max-h-56 overflow-auto border-b border-slate-800/80 p-3 lg:max-h-none lg:border-b-0 lg:border-r">
               <p className="mb-3 text-[10px] font-black uppercase tracking-[0.18em] text-cyan-100">
                 Agents IA
