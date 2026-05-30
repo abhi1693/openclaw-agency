@@ -932,8 +932,14 @@ export function ConsoleIAOverlay() {
     const bootPacketId = (params.get("packetId") ?? params.get("consoleIAPacket") ?? "")
       .replace(/[^A-Za-z0-9_:-]/g, "")
       .slice(0, 140);
-    if (params.get("consoleIA") === "1" || bootPacketId) {
+    const bootThreadId = (params.get("threadId") ?? "")
+      .replace(/[^A-Za-z0-9_:-]/g, "")
+      .slice(0, 140);
+    if (params.get("consoleIA") === "1" || bootPacketId || bootThreadId) {
       setIsOpen(true);
+    }
+    if (bootThreadId) {
+      setThreadId(bootThreadId);
     }
     if (bootPacketId) {
       setActivePacketId(bootPacketId);
