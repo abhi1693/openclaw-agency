@@ -946,13 +946,17 @@ export function ConsoleIAOverlay() {
     }
   }, []);
 
-  // Persistance session (Phase 3A): on reflète le packet actif dans l'URL (sans
-  // recharger la page) pour qu'un refresh recharge le même thread. Pas de threadId
-  // multi-tour ici — juste la stabilité du packet courant.
+  // Persistance session (Phase 3B): threadId stable dans l'URL → un refresh recharge
+  // le thread multi-tour de l'agent. packetId conservé en repli (compat Phase 3A).
   useEffect(() => {
     if (typeof window === "undefined") return;
     const params = new URLSearchParams(window.location.search);
     if (isOpen) params.set("consoleIA", "1");
+    if (threadId) {
+      params.set("threadId", threadId);
+    } else {
+      params.delete("threadId");
+    }
     if (activePacketId) {
       params.set("packetId", activePacketId);
     } else {
@@ -960,7 +964,7 @@ export function ConsoleIAOverlay() {
     }
     const next = `${window.location.pathname}?${params.toString()}${window.location.hash}`;
     window.history.replaceState(window.history.state, "", next);
-  }, [activePacketId, isOpen]);
+  }, [activePacketId, isOpen, threadId]);
 
   // ÉTAPE 3 — destinations (canaux) chargées depuis le backend, statuts honnêtes.
   // Si le fetch échoue, DEFAULT_DESTINATION (BRIDGE_MISSING) reste affiché : jamais de faux LIVE.
