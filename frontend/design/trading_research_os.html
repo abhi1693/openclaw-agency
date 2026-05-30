@@ -367,6 +367,22 @@
       <div class="card tight" style="border-color:rgba(35,209,139,.3)"><h3 style="color:var(--green2)">✓ Testable now</h3><div class="kv"><span class="k">Backtest agrégé</span><span class="v">PERF_LAB</span></div><div class="kv"><span class="k">Paper replay trade-level</span><span class="v">signals.db</span></div><div class="kv"><span class="k">Robustness adversarial</span><span class="v">REDTEAM</span></div><div class="kv"><span class="k">Slippage 1-8t</span><span class="v">engine</span></div></div>
       <div class="card tight" style="border-color:rgba(255,178,62,.3)"><h3 style="color:var(--amber)">◐ Partially testable</h3><div class="kv"><span class="k">MNQ natif</span><span class="v" style="color:var(--amber)">re-backtest requis</span></div><div class="kv"><span class="k">PBO / DSR</span><span class="v" style="color:var(--amber)">non calculé</span></div><div class="kv"><span class="k">Paper-forward edge</span><span class="v" style="color:var(--amber)">n=44 &lt; 100</span></div><div class="kv"><span class="k">ES/GC enriched</span><span class="v" style="color:var(--amber)">trou comblé</span></div></div>
       <div class="card tight" style="border-color:rgba(255,84,112,.3)"><h3 style="color:var(--red)">✕ Not testable yet</h3><div class="kv"><span class="k">Backtest replay trade-level</span><span class="v" style="color:var(--red)">trade-list absente</span></div><div class="kv"><span class="k">T3 mbp/mbo</span><span class="v" style="color:var(--red)">source absente</span></div><div class="kv"><span class="k">Comptes perso live</span><span class="v" style="color:var(--red)">read non câblé</span></div><div class="kv"><span class="k">Exec réelle</span><span class="v" style="color:var(--red)">OFF (bien)</span></div></div></div>
+    <div class="grid g-2-1 mb">
+      <div class="card"><h3>Coverage / freshness <span class="r"><span class="badge b-real">REAL</span></span></h3>
+        <div class="covrow"><span class="nm">Databento T2 (ohlcv-1m NQ+ES)</span><span class="t"><i style="width:100%;background:var(--green)"></i></span><span class="x">épuisé · 100%</span></div>
+        <div class="covrow"><span class="nm">ATAS/Rithmic enriched NQ 42j</span><span class="t"><i style="width:92%;background:var(--green)"></i></span><span class="x">live · continu</span></div>
+        <div class="covrow"><span class="nm">ATAS ES/GC (trou 05-16→28)</span><span class="t"><i style="width:74%;background:var(--amber)"></i></span><span class="x">rattrapé 05-29</span></div>
+        <div class="covrow"><span class="nm">signals.db (paper trade-level)</span><span class="t"><i style="width:44%;background:var(--cyan)"></i></span><span class="x">44/100 clos</span></div>
+        <div class="covrow"><span class="nm">dry-run execution logs</span><span class="t"><i style="width:45%;background:var(--cyan)"></i></span><span class="x">sim/bracket</span></div>
+        <div class="covrow"><span class="nm">Vrai T3 mbp/mbo</span><span class="t"><i style="width:6%;background:var(--red)"></i></span><span class="x">absent</span></div></div>
+      <div class="card"><h3>Blockers visibles</h3>
+        <div class="warnrow" style="flex-direction:column;align-items:stretch">
+          <span class="warn">✕ trade-list backtest absente → replay backtest NOT PROVEN</span>
+          <span class="warn">✕ T3 mbp/mbo source absente</span>
+          <span class="warn amber">◐ MNQ natif : re-backtest requis (×10)</span>
+          <span class="warn amber">◐ PBO/DSR non calculé sur 32 variantes</span>
+          <span class="warn">✕ comptes perso : read live non câblé</span></div></div>
+    </div>
     <div class="card" style="padding:5px 7px;overflow-x:auto"><table><thead><tr><th>Source</th><th>Coverage</th><th>Freshness</th><th>Gaps</th><th>Usable for</th><th>Feeds</th><th>Status</th><th>Blockers</th></tr></thead><tbody id="dataTable"></tbody></table></div>
   </section>
 
