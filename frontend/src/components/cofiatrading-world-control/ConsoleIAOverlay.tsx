@@ -1376,6 +1376,45 @@ export function ConsoleIAOverlay() {
                 </div>
               </div>
 
+              <div className="mb-3 rounded-xl border border-slate-800 bg-slate-950/60 p-3">
+                <p className="text-[10px] font-black uppercase tracking-[0.18em] text-cyan-100">Mémoire</p>
+                <p className="mt-1 text-[11px] leading-4 text-slate-400">
+                  Mémoire courte : ce packet uniquement. Thread multi-tour à venir (3B).
+                </p>
+              </div>
+
+              <button
+                type="button"
+                onClick={() => setDestinationsOpen((value) => !value)}
+                className="mb-2 flex w-full items-center justify-between rounded-lg border border-slate-800 bg-slate-900/60 px-3 py-2 text-[10px] font-black uppercase tracking-[0.14em] text-slate-300 transition hover:border-sky-300/40"
+              >
+                <span>Destinations · Telegram</span>
+                <span className="text-slate-500">{destinationsOpen ? "▾" : "▸"}</span>
+              </button>
+              {destinationsOpen ? (
+                <div className="mb-3 grid gap-2">
+                  <p className="text-[10px] leading-4 text-slate-500">Canaux de sortie — draft / approval, aucun envoi réel.</p>
+                  {CHANNEL_TARGETS.map((target) => (
+                    <button
+                      key={target.id}
+                      type="button"
+                      onClick={() => selectTarget(target.id)}
+                      className={`flex items-center justify-between gap-2 rounded-lg border px-3 py-2 text-left transition ${
+                        target.id === selectedTargetId
+                          ? "border-sky-300/50 bg-sky-400/10"
+                          : "border-slate-800 bg-slate-900/60 hover:border-sky-300/30"
+                      }`}
+                    >
+                      <span className="min-w-0">
+                        <span className="block truncate text-xs font-black text-white">{target.label}</span>
+                        <span className="block truncate text-[10px] uppercase tracking-[0.08em] text-slate-500">{target.scope}</span>
+                      </span>
+                      <span className="shrink-0 rounded-full border border-sky-300/30 px-2 py-0.5 text-[9px] font-black uppercase tracking-[0.08em] text-sky-200">Draft</span>
+                    </button>
+                  ))}
+                </div>
+              ) : null}
+
               <div className="mb-3 grid grid-cols-3 gap-1 rounded-xl border border-slate-800 bg-slate-950/60 p-1">
                 {[
                   ["summary", "Résumé"],
