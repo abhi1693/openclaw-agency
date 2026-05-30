@@ -646,8 +646,8 @@ def execute_vip(voice_id=None) -> dict:
         {"t": "Le VIP Cofiatrading prend l'autre chemin. Un cadre clair, une vraie équipe, et chaque décision expliquée avec son contexte et son niveau de risque. Aucune promesse magique, juste de la méthode.", "dur": 13, "q": "premium modern trading team office blue calm collaboration", "role": "solution", "badge": True},
         {"t": "Deux cents intelligences artificielles surveillent les marchés en continu et filtrent le bruit, pour ne garder que ce qui compte vraiment.", "dur": 9, "hero": hero1, "role": "ia", "counter": True},
         {"t": "Avant chaque position, tu sais exactement ce que tu peux perdre. Le risque est chiffré, la sortie est prévue. Tu décides comme un pro, pas comme un parieur.", "dur": 12, "hero": hero2, "q": "professional risk management dashboard calm trader discipline", "role": "preuve"},
-        {"t": "Tu arrêtes de courir après le prochain gourou. Tu construis une méthode, une discipline, un vrai edge. Tu sais pourquoi tu entres, pourquoi tu sors, et combien tu risques. Zéro promesse de gain, juste de la rigueur et un cadre clair.", "dur": 14, "q": "focused confident trader premium desk methodical", "role": "valeur"},
-        {"t": "Si t'es prêt à trader sérieusement, pour de vrai, le VIP Cofiatrading t'attend. Le lien est juste en dessous.", "dur": 8, "q": "finger tapping phone screen confident sunrise hopeful", "role": "cta", "cta": True},
+        {"t": "Le deuxième type de trader ne dépend plus d'un gourou ni de sa chance. Il a une méthode, une discipline, et un edge qui tient dans le temps. C'est lent, c'est carré, et c'est ça qui marche vraiment.", "dur": 13, "q": "focused confident trader premium desk methodical", "role": "valeur"},
+        {"t": "Si tu veux enfin trader avec un vrai cadre, et arrêter de suivre des gourous, rejoins le VIP Cofiatrading. Le lien est juste en dessous.", "dur": 9, "q": "finger tapping phone screen confident sunrise hopeful", "role": "cta", "cta": True},
     ]
     full_script = " ".join(b["t"] for b in beats)
     voice_full = str(rd / "voice_full.mp3")
