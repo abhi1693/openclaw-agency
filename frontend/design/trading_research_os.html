@@ -548,16 +548,17 @@ const TRADES=[
   {id:"05-26 15:50",date:"2026-05-26 15:50",side:"LONG",instr:"NQ",entry:29948.25,stop:29912.61,tp1:30019.54,tp2:30090.82,tp3:30233.39,r:-1.0,exit:"SL",mfe:0.14,mae:-1.00,peak:0.14,win:false,tags:["stop-hit","hour-10"]},
 ];
 const VARIANTS=[
-  {s:"17",n:"TP1@1.5R (exit)",pf:14.78,pnl:"+22.4%",dd:"−21.4%",ddr:21.4,nn:215,kept:"100%",oos:"12.44",pbo:"n/c",tail:"26.7%",v:"promote"},
-  {s:"17",n:"vNext TP1@1.5R + n<2000",pf:16.57,pnl:"+19%",dd:"−21.4%",ddr:21.4,nn:200,kept:"93%",oos:"12.44",pbo:"n/c",tail:"26.7%",v:"promote"},
-  {s:"18",n:"TP 0.7/2/4R ladder",pf:16.92,pnl:"+4.9%",dd:"=",ddr:8,nn:118,kept:"100%",oos:"4.53",pbo:"n/c",tail:"21.1%",v:"promote"},
-  {s:"18",n:"half-size h10 @ size≥2",pf:null,pnl:"DD −50%",dd:"−50%",ddr:50,nn:118,kept:"100%",oos:"—",pbo:"—",tail:"—",v:"promote"},
-  {s:"17",n:"score≥3 reduce",pf:12.11,pnl:"73% gardé",dd:"−33%",ddr:33,nn:215,kept:"73%",oos:"—",pbo:"—",tail:"—",v:"promote"},
-  {s:"17",n:"cvd_exhaustion (n=22)",pf:27.30,pnl:"flatteur",dd:"—",ddr:5,nn:22,kept:"—",oos:"—",pbo:"—",tail:"—",v:"insuf"},
-  {s:"17",n:"score≥5 (n=13)",pf:null,pnl:"flatteur",dd:"—",ddr:5,nn:13,kept:"—",oos:"—",pbo:"—",tail:"—",v:"insuf"},
-  {s:"17/18",n:"microstructure CVD/ES-NQ",pf:null,pnl:"coupé",dd:"pire",ddr:-10,nn:0,kept:"—",oos:"—",pbo:"—",tail:"—",v:"reject"},
-  {s:"18",n:"breakout_strength≥2.0 (n=19)",pf:null,pnl:"—",dd:"—",ddr:3,nn:19,kept:"—",oos:"—",pbo:"—",tail:"—",v:"reject"},
+  {s:"17",n:"TP1@1.5R (exit)",pf:14.78,pnl:"+22.4%",dd:"−21.4%",ddr:21.4,nn:215,kept:"100%",oos:"12.44",pbo:"n/c",tail:"26.7%",v:"promote",bt:[14.78,44.6,4501,215,'+0.22',45,41,'cand']},
+  {s:"17",n:"vNext TP1@1.5R + n<2000",pf:16.57,pnl:"+19%",dd:"−21.4%",ddr:21.4,nn:200,kept:"93%",oos:"12.44",pbo:"n/c",tail:"26.7%",v:"promote",bt:[16.57,45.5,4501,200,'+0.22',46,42,'cand']},
+  {s:"18",n:"TP 0.7/2/4R ladder",pf:16.92,pnl:"+4.9%",dd:"=",ddr:8,nn:118,kept:"100%",oos:"4.53",pbo:"n/c",tail:"21.1%",v:"promote",bt:[16.92,61,9446,118,'−5.06',68,30,'rej']},
+  {s:"18",n:"half-size h10 @ size≥2",pf:12.5,pnl:"DD −50%",dd:"−50%",ddr:50,nn:118,kept:"100%",oos:"—",pbo:"—",tail:"—",v:"promote",bt:[12.5,59,5000,118,'−5.06',68,30,'rej']},
+  {s:"17",n:"score≥3 reduce",pf:12.11,pnl:"73% gardé",dd:"−33%",ddr:33,nn:215,kept:"73%",oos:"—",pbo:"—",tail:"—",v:"promote",bt:[12.11,40,3837,215,'−0.44',40,30,'rej']},
+  {s:"17",n:"cvd_exhaustion (n=22)",pf:27.30,pnl:"flatteur",dd:"—",ddr:5,nn:22,kept:"—",oos:"—",pbo:"—",tail:"—",v:"insuf",bt:[27.30,55,3000,22,'INSUFFICIENT',55,30,'insuf']},
+  {s:"17",n:"score≥5 (n=13)",pf:null,pnl:"flatteur",dd:"—",ddr:5,nn:13,kept:"—",oos:"—",pbo:"—",tail:"—",v:"insuf",bt:[null,52,2500,13,'INSUFFICIENT',52,30,'insuf']},
+  {s:"17/18",n:"microstructure CVD/ES-NQ",pf:null,pnl:"coupé",dd:"pire",ddr:-10,nn:0,kept:"—",oos:"—",pbo:"—",tail:"—",v:"reject",bt:[null,33,12000,30,'coupé',40,30,'rej']},
+  {s:"18",n:"breakout_strength≥2.0 (n=19)",pf:null,pnl:"—",dd:"—",ddr:3,nn:19,kept:"—",oos:"—",pbo:"—",tail:"—",v:"reject",bt:[null,40,8000,19,'INSUFFICIENT',40,30,'insuf']},
 ];
+let ACTIVE_PRESET=null; // preset Backtest distinct depuis une variante cliquée
 const REDFLAGS=[["RF1","Edge = fat-tail (drop top10% → 16%/1.7%)","test1_outliers","CRITICAL","Sizing hors top-décile"],["RF2","Paper live NÉGATIF","signals.db","CRITICAL","RESEARCH/PAPER · 100+ tr"],["RF3","DD bt = best-case (P95 2×)","test2_montecarlo","HIGH","Sizer sur P95/P99"],["RF4","NQ(bt) vs MNQ(live) ×10","execution_config","HIGH","Re-backtest MNQ"],["RF5","Faux-vert auto_exec","exec_manager:94/198","HIGH","Aligner flag"],["RF6","Multiple-testing non corrigé","perf_lab A-E","HIGH","DSR + PBO/CSCV"],["RF7","S18 vNext overfit OOS","test4_walkforward","MEDIUM","WF nested"],["RF8","Incohérence R↔$","test7_stop_realism","MEDIUM","Recalibrer risk"]];
 const SCORE=[["Alpha quality",3],["Robustness (hors outliers)",2],["Sample size",4],["Walk-forward stability",5],["Drawdown control",3],["Slippage realism",7],["Copy-trading suitability",2],["VIP suitability",5],["Execution readiness",2],["Compliance safety",6],["Commercial potential",5]];
 const DATA=[["Databento T2","ohlcv-1m NQ+ES · 699 774 bars","épuisé","aucun","backtest agrégé","engine","real","aucun"],["ATAS/Rithmic enriched","tick NQ 42j continu","live","aucun","replay / signaux","live-rithmic","real","—"],["signals.db","273 trades paper","live","—","replay · paper-forward","daemon PID216","paper","n insuffisant (44 clos)"],["PERF_LAB JSON","baseline + 35 var","05-29","pas de trade-list","backtest / variants","fichier","real","trade-list absente"],["REDTEAM JSON","8 tests adversariaux","05-29","—","robustness","fichier","real","—"],["dry-run execution logs","sim/bracket 3×MNQ","live","—","execution realism","hub log","paper","exec réelle OFF"],["T3 mbp/mbo","microstructure","—","absent","—","—","np","source absente"]];
