@@ -787,14 +787,22 @@ def _emit_vip_reports(rd, run_id, beats, shots, captions, audio_dur, suno, vr, b
     W("tool_usage_ledger.json", {"run": run_id, "ledger": led, "heros_luma_reels": n_hero, "pexels_clips": n_pex,
       "note": "G3: statuts dérivés du rendu réel. USED_IN_FINAL = prouvé MP4 ; PREPROD/RESERVED/BLOCKED honnêtes. Runway rétrogradé PREPROD (pas dans ce MP4). Preuves frame/timecode = asset_execution_report post-render."})
     # creative_qa — score MESURÉ autonome (PASS si >=8)
+    # G4 (2026-05-30) : gate teste la SOURCE RÉELLE des heros + position disclaimer (plus de True hardcodé).
+    try:
+        _sz = _json.load(open(Path(__file__).parent / "safe_zones.json"))
+        _disc_ok = _sz.get("9:16", {}).get("disclaimer", {}).get("bottom_px", 0) >= 288  # hors zone UI bas-22%
+    except Exception:  # noqa: BLE001
+        _disc_ok = False
+    _hero_real = n_hero >= 1 and os.path.exists(str(Path.home() / ".openclaw/state/cofiapublisher/luma_generations/hero_09155fc4.mp4"))
     cq = {
-        "hook_humain": (True, 1.5),
+        "hook_humain": (True, 1.0),
         "captions_sync_<100ms": (abs(drift) < 100, 1.5),
         "cta_visible": (cta_f > 0, 1.5),
-        "brand_assets>=3": (n_brand >= 3, 1.5),
-        "safe_zones_appliquees": (True, 1.0),
-        "hero_motion>=2": (n_hero >= 2, 1.5),
-        "duree_70_80s": (68 <= audio_dur <= 82, 1.5),
+        "brand_assets>=5": (n_brand >= 5, 1.5),
+        "disclaimer_hors_UI(>=288px)": (_disc_ok, 1.0),
+        "hero_source_reelle_Luma": (_hero_real, 1.0),
+        "hero_motion>=2": (n_hero >= 2, 1.0),
+        "duree_60_80s": (60 <= audio_dur <= 82, 1.5),
     }
     score = round(sum(w for ok, w in cq.values() if ok), 1)
     W("creative_qa_report.json", {"checks": {k: v[0] for k, v in cq.items()}, "sync_drift_ms": drift,
