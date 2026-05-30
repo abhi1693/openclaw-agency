@@ -1494,9 +1494,15 @@ export async function GET(request: Request) {
         { headers: { "Cache-Control": "no-store" } },
       );
     }
-    const thread = await buildThread(trec.lastPacketId);
+    const thread = await buildThreadView(tid);
+    if (!thread) {
+      return NextResponse.json(
+        { ok: true, sourceTag: SOURCE_TAG, status: "THREAD_EMPTY", threadId: tid, turns: 0, thread: null },
+        { headers: { "Cache-Control": "no-store" } },
+      );
+    }
     return NextResponse.json(
-      { ok: true, sourceTag: SOURCE_TAG, status: "THREAD_READY_LOCAL", threadId: tid, turns: trec.packetIds.length, thread },
+      { ok: true, sourceTag: SOURCE_TAG, status: thread.status, threadId: tid, turns: thread.turns, thread },
       { headers: { "Cache-Control": "no-store" } },
     );
   }
