@@ -932,8 +932,12 @@ function ConversationsInbox({
   onBack: () => void;
   messages: ConvMessage[];
   loadingMessages: boolean;
+  onSend: (uid: string, text: string, via: string) => Promise<boolean>;
+  sending: boolean;
 }) {
   const active = selectedId ? threads.find((t) => t.userId === selectedId) ?? null : null;
+  const [reply, setReply] = useState("");
+  const [confirm, setConfirm] = useState(false);
   if (selectedId) {
     return (
       <div className="grid gap-2">
