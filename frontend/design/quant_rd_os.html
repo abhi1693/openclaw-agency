@@ -267,6 +267,17 @@
           </div>
         </div>
 
+        <div class="card mb" style="padding:11px 13px">
+          <h3>Next best actions <span class="r">recommandé par le red-team — <span class="badge b-np">MOCK</span></span></h3>
+          <div class="grid g5">
+            <div class="nba"><div class="h"><span class="n">1</span>Expliquer paper OOS négatif</div><div class="d">S17 −0.44R / S18 −5.06R vs 40/68% WR backtest. Comprendre la divergence.</div><span class="pr p0">P0 CRITICAL</span></div>
+            <div class="nba"><div class="h"><span class="n">2</span>Corriger NQ/MNQ ×10</div><div class="d">Re-backtester en MNQ natif ($2/pt) — tous les $ NQ sont 10× trop gros.</div><span class="pr p0">P0</span></div>
+            <div class="nba"><div class="h"><span class="n">3</span>Tester slippage 1→8 ticks</div><div class="d">Sensibilité du PnL au slippage. Seul test déjà passé (94.8% @4t).</div><span class="pr p1">P1</span></div>
+            <div class="nba"><div class="h"><span class="n">4</span>Vérifier fat-tail</div><div class="d">Drop top-10% → S17 16% / S18 1.7%. Sizer hors top-décile.</div><span class="pr p0">P0</span></div>
+            <div class="nba"><div class="h"><span class="n">5</span>Paper-forward health gate</div><div class="d">100+ trades live positifs requis. Actuel 44/100 — gate non atteint.</div><span class="pr p1">P1</span></div>
+          </div>
+        </div>
+
         <div class="grid g5 mb">
           <div class="card tight"><div class="kpi"><span class="v cyan" id="ovPF">11.43</span><span class="l">PF backtest <span class="badge b-real">REAL</span> <span class="badge b-np">overfit</span></span></div></div>
           <div class="card tight"><div class="kpi"><span class="v" id="ovWR">40.0%</span><span class="l">WR backtest <span class="badge b-real">REAL</span></span></div></div>
