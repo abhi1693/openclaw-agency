@@ -1361,6 +1361,9 @@ export async function POST(request: Request) {
   if (sanitizeText(asString(body.action), 80) === "conversation_send") {
     return proxyConversationSend(body);
   }
+  if (sanitizeText(asString(body.action), 80) === "ingest_command") {
+    return ingestCommand(body);
+  }
 
   const message = sanitizeText(asString(body.message));
   const targetId = sanitizeText(asString(body.targetId), 80);
