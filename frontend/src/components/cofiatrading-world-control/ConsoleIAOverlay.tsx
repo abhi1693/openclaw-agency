@@ -495,6 +495,8 @@ const targetVisualStatus = (target: ConsoleTarget, selectedTargetId: string, rou
     if (participantStatus === "answered") return { label: "ACTIF", tone: "ok" as VisualSeverity, showBadge: true };
     if (participantStatus === "working") return { label: "ACTIF", tone: "ready" as VisualSeverity, showBadge: true };
     if (participantStatus === "adapter_missing") return { label: "NON BRANCHÉ", tone: "attention" as VisualSeverity, showBadge: true };
+    if (participantStatus === "draft_only") return { label: "DRAFT", tone: "safe" as VisualSeverity, showBadge: true };
+    if (participantStatus === "waiting") return { label: "WAITING", tone: "safe" as VisualSeverity, showBadge: true };
     if (participantStatus === "ack_local") return { label: "ACK LOCAL", tone: "safe" as VisualSeverity, showBadge: true };
     return { label: "ROUTÉ", tone: "ready" as VisualSeverity, showBadge: true };
   }
