@@ -84,6 +84,7 @@ type ThreadMessage = {
   status?: string;
   agentId?: string;
   evidencePaths?: string[];
+  source?: string;
 };
 
 type ConsoleThread = {
