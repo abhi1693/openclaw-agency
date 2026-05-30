@@ -1012,6 +1012,11 @@ export function ConsoleIAOverlay() {
   const [destinations, setDestinations] = useState<DestinationState[]>([]);
   const destinationFor = (id: string): DestinationState =>
     destinations.find((dest) => dest.destinationId === id) ?? DEFAULT_DESTINATION(id);
+  const [conversations, setConversations] = useState<ConvThread[]>([]);
+  const [inboxSegment, setInboxSegment] = useState<"conversations" | "canaux">("conversations");
+  const [selectedConvId, setSelectedConvId] = useState<string | null>(null);
+  const [convMessages, setConvMessages] = useState<ConvMessage[]>([]);
+  const [convLoading, setConvLoading] = useState(false);
   const [thread, setThread] = useState<ConsoleThread | null>(null);
   const [threadError, setThreadError] = useState<string | null>(null);
   const [submitError, setSubmitError] = useState<string | null>(null);
