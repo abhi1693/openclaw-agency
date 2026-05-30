@@ -91,7 +91,7 @@ export function useWorldConsole() {
 
     if (entity.kind === "house") {
       const h = entity.data;
-      const t = (telemetry?.houses[h.id] ?? h.metrics) as Record<string, number | undefined>;
+      const t = telemetry?.houses[h.id] ?? h.metrics;
       const zone = index.zones.get(h.zoneId);
       const members: ConsoleMember[] = S.getAgentsByHouseId(index, h.id).map((ag) => ({
         kind: "agent",
