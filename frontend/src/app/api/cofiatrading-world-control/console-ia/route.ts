@@ -825,6 +825,9 @@ async function buildDestinations() {
         readStatus = "READ_CONNECTED";
       }
     }
+    const note = id === "telegram_free"
+      ? "Bridge telegram-hub live (GET /api/telegram/free/recent)."
+      : "Pas d'endpoint feed hub pour ce canal — MISSING honnête. Les clients Iron sont couverts par l'inbox Conversations. Aucun bridge inventé.";
     return {
       destinationId: id,
       label: DESTINATION_LABELS[id] ?? id,
@@ -832,6 +835,7 @@ async function buildDestinations() {
       readStatus,
       writeStatus: "WRITE_LOCKED",
       bridgeStatus,
+      note,
       feed,
       drafts,
       summary: "",
