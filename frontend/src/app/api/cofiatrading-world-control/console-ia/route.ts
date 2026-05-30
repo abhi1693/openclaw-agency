@@ -244,6 +244,7 @@ type ThreadMessage = {
   status?: string;
   agentId?: string;
   evidencePaths?: string[];
+  source?: string;
 };
 
 const shorten = (value: string, maxChars = 240) => {
