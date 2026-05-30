@@ -729,6 +729,22 @@ export function ConsoleIAOverlay() {
     }
   }, []);
 
+  // Persistance session (Phase 3A): on reflète le packet actif dans l'URL (sans
+  // recharger la page) pour qu'un refresh recharge le même thread. Pas de threadId
+  // multi-tour ici — juste la stabilité du packet courant.
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    const params = new URLSearchParams(window.location.search);
+    if (isOpen) params.set("consoleIA", "1");
+    if (activePacketId) {
+      params.set("packetId", activePacketId);
+    } else {
+      params.delete("packetId");
+    }
+    const next = `${window.location.pathname}?${params.toString()}${window.location.hash}`;
+    window.history.replaceState(window.history.state, "", next);
+  }, [activePacketId, isOpen]);
+
   useEffect(() => {
     if (!isOpen || !activePacketId) return;
     let stopped = false;
