@@ -1708,8 +1708,9 @@ export function ConsoleIAOverlay() {
                   </div>
                 </div>
               ) : null}
+              </div>
+              ) : null}
             </aside>
-            ) : null}
           </div>
         </section>
       ) : null}
