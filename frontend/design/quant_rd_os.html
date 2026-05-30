@@ -726,26 +726,39 @@ function fillRail(){const t=TRADES[curT];$('#rTradeId').textContent=t.id;$('#rR'
 }
 function genCandles(t){const N=56,dir=t.side==='LONG'?1:-1;let price=t.entry-dir*(t.entry-t.stop)*1.1;const tgt=t.r>0?(t.r>=2.5?t.tp3:t.tp1):t.stop;let seed=curT*97+7;const rnd=()=>{seed=(seed*1103515245+12345)&0x7fffffff;return seed/0x7fffffff;};
   CANDLES=[];for(let i=0;i<N;i++){const prog=i/(N-1);const drift=t.entry+(tgt-t.entry)*Math.min(1,prog*1.12)*(prog>0.1?1:0);const o=price;price=drift+(rnd()-.5)*(t.entry-t.stop)*.5;const c=price;const hi=Math.max(o,c)+rnd()*(t.entry-t.stop)*.25,lo=Math.min(o,c)-rnd()*(t.entry-t.stop)*.25;CANDLES.push({o,c,hi,lo,v:0.3+rnd()});}}
-let RYfn=null,RXfn=null;
+let RGEO={padL:8,padR:54,cw:1,N:1,Y:v=>v,plot:0,w:0,h:0};
 function drawReplay(){const o=ctx('replayChart');if(!o)return;const t=TRADES[curT];const{x,w,h}=o;genCandles(t);
-  const lvls=[t.tp3,t.tp2,t.tp1,t.entry,t.stop];const hi=Math.max(...lvls)*1.0008,lo=Math.min(...lvls)*0.9992;const padL=8,padR=52;
-  const Y=v=>h-20-(v-lo)/(hi-lo)*(h-40);RYfn=Y;const N=CANDLES.length,plot=Math.round(N*scrubVal/100);const cw=(w-padL-padR)/N;RXfn=i=>padL+i*cw;
-  // price grid + right axis
-  x.strokeStyle='rgba(0,185,255,.08)';x.fillStyle=col('--dim');x.font='9px ui-monospace,monospace';x.textAlign='left';
+  x.fillStyle='#03081a';x.fillRect(0,0,w,h); // navy background — chart never blank
+  const lvls=[t.tp3,t.tp2,t.tp1,t.entry,t.stop];const hi=Math.max(...lvls)*1.0009,lo=Math.min(...lvls)*0.9991;const padL=8,padR=54;
+  const Y=v=>h-20-(v-lo)/(hi-lo)*(h-40);const N=CANDLES.length,plot=Math.round(N*scrubVal/100);const cw=(w-padL-padR)/N;
+  RGEO={padL,padR,cw,N,Y,plot,hi,lo,w,h};
+  // grid horizontal (price) + right axis labels
+  x.strokeStyle='rgba(0,185,255,.07)';x.lineWidth=1;x.fillStyle=col('--dim');x.font='9px ui-monospace,monospace';x.textAlign='left';
   for(let g=0;g<=5;g++){const v=lo+(hi-lo)*g/5;const yy=Y(v);x.beginPath();x.moveTo(padL,yy);x.lineTo(w-padR,yy);x.stroke();x.fillText(v.toFixed(0),w-padR+4,yy+3);}
+  // grid vertical (time)
+  for(let g=0;g<=6;g++){const xx=padL+(w-padL-padR)*g/6;x.strokeStyle='rgba(0,185,255,.04)';x.beginPath();x.moveTo(xx,8);x.lineTo(xx,h-16);x.stroke();}
   // candles
-  for(let i=0;i<N;i++){if(i>plot)continue;const k=CANDLES[i];const px=padL+i*cw,up=k.c>=k.o;x.strokeStyle=up?col('--green'):col('--red');x.beginPath();x.moveTo(px+cw*.4,Y(k.hi));x.lineTo(px+cw*.4,Y(k.lo));x.stroke();x.fillStyle=up?'rgba(35,209,139,.85)':'rgba(255,84,112,.85)';x.fillRect(px+cw*.1,Y(Math.max(k.o,k.c)),cw*.58,Math.max(2,Math.abs(Y(k.o)-Y(k.c))));}
-  function lvl(v,c,lbl,dash){x.strokeStyle=c;x.lineWidth=1.3;if(dash)x.setLineDash([6,4]);x.beginPath();x.moveTo(padL,Y(v));x.lineTo(w-padR,Y(v));x.stroke();x.setLineDash([]);x.fillStyle=c;x.font='9px sans-serif';x.textAlign='left';x.fillText(lbl,padL+3,Y(v)-3);}
+  for(let i=0;i<N;i++){if(i>plot)continue;const k=CANDLES[i];const px=padL+i*cw,up=k.c>=k.o;x.strokeStyle=up?col('--green'):col('--red');x.lineWidth=1;x.beginPath();x.moveTo(px+cw*.45,Y(k.hi));x.lineTo(px+cw*.45,Y(k.lo));x.stroke();x.fillStyle=up?'rgba(35,209,139,.92)':'rgba(255,84,112,.92)';x.fillRect(px+cw*.12,Y(Math.max(k.o,k.c)),cw*.66,Math.max(2,Math.abs(Y(k.o)-Y(k.c))));}
+  // level lines (entry/SL/TP) with right-edge price
+  function lvl(v,c,lbl,dash){x.strokeStyle=c;x.lineWidth=1.4;if(dash)x.setLineDash([6,4]);x.beginPath();x.moveTo(padL,Y(v));x.lineTo(w-padR,Y(v));x.stroke();x.setLineDash([]);x.fillStyle=c;x.font='9px sans-serif';x.textAlign='left';x.fillText(lbl,padL+3,Y(v)-3);}
   lvl(t.tp3,'#0e8f5c','TP3',true);lvl(t.tp2,'#1bb877','TP2',true);lvl(t.tp1,col('--green'),'TP1',false);lvl(t.entry,col('--cyan'),'ENTRY',false);lvl(t.stop,col('--red'),'SL',false);
-  // MFE marker
-  const mfeV=t.side==='LONG'?t.entry+(t.entry-t.stop)*t.mfe:t.entry-(t.entry-t.stop)*t.mfe;x.fillStyle=col('--amber');x.beginPath();x.arc(padL+plot*cw*0.6,Y(mfeV),3.5,0,7);x.fill();x.fillText('MFE',padL+plot*cw*0.6+5,Y(mfeV)-3);
+  // MFE / MAE markers
+  const mfeV=t.side==='LONG'?t.entry+(t.entry-t.stop)*t.mfe:t.entry-(t.entry-t.stop)*t.mfe;const maeV=t.side==='LONG'?t.entry+(t.entry-t.stop)*t.mae:t.entry-(t.entry-t.stop)*t.mae;
+  const mfeX=padL+plot*cw*0.62,maeX=padL+plot*cw*0.34;
+  x.fillStyle=col('--amber');x.beginPath();x.arc(mfeX,Y(mfeV),3.5,0,7);x.fill();x.fillText('MFE',mfeX+5,Y(mfeV)-3);
+  x.fillStyle=col('--red');x.beginPath();x.arc(maeX,Y(maeV),3.5,0,7);x.fill();x.fillText('MAE',maeX+5,Y(maeV)+11);
+  if(t.exit==='BE'){x.fillStyle=col('--amber');x.font='8px sans-serif';x.fillText('● BE',padL+plot*cw*0.48,Y(t.entry)+12);}
   // time axis
-  x.fillStyle=col('--dim');x.font='8px ui-monospace,monospace';x.textAlign='center';['signal','entry','+10m','+20m','close'].forEach((t2,i)=>x.fillText(t2,padL+(w-padL-padR)*i/4,h-6));
-  drawVol(plot);drawReplayEq();drawReplayDD();
+  x.fillStyle=col('--dim');x.font='8px ui-monospace,monospace';x.textAlign='center';['signal','entry','+10m','+20m','close'].forEach((t2,i)=>x.fillText(t2,padL+(w-padL-padR)*i/4,h-5));
+  drawVol(plot);drawDelta(plot);drawReplayEq();drawReplayDD();
 }
-function drawVol(plot){const o=ctx('replayVol');if(!o)return;const{x,w,h}=o;const padL=8,padR=52,N=CANDLES.length,cw=(w-padL-padR)/N;const mx=Math.max(...CANDLES.map(k=>k.v));
-  for(let i=0;i<N;i++){if(i>plot)continue;const k=CANDLES[i];const bh=(k.v/mx)*(h-8);x.fillStyle=k.c>=k.o?'rgba(35,209,139,.5)':'rgba(255,84,112,.5)';x.fillRect(padL+i*cw+cw*.1,h-4-bh,cw*.58,bh);}
-  x.fillStyle=col('--dim');x.font='8px sans-serif';x.textAlign='left';x.fillText('volume / order-flow (mock)',padL+2,10);}
+function drawVol(plot){const o=ctx('replayVol');if(!o)return;const{x,w,h}=o;x.fillStyle='#03081a';x.fillRect(0,0,w,h);const padL=8,padR=54,N=CANDLES.length,cw=(w-padL-padR)/N;const mx=Math.max(...CANDLES.map(k=>k.v));
+  for(let i=0;i<N;i++){if(i>plot)continue;const k=CANDLES[i];const bh=(k.v/mx)*(h-10);x.fillStyle=k.c>=k.o?'rgba(35,209,139,.55)':'rgba(255,84,112,.55)';x.fillRect(padL+i*cw+cw*.12,h-4-bh,cw*.66,bh);}
+  x.fillStyle=col('--dim');x.font='8px sans-serif';x.textAlign='left';x.fillText('volume (mock)',padL+2,10);}
+function drawDelta(plot){const o=ctx('replayDelta');if(!o)return;const{x,w,h}=o;x.fillStyle='#03081a';x.fillRect(0,0,w,h);const padL=8,padR=54,N=CANDLES.length,cw=(w-padL-padR)/N;const zero=h/2;
+  let seed=curT*131+5;const rnd=()=>{seed=(seed*1103515245+12345)&0x7fffffff;return seed/0x7fffffff;};
+  for(let i=0;i<N;i++){if(i>plot)continue;const k=CANDLES[i];const up=k.c>=k.o;const d=(up?1:-1)*(0.3+rnd()*0.7);const bh=d*(h/2-5);x.fillStyle=up?'rgba(157,123,255,.6)':'rgba(255,84,112,.5)';x.fillRect(padL+i*cw+cw*.12,zero-(d>0?bh:0),cw*.66,Math.abs(bh));}
+  x.strokeStyle='rgba(255,255,255,.12)';x.beginPath();x.moveTo(padL,zero);x.lineTo(w-padR,zero);x.stroke();x.fillStyle=col('--violet2');x.font='8px sans-serif';x.textAlign='left';x.fillText('delta / CVD (mock)',padL+2,10);}
 function drawReplayEq(){const o=ctx('replayEquity');if(!o)return;const{x,w,h}=o;let cum=0;const cs=TRADES.map(t=>cum+=t.r);const mn=Math.min(0,...cs),mx=Math.max(...cs,1);x.strokeStyle=col('--cyan');x.lineWidth=2;x.beginPath();cs.forEach((v,i)=>{const px=8+i*(w-16)/(cs.length-1),py=h-10-(v-mn)/(mx-mn)*(h-18);i?x.lineTo(px,py):x.moveTo(px,py);});x.stroke();}
 function drawReplayDD(){const o=ctx('replayDD');if(!o)return;const{x,w,h}=o;let cum=0,pk=0;const dd=TRADES.map(t=>{cum+=t.r;pk=Math.max(pk,cum);return cum-pk;});const mn=Math.min(...dd,-1);x.fillStyle='rgba(255,84,112,.32)';x.strokeStyle=col('--red');x.lineWidth=1.5;x.beginPath();dd.forEach((v,i)=>{const px=8+i*(w-16)/(dd.length-1),py=10-(v/mn)*(h-20);i?x.lineTo(px,py):x.moveTo(px,py);});x.stroke();x.lineTo(w-8,10);x.lineTo(8,10);x.fill();}
 $('#scrub').oninput=e=>{scrubVal=+e.target.value;drawReplay();};
