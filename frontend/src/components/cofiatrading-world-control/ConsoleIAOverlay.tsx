@@ -955,6 +955,27 @@ export function ConsoleIAOverlay() {
     window.history.replaceState(window.history.state, "", next);
   }, [activePacketId, isOpen]);
 
+  // ÉTAPE 3 — destinations (canaux) chargées depuis le backend, statuts honnêtes.
+  // Si le fetch échoue, DEFAULT_DESTINATION (BRIDGE_MISSING) reste affiché : jamais de faux LIVE.
+  useEffect(() => {
+    if (!isOpen) return;
+    let stopped = false;
+    const loadDestinations = async () => {
+      try {
+        const response = await fetch("/api/cofiatrading-world-control/console-ia?destinations=1", { cache: "no-store" });
+        const data = (await response.json()) as { ok: boolean; destinations?: DestinationState[] };
+        if (stopped || !data.ok || !Array.isArray(data.destinations)) return;
+        setDestinations(data.destinations);
+      } catch {
+        // garde les statuts honnêtes par défaut
+      }
+    };
+    loadDestinations();
+    return () => {
+      stopped = true;
+    };
+  }, [isOpen]);
+
   useEffect(() => {
     if (!isOpen || !activePacketId) return;
     let stopped = false;
