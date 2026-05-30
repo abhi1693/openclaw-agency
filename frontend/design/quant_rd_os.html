@@ -690,7 +690,7 @@ function runBacktest(silent){const si=$('#btStrat').selectedIndex,vi=$('#btVar')
     ['wn','⚠ multiple-testing: 32 variantes · PBO/Deflated-Sharpe NON calculé'],
     ['wn','⚠ fat-tail: drop top-10% → PnL restant '+tail],
     [neg?'er':'wn','⚠ OOS paper sum R = '+d[4]+(neg?'  → edge non confirmé en réel':'')],
-    [neg?'er':'ok',(neg?'✗ candidate REJECTED — OOS paper negative. RESEARCH ONLY.':'✓ candidate eligible PAPER-FORWARD (sous réserve PBO/DSR).')],
+    [neg?'er':'wn',(neg?'✗ candidate REJECTED — OOS paper negative. RESEARCH ONLY.':'◐ research-only candidate, requires 100+ paper trades positifs (+ PBO/DSR) avant tout statut.')],
     ['mut','> next: re-backtest MNQ natif · estimer PBO (CSCV) · forward-record 100+ trades <span class="blink">▌</span>']
   ].map(l=>`<div class="ln"><span class="${l[0]}">${l[1]}</span></div>`).join('');
   if(!silent){RUNHIST.unshift([(RUNHIST.length+1),$('#btStrat').value.replace('STRAT-',''),(['base','vNext','rej'][vi]),$('#btSlip').value.replace(' ticks','t').replace(' tick','t'),(neg?'REJECT':'PAPER?'),d[4]]);
