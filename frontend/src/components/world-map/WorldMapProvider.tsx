@@ -65,7 +65,6 @@ export function WorldMapProvider({
     if (process.env.NODE_ENV === "production") return;
     const result = validateWorldMapConfig(config);
     if (result.errors.length > 0) {
-      // eslint-disable-next-line no-console
       console.error("[WorldMap] config invalide:", result.errors);
     }
     if (result.warnings.length > 0) {
