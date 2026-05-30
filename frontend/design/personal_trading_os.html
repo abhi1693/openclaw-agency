@@ -373,7 +373,7 @@ function fill(){
   $('#execTable').innerHTML=EXEC.map(e=>`<tr><td>${e.t}</td><td>${e.s}</td><td>${e.side}</td><td class="num">${e.e}</td><td class="num ${e.r.startsWith('+')?'up':'down'}">${e.r}</td><td style="color:var(--mute)">${e.route}</td><td><span class="st sim">SIM / DRY-RUN</span></td></tr>`).join('');
   $('#compTable').innerHTML=COMP.map(c=>`<tr><td>${c.a}</td><td>${c.r}</td><td>${c.st==='on'?'<span class="st on">PASS</span>':'<span class="st down">DISABLED</span>'}</td></tr>`).join('');
 }
-function donut(id,data){const o=ctx(id);if(!o)return;const {x,w,h}=o;const cx=w/2,cy=h/2,R=Math.min(w,h)/2-12;
+function donut(id,data){const o=ctx(id);if(!o)return;const {x,w,h}=o;const cx=w/2,cy=h/2,R=Math.min(w,h)/2-12;if(R<=0||w<10)return;
   const tot=data.reduce((s,d)=>s+d[1],0);let a=-Math.PI/2;
   data.forEach(d=>{const ang=d[1]/tot*Math.PI*2;x.beginPath();x.moveTo(cx,cy);x.arc(cx,cy,R,a,a+ang);x.closePath();x.fillStyle=d[2];x.fill();a+=ang;});
   x.beginPath();x.arc(cx,cy,R*0.58,0,7);x.fillStyle=col('--navy');x.fill();
