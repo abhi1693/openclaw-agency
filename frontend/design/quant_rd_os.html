@@ -403,12 +403,13 @@
         <div class="tradebar" id="tradeBar"></div>
         <div class="replay">
           <div class="chartwrap">
-            <div id="chartHost"><canvas id="replayChart" height="380"></canvas><div id="replayTip"></div></div>
-            <canvas id="replayVol" height="58" style="margin-top:4px"></canvas>
+            <div id="chartHost"><canvas id="replayChart" height="360"></canvas><canvas id="replayCross" height="360"></canvas><div id="replayTip"></div></div>
+            <canvas id="replayVol" height="48" style="margin-top:4px"></canvas>
+            <canvas id="replayDelta" height="42" style="margin-top:3px"></canvas>
             <div class="legend">
               <span><i style="background:var(--cyan)"></i>entry</span><span><i style="background:var(--red)"></i>SL</span>
               <span><i style="background:var(--green)"></i>TP1</span><span><i style="background:#1bb877"></i>TP2</span>
-              <span><i style="background:#0e8f5c"></i>TP3</span><span><i style="background:var(--amber)"></i>BE/MFE</span><span><i style="background:rgba(157,123,255,.7)"></i>volume/order-flow</span>
+              <span><i style="background:#0e8f5c"></i>TP3</span><span><i style="background:var(--amber)"></i>BE/MFE/MAE</span><span><i style="background:rgba(157,123,255,.7)"></i>volume</span><span><i style="background:var(--violet)"></i>delta/CVD</span>
             </div>
             <div class="scrub"><input type="range" id="scrub" min="0" max="100" value="100">
               <div class="tl"><span>signal</span><span>entry</span><span>TP1</span><span>BE</span><span>TP2/TP3/SL</span><span>close</span></div></div>
