@@ -1349,24 +1349,26 @@ export function ConsoleIAOverlay() {
                           ? "border-cyan-300/35 text-cyan-200"
                           : primaryParticipant.status === "adapter_missing"
                             ? "border-amber-300/40 text-amber-200"
-                            : primaryParticipant.status === "ack_local"
+                            : primaryParticipant.status === "draft_only" || primaryParticipant.status === "waiting" || primaryParticipant.status === "ack_local" || primaryParticipant.status === "queued"
                               ? "border-sky-300/30 text-sky-200"
-                              : primaryParticipant.status === "queued"
-                                ? "border-sky-300/30 text-sky-200"
-                                : "border-slate-600 text-slate-400"
+                              : "border-slate-600 text-slate-400"
                     }`}
                     >
                       {primaryParticipant.status === "working" || primaryParticipant.status === "answered"
                         ? "ACTIF"
                         : primaryParticipant.status === "adapter_missing"
                           ? "Runtime non branché"
-                          : primaryParticipant.status === "ack_local"
-                            ? "ACK local reçu"
-                            : primaryParticipant.status === "queued"
-                              ? "En file"
-                              : primaryParticipant.status === "pending"
-                                ? "En attente"
-                                : primaryParticipant.status}
+                          : primaryParticipant.status === "draft_only"
+                            ? "Draft local"
+                            : primaryParticipant.status === "waiting"
+                              ? "En attente"
+                              : primaryParticipant.status === "ack_local"
+                                ? "ACK local reçu"
+                                : primaryParticipant.status === "queued"
+                                  ? "En file"
+                                  : primaryParticipant.status === "pending"
+                                    ? "En attente"
+                                    : primaryParticipant.status}
                     </span>
                   ) : null}
                 </div>
