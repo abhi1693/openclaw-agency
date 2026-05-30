@@ -115,6 +115,34 @@ const MODEL_MODES = {
     execution: "screen_camera_audio_packet_to_kevin_lane",
     hardlock: "on_demand_only_no_continuous_camera",
   },
+  // Lanes par agent (alignées avec ConsoleIAOverlay.tsx MODEL_MODES).
+  // Lanes internes COFIATRADING : aucune n'appelle d'API cachée ; le routing
+  // adapter réel est porté par l'agent (bus), pas par la lane.
+  codex_patch: { id: "codex_patch", label: "Codex patch", provider: "codex_local", model: "gpt-5.3-codex-spark", reasoning: "standard", execution: "bounded_local_codex_patch_lane", hardlock: "no_api_key_no_external_call" },
+  codex_tests: { id: "codex_tests", label: "Codex tests", provider: "codex_local", model: "gpt-5.3-codex-spark", reasoning: "standard", execution: "bounded_local_codex_tests_lane", hardlock: "no_api_key_no_external_call" },
+  claude_4_7: { id: "claude_4_7", label: "Claude 4.7", provider: "claude_local_oauth", model: "claude-4-7", reasoning: "high", execution: "claude_cli_oauth_lane", hardlock: "no_anthropic_api_oauth_only" },
+  claude_4_8: { id: "claude_4_8", label: "Claude 4.8", provider: "claude_local_oauth", model: "claude-4-8", reasoning: "high", execution: "claude_cli_oauth_lane", hardlock: "no_anthropic_api_oauth_only" },
+  claude_4_8_high: { id: "claude_4_8_high", label: "Claude 4.8 high", provider: "claude_local_oauth", model: "claude-4-8", reasoning: "high", execution: "claude_cli_oauth_lane", hardlock: "no_anthropic_api_oauth_only" },
+  claude_4_8_max_high: { id: "claude_4_8_max_high", label: "Claude 4.8 max high", provider: "claude_local_oauth", model: "claude-4-8", reasoning: "xhigh", execution: "claude_cli_oauth_lane", hardlock: "no_anthropic_api_oauth_only" },
+  claude_memory_qa: { id: "claude_memory_qa", label: "Claude mémoire / QA", provider: "claude_local_oauth", model: "claude-cli-local", reasoning: "standard", execution: "claude_cli_oauth_lane", hardlock: "no_anthropic_api_oauth_only" },
+  qwen_local: { id: "qwen_local", label: "Qwen local", provider: "qwen_local_proxy", model: "qwen-plus", reasoning: "standard", execution: "rtk_llm_proxy_local_lane", hardlock: "local_proxy_non_anthropic" },
+  qwen_cheap_bulk: { id: "qwen_cheap_bulk", label: "Qwen cheap bulk", provider: "qwen_local_proxy", model: "qwen-turbo", reasoning: "standard", execution: "rtk_llm_proxy_local_lane", hardlock: "local_proxy_non_anthropic" },
+  qwen_contradiction: { id: "qwen_contradiction", label: "Qwen contradiction", provider: "qwen_local_proxy", model: "qwen-plus", reasoning: "high", execution: "rtk_llm_proxy_local_lane", hardlock: "local_proxy_non_anthropic" },
+  qwen_reasoning: { id: "qwen_reasoning", label: "Qwen reasoning local", provider: "qwen_local_proxy", model: "qwen-plus", reasoning: "high", execution: "rtk_llm_proxy_local_lane", hardlock: "local_proxy_non_anthropic" },
+  perplexity_bridge: { id: "perplexity_bridge", label: "Perplexity local bridge", provider: "perplexity_local_bridge", model: "app-desktop-bridge", reasoning: "high", execution: "subscription_browser_first", hardlock: "no_hidden_perplexity_api" },
+  perplexity_subscription: { id: "perplexity_subscription", label: "Perplexity abonnement", provider: "perplexity_local_bridge", model: "subscription-browser", reasoning: "high", execution: "subscription_browser_first", hardlock: "no_hidden_perplexity_api" },
+  perplexity_api_fallback: { id: "perplexity_api_fallback", label: "Perplexity API (fallback)", provider: "perplexity_api_flagged", model: "sonar", reasoning: "high", execution: "api_only_if_CONSOLE_IA_PERPLEXITY_API_ENABLE", hardlock: "explicit_flag_and_cost_log_required" },
+  jarod_runtime: { id: "jarod_runtime", label: "Jarod team runtime", provider: "jarod_openclaw_runtime", model: "glm-5.1", reasoning: "high", execution: "openclaw_runtime_lane", hardlock: "local_proxy_non_anthropic" },
+  jarod_orchestration: { id: "jarod_orchestration", label: "Jarod orchestration", provider: "jarod_openclaw_runtime", model: "glm-5.1", reasoning: "high", execution: "openclaw_runtime_lane", hardlock: "local_proxy_non_anthropic" },
+  jarod_team_synthesis: { id: "jarod_team_synthesis", label: "Team synthesis", provider: "jarod_openclaw_runtime", model: "glm-5.1", reasoning: "high", execution: "openclaw_runtime_lane", hardlock: "local_proxy_non_anthropic" },
+  gemini_perception: { id: "gemini_perception", label: "Gemini perception", provider: "gemini_local_perception", model: "gemini-2.5-flash", reasoning: "visual", execution: "perception_packet_to_kevin_lane", hardlock: "on_demand_only_no_continuous_camera" },
+  kevin_screen: { id: "kevin_screen", label: "Kevin écran", provider: "gemini_local_perception", model: "gemini-2.5-flash", reasoning: "visual", execution: "screen_packet_to_kevin_lane", hardlock: "on_demand_only_no_continuous_camera" },
+  kevin_camera: { id: "kevin_camera", label: "Kevin caméra", provider: "gemini_local_perception", model: "gemini-2.5-flash", reasoning: "visual", execution: "camera_packet_to_kevin_lane", hardlock: "on_demand_only_no_continuous_camera" },
+  kevin_audio: { id: "kevin_audio", label: "Kevin audio", provider: "gemini_local_perception", model: "gemini-2.5-flash", reasoning: "visual", execution: "audio_packet_to_kevin_lane", hardlock: "on_demand_only_no_continuous_camera" },
+  chatgpt_desktop_brief: { id: "chatgpt_desktop_brief", label: "Desktop brief", provider: "chatgpt_local_desktop", model: "local-app-brief", reasoning: "high", execution: "brief_sync_no_openai_api", hardlock: "no_OPENAI_API_KEY_no_api_openai_com" },
+  chatgpt_bridge_only: { id: "chatgpt_bridge_only", label: "Desktop bridge only", provider: "chatgpt_local_desktop", model: "desktop-bridge", reasoning: "high", execution: "brief_sync_no_openai_api", hardlock: "no_OPENAI_API_KEY_no_api_openai_com" },
+  council_synthesis: { id: "council_synthesis", label: "Council synthesis", provider: "central_brain_council", model: "codex+claude+jarod", reasoning: "xhigh", execution: "council_sub_bus_synthesis", hardlock: "sub_adapters_real_only" },
+  council_arbitration: { id: "council_arbitration", label: "Council arbitration", provider: "central_brain_council", model: "codex+claude+jarod", reasoning: "xhigh", execution: "council_sub_bus_arbitration", hardlock: "sub_adapters_real_only" },
 } as const satisfies Record<string, ConsoleModelMode>;
 
 const TARGET_ROUTES: Record<string, { buses: string[]; owner: string; house: string; title: string }> = {
