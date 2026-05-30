@@ -906,7 +906,7 @@ export function ConsoleIAOverlay() {
   const [pickerOpen, setPickerOpen] = useState(false);
   const [activeChannelId, setActiveChannelId] = useState<string | null>(null);
   const [channelWorkMode, setChannelWorkMode] = useState<"agent_context" | "draft">("agent_context");
-  const [destinations] = useState<DestinationState[]>([]);
+  const [destinations, setDestinations] = useState<DestinationState[]>([]);
   const destinationFor = (id: string): DestinationState =>
     destinations.find((dest) => dest.destinationId === id) ?? DEFAULT_DESTINATION(id);
   const [thread, setThread] = useState<ConsoleThread | null>(null);
