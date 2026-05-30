@@ -1654,6 +1654,14 @@ export function ConsoleIAOverlay() {
                             <p className="text-[10px] font-black uppercase tracking-[0.15em] text-cyan-200">
                               {item.title}
                             </p>
+                            {item.source && item.source.startsWith("telegram") ? (
+                              <span className="rounded-full border border-cyan-300/40 bg-cyan-400/10 px-2 py-0.5 text-[9px] font-black uppercase tracking-[0.08em] text-cyan-100">
+                                ↳ Telegram · {item.source === "telegram_group" ? "admin" : "DM"}
+                              </span>
+                            ) : null}
+                            {item.source ? (
+                              <span className="rounded-full border border-amber-300/30 px-2 py-0.5 text-[9px] font-black uppercase tracking-[0.08em] text-amber-200">reçue · lecture seule</span>
+                            ) : null}
                             {item.status ? (
                               <span className="rounded-full border border-slate-600/70 px-2 py-0.5 text-[9px] font-black uppercase tracking-[0.08em] text-slate-300">
                                 {item.status}
