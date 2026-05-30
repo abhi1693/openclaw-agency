@@ -68,7 +68,7 @@ export function useWorldConsole() {
 
     if (entity.kind === "agent") {
       const a = entity.data;
-      const t = (telemetry?.agents[a.id] ?? a.metrics) as Record<string, number | undefined>;
+      const t = telemetry?.agents[a.id] ?? a.metrics;
       const home = index.houses.get(a.homeId);
       return {
         kind: "agent",
