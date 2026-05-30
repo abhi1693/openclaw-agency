@@ -173,7 +173,9 @@
   .replay{display:grid; grid-template-columns:1fr 300px; gap:12px}
   .chartwrap{background:var(--panel); border:1px solid var(--line); border-radius:var(--r2); padding:11px; position:relative}
   #chartHost{position:relative}
-  #replayTip{position:absolute; pointer-events:none; background:rgba(3,9,26,.94); border:1px solid var(--line2); border-radius:7px; padding:6px 9px; font-size:10.5px; color:#cfe9ff; display:none; z-index:5; white-space:nowrap; font-variant-numeric:tabular-nums}
+  #chartHost #replayChart{display:block; width:100%; background:#03081a; border:1px solid rgba(0,185,255,.12); border-radius:8px}
+  #chartHost #replayCross{position:absolute; left:0; top:0; width:100%; pointer-events:none; z-index:4}
+  #replayTip{position:absolute; pointer-events:none; background:rgba(3,9,26,.96); border:1px solid var(--line2); border-radius:7px; padding:6px 9px; font-size:10.5px; color:#cfe9ff; display:none; z-index:5; white-space:nowrap; font-variant-numeric:tabular-nums}
   .tradebar{display:flex; gap:5px; flex-wrap:wrap; margin-bottom:9px}
   .tchip{font-size:11px; padding:5px 8px; border-radius:7px; border:1px solid var(--line); background:var(--panel2); color:var(--mute); cursor:pointer; font-variant-numeric:tabular-nums}
   .tchip.on{border-color:var(--cyan); color:#eafaff; background:rgba(0,185,255,.12)}
