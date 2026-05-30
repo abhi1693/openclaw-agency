@@ -1614,6 +1614,17 @@ export function ConsoleIAOverlay() {
               <div className="grid gap-2">
                 {AGENT_TARGETS.map((target) => renderTargetButton(target))}
               </div>
+              {inboundCommands.length ? (
+                <button
+                  type="button"
+                  onClick={() => { const cmd = inboundCommands[0]; if (cmd?.targetId) selectTarget(cmd.targetId); }}
+                  className="mt-2 flex w-full items-center gap-2 rounded-lg border border-cyan-300/30 bg-cyan-400/8 px-2.5 py-1.5 text-left text-[10px] font-black uppercase tracking-[0.08em] text-cyan-100 transition hover:border-cyan-300/50"
+                  title="commandes Telegram entrantes"
+                >
+                  📨 {inboundCommands.length} entrante{inboundCommands.length > 1 ? "s" : ""}
+                  <span className="ml-auto truncate font-normal normal-case text-cyan-200/70">→ {inboundCommands[0]?.targetAgent}</span>
+                </button>
+              ) : null}
             </aside>
 
             <main className="grid min-h-0 grid-rows-[auto_1fr_auto] overflow-hidden">
