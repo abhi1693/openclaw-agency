@@ -751,6 +751,8 @@ function buildStudio(){
   if($('#dodList'))$('#dodList').innerHTML=DOD.map(d=>`<li><span class="x">✕</span> <span>${d[0]} <span style="color:var(--dim);font-size:10px">— ${d[1]}</span></span></li>`).join('');
   if($('#valPipe')){const cm={done:['var(--green2)','✓'],todo:['var(--dim)','○'],run:['var(--amber)','◐'],block:['var(--red)','⛔']};$('#valPipe').innerHTML=VALPIPE.map((p,i)=>{const c=cm[p[1]];return `<span style="display:inline-flex;align-items:center;gap:6px;padding:5px 10px;border-radius:8px;border:1px solid var(--line);background:var(--panel3)"><b style="color:${c[0]}">${c[1]} ${p[0]}</b><span style="color:var(--dim);font-size:10px">${p[2]}</span></span>`+(i<VALPIPE.length-1?'<span style="color:var(--dim)">→</span>':'');}).join('');}
 }
+let _tvDone=false;
+function initTV(){if(_tvDone||typeof TradingView==='undefined'||!document.getElementById('tv_chart'))return;_tvDone=true;try{new TradingView.widget({autosize:true,symbol:"CME_MINI:NQ1!",interval:"5",timezone:"America/New_York",theme:"dark",style:"1",locale:"fr",toolbar_bg:"#040d20",enable_publishing:false,hide_side_toolbar:false,allow_symbol_change:true,studies:["STD;Volume"],container_id:"tv_chart"});}catch(e){console.warn('TV',e);}}
 function init(){restore();setInst();flowSync();buildRules('STRAT-17');buildTradeBar();fillRail();syncPersonalFromTrade();buildQuantTables();buildTpl();buildPersonal();buildContext();buildStudio();
  const detSel=$('#detSel');if(detSel){detSel.value=ACCT_DETAIL[STATE.account]?STATE.account:'APEX-247';detSel.onchange=()=>setAccountDetail(detSel.value);}
  setAccountDetail(ACCT_DETAIL[STATE.account]?STATE.account:'APEX-247');
