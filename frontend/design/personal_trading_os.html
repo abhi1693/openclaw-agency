@@ -128,6 +128,20 @@
   .ev{display:flex; gap:9px; align-items:flex-start; padding:8px 0; border-bottom:1px solid rgba(0,185,255,.06)}
   .ev .t{color:var(--dim); font-size:10px; min-width:74px; white-space:nowrap}
   .ev .line{flex:1; display:flex; gap:8px; align-items:center; flex-wrap:wrap; font-size:11px}
+  /* vertical timeline */
+  .vtl{position:relative; padding-left:22px}
+  .vtl:before{content:''; position:absolute; left:7px; top:6px; bottom:6px; width:2px; background:linear-gradient(180deg,rgba(157,123,255,.5),rgba(0,185,255,.2))}
+  .vev{position:relative; padding:9px 0; display:flex; gap:10px; align-items:flex-start}
+  .vev .nd{position:absolute; left:-19px; top:13px; width:11px; height:11px; border-radius:50%; border:2px solid var(--navy)}
+  .vev .t{color:var(--dim); font-size:10px; min-width:78px; white-space:nowrap}
+  .vev .bd{flex:1; display:flex; flex-direction:column; gap:2px}
+  .vev .ti{font-size:11.5px} .vev .sb{font-size:9.5px; color:var(--dim)}
+  /* heatmap */
+  .heat{display:grid; grid-template-columns:repeat(7,1fr); gap:4px}
+  .heat .hc{aspect-ratio:1.6; border-radius:5px; display:grid; place-items:center; font-size:8.5px; font-weight:700; color:rgba(255,255,255,.75); border:1px solid rgba(255,255,255,.04)}
+  .heat .lbl{font-size:9px; color:var(--dim); display:grid; place-items:center}
+  /* mini account-card extras */
+  .acard .mini{display:flex; justify-content:space-between; font-size:9.5px; color:var(--mute); padding-top:5px; border-top:1px solid rgba(0,185,255,.07)}
 </style>
 </head>
 <body>
