@@ -1196,6 +1196,10 @@ export async function POST(request: Request) {
 
   const timestamp = new Date().toISOString();
   const packetId = `cia_${timestamp.replace(/[^0-9TZ]/g, "").slice(0, 15)}_${targetId}`;
+  // ÉTAPE 4 — résout/crée le thread de cet agent et y rattache ce packet (1 tour).
+  const requestedThreadId = sanitizeText(asString(body.threadId), 140);
+  const threadRecord = await ensureThread(targetId, modelMode.id, requestedThreadId, timestamp);
+  const threadId = threadRecord.threadId;
   await mkdir(PACKETS_DIR, { recursive: true });
   await mkdir(AGENT_MESH_DIR, { recursive: true });
   await mkdir(WARP_MISSION_PACKETS_DIR, { recursive: true });
