@@ -616,22 +616,30 @@
 
       <!-- TEMPLATE STUDIO -->
       <section class="page" id="pg-vip">
-        <h1 class="pt">Template Studio <span style="font-size:12px;color:var(--mute);font-weight:500">— VIP-safe · draft only</span></h1>
-        <div class="sub">Génère des messages honnêtes. <b>Zéro % live, zéro $ live</b>, gagnants+perdants. Aucun envoi (l'envoi réel ira plus tard dans Revenue/CRM).</div>
-        <div class="grid g-1-2">
-          <div class="card"><h3>Templates <span class="r">10 · cliquable</span></h3><div class="tpl-list" id="tplList"></div></div>
+        <h1 class="pt">Post Studio <span style="font-size:12px;color:var(--mute);font-weight:500">— VIP-safe · draft only · aucun envoi ici</span></h1>
+        <div class="sub">Génère des messages honnêtes. <b>Zéro % live, zéro $ live</b>, gagnants+perdants. L'envoi réel ira plus tard dans Revenue/CRM ou Telegram — ici tout est draft.</div>
+        <div class="grid" style="grid-template-columns:240px 1fr 280px;gap:12px">
+          <div class="card"><h3>Templates <span class="r">10</span></h3><div class="tpl-list" id="tplList"></div></div>
           <div class="card">
             <h3 id="tplTitle">Signal VIP <span class="r"><span class="st safe" id="tplStat">VIP-safe</span></span></h3>
+            <div style="font-size:10px;color:var(--dim);text-transform:uppercase;letter-spacing:.5px;margin-bottom:6px">Variables (mock — depuis signals.db)</div>
+            <div id="tplVars" style="display:flex;flex-wrap:wrap;gap:5px;margin-bottom:10px"></div>
+            <div style="font-size:10px;color:var(--dim);text-transform:uppercase;letter-spacing:.5px;margin-bottom:6px">Editor / preview</div>
             <div class="vipbox" id="tplPreview"></div>
-            <div class="grid g2" style="margin-top:11px">
-              <div class="card tight"><h3>Required data</h3><div id="tplData" style="font-size:11px"></div></div>
-              <div class="card tight"><h3>Compliance checklist</h3><ul class="checklist" id="tplCheck"></ul></div>
+          </div>
+          <div class="card">
+            <h3>Compliance checker</h3>
+            <ul class="checklist" id="tplCheck"></ul>
+            <div style="font-size:10px;color:var(--dim);text-transform:uppercase;letter-spacing:.5px;margin:12px 0 6px">Required data</div>
+            <div id="tplData" style="font-size:11px"></div>
+            <div style="font-size:10px;color:var(--dim);text-transform:uppercase;letter-spacing:.5px;margin:12px 0 6px">Channels (draft only)</div>
+            <div style="display:flex;flex-direction:column;gap:6px">
+              <div class="kv" style="padding:5px 0"><span class="k">Free channel</span><button class="btn" disabled style="padding:4px 9px">Draft <span class="lk">disabled</span></button></div>
+              <div class="kv" style="padding:5px 0"><span class="k">VIP channel</span><button class="btn" disabled style="padding:4px 9px">Draft <span class="lk">disabled</span></button></div>
+              <div class="kv" style="padding:5px 0"><span class="k">Erwin review</span><button class="btn" disabled style="padding:4px 9px">Send to review <span class="lk">disabled</span></button></div>
+              <div class="kv" style="padding:5px 0;border:none"><span class="k">Revenue / CRM</span><button class="btn" disabled style="padding:4px 9px">Export draft <span class="lk">disabled</span></button></div>
             </div>
-            <div class="btnrow" style="margin-top:11px">
-              <button class="btn" disabled>⧉ Copy draft <span class="lk">disabled · MOCK</span></button>
-              <button class="btn" disabled>⤓ Export <span class="lk">disabled</span></button>
-              <span style="font-size:10.5px;color:var(--dim);align-self:center">envoi réel → Revenue/CRM / Telegram (hors scope ici)</span>
-            </div>
+            <div class="warnrow" style="margin-top:9px"><span class="warn amber">⚠ Aucun envoi réel depuis cet OS — uniquement des drafts.</span></div>
           </div>
         </div>
       </section>
