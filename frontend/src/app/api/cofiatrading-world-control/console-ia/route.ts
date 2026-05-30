@@ -45,6 +45,7 @@ const PACKETS_JSONL = path.join(CONSOLE_STATE_DIR, "packets.jsonl");
 const THREADS_DIR = path.join(CONSOLE_STATE_DIR, "threads");
 const AGENT_INDEX_DIR = path.join(CONSOLE_STATE_DIR, "agent_index");
 const DRAFTS_DIR = path.join(CONSOLE_STATE_DIR, "drafts");
+const INBOUND_DIR = path.join(CONSOLE_STATE_DIR, "inbound");
 const AGENT_MESH_DIR = path.join(STATE_ROOT, "agent_mesh");
 const WARP_AGENT_MESH_DIR = path.join(STATE_ROOT, "warp", "agent_mesh");
 const WARP_MISSION_PACKETS_DIR = path.join(STATE_ROOT, "warp", "agent_mesh", "mission_packets");
