@@ -359,6 +359,20 @@
       <div class="card v"><h3>Rule blocks <span class="r" id="bBase">base : STRAT-17 baseline</span></h3><div class="ruleset" id="ruleset"></div>
         <div class="btnrow" style="margin-top:12px"><button class="btn" disabled>⛭ Build research candidate <span class="lk">disabled · MOCK</span></button><button class="btn act" onclick="sendToBacktest()">⮕ Send to Backtest Lab →</button><button class="btn actv" onclick="go('q-robust')">⚠ Send to Red-Team →</button></div></div>
       <div class="card"><h3>Diff vs baseline <span class="r"><span class="badge b-model">MODEL</span></span></h3><div class="diff" id="diffBox"></div><div class="warnrow" style="margin-top:9px"><span class="warn amber">⚠ Re-pondération de sortie — pas un nouvel edge.</span></div></div></div>
+    <div class="grid g-2-1 mb" style="margin-top:12px">
+      <div class="card"><h3>Definition of Done — publiable en signaux ? <span class="r"><span class="pill reject">0 / 8</span></span></h3>
+        <div style="font-size:10.5px;color:var(--dim);margin-bottom:9px">Une stratégie ne peut alimenter le VIP qu'avec ces 8 coches. Statut courant : <b id="dodStrat">STRAT-17</b>.</div>
+        <ul class="checklist" id="dodList" style="gap:7px"></ul></div>
+      <div class="card"><h3>Budget d'overfit <span class="r"><span class="badge b-model">MODEL</span></span></h3>
+        <div class="kpi" style="margin-bottom:10px"><span class="v amber" style="font-size:20px">4 / 6</span><span class="l">degrés de liberté utilisés · au-delà = risque overfit</span></div>
+        <div class="meter" style="margin-bottom:10px"><div class="top"><span>Paramètres + filtres</span><span style="color:var(--amber)">4</span></div><div class="bar"><i style="width:67%;background:var(--amber)"></i></div></div>
+        <div class="kv"><span class="k">Split train/val/test figé</span><span class="v" style="color:var(--red)">non ✕</span></div>
+        <div class="kv"><span class="k">PBO (CSCV)</span><span class="v" style="color:var(--red)">non calculé ✕</span></div>
+        <div class="kv"><span class="k">Deflated Sharpe</span><span class="v" style="color:var(--red)">non calculé ✕</span></div>
+        <div class="warnrow" style="margin-top:9px"><span class="warn">⚠ Chaque filtre ajouté incrémente le budget. Le gate exige PBO &lt; 0.5.</span></div></div></div>
+    <div class="card mb"><h3>Pipeline de validation → gate de publication</h3>
+      <div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap;margin-bottom:11px" id="valPipe"></div>
+      <div style="display:flex;align-items:center;gap:14px;flex-wrap:wrap;padding-top:11px;border-top:1px solid var(--line)"><button class="btn" disabled>⮕ Publier en signaux <span class="lk">disabled · gate 0/8</span></button><span style="font-size:11.5px;color:#ffc1cd">Aucune stratégie ne passe le gate aujourd'hui — robinet fermé par défaut.</span></div></div>
   </section>
 
   <section class="page" id="pg-q-data">
