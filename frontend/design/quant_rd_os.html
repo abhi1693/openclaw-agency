@@ -176,6 +176,24 @@
   .feed .it{display:flex; gap:9px; align-items:flex-start; font-size:11px; padding:6px 0; border-bottom:1px solid rgba(0,185,255,.06)}
   .feed .it .d{color:var(--dim); white-space:nowrap; font-size:10px; min-width:64px}
   .dotv{width:7px;height:7px;border-radius:50%;margin-top:4px;flex:none}
+  /* next best actions */
+  .nba{border:1px solid var(--line); border-radius:10px; padding:10px 11px; background:var(--panel3); display:flex; flex-direction:column; gap:6px; cursor:default}
+  .nba .h{display:flex; align-items:center; gap:7px; font-weight:700; font-size:11.5px}
+  .nba .h .n{width:18px;height:18px;border-radius:5px;display:grid;place-items:center;font-size:10px;background:rgba(157,123,255,.18);color:var(--violet2);border:1px solid rgba(157,123,255,.35)}
+  .nba .d{font-size:10px; color:var(--mute); line-height:1.45}
+  .nba .pr{font-size:8.5px; font-weight:800; letter-spacing:.4px; padding:1px 6px; border-radius:5px; align-self:flex-start}
+  .nba .pr.p0{color:var(--red); background:rgba(255,84,112,.1); border:1px solid rgba(255,84,112,.4)}
+  .nba .pr.p1{color:var(--amber); background:rgba(255,178,62,.1); border:1px solid rgba(255,178,62,.4)}
+  /* block status */
+  .bstat{font-size:8px; font-weight:800; letter-spacing:.4px; padding:2px 6px; border-radius:5px; border:1px solid; white-space:nowrap; min-width:78px; text-align:center}
+  .bstat.ready{color:var(--green2); border-color:rgba(35,209,139,.4); background:rgba(35,209,139,.08)}
+  .bstat.miss{color:var(--red); border-color:rgba(255,84,112,.4); background:rgba(255,84,112,.08)}
+  .bstat.mock{color:var(--violet2); border-color:rgba(157,123,255,.4); background:rgba(157,123,255,.08)}
+  .bstat.rej{color:var(--amber); border-color:rgba(255,178,62,.4); background:rgba(255,178,62,.08)}
+  /* research console */
+  .console{background:#03091a; border:1px solid var(--line2); border-radius:9px; padding:11px 13px; font:11px/1.6 ui-monospace,SFMono-Regular,Menlo,monospace; color:#bfe3ff; max-height:190px; overflow-y:auto}
+  .console .ln{display:flex; gap:8px}
+  .console .pmt{color:var(--violet2)} .console .ok{color:var(--green2)} .console .er{color:var(--red)} .console .wn{color:var(--amber)} .console .mut{color:var(--dim)}
 </style>
 </head>
 <body>
