@@ -631,10 +631,11 @@ def execute_vip(voice_id=None) -> dict:
     run_id = f"vip_{int(time.time())}"
     rd = OUT_ROOT / run_id; rd.mkdir(parents=True, exist_ok=True)
     LD = Path.home() / ".openclaw/state/cofiapublisher/luma_generations"
-    # G1/G3 (2026-05-30) : hero1 = SEUL hero Luma RÉEL. hero2 Luma BLOCKED (retrieval cassé) →
-    # path inexistant volontaire → le beat 'preuve' retombe sur Pexels HONNÊTEMENT (pas de Runway déguisé).
-    hero1 = str(LD / "hero_09155fc4.mp4")
-    hero2 = str(LD / "hero2_luma_BLOCKED_NONEXISTENT.mp4")  # BLOCKED_LUMA — pas de fake
+    # V4 (2026-05-30) : 2 vrais heros IA labellisés. hero1 = Luma RÉEL ; hero2 = Runway gen4_turbo RÉEL
+    # (gen_id 378645eb-52ef-4b7b-8844-7ede52b0132d, seed 27de6c50) généré via adapters/video_runway.py.
+    RA = Path.home() / ".openclaw/state/cofiapublisher/runway_assets"
+    hero1 = str(LD / "hero_09155fc4.mp4")               # Luma hero #1 (réel)
+    hero2 = str(RA / "hero2_runway_real.mp4")            # Runway hero #2 (réel, labellisé Runway, PAS Luma)
     # NOUVEAU SCÉNARIO 2026-05-30 (anti-gourou frais, PAS recyclé) — angle "90% perdent parce qu'ils sont seuls".
     beats = [
         {"t": "Tu veux la vérité sur pourquoi la plupart des traders perdent ? C'est pas ta stratégie. C'est que t'es tout seul.", "dur": 7, "q": "lone trader dark room glowing screen serious face night", "role": "hook"},
