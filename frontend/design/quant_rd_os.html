@@ -762,13 +762,15 @@ function drawDelta(plot){const o=ctx('replayDelta');if(!o)return;const{x,w,h}=o;
 function drawReplayEq(){const o=ctx('replayEquity');if(!o)return;const{x,w,h}=o;let cum=0;const cs=TRADES.map(t=>cum+=t.r);const mn=Math.min(0,...cs),mx=Math.max(...cs,1);x.strokeStyle=col('--cyan');x.lineWidth=2;x.beginPath();cs.forEach((v,i)=>{const px=8+i*(w-16)/(cs.length-1),py=h-10-(v-mn)/(mx-mn)*(h-18);i?x.lineTo(px,py):x.moveTo(px,py);});x.stroke();}
 function drawReplayDD(){const o=ctx('replayDD');if(!o)return;const{x,w,h}=o;let cum=0,pk=0;const dd=TRADES.map(t=>{cum+=t.r;pk=Math.max(pk,cum);return cum-pk;});const mn=Math.min(...dd,-1);x.fillStyle='rgba(255,84,112,.32)';x.strokeStyle=col('--red');x.lineWidth=1.5;x.beginPath();dd.forEach((v,i)=>{const px=8+i*(w-16)/(dd.length-1),py=10-(v/mn)*(h-20);i?x.lineTo(px,py):x.moveTo(px,py);});x.stroke();x.lineTo(w-8,10);x.lineTo(8,10);x.fill();}
 $('#scrub').oninput=e=>{scrubVal=+e.target.value;drawReplay();};
-// crosshair + tooltip
-(function(){const host=$('#chartHost');if(!host)return;const cv=$('#replayChart'),tip=$('#replayTip');
-  cv.addEventListener('mousemove',ev=>{const r=cv.getBoundingClientRect();const mx=ev.clientX-r.left,my=ev.clientY-r.top;const w=cv.clientWidth,padL=8,padR=52,N=CANDLES.length||1,cw=(w-padL-padR)/N;let i=Math.round((mx-padL)/cw);i=Math.max(0,Math.min(N-1,i));const k=CANDLES[i];if(!k){tip.style.display='none';return;}
-    drawReplay();const o=ctx('replayChart');// note: drawReplay re-inits; draw crosshair on top
-    const cx=cv.getContext('2d'),dpr=window.devicePixelRatio||1;cx.save();cx.scale(dpr,dpr);cx.strokeStyle='rgba(0,185,255,.4)';cx.setLineDash([3,3]);cx.beginPath();cx.moveTo(padL+i*cw+cw*.4,8);cx.lineTo(padL+i*cw+cw*.4,cv.clientHeight-14);cx.moveTo(padL,my);cx.lineTo(w-padR,my);cx.stroke();cx.setLineDash([]);cx.restore();
-    tip.style.display='block';tip.style.left=Math.min(mx+12,w-130)+'px';tip.style.top=(my-10)+'px';tip.innerHTML=`O ${k.o.toFixed(1)} · H ${k.hi.toFixed(1)}<br>L ${k.lo.toFixed(1)} · C ${k.c.toFixed(1)}<br>vol ${(k.v*100|0)}`;});
-  cv.addEventListener('mouseleave',()=>{tip.style.display='none';drawReplay();});})();
+// crosshair on SEPARATE overlay canvas — never touches the chart (fix: chart blanc au survol)
+(function(){const cv=$('#replayChart'),ov=$('#replayCross'),tip=$('#replayTip');if(!cv||!ov)return;
+  function sizeOverlay(){const dpr=window.devicePixelRatio||1;const w=cv.clientWidth,hh=cv.clientHeight;ov.style.height=hh+'px';ov.width=w*dpr;ov.height=hh*dpr;const x=ov.getContext('2d');x.setTransform(dpr,0,0,dpr,0,0);return {x,w,h:hh};}
+  cv.addEventListener('mousemove',ev=>{const r=cv.getBoundingClientRect();const mx=ev.clientX-r.left,my=ev.clientY-r.top;const {padL,padR,cw,N}=RGEO;if(!N){return;}
+    let i=Math.round((mx-padL)/cw);i=Math.max(0,Math.min((CANDLES.length||1)-1,i));const k=CANDLES[i];if(!k){return;}
+    const {x,w,h}=sizeOverlay();x.clearRect(0,0,w,h);x.strokeStyle='rgba(0,185,255,.45)';x.lineWidth=1;x.setLineDash([3,3]);
+    const cx0=padL+i*cw+cw*.45;x.beginPath();x.moveTo(cx0,6);x.lineTo(cx0,h-14);x.moveTo(padL,my);x.lineTo(w-padR,my);x.stroke();x.setLineDash([]);
+    tip.style.display='block';tip.style.left=Math.min(mx+12,w-132)+'px';tip.style.top=Math.max(4,my-34)+'px';tip.innerHTML=`O ${k.o.toFixed(1)} · H ${k.hi.toFixed(1)}<br>L ${k.lo.toFixed(1)} · C ${k.c.toFixed(1)}<br>vol ${(k.v*100|0)} · #${i+1}`;});
+  cv.addEventListener('mouseleave',()=>{tip.style.display='none';const dpr=window.devicePixelRatio||1;const c=ov.getContext('2d');c.clearRect(0,0,ov.width/dpr,ov.height/dpr);});})();
 
 /* ===== tables ===== */
 let varFilter='all',varSort=null,varAsc=false;
