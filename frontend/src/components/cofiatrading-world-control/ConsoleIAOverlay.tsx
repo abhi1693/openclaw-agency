@@ -1094,6 +1094,54 @@ export function ConsoleIAOverlay() {
     };
   }, [isOpen]);
 
+  // Inbox conversations clients (read-only) — liste rafraîchie.
+  useEffect(() => {
+    if (!isOpen) return;
+    let stopped = false;
+    const load = async () => {
+      try {
+        const r = await fetch("/api/cofiatrading-world-control/console-ia?conversations=1", { cache: "no-store" });
+        const d = (await r.json()) as { ok: boolean; threads?: ConvThread[] };
+        if (!stopped && d.ok && Array.isArray(d.threads)) setConversations(d.threads);
+      } catch {
+        // garde l'état courant
+      }
+    };
+    load();
+    const timer = window.setInterval(load, 10000);
+    return () => {
+      stopped = true;
+      window.clearInterval(timer);
+    };
+  }, [isOpen]);
+
+  // Transcript du client sélectionné (read-only).
+  useEffect(() => {
+    if (!isOpen || !selectedConvId) {
+      setConvMessages([]);
+      return;
+    }
+    let stopped = false;
+    setConvLoading(true);
+    const load = async () => {
+      try {
+        const r = await fetch(`/api/cofiatrading-world-control/console-ia?conversation=${encodeURIComponent(selectedConvId)}`, { cache: "no-store" });
+        const d = (await r.json()) as { ok: boolean; messages?: ConvMessage[] };
+        if (!stopped && d.ok && Array.isArray(d.messages)) setConvMessages(d.messages);
+      } catch {
+        // garde
+      } finally {
+        if (!stopped) setConvLoading(false);
+      }
+    };
+    load();
+    const timer = window.setInterval(load, 5000);
+    return () => {
+      stopped = true;
+      window.clearInterval(timer);
+    };
+  }, [isOpen, selectedConvId]);
+
   useEffect(() => {
     if (!isOpen || (!threadId && !activePacketId)) return;
     let stopped = false;
