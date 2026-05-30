@@ -245,47 +245,49 @@ const DEFAULT_COHERENCE: TargetCoherence = {
 
 const coherenceFor = (targetId: string): TargetCoherence => TARGET_COHERENCE[targetId] ?? DEFAULT_COHERENCE;
 
+// Catalogue de lanes — chaque lane appartient à UN agent (cohérence stricte
+// imposée par TARGET_COHERENCE). Aucune lane n'appelle d'API cachée : ce sont
+// des lanes internes COFIATRADING. Le routing adapter réel est porté par
+// l'agent (bus) côté router, pas par la lane (qui reste métadonnée d'affichage).
 const MODEL_MODES: ConsoleModelMode[] = [
-  {
-    id: "spark_5_3",
-    label: "5.3 Spark",
-    provider: "codex_local",
-    model: "gpt-5.3-codex-spark",
-    reasoning: "standard",
-    scope: "rapide, patch borné, coût/CPU bas",
-  },
-  {
-    id: "codex_5_5",
-    label: "5.5 approfondi",
-    provider: "codex_local",
-    model: "gpt-5.5",
-    reasoning: "high",
-    scope: "architecture, arbitrage, bug transverse",
-  },
-  {
-    id: "codex_5_5_xhigh",
-    label: "5.5 très approfondi",
-    provider: "codex_local",
-    model: "gpt-5.5",
-    reasoning: "xhigh",
-    scope: "risque haut, doctrine, conflit multi-sources",
-  },
-  {
-    id: "chatgpt_desktop",
-    label: "ChatGPT Desktop",
-    provider: "chatgpt_local_desktop",
-    model: "local-app-brief-sync",
-    reasoning: "high",
-    scope: "app/projet ChatGPT, zéro clé API",
-  },
-  {
-    id: "kevin_gemini",
-    label: "Kevin / Gemini",
-    provider: "gemini_local_perception",
-    model: "gemini-2.5-flash",
-    reasoning: "visual",
-    scope: "écran, caméra, vision, contexte audio joint",
-  },
+  // ── Codex ──────────────────────────────────────────────
+  { id: "spark_5_3", label: "5.3 Spark", provider: "codex_local", model: "gpt-5.3-codex-spark", reasoning: "standard", scope: "rapide, patch borné, coût/CPU bas" },
+  { id: "codex_5_5", label: "5.5 approfondi", provider: "codex_local", model: "gpt-5.5", reasoning: "high", scope: "architecture, arbitrage, bug transverse" },
+  { id: "codex_5_5_xhigh", label: "5.5 très approfondi", provider: "codex_local", model: "gpt-5.5", reasoning: "xhigh", scope: "risque haut, doctrine, conflit multi-sources" },
+  { id: "codex_patch", label: "Codex patch", provider: "codex_local", model: "gpt-5.3-codex-spark", reasoning: "standard", scope: "patch ciblé, diff borné" },
+  { id: "codex_tests", label: "Codex tests", provider: "codex_local", model: "gpt-5.3-codex-spark", reasoning: "standard", scope: "écriture / exécution de tests" },
+  // ── Claude (CLI OAuth, jamais API Anthropic) ───────────
+  { id: "claude_4_7", label: "Claude 4.7", provider: "claude_local_oauth", model: "claude-4-7", reasoning: "high", scope: "raisonnement large, synthèse" },
+  { id: "claude_4_8", label: "Claude 4.8", provider: "claude_local_oauth", model: "claude-4-8", reasoning: "high", scope: "raisonnement courant" },
+  { id: "claude_4_8_high", label: "Claude 4.8 high", provider: "claude_local_oauth", model: "claude-4-8", reasoning: "high", scope: "raisonnement renforcé" },
+  { id: "claude_4_8_max_high", label: "Claude 4.8 max high", provider: "claude_local_oauth", model: "claude-4-8", reasoning: "xhigh", scope: "max effort, risque haut" },
+  { id: "claude_memory_qa", label: "Claude mémoire / QA", provider: "claude_local_oauth", model: "claude-cli-local", reasoning: "standard", scope: "mémoire / synthèse / QA locale" },
+  // ── Qwen (rtk-llm-proxy local, §15) ────────────────────
+  { id: "qwen_local", label: "Qwen local", provider: "qwen_local_proxy", model: "qwen-plus", reasoning: "standard", scope: "lane locale par défaut" },
+  { id: "qwen_cheap_bulk", label: "Qwen cheap bulk", provider: "qwen_local_proxy", model: "qwen-turbo", reasoning: "standard", scope: "bulk économique" },
+  { id: "qwen_contradiction", label: "Qwen contradiction", provider: "qwen_local_proxy", model: "qwen-plus", reasoning: "high", scope: "contradiction / red-team" },
+  { id: "qwen_reasoning", label: "Qwen reasoning local", provider: "qwen_local_proxy", model: "qwen-plus", reasoning: "high", scope: "raisonnement local" },
+  // ── Perplexity (subscription-first, API flag-only) ─────
+  { id: "perplexity_bridge", label: "Perplexity local bridge", provider: "perplexity_local_bridge", model: "app-desktop-bridge", reasoning: "high", scope: "app / navigateur local" },
+  { id: "perplexity_subscription", label: "Perplexity abonnement", provider: "perplexity_local_bridge", model: "subscription-browser", reasoning: "high", scope: "abonnement, navigateur" },
+  { id: "perplexity_api_fallback", label: "Perplexity API (fallback)", provider: "perplexity_api_flagged", model: "sonar (flag explicite)", reasoning: "high", scope: "API fallback si flag + coût loggé" },
+  // ── Jarod + team (OpenClaw runtime, glm-5.1) ───────────
+  { id: "jarod_runtime", label: "Jarod team runtime", provider: "jarod_openclaw_runtime", model: "glm-5.1", reasoning: "high", scope: "runtime agents terrain" },
+  { id: "jarod_orchestration", label: "Jarod orchestration", provider: "jarod_openclaw_runtime", model: "glm-5.1", reasoning: "high", scope: "orchestration équipe" },
+  { id: "jarod_team_synthesis", label: "Team synthesis", provider: "jarod_openclaw_runtime", model: "glm-5.1", reasoning: "high", scope: "synthèse équipe" },
+  // ── Kevin / Gemini (perception locale) ─────────────────
+  { id: "gemini_perception", label: "Gemini perception", provider: "gemini_local_perception", model: "gemini-2.5-flash", reasoning: "visual", scope: "perception écran / vision" },
+  { id: "kevin_screen", label: "Kevin écran", provider: "gemini_local_perception", model: "gemini-2.5-flash", reasoning: "visual", scope: "capture écran" },
+  { id: "kevin_camera", label: "Kevin caméra", provider: "gemini_local_perception", model: "gemini-2.5-flash", reasoning: "visual", scope: "caméra" },
+  { id: "kevin_audio", label: "Kevin audio", provider: "gemini_local_perception", model: "gemini-2.5-flash", reasoning: "visual", scope: "audio joint" },
+  { id: "kevin_gemini", label: "Kevin / Gemini", provider: "gemini_local_perception", model: "gemini-2.5-flash", reasoning: "visual", scope: "écran, caméra, vision, audio joint" },
+  // ── ChatGPT (Desktop / bridge, jamais API OpenAI) ──────
+  { id: "chatgpt_desktop", label: "ChatGPT Desktop", provider: "chatgpt_local_desktop", model: "local-app-brief-sync", reasoning: "high", scope: "app/projet ChatGPT, zéro clé API" },
+  { id: "chatgpt_desktop_brief", label: "Desktop brief", provider: "chatgpt_local_desktop", model: "local-app-brief", reasoning: "high", scope: "brief Desktop local" },
+  { id: "chatgpt_bridge_only", label: "Desktop bridge only", provider: "chatgpt_local_desktop", model: "desktop-bridge", reasoning: "high", scope: "pont Desktop uniquement" },
+  // ── Central Council ────────────────────────────────────
+  { id: "council_synthesis", label: "Council synthesis", provider: "central_brain_council", model: "codex+claude+jarod", reasoning: "xhigh", scope: "synthèse multi-agents" },
+  { id: "council_arbitration", label: "Council arbitration", provider: "central_brain_council", model: "codex+claude+jarod", reasoning: "xhigh", scope: "arbitrage / décision" },
 ];
 
 const PACKET_MODES: Array<{ id: PacketMode; label: string; text: string }> = [
