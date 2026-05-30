@@ -1549,6 +1549,44 @@ export async function GET(request: Request) {
     );
   }
 
+  // Inbox conversations clients (read-only). Liste des threads.
+  if (url.searchParams.get("conversations")) {
+    const raw = await fetchConversationThreads();
+    const threads = raw.map((t) => ({
+      userId: String(t.user_id ?? ""),
+      name: asString(t.first_name) || asString(t.username) || `#${String(t.user_id ?? "?")}`,
+      username: asString(t.username),
+      agent: asString(t.agent),
+      stage: asString(t.stage),
+      unread: Number(t.unread_count ?? 0) || 0,
+      vip: t.vip_flag === 1 || t.vip_flag === true,
+      intentScore: typeof t.intent_score === "number" ? t.intent_score : null,
+      lastPreview: sanitizeText(asString(t.last_msg_preview), 90),
+      lastDirection: asString(t.last_msg_direction),
+      lastTs: asString(t.last_msg_ts_str),
+      totalMessages: Number(t.total_messages ?? 0) || 0,
+      sourceChannel: asString(t.source_channel),
+      muted: t.muted === true,
+    }));
+    return NextResponse.json({ ok: true, sourceTag: SOURCE_TAG, threads }, { headers: { "Cache-Control": "no-store" } });
+  }
+
+  // Transcript d'un client (read-only).
+  const conversationUid = sanitizeText(url.searchParams.get("conversation") ?? "", 40);
+  if (conversationUid) {
+    const conv = await fetchConversationMessages(conversationUid);
+    const messages = conv.messages.map((m) => ({
+      ts: asString(m.ts),
+      direction: asString(m.direction),
+      by: asString(m.by),
+      text: sanitizeText(asString(m.text), 1200),
+    }));
+    return NextResponse.json(
+      { ok: true, sourceTag: SOURCE_TAG, userId: conversationUid, agent: conv.agent, messages },
+      { headers: { "Cache-Control": "no-store" } },
+    );
+  }
+
   // ÉTAPE 3/4 — thread par threadId ou agent actif (targetId). threadId stable :
   // un refresh recharge le thread, un retour sur un agent reprend SON thread.
   const threadIdParam = sanitizeText(url.searchParams.get("threadId") ?? "", 140);
