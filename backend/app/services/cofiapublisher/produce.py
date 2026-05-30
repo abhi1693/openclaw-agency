@@ -761,11 +761,14 @@ def _emit_vip_reports(rd, run_id, beats, shots, captions, audio_dur, suno, vr, b
              {"asset": "palette officielle navy/blue/cyan", "present": True}]
     n_brand = sum(1 for a in brand if a["present"])
     W("brand_layer_report.json", {"assets": brand, "count_in_mp4": n_brand, "min_required": 3, "verdict": "PASS" if n_brand >= 3 else "FAIL"})
-    # luma_usage_report (2 hero : Luma + Runway via gateway)
-    W("luma_usage_report.json", {"required": True, "used": n_hero >= 2,
-      "shots": [{"shot_id": "hero_hook", "engine": "Luma", "output": "hero_09155fc4.mp4", "mode": "session_ui", "status": "USED_IN_FINAL_MP4"},
-                {"shot_id": "hero_200ia", "engine": "Runway gen4_turbo", "output": "hero2_runway.mp4", "mode": "image_to_video API", "status": "USED_IN_FINAL_MP4"}],
-      "verdict": "PASS" if n_hero >= 2 else "BLOCKED"})
+    # luma_usage_report — HONNÊTE (G3 2026-05-30) : dérivé du nombre réel de heros Luma rendus (n_hero).
+    # hero1 Luma RÉEL ; hero2 Luma = BLOCKED (retrieval cassé) → beat 'preuve' = Pexels honnête, PAS de Runway déguisé.
+    W("luma_usage_report.json", {"required": True, "heros_luma_reels": n_hero,
+      "shots": [{"shot_id": "hero_ia_200", "engine": "Luma", "output": "hero_09155fc4.mp4", "mode": "session_ui",
+                 "status": "USED_IN_FINAL_MP4" if n_hero >= 1 else "BLOCKED"},
+                {"shot_id": "hero_preuve", "engine": "Luma", "output": "hero2_luma (À GÉNÉRER)", "mode": "session_ui",
+                 "status": "BLOCKED_LUMA", "raison": "retrieval cookie-session cassé ; beat preuve rendu en Pexels labellisé"}],
+      "verdict": "PASS" if n_hero >= 2 else ("PARTIAL_1_HERO" if n_hero == 1 else "BLOCKED")})
     # tool_usage_ledger strict
     led = {
         "Suno": "USED_IN_FINAL_MP4", "ElevenLabs": "USED_IN_FINAL_MP4", "VoiceDirector": "USED_IN_FINAL_MP4",
