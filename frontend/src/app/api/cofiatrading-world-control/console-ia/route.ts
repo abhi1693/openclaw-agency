@@ -874,9 +874,13 @@ async function buildThread(packetId: string) {
 	    sourceTag: SOURCE_TAG,
 	    status: realReplies.length > 0
       ? "THREAD_HAS_AGENT_REPLIES"
-      : ackAgentIds.size > 0
-        ? (ackAgentIds.has("jarod") ? "THREAD_ACK_LOCAL_JAROD_ADAPTER_MISSING" : "THREAD_ACK_LOCAL_WAITING_FOR_AGENT")
-        : "THREAD_WAITING_FOR_AGENT_REPLIES",
+      : participants.some((participant) => participant.status === "adapter_missing")
+        ? "THREAD_ADAPTER_MISSING"
+        : participants.some((participant) => participant.status === "draft_only")
+          ? "THREAD_DRAFT_ONLY"
+          : participants.some((participant) => participant.status === "waiting")
+            ? "THREAD_WAITING_FOR_AGENT"
+            : "THREAD_WAITING_FOR_AGENT_REPLIES",
 	    actionMode,
 	    honestStatus: statusProjection.honestStatus,
 	    statusBadges: statusProjection.statusBadges,
