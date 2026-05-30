@@ -210,6 +210,41 @@ const CHANNEL_TARGET_IDS = new Set(["telegram_iron", "telegram_free", "telegram_
 const AGENT_TARGETS = TARGETS.filter((target) => !CHANNEL_TARGET_IDS.has(target.id));
 const CHANNEL_TARGETS = TARGETS.filter((target) => CHANNEL_TARGET_IDS.has(target.id));
 
+// Source-of-truth coherence: chaque cible impose son modèle/action par défaut,
+// ses lanes modèle autorisées, et si la capture média (perception Kevin) a du sens.
+type TargetCoherence = {
+  defaultModel: string;
+  defaultAction: PacketMode;
+  allowedModels: string[];
+  mediaAllowed: boolean;
+};
+
+const LOCAL_REASONING_LANES = ["spark_5_3", "codex_5_5", "codex_5_5_xhigh"];
+
+const TARGET_COHERENCE: Record<string, TargetCoherence> = {
+  chatgpt_sync: { defaultModel: "chatgpt_desktop", defaultAction: "ASK", allowedModels: ["chatgpt_desktop"], mediaAllowed: false },
+  codex_local: { defaultModel: "spark_5_3", defaultAction: "ASK", allowedModels: LOCAL_REASONING_LANES, mediaAllowed: false },
+  claude_local: { defaultModel: "spark_5_3", defaultAction: "ASK", allowedModels: LOCAL_REASONING_LANES, mediaAllowed: false },
+  qwen_local: { defaultModel: "spark_5_3", defaultAction: "ASK", allowedModels: LOCAL_REASONING_LANES, mediaAllowed: false },
+  perplexity_local: { defaultModel: "spark_5_3", defaultAction: "ASK", allowedModels: LOCAL_REASONING_LANES, mediaAllowed: false },
+  jarod_openclaw: { defaultModel: "spark_5_3", defaultAction: "ASK", allowedModels: LOCAL_REASONING_LANES, mediaAllowed: false },
+  kevin_gemini: { defaultModel: "kevin_gemini", defaultAction: "PERCEPTION", allowedModels: ["kevin_gemini"], mediaAllowed: true },
+  central_council: { defaultModel: "spark_5_3", defaultAction: "ASK", allowedModels: LOCAL_REASONING_LANES, mediaAllowed: false },
+  telegram_iron: { defaultModel: "spark_5_3", defaultAction: "DRAFT", allowedModels: ["spark_5_3"], mediaAllowed: false },
+  telegram_free: { defaultModel: "spark_5_3", defaultAction: "DRAFT", allowedModels: ["spark_5_3"], mediaAllowed: false },
+  telegram_vip: { defaultModel: "spark_5_3", defaultAction: "DRAFT", allowedModels: ["spark_5_3"], mediaAllowed: false },
+  telegram_erwin: { defaultModel: "spark_5_3", defaultAction: "DRAFT", allowedModels: ["spark_5_3"], mediaAllowed: false },
+};
+
+const DEFAULT_COHERENCE: TargetCoherence = {
+  defaultModel: "spark_5_3",
+  defaultAction: "ASK",
+  allowedModels: LOCAL_REASONING_LANES,
+  mediaAllowed: false,
+};
+
+const coherenceFor = (targetId: string): TargetCoherence => TARGET_COHERENCE[targetId] ?? DEFAULT_COHERENCE;
+
 const MODEL_MODES: ConsoleModelMode[] = [
   {
     id: "spark_5_3",
