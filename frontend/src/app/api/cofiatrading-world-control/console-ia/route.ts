@@ -1425,7 +1425,7 @@ export async function POST(request: Request) {
       ...(claudeTask ? [claudeTask.taskPath, claudeTask.promptPath] : []),
     ],
   );
-  const thread = await buildThread(packetId);
+  const thread = (await buildThreadView(threadId)) ?? (await buildThread(packetId));
 
   return NextResponse.json(
     {
