@@ -686,8 +686,8 @@ export function ConsoleIAOverlay() {
   const [isOpen, setIsOpen] = useState(false);
   const [message, setMessage] = useState("");
   const [selectedTargetId, setSelectedTargetId] = useState(TARGETS[0].id);
-  const [selectedModelModeId, setSelectedModelModeId] = useState(MODEL_MODES[0].id);
-  const [selectedActionMode, setSelectedActionMode] = useState<PacketMode>("ASK");
+  const [selectedModelModeId, setSelectedModelModeId] = useState(coherenceFor(TARGETS[0].id).defaultModel);
+  const [selectedActionMode, setSelectedActionMode] = useState<PacketMode>(coherenceFor(TARGETS[0].id).defaultAction);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [packetResult, setPacketResult] = useState<PacketResponse | null>(null);
   const [activePacketId, setActivePacketId] = useState<string | null>(null);
