@@ -1392,6 +1392,8 @@ export async function POST(request: Request) {
 	      mode: responseMode,
 	      actionMode,
 	      packetId,
+	      threadId,
+	      turns: threadRecord.packetIds.length,
 	      packetHash,
 	      modelMode,
 	      honestStatus: statusProjection.honestStatus,
