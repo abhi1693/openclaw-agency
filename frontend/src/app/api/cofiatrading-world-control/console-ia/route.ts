@@ -662,6 +662,113 @@ function publishCentralBrainEvent(kind: string, payload: Record<string, unknown>
   }
 }
 
+// ── ÉTAPE 3/4 — couche thread persistante (mémoire multi-tour par agent) ───
+// Additif : le packet reste la source des réponses (responses/*.jsonl, écrites par
+// le router). Le thread est un index léger {packetIds, summary, meta} ; la vérité
+// realReply est toujours recalculée depuis les responses, jamais stockée comme acquis.
+type ThreadFile = {
+  threadId: string;
+  targetId: string;
+  modelId: string;
+  status: string;
+  packetIds: string[];
+  summary: string;
+  createdAt: string;
+  updatedAt: string;
+  lastPacketId: string;
+  realReplyCount: number;
+};
+type AgentIndex = { targetId: string; activeThreadId: string; threads: { threadId: string; updatedAt: string }[] };
+
+const threadFilePath = (threadId: string) => path.join(THREADS_DIR, `${threadId}.json`);
+const agentIndexPath = (targetId: string) => path.join(AGENT_INDEX_DIR, `${targetId}.json`);
+
+async function readAgentIndex(targetId: string): Promise<AgentIndex> {
+  return (await readJsonFile<AgentIndex>(agentIndexPath(targetId))) ?? { targetId, activeThreadId: "", threads: [] };
+}
+async function writeAgentIndex(idx: AgentIndex) {
+  await mkdir(AGENT_INDEX_DIR, { recursive: true });
+  await writeFile(agentIndexPath(idx.targetId), safeJson(idx), "utf8");
+}
+async function resolveActiveThreadId(targetId: string): Promise<string> {
+  const idx = await readAgentIndex(targetId);
+  if (idx.activeThreadId && (await fileExists(threadFilePath(idx.activeThreadId)))) return idx.activeThreadId;
+  return "";
+}
+// Résout le thread actif de l'agent (ou le thread demandé s'il existe et appartient
+// au même agent), sinon en crée un neuf. Un agent ne mélange jamais les turns d'un autre.
+async function ensureThread(targetId: string, modelId: string, requestedThreadId: string, timestamp: string): Promise<ThreadFile> {
+  let threadId = "";
+  if (requestedThreadId && (await fileExists(threadFilePath(requestedThreadId)))) {
+    const requested = await readJsonFile<ThreadFile>(threadFilePath(requestedThreadId));
+    if (requested && requested.targetId === targetId) return requested;
+  }
+  if (!threadId) threadId = await resolveActiveThreadId(targetId);
+  if (threadId) {
+    const existing = await readJsonFile<ThreadFile>(threadFilePath(threadId));
+    if (existing && existing.targetId === targetId) return existing;
+  }
+  const newId = `thread_${targetId}_${timestamp.replace(/[^0-9TZ]/g, "").slice(0, 15)}`;
+  const fresh: ThreadFile = {
+    threadId: newId, targetId, modelId, status: "WAITING",
+    packetIds: [], summary: "", createdAt: timestamp, updatedAt: timestamp, lastPacketId: "", realReplyCount: 0,
+  };
+  await mkdir(THREADS_DIR, { recursive: true });
+  await writeFile(threadFilePath(newId), safeJson(fresh), "utf8");
+  return fresh;
+}
+async function appendUserTurn(thread: ThreadFile, packetId: string, modelId: string, timestamp: string) {
+  thread.packetIds = Array.from(new Set([...(thread.packetIds ?? []), packetId]));
+  thread.lastPacketId = packetId;
+  thread.modelId = modelId;
+  thread.updatedAt = timestamp;
+  thread.status = "WAITING";
+  await mkdir(THREADS_DIR, { recursive: true });
+  await writeFile(threadFilePath(thread.threadId), safeJson(thread), "utf8");
+  const idx = await readAgentIndex(thread.targetId);
+  idx.activeThreadId = thread.threadId;
+  idx.threads = [
+    { threadId: thread.threadId, updatedAt: timestamp },
+    ...idx.threads.filter((t) => t.threadId !== thread.threadId),
+  ].slice(0, 20);
+  await writeAgentIndex(idx);
+}
+
+// Destinations (canaux Telegram) — statuts honnêtes. Aucun bridge lecture/écriture
+// branché aujourd'hui → BRIDGE_MISSING / READ_MISSING / WRITE_LOCKED. Aucun feed inventé.
+const DESTINATION_IDS = ["telegram_iron", "telegram_free", "telegram_vip", "telegram_erwin"];
+const DESTINATION_LABELS: Record<string, string> = {
+  telegram_iron: "Telegram Iron",
+  telegram_free: "Telegram Free",
+  telegram_vip: "Telegram VIP",
+  telegram_erwin: "Compte perso Erwin",
+};
+async function buildDestinations() {
+  return Promise.all(DESTINATION_IDS.map(async (id) => {
+    const draftPath = path.join(DRAFTS_DIR, `${id}.jsonl`);
+    const drafts = (await readJsonlTail<Record<string, unknown>>(draftPath, 20, 64 * 1024))
+      .map((d) => ({
+        draftId: sanitizeText(asString(d.draftId), 80),
+        text: sanitizeText(asString(d.text), MAX_REPLY_CHARS),
+        status: sanitizeText(asString(d.status), 40) || "DRAFT_ONLY",
+        createdAt: sanitizeText(asString(d.createdAt), 80),
+      }))
+      .filter((d) => d.text);
+    return {
+      destinationId: id,
+      label: DESTINATION_LABELS[id] ?? id,
+      kind: "telegram",
+      readStatus: "READ_MISSING",
+      writeStatus: "WRITE_LOCKED",
+      bridgeStatus: "BRIDGE_MISSING",
+      feed: [] as unknown[],
+      drafts,
+      summary: "",
+      updatedAt: new Date().toISOString(),
+    };
+  }));
+}
+
 async function buildThread(packetId: string) {
   const packetPath = path.join(PACKETS_DIR, `${packetId}.json`);
   const responsePath = path.join(RESPONSES_DIR, `${packetId}.jsonl`);
