@@ -1212,6 +1212,68 @@ async function proxyConversationSend(body: Record<string, unknown>) {
   }
 }
 
+// Commande Telegram (@agent) → target console + lane par défaut de l'agent.
+const AGENT_ID_TO_TARGET: Record<string, string> = {
+  jarod: "jarod_openclaw", claude: "claude_local", codex: "codex_local", qwen: "qwen_local",
+  kevin: "kevin_gemini", perplexity: "perplexity_local", chatgpt: "chatgpt_sync", council: "central_council",
+};
+const AGENT_LANE: Record<string, string> = {
+  jarod_openclaw: "jarod_runtime", claude_local: "claude_4_8_max_high", codex_local: "spark_5_3",
+  qwen_local: "qwen_local", kevin_gemini: "gemini_perception", perplexity_local: "perplexity_bridge",
+  chatgpt_sync: "chatgpt_desktop", central_council: "council_synthesis",
+};
+
+// P1.1 — Ingestion d'une commande Erwin (Telegram) dans le thread de l'agent visé, SANS exécution.
+// Réutilise ensureThread/appendUserTurn (Phase 3B). routes=[] → aucun dispatch agent (no exec, no send).
+async function ingestCommand(body: Record<string, unknown>) {
+  const agentId = sanitizeText(asString(body.agentId), 40).toLowerCase();
+  const targetId = AGENT_ID_TO_TARGET[agentId] ?? "";
+  const text = sanitizeText(asString(body.text), MAX_REPLY_CHARS);
+  const fullText = sanitizeText(asString(body.fullText), MAX_REPLY_CHARS) || text;
+  const source = sanitizeText(asString(body.source), 40) || "telegram_group";
+  const authorId = String(body.authorId ?? "");
+  const authorName = sanitizeText(asString(body.authorName), 80) || "Erwin";
+  if (!targetId || !text) {
+    return NextResponse.json({ ok: false, error: "UNKNOWN_AGENT_OR_EMPTY", agentId, sourceTag: SOURCE_TAG }, { status: 400 });
+  }
+  const timestamp = new Date().toISOString();
+  const packetId = `cia_${timestamp.replace(/[^0-9TZ]/g, "").slice(0, 15)}_${targetId}`;
+  const modelId = AGENT_LANE[targetId] ?? "spark_5_3";
+  const modelMode = MODEL_MODES[modelId as keyof typeof MODEL_MODES] ?? MODEL_MODES.spark_5_3;
+  const routeConfig = TARGET_ROUTES[targetId] ?? TARGET_ROUTES.central_council;
+  const threadRecord = await ensureThread(targetId, modelId, "", timestamp);
+  const threadId = threadRecord.threadId;
+  await mkdir(PACKETS_DIR, { recursive: true });
+  const packetPath = path.join(PACKETS_DIR, `${packetId}.json`);
+  const packet = {
+    packetId, threadId, sourceTag: SOURCE_TAG,
+    source, authorId, authorName,
+    status: "INGESTED_COMMAND_LOCAL", mode: "TELEGRAM_INGEST", actionMode: "ASK", requestedMode: "telegram_command",
+    createdAt: timestamp, modelMode,
+    approval: { required: false, granted: true, reason: null },
+    target: { id: targetId, label: routeConfig.title, owner: routeConfig.owner, house: routeConfig.house },
+    input: { message: fullText, messageChars: fullText.length, attachments: [], attachmentCount: 0, attachmentBytes: 0 },
+    paths: { packetPath, missionPath: "", uploadDir: "", packetsJsonl: PACKETS_JSONL, chatgptBriefPath: null, kevinPacketPath: null },
+    routes: [],
+    hardlocks: { noExternalSend: true, ingestOnlyNoExecution: true },
+  };
+  const packetHash = createHash("sha256").update(JSON.stringify(packet)).digest("hex");
+  await writeFile(packetPath, safeJson({ ...packet, packetHash }), "utf8");
+  appendJsonl(PACKETS_JSONL, { ...packet, packetHash });
+  await appendUserTurn(threadRecord, packetId, modelId, timestamp);
+
+  const envelope = {
+    envelopeId: packetId, source, chatId: String(body.chatId ?? ""),
+    authorId, authorIsErwin: authorId === "5494896169", authorName,
+    targetAgent: agentId, targetId, text, fullText,
+    ts: timestamp, threadId, execution: "NONE",
+  };
+  await mkdir(INBOUND_DIR, { recursive: true });
+  await writeFile(path.join(INBOUND_DIR, `${packetId}.json`), safeJson(envelope), "utf8");
+  appendJsonl(path.join(INBOUND_DIR, "_index.jsonl"), envelope);
+  return NextResponse.json({ ok: true, sourceTag: SOURCE_TAG, threadId, packetId, envelope }, { status: 201 });
+}
+
 async function recordAgentReply(body: Record<string, unknown>) {
   const packetId = sanitizeText(asString(body.packetId), 140);
   const agentId = sanitizeText(asString(body.agentId), 80) || "agent";
