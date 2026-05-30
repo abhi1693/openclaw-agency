@@ -675,8 +675,25 @@ async function buildThread(packetId: string) {
   });
   const terminalReplyStatuses = new Set(["ANSWER", "DONE", "DONE_WITH_WATCH", "BLOCKED", "ERROR"]);
   const workingReplyStatuses = new Set(["ACK", "WORKING", "QUEUED", "PACKET_READY"]);
+
+  // Une réponse est une VRAIE réponse agent uniquement si realReply===true,
+  // kind==="AGENT_REPLY", ou (legacy) source===console_ia_local_agent_reply.
+  // Tout le reste = accusé de réception worker (WORKER_ACK / ACK_LOCAL), pas une réponse agent.
+  const isRealAgentReply = (response: Record<string, unknown>) => {
+    if (response.realReply === true) return true;
+    if (response.realReply === false) return false;
+    const kind = sanitizeText(asString(response.kind), 40).toUpperCase();
+    if (kind === "AGENT_REPLY") return true;
+    if (kind === "WORKER_ACK" || kind === "ACK_LOCAL") return false;
+    return asString(response.source) === "console_ia_local_agent_reply";
+  };
+  const realReplies = responses.filter(isRealAgentReply);
+  const ackAgentIds = new Set(
+    responses.filter((response) => !isRealAgentReply(response)).map((response) => sanitizeText(asString(response.agentId), 80)).filter(Boolean),
+  );
+
   const agentReplyStatus = new Map<string, string>();
-  for (const response of responses) {
+  for (const response of realReplies) {
     const agentId = sanitizeText(asString(response.agentId), 80);
     const status = sanitizeText(asString(response.status), 80).toUpperCase();
     if (!agentId) continue;
@@ -691,14 +708,19 @@ async function buildThread(packetId: string) {
     const routePath = asString(route.path);
     const busLines = routePath ? await readJsonlTail<Record<string, unknown>>(routePath, 360, 256 * 1024) : [];
     const queued = busLines.some((line) => asString(line.packet_id) === packetId || asString(line.packetId) === packetId);
+    const realStatus = agentReplyStatus.get(bus) ?? "";
+    const ackOnly = !realStatus && ackAgentIds.has(bus);
+    const status = terminalReplyStatuses.has(realStatus)
+      ? "answered"
+      : workingReplyStatuses.has(realStatus)
+        ? "working"
+        : ackOnly
+          ? (bus === "jarod" ? "adapter_missing" : "ack_local")
+          : queued ? "queued" : "pending";
     return {
       id: bus,
       label: bus ? `${bus[0]?.toUpperCase() ?? ""}${bus.slice(1)}` : "Agent",
-      status: terminalReplyStatuses.has(agentReplyStatus.get(bus) ?? "")
-        ? "answered"
-        : workingReplyStatuses.has(agentReplyStatus.get(bus) ?? "")
-          ? "working"
-          : queued ? "queued" : "pending",
+      status,
       path: routePath || null,
     };
   }));
