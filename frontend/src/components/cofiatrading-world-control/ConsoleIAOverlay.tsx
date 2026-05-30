@@ -1201,6 +1201,7 @@ export function ConsoleIAOverlay() {
       }
       setPacketResult(data);
       setActivePacketId(data.packetId ?? null);
+      setThreadId((data as { threadId?: string }).threadId ?? null);
       setThread(data.thread ?? null);
       setMessage("");
       clearAttachments();
