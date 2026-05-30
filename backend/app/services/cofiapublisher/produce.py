@@ -786,7 +786,7 @@ def _emit_vip_reports(rd, run_id, beats, shots, captions, audio_dur, suno, vr, b
         "Kling/Veo/Seedance": "RESERVED_FOR_TEMPLATE", "mascottes_CorsiKaan_KatiKaan": "RESERVED_FOR_TEMPLATE",
         "Abad/Jezu": "RESERVED_FOR_TEMPLATE", "Ideogram": "BLOCKED", "FLUX/Fal": "BLOCKED", "Hedra": "BLOCKED",
         "Veo/Imagen(Vertex)": "BLOCKED", "Canva": "BLOCKED", "CapCut": "DEPRECATED", "Figma": "USED_IN_PREPROD",
-        "Luma_hero_2": "BLOCKED_LUMA",
+        "hero_2_engine": "Runway gen4_turbo (réel, gen_id 378645eb) — Luma#2 retrieval reste BLOCKED, remplacé par Runway labellisé",
     }
     W("tool_usage_ledger.json", {"run": run_id, "ledger": led, "heros_luma_reels": n_hero, "pexels_clips": n_pex,
       "note": "G3: statuts dérivés du rendu réel. USED_IN_FINAL = prouvé MP4 ; PREPROD/RESERVED/BLOCKED honnêtes. Runway rétrogradé PREPROD (pas dans ce MP4). Preuves frame/timecode = asset_execution_report post-render."})
