@@ -1656,6 +1656,18 @@ export async function GET(request: Request) {
     );
   }
 
+  // Commandes Erwin entrantes (Telegram) ingérées — read-only.
+  if (url.searchParams.get("commands")) {
+    let commands: Record<string, unknown>[] = [];
+    try {
+      commands = await readJsonlTail<Record<string, unknown>>(path.join(INBOUND_DIR, "_index.jsonl"), 50, 128 * 1024);
+    } catch {
+      commands = [];
+    }
+    commands = commands.slice(-30).reverse();
+    return NextResponse.json({ ok: true, sourceTag: SOURCE_TAG, commands }, { headers: { "Cache-Control": "no-store" } });
+  }
+
   // Inbox conversations clients (read-only). Liste des threads.
   if (url.searchParams.get("conversations")) {
     const raw = await fetchConversationThreads();
