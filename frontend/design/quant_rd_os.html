@@ -872,10 +872,12 @@ function buildTables(){
 /* ===== templates ===== */
 let curTpl=0;
 function buildTpl(){$('#tplList').innerHTML=TEMPLATES.map((t,i)=>`<div class="tpl ${i===curTpl?'on':''}" onclick="selTpl(${i})"><span>${t.n}</span><span class="st ${t.st}">${t.st==='safe'?'VIP-safe':t.st==='draft'?'draft-only':'blocked-safe'}</span></div>`).join('');selTpl(curTpl,true);}
-function selTpl(i,noList){curTpl=i;if(!noList)$$('.tpl').forEach((e,j)=>e.classList.toggle('on',j===i));const t=TEMPLATES[i];
+function selTpl(i,noList){curTpl=i;if(!noList)$$('.tpl').forEach((e,j)=>e.classList.toggle('on',j===i));const t=TEMPLATES[i];const tr=TRADES[0];
   $('#tplTitle').innerHTML=t.n+' <span class="r"><span class="st '+t.st+'">'+(t.st==='safe'?'VIP-safe':t.st==='draft'?'draft-only':'blocked-safe')+'</span></span>';
+  const vars=[['strategy','STRAT-17'],['side',tr.side],['entry',tr.entry],['stop',tr.stop],['tp1',tr.tp1],['tp2',tr.tp2],['tp3',tr.tp3],['risk_warning','ON'],['paper_status','PAPER']];
+  $('#tplVars').innerHTML=vars.map(v=>`<span class="tg" style="border-color:rgba(0,185,255,.3);color:#7af0ff;background:rgba(0,185,255,.06)">{${v[0]}}=<b>${v[1]}</b></span>`).join('');
   $('#tplPreview').innerHTML=t.txt.replace(/\n/g,'<br>')+'<div class="foot-disc">Performances passées (backtest) ≠ futur · aucun % / $ live · research/paper only.</div>';
-  $('#tplData').innerHTML='<div class="kv"><span class="k">Source</span><span class="v">'+t.data+'</span></div>';
+  $('#tplData').innerHTML='<div class="kv" style="padding:4px 0"><span class="k">Source</span><span class="v">'+t.data+'</span></div>';
   $('#tplCheck').innerHTML=t.ck.map(c=>`<li><span class="${c[0]}">${c[0]==='ok'?'✓':'✕'}</span> ${c[1]}</li>`).join('');}
 
 /* ===== boot ===== */
