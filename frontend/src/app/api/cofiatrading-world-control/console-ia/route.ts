@@ -908,6 +908,8 @@ async function recordAgentReply(body: Record<string, unknown>) {
     agentId,
     agentLabel,
     status,
+    kind: "AGENT_REPLY",
+    realReply: true,
     content,
     evidencePaths,
     source: "console_ia_local_agent_reply",
