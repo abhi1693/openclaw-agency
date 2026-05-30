@@ -1245,6 +1245,7 @@ export async function POST(request: Request) {
 
   const packet = {
     packetId,
+    threadId,
     sourceTag: SOURCE_TAG,
     status: responseStatus,
     mode: responseMode,
