@@ -341,7 +341,24 @@
       <section class="page" id="pg-data">
         <h1 class="pt">Data Explorer</h1>
         <div class="sub">Sources de recherche : couverture, fraîcheur, gaps, usage, feeds, blockers. Aucune connexion réseau active.</div>
-        <div class="card mb" style="padding:5px 7px">
+        <div class="grid g3 mb">
+          <div class="card tight" style="border-color:rgba(35,209,139,.3)"><h3 style="color:var(--green2)">✓ Testable now</h3>
+            <div class="kv"><span class="k">STRAT-17/18 backtest agrégé</span><span class="v">PERF_LAB</span></div>
+            <div class="kv"><span class="k">Paper replay trade-level</span><span class="v">signals.db</span></div>
+            <div class="kv"><span class="k">Robustness adversarial</span><span class="v">REDTEAM</span></div>
+            <div class="kv"><span class="k">Slippage 1-8t</span><span class="v">engine</span></div></div>
+          <div class="card tight" style="border-color:rgba(255,178,62,.3)"><h3 style="color:var(--amber)">◐ Partially testable</h3>
+            <div class="kv"><span class="k">MNQ natif</span><span class="v" style="color:var(--amber)">re-backtest requis</span></div>
+            <div class="kv"><span class="k">PBO / Deflated Sharpe</span><span class="v" style="color:var(--amber)">non calculé</span></div>
+            <div class="kv"><span class="k">Paper-forward edge</span><span class="v" style="color:var(--amber)">n=44 &lt; 100</span></div>
+            <div class="kv"><span class="k">ES/GC enriched</span><span class="v" style="color:var(--amber)">trou comblé</span></div></div>
+          <div class="card tight" style="border-color:rgba(255,84,112,.3)"><h3 style="color:var(--red)">✕ Not testable yet</h3>
+            <div class="kv"><span class="k">Backtest replay trade-level</span><span class="v" style="color:var(--red)">trade-list absente</span></div>
+            <div class="kv"><span class="k">Microstructure T3 mbp/mbo</span><span class="v" style="color:var(--red)">source absente</span></div>
+            <div class="kv"><span class="k">Comptes perso live</span><span class="v" style="color:var(--red)">read non câblé</span></div>
+            <div class="kv"><span class="k">Exec réelle</span><span class="v" style="color:var(--red)">OFF (bien)</span></div></div>
+        </div>
+        <div class="card mb" style="padding:5px 7px;overflow-x:auto">
           <table><thead><tr><th>Source</th><th>Coverage</th><th>Freshness</th><th>Gaps</th><th>Usable for</th><th>Feeds</th><th>Status</th><th>Blockers</th></tr></thead><tbody id="dataTable"></tbody></table>
         </div>
         <div class="grid g-1-2">
