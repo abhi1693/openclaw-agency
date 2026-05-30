@@ -771,6 +771,35 @@ async function fetchTelegramFeed(channel: string): Promise<{ ok: boolean; items:
   }
 }
 
+// Inbox conversations clients — réutilise l'API hub conversations_api.py (read-only, GET only).
+async function fetchConversationThreads(): Promise<Record<string, unknown>[]> {
+  try {
+    const res = await fetch(`${HUB_URL}/api/conversations/threads?limit=30&since_hours=336`, {
+      cache: "no-store",
+      signal: AbortSignal.timeout(3000),
+    });
+    if (!res.ok) return [];
+    const data = (await res.json()) as { threads?: Record<string, unknown>[] };
+    return Array.isArray(data?.threads) ? data.threads : [];
+  } catch {
+    return [];
+  }
+}
+
+async function fetchConversationMessages(uid: string): Promise<{ agent: string; messages: Record<string, unknown>[] }> {
+  try {
+    const res = await fetch(`${HUB_URL}/api/conversations/${encodeURIComponent(uid)}/messages?limit=50`, {
+      cache: "no-store",
+      signal: AbortSignal.timeout(3000),
+    });
+    if (!res.ok) return { agent: "", messages: [] };
+    const data = (await res.json()) as { agent?: unknown; messages?: Record<string, unknown>[] };
+    return { agent: asString(data?.agent), messages: Array.isArray(data?.messages) ? data.messages : [] };
+  } catch {
+    return { agent: "", messages: [] };
+  }
+}
+
 async function buildDestinations() {
   return Promise.all(DESTINATION_IDS.map(async (id) => {
     const draftPath = path.join(DRAFTS_DIR, `${id}.jsonl`);
