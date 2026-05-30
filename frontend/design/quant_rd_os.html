@@ -484,10 +484,19 @@
           <div class="card tight"><div class="kpi"><span class="v green">94.8%</span><span class="l">PnL @ 4t slippage <span class="badge b-real">REAL</span></span></div></div>
           <div class="card tight"><div class="kpi"><span class="v amber">−0.04</span><span class="l">corr S17/S18 daily-R <span class="badge b-real">REAL</span></span></div></div>
         </div>
-        <div class="grid g-2-1 mb">
-          <div class="card"><h3>Monte Carlo drawdown (N=2000) <span class="r"><span class="badge b-real">REAL</span></span></h3><canvas id="mcChart" height="200"></canvas>
-            <div class="note">maxDD backtest = <b>best-case</b> : P95 ≈ 2× · P(DD≥$5K)=99%+. ($ NQ ; ÷10 en MNQ.)</div></div>
-          <div class="card"><h3>Scorecard institutionnel (0-10) <span class="r"><span class="badge b-real">REAL</span></span></h3><div id="scorecard"></div></div>
+        <div class="grid g-1-1-1 mb">
+          <div class="card"><h3>Top-winners contribution <span class="r"><span class="badge b-real">REAL</span></span></h3>
+            <div class="meter" style="gap:9px">
+              <div class="meter"><div class="top"><span>top-1 trade (S17)</span><span style="color:var(--amber)">9.3%</span></div><div class="bar"><i style="width:9.3%;background:var(--amber)"></i></div></div>
+              <div class="meter"><div class="top"><span>top-5 trades (S17)</span><span style="color:var(--amber)">34.3%</span></div><div class="bar"><i style="width:34%;background:var(--amber)"></i></div></div>
+              <div class="meter"><div class="top"><span>top-5% (S18)</span><span style="color:var(--red)">53.6%</span></div><div class="bar"><i style="width:54%;background:var(--red)"></i></div></div>
+              <div class="meter"><div class="top"><span>drop top-10% → PnL restant</span><span style="color:var(--red)">S17 16% / S18 1.7%</span></div><div class="bar"><i style="width:16%;background:var(--red)"></i></div></div>
+            </div>
+            <div class="note">Winsorized (cap top-décile) : PF S17 11.4→2.66 · S18 6.78→<b style="color:var(--red)">1.10</b> (break-even).</div>
+          </div>
+          <div class="card"><h3>Monte Carlo DD (N=2000) <span class="r"><span class="badge b-real">REAL</span></span></h3><canvas id="mcChart" height="172"></canvas>
+            <div class="note">maxDD bt = <b>best-case</b> · P95 ≈ 2× · P(DD≥$5K)=99%+.</div></div>
+          <div class="card"><h3>Scorecard (0-10) <span class="r"><span class="badge b-real">REAL</span></span></h3><div id="scorecard" style="font-size:10px"></div></div>
         </div>
         <div class="grid g-2-1">
           <div class="card" style="padding:5px 7px">
