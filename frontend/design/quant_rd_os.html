@@ -325,13 +325,15 @@
           <div class="card v">
             <h3>Rule blocks <span class="r">candidate from STRAT-17 baseline</span></h3>
             <div class="ruleset">
-              <div class="ruleblk filter"><span class="tag">Instrument</span><select disabled><option>NQ → re-backtest MNQ requis</option><option>MNQ ($2/pt)</option><option>ES</option></select></div>
-              <div class="ruleblk filter"><span class="tag">Type</span><select disabled><option>sweep reclaim (order-flow)</option><option>mean reversion</option><option>breakout</option><option>momentum</option></select></div>
-              <div class="ruleblk entry"><span class="tag">Entry</span><select disabled><option>VAL/VAH sweep + reclaim confirm</option></select><span class="op">AND</span><select disabled><option>1 trade / session (block-after-first)</option></select></div>
-              <div class="ruleblk exit"><span class="tag">Exit</span><select disabled><option>TP1 @ 1.5R (vNext)</option><option>TP1 @ 2.0R (baseline)</option></select><span class="op">→</span><select disabled><option>TP2 / TP3 ladder</option></select></div>
-              <div class="ruleblk risk"><span class="tag">Risk</span><select disabled><option>per_trade_risk $50 — incohérent vs stop ~$70 MNQ</option></select></div>
-              <div class="ruleblk filter"><span class="tag">Session</span><select disabled><option>RTH 09:30–16:00 ET · skip hour=10 (worst)</option></select></div>
-              <div class="ruleblk filter"><span class="tag">Slippage</span><select disabled><option>1 tick (modélisé) · stress 4–8t dans Backtest Lab</option></select></div>
+              <div class="ruleblk filter"><span class="tag">Instrument</span><select disabled><option>NQ → re-backtest MNQ requis</option><option>MNQ ($2/pt)</option><option>ES</option></select><span class="bstat miss">MISSING DATA</span></div>
+              <div class="ruleblk filter"><span class="tag">Type</span><select disabled><option>sweep reclaim (order-flow)</option><option>mean reversion</option><option>breakout</option><option>momentum</option></select><span class="bstat ready">READY</span></div>
+              <div class="ruleblk entry"><span class="tag">Entry</span><select disabled><option>VAL/VAH sweep + reclaim confirm</option></select><span class="op">AND</span><select disabled><option>1 trade / session (block-after-first)</option></select><span class="bstat ready">READY</span></div>
+              <div class="ruleblk exit"><span class="tag">Exit</span><select disabled><option>TP1 @ 1.5R (vNext)</option><option>TP1 @ 2.0R (baseline)</option></select><span class="op">→</span><select disabled><option>TP2 / TP3 ladder</option></select><span class="bstat mock">MOCK</span></div>
+              <div class="ruleblk risk"><span class="tag">Risk</span><select disabled><option>per_trade_risk $50 — incohérent vs stop ~$70 MNQ</option></select><span class="bstat rej">R↔$ REJECTED</span></div>
+              <div class="ruleblk filter"><span class="tag">Session</span><select disabled><option>RTH 09:30–16:00 ET · skip hour=10 (worst)</option></select><span class="bstat ready">READY</span></div>
+              <div class="ruleblk filter"><span class="tag">Data source</span><select disabled><option>ATAS/Rithmic enriched NQ 42j · signals.db</option></select><span class="bstat ready">READY</span></div>
+              <div class="ruleblk filter"><span class="tag">Slippage</span><select disabled><option>1 tick (modélisé) · stress 4–8t dans Backtest Lab</option></select><span class="bstat mock">MOCK</span></div>
+              <div class="ruleblk exit"><span class="tag">Validation</span><select disabled><option>sanity 5/5 · PBO/DSR non calculé</option></select><span class="bstat rej">PBO MISSING</span></div>
             </div>
             <div class="btnrow" style="margin-top:12px">
               <button class="btn v" disabled>⛭ Build research candidate <span class="lk">disabled · MOCK</span></button>
