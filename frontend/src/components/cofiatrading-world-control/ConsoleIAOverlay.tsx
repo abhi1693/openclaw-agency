@@ -904,7 +904,11 @@ export function ConsoleIAOverlay() {
   const [openInspectorSection, setOpenInspectorSection] = useState<InspectorSection>("summary");
   const [proofsOpen, setProofsOpen] = useState(false);
   const [pickerOpen, setPickerOpen] = useState(false);
-  const [destinationsOpen, setDestinationsOpen] = useState(false);
+  const [activeChannelId, setActiveChannelId] = useState<string | null>(null);
+  const [channelWorkMode, setChannelWorkMode] = useState<"agent_context" | "draft">("agent_context");
+  const [destinations] = useState<DestinationState[]>([]);
+  const destinationFor = (id: string): DestinationState =>
+    destinations.find((dest) => dest.destinationId === id) ?? DEFAULT_DESTINATION(id);
   const [thread, setThread] = useState<ConsoleThread | null>(null);
   const [threadError, setThreadError] = useState<string | null>(null);
   const [submitError, setSubmitError] = useState<string | null>(null);
