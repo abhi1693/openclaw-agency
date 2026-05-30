@@ -3,17 +3,18 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Personal Trading OS — cockpit (MOCK / standalone)</title>
+<title>Personal Trading OS — cockpit v2 (MOCK / standalone)</title>
 <!--
-  STANDALONE MOCK — aucun fetch, aucun backend, aucun ordre, aucun copy réel, aucun secret.
-  EXEC OFF · COPY BLOCKED · READ/SIM/MANUAL ONLY. Apex auto-exec BLOCKED. FXcess master DOWN/safe-disabled.
-  Comptes/balances = NOT PROVEN (connecteurs read non câblés). Signaux = PAPER (signals.db). $/mo = MODEL.
+  STANDALONE MOCK v2 — aucun fetch, aucun backend, aucun ordre, aucun copy réel, aucun secret.
+  EXEC OFF · COPY BLOCKED (not managed here) · READ/SIM/MANUAL ONLY. Apex auto-exec BLOCKED. FXcess master DOWN.
+  Copy-trading sorti du produit : statut uniquement, géré plus tard dans Revenue/CRM.
+  Comptes/balances = NOT PROVEN (read non câblé). Signaux = PAPER (signals.db).
 -->
 <style>
   :root{
     --navy:#040d20; --navy2:#0a1a33; --panel:rgba(12,28,54,.74); --panel2:rgba(9,20,40,.6); --panel3:rgba(14,32,60,.55);
     --line:rgba(0,185,255,.15); --line2:rgba(0,185,255,.30);
-    --cyan:#00B9FF; --blue:#0066FF; --violet:#9d7bff; --violet2:#c4a8ff; --silver:#c7d4e6; --mute:#7d90ab; --dim:#516483;
+    --cyan:#00B9FF; --blue:#0066FF; --violet:#9d7bff; --violet2:#c4a8ff; --silver:#c7d4e6; --mute:#8295af; --dim:#5b6f8f;
     --green:#23d18b; --green2:#10f0b0; --red:#ff5470; --amber:#ffb23e; --txt:#e8f0fb; --r2:13px;
   }
   *{box-sizing:border-box;margin:0;padding:0}
@@ -21,42 +22,43 @@
   body{background:
       radial-gradient(1100px 640px at 82% -12%, rgba(0,102,255,.10), transparent 60%),
       radial-gradient(820px 560px at -5% 108%, rgba(255,84,112,.06), transparent 55%), var(--navy);
-    color:var(--txt); font:12.5px/1.42 -apple-system,BlinkMacSystemFont,"Segoe UI",Inter,system-ui,sans-serif;
+    color:var(--txt); font:13px/1.45 -apple-system,BlinkMacSystemFont,"Segoe UI",Inter,system-ui,sans-serif;
     -webkit-font-smoothing:antialiased; overflow:hidden;}
-  .app{display:grid; grid-template-rows:46px 34px 1fr; height:100vh; min-width:1320px}
+  .app{display:grid; grid-template-rows:46px 36px 1fr; height:100vh; min-width:1340px}
 
   .topbar{display:flex; align-items:center; gap:13px; padding:0 15px; background:linear-gradient(180deg,rgba(11,27,52,.96),rgba(7,18,38,.86)); border-bottom:1px solid var(--line)}
-  .home{color:var(--mute); text-decoration:none; font-size:11.5px; padding:5px 9px; border:1px solid var(--line); border-radius:7px; white-space:nowrap}
+  .home{color:var(--mute); text-decoration:none; font-size:12px; padding:5px 9px; border:1px solid var(--line); border-radius:7px; white-space:nowrap}
   .home:hover{color:var(--cyan)}
-  .brand{font-weight:800; font-size:13.5px} .brand .dot{color:var(--cyan)}
+  .brand{font-weight:800; font-size:14px} .brand .dot{color:var(--cyan)}
   .seg{display:flex; border:1px solid var(--line); border-radius:8px; overflow:hidden; margin-left:6px}
-  .seg button{background:transparent; color:var(--mute); border:0; padding:5px 12px; font-size:11.5px; cursor:pointer; font-weight:600}
+  .seg button{background:transparent; color:var(--mute); border:0; padding:5px 12px; font-size:12px; cursor:pointer; font-weight:600}
   .seg button.on{background:linear-gradient(180deg,rgba(0,185,255,.22),rgba(0,102,255,.13)); color:#eafaff}
   .spacer{flex:1}
-  .kbd{font-size:9.5px; color:var(--mute); border:1px solid var(--line); border-radius:4px; padding:1px 5px; background:var(--navy2)}
+  .kbd{font-size:10px; color:var(--mute); border:1px solid var(--line); border-radius:4px; padding:1px 5px; background:var(--navy2)}
 
-  .secbar{display:flex; align-items:center; gap:14px; padding:0 18px; background:linear-gradient(90deg,rgba(255,84,112,.2),rgba(255,84,112,.05)); border-bottom:1px solid rgba(255,84,112,.32); font-size:11.5px; font-weight:700; letter-spacing:.3px}
+  .secbar{display:flex; align-items:center; gap:13px; padding:0 18px; background:linear-gradient(90deg,rgba(255,84,112,.2),rgba(255,84,112,.05)); border-bottom:1px solid rgba(255,84,112,.32); font-size:12px; font-weight:700; letter-spacing:.3px}
   .secbar .tag{display:inline-flex; align-items:center; gap:5px; padding:2px 10px; border-radius:20px; border:1px solid}
   .secbar .off{color:var(--red); border-color:rgba(255,84,112,.5); background:rgba(255,84,112,.08)}
   .secbar .blk{color:var(--amber); border-color:rgba(255,178,62,.5); background:rgba(255,178,62,.08)}
   .secbar .ro{color:var(--cyan); border-color:rgba(0,185,255,.45); background:rgba(0,185,255,.07)}
+  .secbar .rs{display:inline-flex; align-items:center; gap:5px; padding:2px 10px; border-radius:20px; border:1px solid rgba(255,178,62,.5); color:var(--amber); background:rgba(255,178,62,.08)}
 
-  .body{display:grid; grid-template-columns:178px 1fr; overflow:hidden}
+  .body{display:grid; grid-template-columns:182px 1fr; overflow:hidden}
   .rail{border-right:1px solid var(--line); padding:10px 9px; display:flex; flex-direction:column; gap:2px; background:var(--panel2); overflow-y:auto}
-  .rail .grp{font-size:9px; letter-spacing:1.3px; color:var(--dim); text-transform:uppercase; margin:11px 8px 3px}
-  .nav{display:flex; align-items:center; gap:8px; padding:7px 9px; border-radius:8px; color:var(--mute); cursor:pointer; font-weight:600; font-size:12px}
+  .rail .grp{font-size:9.5px; letter-spacing:1.3px; color:var(--dim); text-transform:uppercase; margin:11px 8px 3px}
+  .nav{display:flex; align-items:center; gap:8px; padding:7px 9px; border-radius:8px; color:var(--mute); cursor:pointer; font-weight:600; font-size:12.5px}
   .nav:hover{background:rgba(0,185,255,.06); color:var(--silver)}
   .nav.on{background:linear-gradient(90deg,rgba(0,185,255,.18),transparent); color:#eafaff; box-shadow:inset 2px 0 0 var(--cyan)}
   .nav .ic{width:15px; text-align:center}
-  .railfoot{margin-top:auto; font-size:9.5px; color:var(--dim); padding:8px; border-top:1px solid var(--line)}
+  .railfoot{margin-top:auto; font-size:10px; color:var(--dim); padding:8px; border-top:1px solid var(--line)}
 
-  .main{overflow-y:auto; padding:14px 17px 56px}
+  .main{overflow-y:auto; padding:14px 18px 56px}
   .main::-webkit-scrollbar{width:9px}.main::-webkit-scrollbar-thumb{background:rgba(0,185,255,.18); border-radius:8px}
-  .page{display:none} .page.on{display:block; animation:fade .22s}
+  .page{display:none} .page.on{display:block; animation:fade .2s}
   @keyframes fade{from{opacity:0;transform:translateY(5px)}to{opacity:1;transform:none}}
 
-  h1.pt{font-size:16.5px; font-weight:800; margin-bottom:2px; display:flex; align-items:center; gap:9px}
-  .sub{color:var(--mute); font-size:11.5px; margin-bottom:13px}
+  h1.pt{font-size:17px; font-weight:800; margin-bottom:2px; display:flex; align-items:center; gap:9px}
+  .sub{color:var(--mute); font-size:12px; margin-bottom:13px}
 
   .grid{display:grid; gap:12px}
   .g5{grid-template-columns:repeat(5,1fr)} .g4{grid-template-columns:repeat(4,1fr)} .g3{grid-template-columns:repeat(3,1fr)} .g2{grid-template-columns:repeat(2,1fr)}
@@ -65,22 +67,22 @@
 
   .card{background:var(--panel); border:1px solid var(--line); border-radius:var(--r2); padding:13px 14px; position:relative}
   .card.tight{padding:11px 12px}
-  .card h3{font-size:10.5px; letter-spacing:.5px; text-transform:uppercase; color:var(--mute); font-weight:700; margin-bottom:10px; display:flex; justify-content:space-between; gap:8px; align-items:center}
+  .card h3{font-size:11px; letter-spacing:.5px; text-transform:uppercase; color:var(--mute); font-weight:700; margin-bottom:10px; display:flex; justify-content:space-between; gap:8px; align-items:center}
   .card h3 .r{font-weight:600; letter-spacing:0; text-transform:none}
 
   .kpi{display:flex; flex-direction:column; gap:4px}
   .kpi .v{font-size:22px; font-weight:800; letter-spacing:-.5px; line-height:1}
-  .kpi .l{font-size:10.5px; color:var(--mute)}
+  .kpi .l{font-size:11px; color:var(--mute)}
   .kpi .v.green{color:var(--green2)} .kpi .v.red{color:var(--red)} .kpi .v.cyan{color:var(--cyan)} .kpi .v.amber{color:var(--amber)}
 
-  .badge{display:inline-flex; align-items:center; gap:3px; font-size:8.5px; font-weight:800; letter-spacing:.4px; padding:2px 5px; border-radius:5px; border:1px solid; vertical-align:middle}
+  .badge{display:inline-flex; align-items:center; gap:3px; font-size:9px; font-weight:800; letter-spacing:.4px; padding:2px 5px; border-radius:5px; border:1px solid; vertical-align:middle}
   .b-real{color:#9fd0ff; border-color:rgba(0,102,255,.5); background:rgba(0,102,255,.10)}
   .b-paper{color:#7af0ff; border-color:rgba(0,185,255,.5); background:rgba(0,185,255,.10)}
   .b-model{color:var(--amber); border-color:rgba(255,178,62,.5); background:rgba(255,178,62,.08)}
   .b-np{color:#ff8aa0; border-color:rgba(255,84,112,.5); background:rgba(255,84,112,.08)}
 
-  table{width:100%; border-collapse:collapse; font-size:11.5px}
-  th{text-align:left; color:var(--dim); font-weight:700; font-size:9.5px; letter-spacing:.5px; text-transform:uppercase; padding:6px 7px; border-bottom:1px solid var(--line)}
+  table{width:100%; border-collapse:collapse; font-size:12px}
+  th{text-align:left; color:var(--dim); font-weight:700; font-size:10px; letter-spacing:.5px; text-transform:uppercase; padding:6px 7px; border-bottom:1px solid var(--line)}
   td{padding:7px; border-bottom:1px solid rgba(0,185,255,.06)}
   tr:hover td{background:rgba(0,185,255,.04)}
   td.num,th.num{text-align:right; font-variant-numeric:tabular-nums}
@@ -95,12 +97,15 @@
   .st.man{color:var(--violet2); border-color:rgba(157,123,255,.4); background:rgba(157,123,255,.08)}
 
   canvas{display:block; width:100%}
-  .meter{display:flex; flex-direction:column; gap:4px}.meter .top{display:flex; justify-content:space-between; font-size:10.5px}
+  .meter{display:flex; flex-direction:column; gap:4px}.meter .top{display:flex; justify-content:space-between; font-size:11px}
   .bar{height:7px; border-radius:5px; background:rgba(255,255,255,.06); overflow:hidden}.bar > i{display:block; height:100%; border-radius:5px}
-  .note{font-size:10.5px; color:var(--dim); margin-top:8px; line-height:1.5}
-  .btn{font-size:11px; font-weight:700; padding:7px 12px; border-radius:8px; border:1px solid var(--line2); background:rgba(0,185,255,.06); color:var(--mute); cursor:not-allowed; opacity:.6; display:inline-flex; gap:6px; align-items:center}
-  .btn .lk{font-size:8.5px; color:var(--dim)} .btnrow{display:flex; gap:8px; flex-wrap:wrap}
-  .kv{display:flex; justify-content:space-between; font-size:11px; padding:5px 0; border-bottom:1px solid rgba(0,185,255,.06)}
+  .note{font-size:11px; color:var(--dim); margin-top:8px; line-height:1.5}
+  .btn{font-size:11.5px; font-weight:700; padding:7px 12px; border-radius:8px; border:1px solid var(--line2); background:rgba(0,185,255,.06); color:var(--mute); cursor:not-allowed; opacity:.6; display:inline-flex; gap:6px; align-items:center}
+  .btn.act{cursor:pointer; opacity:1; color:#eafaff; border-color:var(--cyan); background:rgba(0,185,255,.14)}
+  .btn.act:hover{background:rgba(0,185,255,.22)}
+  .btn .lk{font-size:8.5px; color:var(--dim)}
+  .btnrow{display:flex; gap:8px; flex-wrap:wrap}
+  .kv{display:flex; justify-content:space-between; font-size:11.5px; padding:5px 0; border-bottom:1px solid rgba(0,185,255,.06)}
   .kv .k{color:var(--mute)} .kv .v{font-variant-numeric:tabular-nums; font-weight:600}
 
   .cmd{background:linear-gradient(135deg,rgba(0,185,255,.1),rgba(157,123,255,.06)); border:1px solid rgba(0,185,255,.28); border-radius:var(--r2); padding:14px 16px}
@@ -108,27 +113,16 @@
   .cmdtop .ic{width:30px;height:30px;border-radius:8px;display:grid;place-items:center;background:rgba(0,185,255,.16);border:1px solid rgba(0,185,255,.4);font-size:15px}
   .cmdin{display:flex; gap:9px}.cmdin input{flex:1; background:rgba(4,13,32,.7); border:1px solid var(--line2); border-radius:9px; padding:11px 13px; color:var(--txt); font-size:12.5px}.cmdin input::placeholder{color:var(--dim)}
   .chiprow{display:flex; gap:7px; flex-wrap:wrap; margin-top:10px}
-  .chip{font-size:10.5px; font-weight:600; padding:6px 11px; border-radius:20px; border:1px solid var(--line); background:var(--panel2); color:var(--mute); cursor:not-allowed; opacity:.78}
+  .chip{font-size:11px; font-weight:600; padding:6px 11px; border-radius:20px; border:1px solid var(--line); background:var(--panel2); color:var(--mute); cursor:not-allowed; opacity:.78}
   .chip.c{border-color:rgba(0,185,255,.3); color:#7af0ff; background:rgba(0,185,255,.06)}
 
-  .acard{border:1px solid var(--line); border-radius:11px; padding:12px; background:var(--panel3); display:flex; flex-direction:column; gap:8px}
+  .acard{border:1px solid var(--line); border-radius:11px; padding:12px; background:var(--panel3); display:flex; flex-direction:column; gap:7px}
   .acard .h{display:flex; justify-content:space-between; align-items:center}
-  .acard .nm{font-weight:700; font-size:12.5px}
-  .acard .br{font-size:10px; color:var(--mute)}
+  .acard .nm{font-weight:700; font-size:13px} .acard .br{font-size:10px; color:var(--mute)}
   .acard .eq{font-size:18px; font-weight:800; font-variant-numeric:tabular-nums}
   .acard .row{display:flex; justify-content:space-between; font-size:10.5px; color:var(--mute)}
+  .acard .mini{display:flex; justify-content:space-between; font-size:9.5px; color:var(--mute); padding-top:5px; border-top:1px solid rgba(0,185,255,.07)}
 
-  .blocked{display:flex; flex-direction:column; align-items:center; gap:13px; padding:30px; text-align:center; border:1px dashed rgba(255,178,62,.4); border-radius:var(--r2); background:rgba(255,178,62,.04)}
-  .blocked .big{font-size:21px; font-weight:800; color:var(--amber); letter-spacing:.5px}
-  .reasons{text-align:left; display:flex; flex-direction:column; gap:7px; max-width:560px}
-  .reasons li{list-style:none; display:flex; gap:8px; font-size:12px; color:#d6e4f5}.reasons .x{color:var(--red); font-weight:800}
-  .checklist{list-style:none; display:flex; flex-direction:column; gap:6px}.checklist li{display:flex; gap:8px; font-size:11.5px}.checklist .ok{color:var(--green2);font-weight:800}.checklist .x{color:var(--red);font-weight:800}
-  .gauge{display:flex; flex-direction:column; gap:9px}
-  .feed{display:flex; flex-direction:column}
-  .ev{display:flex; gap:9px; align-items:flex-start; padding:8px 0; border-bottom:1px solid rgba(0,185,255,.06)}
-  .ev .t{color:var(--dim); font-size:10px; min-width:74px; white-space:nowrap}
-  .ev .line{flex:1; display:flex; gap:8px; align-items:center; flex-wrap:wrap; font-size:11px}
-  /* vertical timeline */
   .vtl{position:relative; padding-left:22px}
   .vtl:before{content:''; position:absolute; left:7px; top:6px; bottom:6px; width:2px; background:linear-gradient(180deg,rgba(157,123,255,.5),rgba(0,185,255,.2))}
   .vev{position:relative; padding:9px 0; display:flex; gap:10px; align-items:flex-start}
@@ -136,12 +130,19 @@
   .vev .t{color:var(--dim); font-size:10px; min-width:78px; white-space:nowrap}
   .vev .bd{flex:1; display:flex; flex-direction:column; gap:2px}
   .vev .ti{font-size:11.5px} .vev .sb{font-size:9.5px; color:var(--dim)}
-  /* heatmap */
-  .heat{display:grid; grid-template-columns:repeat(7,1fr); gap:4px}
-  .heat .hc{aspect-ratio:1.6; border-radius:5px; display:grid; place-items:center; font-size:8.5px; font-weight:700; color:rgba(255,255,255,.75); border:1px solid rgba(255,255,255,.04)}
+
+  .heat .hc{aspect-ratio:1.6; border-radius:5px; display:grid; place-items:center; font-size:8.5px; font-weight:700; color:rgba(255,255,255,.78); border:1px solid rgba(255,255,255,.04)}
   .heat .lbl{font-size:9px; color:var(--dim); display:grid; place-items:center}
-  /* mini account-card extras */
-  .acard .mini{display:flex; justify-content:space-between; font-size:9.5px; color:var(--mute); padding-top:5px; border-top:1px solid rgba(0,185,255,.07)}
+  .gauge{display:flex; flex-direction:column; gap:9px}
+  .legend{display:flex; gap:12px; flex-wrap:wrap; font-size:10.5px; color:var(--mute); margin-top:9px}.legend i{display:inline-block; width:9px; height:9px; border-radius:2px; margin-right:5px}
+  .checklist{list-style:none; display:flex; flex-direction:column; gap:6px}.checklist li{display:flex; gap:8px; font-size:11.5px}.checklist .ok{color:var(--green2);font-weight:800}.checklist .x{color:var(--red);font-weight:800}
+  .copybanner{display:flex; flex-direction:column; align-items:center; gap:12px; padding:26px; text-align:center; border:1px dashed rgba(255,178,62,.4); border-radius:var(--r2); background:rgba(255,178,62,.04)}
+  .copybanner .big{font-size:20px; font-weight:800; color:var(--amber); letter-spacing:.5px}
+  .reasons{text-align:left; display:flex; flex-direction:column; gap:6px; max-width:560px}
+  .reasons li{list-style:none; display:flex; gap:8px; font-size:11.5px; color:#d6e4f5}.reasons .x{color:var(--red); font-weight:800}
+  .filterrow{display:flex; gap:6px; flex-wrap:wrap; margin-bottom:11px}
+  .fb{font-size:10.5px; font-weight:700; padding:5px 11px; border-radius:20px; border:1px solid var(--line); background:var(--panel2); color:var(--mute); cursor:pointer}
+  .fb.on{border-color:var(--cyan); color:#eafaff; background:rgba(0,185,255,.12)}
 </style>
 </head>
 <body>
@@ -149,16 +150,17 @@
 
   <div class="topbar">
     <a class="home" href="#">◀ World Control</a>
-    <div class="brand">PERSONAL TRADING<span class="dot" style="color:var(--cyan)"> OS</span></div>
-    <div class="seg" id="viewSeg"><button class="on" data-v="agg">Agrégé</button><button data-v="acc">Par compte</button></div>
+    <div class="brand">PERSONAL TRADING<span class="dot"> OS</span> <span class="kbd" style="margin-left:4px">v2</span></div>
+    <div class="seg" id="viewSeg"><button class="on" data-v="agg">Agrégé</button><button data-v="acc">Par compte</button><button data-v="brk">Par broker</button></div>
     <div class="spacer"></div>
     <span class="kbd">MOCK · no backend · no order</span>
   </div>
 
   <div class="secbar">
-    <span class="tag off">⛔ EXEC OFF</span><span class="tag blk">⛔ COPY BLOCKED</span><span class="tag ro">READ / SIM / MANUAL ONLY</span>
+    <span class="tag off">⛔ EXEC OFF</span><span class="tag blk">⛔ COPY BLOCKED · not managed here</span><span class="tag ro">READ / SIM / MANUAL ONLY</span>
+    <span class="rs">⚠ RISK: WATCH</span>
     <span class="spacer"></span>
-    <span style="font-size:10.5px;color:var(--dim);font-weight:500">Apex auto-exec BLOCKED · simulator/dry-run/manuel OK · FXcess master DOWN/safe-disabled · no stealth · no bypass</span>
+    <span style="font-size:10.5px;color:var(--dim);font-weight:500">Apex auto-exec BLOCKED · sim/dry-run/manuel OK · FXcess master DOWN · no stealth · no bypass</span>
   </div>
 
   <div class="body">
@@ -172,11 +174,10 @@
       <div class="nav" data-pg="exec"><span class="ic">◷</span> Execution Timeline</div>
       <div class="grp">Contrôle</div>
       <div class="nav" data-pg="risk"><span class="ic">⚠</span> Risk Dashboard</div>
-      <div class="nav" data-pg="copy"><span class="ic">⧉</span> Copy Trading Control</div>
       <div class="nav" data-pg="compliance"><span class="ic">§</span> Compliance Gate</div>
       <div class="grp">Sortie</div>
       <div class="nav" data-pg="daily"><span class="ic">▣</span> Daily Report</div>
-      <div class="railfoot">standalone · no fetch · no order<br>NOT&nbsp;PROVEN / PAPER / MODEL</div>
+      <div class="railfoot">standalone · no fetch · no order<br>copy = statut only (Revenue/CRM plus tard)</div>
     </div>
 
     <div class="main">
@@ -184,46 +185,58 @@
       <!-- COMMAND CENTER -->
       <section class="page on" id="pg-cmd">
         <h1 class="pt">Personal Trading Command Center</h1>
-        <div class="sub">Cockpit de trading perso. Lecture seule. Assistants mock (no backend). Aucun ordre, aucun copy, aucun auto-exec.</div>
+        <div class="sub">Cockpit perso, lecture seule. Assistants mock. Aucun ordre, aucun copy, aucun auto-exec.</div>
         <div class="cmd mb">
           <div class="cmdtop"><div class="ic">✦</div><div><div style="font-weight:700;font-size:13px">Ask Central Brain about my trading</div><div style="font-size:10.5px;color:var(--mute)">Assistant cockpit — <span class="badge b-np">MOCK</span></div></div></div>
           <div class="cmdin"><input type="text" disabled placeholder="Quel est mon risque aujourd'hui sur l'Apex eval ?…"><button class="btn" disabled>⮕ Envoyer <span class="lk">disabled</span></button></div>
           <div class="chiprow"><span class="chip c">⚠ Ask about my risk today</span><span class="chip">▣ Generate daily report</span><span class="chip">§ Check Apex compliance</span><span class="chip">▣ Review last trade</span><span class="chip">⊞ Prepare manual trade plan</span><span class="chip">⟳ Sync account data</span></div>
+        </div>
+        <div class="card mb" style="padding:11px 14px;border-color:rgba(255,178,62,.3);background:linear-gradient(90deg,rgba(255,178,62,.08),transparent)">
+          <div style="display:flex;align-items:center;gap:16px;flex-wrap:wrap">
+            <span style="font-size:16px;font-weight:800;color:var(--amber)">GLOBAL RISK : WATCH</span>
+            <span style="font-size:11.5px;color:var(--mute)">Apex daily loss à 50% de la limite. <span class="badge b-np">NOT PROVEN</span></span>
+            <span class="spacer"></span>
+            <span class="st on">OK</span><span class="st down">WATCH</span><span class="st off">BREACH</span>
+          </div>
         </div>
         <div class="grid g5 mb">
           <div class="card tight"><div class="kpi"><span class="v cyan">$182 400</span><span class="l">Equity agrégée <span class="badge b-np">NOT PROVEN</span></span></div></div>
           <div class="card tight"><div class="kpi"><span class="v red">−$1 240</span><span class="l">Daily PnL <span class="badge b-np">NOT PROVEN</span></span></div></div>
           <div class="card tight"><div class="kpi"><span class="v amber">−4.2%</span><span class="l">Current DD <span class="badge b-np">NOT PROVEN</span></span></div></div>
           <div class="card tight"><div class="kpi"><span class="v">$2 480</span><span class="l">Open risk <span class="badge b-np">NOT PROVEN</span></span></div></div>
-          <div class="card tight"><div class="kpi"><span class="v">6</span><span class="l">Accounts monitored · 0 auto</span></div></div>
+          <div class="card tight"><div class="kpi"><span class="v">6</span><span class="l">Accounts · 0 auto</span></div></div>
         </div>
         <div class="grid g-3-2">
-          <div class="card"><h3>Equity agrégée 14 jours <span class="r"><span class="badge b-np">NOT PROVEN</span></span></h3><canvas id="cmdEq" height="180"></canvas></div>
-          <div class="card"><h3>État environnement</h3>
-            <div class="kv"><span class="k">Apex auto-exec</span><span class="v"><span class="st off">OFF</span></span></div>
-            <div class="kv"><span class="k">RITHMIC_AUTO_EXEC</span><span class="v"><span class="st off">non set</span></span></div>
-            <div class="kv"><span class="k">Dry-run bracket 3× MNQ</span><span class="v"><span class="st sim">ACTIF</span></span></div>
-            <div class="kv"><span class="k">FXcess master MT4</span><span class="v"><span class="st down">DOWN / safe-disabled</span></span></div>
-            <div class="kv"><span class="k">Copy trading</span><span class="v"><span class="st blk">BLOCKED</span></span></div>
-            <div class="kv"><span class="k">Paper-forward S17</span><span class="v">34 / 100 trades</span></div>
+          <div class="card"><h3>Equity agrégée 14 jours <span class="r"><span class="badge b-np">NOT PROVEN</span></span></h3><canvas id="cmdEq" height="170"></canvas></div>
+          <div class="card"><h3>Snapshot environnement</h3>
+            <div class="kv"><span class="k">Proximity to Apex limits</span><span class="v" style="color:var(--amber)">50% daily loss</span></div>
+            <div class="kv"><span class="k">Last risk event</span><span class="v">05-29 16:21 SL −1R</span></div>
+            <div class="kv"><span class="k">Last signal</span><span class="v">05-29 15:58 S17 +0.66R</span></div>
+            <div class="kv"><span class="k">Last manual action</span><span class="v">05-27 manual sim</span></div>
+            <div class="kv"><span class="k">Data freshness</span><span class="v" style="color:var(--amber)">read non câblé</span></div>
+            <div class="kv"><span class="k">Copy trading</span><span class="v"><span class="st blk">BLOCKED · not here</span></span></div>
           </div>
         </div>
       </section>
 
-      <!-- ACCOUNTS OVERVIEW -->
+      <!-- ACCOUNTS -->
       <section class="page" id="pg-accounts">
         <h1 class="pt">Accounts Overview</h1>
-        <div class="sub">Multi-broker. Balances = <span class="badge b-np">NOT PROVEN</span> tant que connecteurs read non câblés. Aucun compte réel rentable inventé.</div>
+        <div class="sub">Multi-broker. Balances = <span class="badge b-np">NOT PROVEN</span>. Aucun compte réel rentable inventé. Vue agrégée / par compte / par broker (topbar).</div>
         <div class="grid g3 mb" id="accCards"></div>
-        <div class="grid g-2-1">
-          <div class="card" style="padding:5px 7px"><table><thead><tr><th>Compte</th><th>Broker / type</th><th class="num">Balance</th><th class="num">Equity</th><th class="num">Daily PnL</th><th>Exec</th><th>Data</th></tr></thead><tbody id="accTable"></tbody></table></div>
-          <div class="card"><h3>Allocation equity <span class="r"><span class="badge b-np">NOT PROVEN</span></span></h3><canvas id="alloc" height="190"></canvas><div class="note">Répartition mock illustrative. Aucun solde réel câblé.</div></div>
+        <div class="grid g-2-1 mb">
+          <div class="card" style="padding:5px 7px"><table><thead><tr><th>Compte</th><th>Broker / type</th><th class="num">Balance</th><th class="num">Equity</th><th class="num">Daily PnL</th><th class="num">DD</th><th>Exec</th><th>Compliance</th><th>Data</th></tr></thead><tbody id="accTable"></tbody></table></div>
+          <div class="card"><h3>Allocation equity <span class="r"><span class="badge b-np">NOT PROVEN</span></span></h3><canvas id="alloc" height="180"></canvas></div>
+        </div>
+        <div class="card">
+          <h3>Vue par broker</h3>
+          <div class="grid g4" id="brokerView"></div>
         </div>
       </section>
 
       <!-- ACCOUNT DETAIL -->
       <section class="page" id="pg-detail">
-        <h1 class="pt">Account Detail — <select class="kbd" id="detSel" style="font-size:13px;padding:4px 8px;background:var(--navy2);color:var(--cyan);border:1px solid var(--line2);border-radius:6px"><option>APEX-247 · Apex Eval / Rithmic</option><option>ATAS-LIVE · ATAS / Rithmic</option><option>MT5-2207 · MT5 / FXcess</option></select></h1>
+        <h1 class="pt">Account Detail — <select class="kbd" id="detSel" style="font-size:13px;padding:4px 8px;background:var(--navy2);color:var(--cyan);border:1px solid var(--line2);border-radius:6px"><option>APEX-247 · Apex Eval / Rithmic</option><option>ATAS-LIVE · ATAS / Rithmic</option><option>MT5-2207 · MT5 / FXcess</option></select> <span style="font-size:11px;color:var(--mute);font-weight:500">vue 360</span></h1>
         <div class="sub"><span class="badge b-np">NOT PROVEN</span> (balances) · <span class="badge b-paper">PAPER</span> (signaux). Exec = <b style="color:var(--red)">OFF</b>.</div>
         <div class="grid g4 mb">
           <div class="card tight"><div class="kpi"><span class="v cyan">$50 000</span><span class="l">Eval balance <span class="badge b-np">NOT PROVEN</span></span></div></div>
@@ -232,53 +245,69 @@
           <div class="card tight"><div class="kpi"><span class="v red">OFF</span><span class="l">Auto-exec Apex <span class="badge b-real">REAL</span></span></div></div>
         </div>
         <div class="grid g-2-1 mb">
-          <div class="card"><h3>Equity curve <span class="r"><span class="badge b-np">NOT PROVEN</span></span></h3><canvas id="detEq" height="170"></canvas></div>
-          <div class="card"><h3>Daily PnL <span class="r"><span class="badge b-np">NOT PROVEN</span></span></h3><canvas id="detPnl" height="170"></canvas></div>
+          <div class="card"><h3>Equity curve <span class="r"><span class="badge b-np">NOT PROVEN</span></span></h3><canvas id="detEq" height="160"></canvas></div>
+          <div class="card"><h3>Daily PnL <span class="r"><span class="badge b-np">NOT PROVEN</span></span></h3><canvas id="detPnl" height="160"></canvas></div>
         </div>
-        <div class="grid g3">
-          <div class="card tight"><h3>Last signals <span class="r"><span class="badge b-paper">PAPER</span></span></h3><div id="detSig" style="font-size:10.5px"></div></div>
+        <div class="grid g4">
+          <div class="card tight"><h3>Positions <span class="r"><span class="badge b-np">NP</span></span></h3><div style="font-size:10.5px"><div class="kv" style="padding:4px 0"><span class="k">MNQ LONG ×1</span><span class="v up">+$14</span></div><div class="kv" style="padding:4px 0"><span class="k">@30 361.5 SL 30 326.8</span><span class="v">sim</span></div></div></div>
+          <div class="card tight"><h3>Orders / brackets <span class="r"><span class="badge b-real">REAL</span></span></h3><div style="font-size:10.5px"><div class="kv" style="padding:4px 0"><span class="k">Bracket 3×MNQ</span><span class="v"><span class="st sim">DRY-RUN</span></span></div></div></div>
           <div class="card tight"><h3>Last executions <span class="r"><span class="badge b-real">REAL</span></span></h3><div id="detExec" style="font-size:10.5px"></div></div>
-          <div class="card tight"><h3>Rules / risk limits</h3>
-            <div class="kv"><span class="k">Daily loss limit</span><span class="v">$2 500</span></div>
-            <div class="kv"><span class="k">Trailing DD</span><span class="v">$2 500</span></div>
-            <div class="kv"><span class="k">Profit target</span><span class="v">$3 000</span></div>
-            <div class="kv"><span class="k">Algo auto sur eval</span><span class="v" style="color:var(--red)">interdit</span></div>
-          </div>
+          <div class="card tight"><h3>Compliance / rules</h3><div class="kv" style="padding:4px 0"><span class="k">Daily loss</span><span class="v">$2 500</span></div><div class="kv" style="padding:4px 0"><span class="k">Algo auto</span><span class="v" style="color:var(--red)">interdit</span></div><div class="kv" style="padding:4px 0"><span class="k">État</span><span class="v"><span class="st on">PASS</span></span></div></div>
         </div>
+        <div class="card" style="margin-top:12px"><h3>Notes</h3><div class="note" style="margin-top:0">Observation only — forward-record paper. Aucun ordre, aucune activation. Apex eval : rester manuel/sim, ne jamais armer l'auto-exec.</div></div>
       </section>
 
-      <!-- POSITIONS -->
+      <!-- POSITIONS & ORDERS -->
       <section class="page" id="pg-positions">
         <h1 class="pt">Positions & Orders</h1>
-        <div class="sub">Lecture seule. Tous boutons close/modify <b>disabled</b>. <span class="badge b-np">NOT PROVEN</span> (feed non câblé).</div>
+        <div class="sub">Open positions / Orders-brackets séparés. Tous boutons close/modify/cancel <b>disabled</b>. <span class="badge b-np">NOT PROVEN</span>.</div>
         <div class="grid g4 mb">
-          <div class="card tight"><div class="kpi"><span class="v">2</span><span class="l">Positions ouvertes <span class="badge b-np">NOT PROVEN</span></span></div></div>
-          <div class="card tight"><div class="kpi"><span class="v green">+$36</span><span class="l">PnL latent <span class="badge b-np">NOT PROVEN</span></span></div></div>
+          <div class="card tight"><div class="kpi"><span class="v">2</span><span class="l">Open positions <span class="badge b-np">NP</span></span></div></div>
+          <div class="card tight"><div class="kpi"><span class="v green">+$36</span><span class="l">PnL latent <span class="badge b-np">NP</span></span></div></div>
+          <div class="card tight"><div class="kpi"><span class="v cyan">1</span><span class="l">Dry-run brackets <span class="badge b-real">REAL</span></span></div></div>
           <div class="card tight"><div class="kpi"><span class="v red">0</span><span class="l">Ordres réels actifs <span class="badge b-real">REAL</span></span></div></div>
-          <div class="card tight"><div class="kpi"><span class="v cyan">3</span><span class="l">Brackets dry-run/sim <span class="badge b-real">REAL</span></span></div></div>
         </div>
-        <div class="card" style="padding:5px 7px"><table><thead><tr><th>Compte</th><th>Symbole</th><th>Side</th><th class="num">Size</th><th class="num">Entry</th><th class="num">SL</th><th class="num">TP1/TP2/TP3</th><th class="num">PnL</th><th>Mode</th><th>Source</th><th>Status</th><th>Action</th></tr></thead><tbody id="posTable"></tbody></table></div>
-        <div class="note">La colonne Action n'expose aucun bouton actif — pas de close, pas de modify, pas d'ordre.</div>
+        <div class="card mb" style="padding:5px 7px">
+          <h3 style="padding:8px 7px 4px">Open positions</h3>
+          <table><thead><tr><th>Compte</th><th>Symbole</th><th>Side</th><th class="num">Size</th><th class="num">Entry</th><th class="num">SL</th><th class="num">TP1/TP2/TP3</th><th class="num">PnL</th><th>Source</th><th>Mode</th><th>Status</th><th>Action</th></tr></thead><tbody id="posTable"></tbody></table>
+        </div>
+        <div class="card" style="padding:5px 7px">
+          <h3 style="padding:8px 7px 4px">Orders / brackets (dry-run · manual pending)</h3>
+          <table><thead><tr><th>Compte</th><th>Type</th><th>Symbole</th><th class="num">Size</th><th>Routage</th><th>Source</th><th>Status</th><th>Action</th></tr></thead><tbody id="ordTable"></tbody></table>
+        </div>
+        <div class="note">Aucun bouton actif — pas de close, modify, cancel ni ordre.</div>
       </section>
 
       <!-- EXEC TIMELINE -->
       <section class="page" id="pg-exec">
         <h1 class="pt">Execution Timeline</h1>
-        <div class="sub">Signal → VIP → dry-run → manual/sim → TP/SL → rejected/blocked. <b style="color:var(--red)">Aucune exécution réelle.</b></div>
+        <div class="sub">Signal → VIP → dry-run → manual/sim → TP/SL → blocked. <b style="color:var(--red)">Aucune exécution réelle.</b> Filtres actifs.</div>
         <div class="grid g4 mb">
           <div class="card tight"><div class="kpi"><span class="v red">OFF</span><span class="l">RITHMIC_AUTO_EXEC <span class="badge b-real">REAL</span></span></div></div>
-          <div class="card tight"><div class="kpi"><span class="v cyan">DRY-RUN</span><span class="l">Bracket 3× MNQ <span class="badge b-real">REAL</span></span></div></div>
-          <div class="card tight"><div class="kpi"><span class="v">44</span><span class="l">Signaux paper reçus <span class="badge b-paper">PAPER</span></span></div></div>
+          <div class="card tight"><div class="kpi"><span class="v cyan">DRY-RUN</span><span class="l">Bracket 3×MNQ <span class="badge b-real">REAL</span></span></div></div>
+          <div class="card tight"><div class="kpi"><span class="v">44</span><span class="l">Signaux paper <span class="badge b-paper">PAPER</span></span></div></div>
           <div class="card tight"><div class="kpi"><span class="v red">0</span><span class="l">Ordres réels passés <span class="badge b-real">REAL</span></span></div></div>
         </div>
-        <div class="card"><h3>Timeline événements <span class="r">badges SIGNAL / DRY-RUN / SIM / MANUAL / BLOCKED</span></h3><div class="vtl" id="execFeed"></div></div>
-        <div class="note">« auto_exec_enabled:true » dans la config est un <b style="color:var(--red)">faux-vert</b> : exec réelle off. Affiché honnêtement OFF.</div>
+        <div class="card">
+          <div class="filterrow" id="execFilters">
+            <span class="fb on" data-f="ALL">ALL</span><span class="fb" data-f="SIGNAL">SIGNAL</span><span class="fb" data-f="DRY-RUN">DRY-RUN</span><span class="fb" data-f="SIM">SIM</span><span class="fb" data-f="MANUAL">MANUAL</span><span class="fb" data-f="BLOCKED">BLOCKED</span><span class="fb" data-f="COMPLIANCE">COMPLIANCE</span>
+          </div>
+          <div class="vtl" id="execFeed"></div>
+        </div>
+        <div class="note">« auto_exec_enabled:true » dans la config = <b style="color:var(--red)">faux-vert</b> : exec réelle off. Affiché honnêtement OFF.</div>
       </section>
 
       <!-- RISK -->
       <section class="page" id="pg-risk">
         <h1 class="pt">Risk Dashboard</h1>
-        <div class="sub">Règles Apex + exposition + kill-switch. Lecture/sim only. Seuils <span class="badge b-np">NOT PROVEN</span>.</div>
+        <div class="sub">Cockpit risk. Lecture/sim only. Seuils <span class="badge b-np">NOT PROVEN</span>.</div>
+        <div class="card mb" style="padding:11px 14px;border-color:rgba(255,178,62,.3);background:linear-gradient(90deg,rgba(255,178,62,.08),transparent)">
+          <div style="display:flex;align-items:center;gap:14px;flex-wrap:wrap">
+            <span style="font-size:16px;font-weight:800;color:var(--amber)">GLOBAL RISK STATE : WATCH</span>
+            <span style="font-size:11.5px;color:var(--mute)">Daily loss 50% · loss streak 8 · kill-switch armé (sim). <span class="badge b-np">NOT PROVEN</span></span>
+            <span class="spacer"></span><span class="st on">OK</span><span class="st down">WATCH</span><span class="st off">BREACH</span>
+          </div>
+        </div>
         <div class="grid g3 mb">
           <div class="card tight"><h3>Apex eval — proximité limites</h3><div class="gauge">
             <div class="meter"><div class="top"><span>Daily loss limit</span><span style="color:var(--amber)">$1 240 / $2 500</span></div><div class="bar"><i style="width:50%;background:var(--amber)"></i></div></div>
@@ -288,76 +317,54 @@
           </div></div>
           <div class="card tight"><h3>Kill-switch (sim)</h3>
             <div class="kv"><span class="k">Seuil kill DD (sim)</span><span class="v">$2 500</span></div>
-            <div class="kv"><span class="k">P95 Monte Carlo strat (NQ)</span><span class="v" style="color:var(--red)">$12 707</span></div>
+            <div class="kv"><span class="k">P95 Monte Carlo (NQ)</span><span class="v" style="color:var(--red)">$12 707</span></div>
+            <div class="kv"><span class="k">P99 Monte Carlo (NQ)</span><span class="v" style="color:var(--red)">$15 602</span></div>
             <div class="kv"><span class="k">P(DD ≥ $5K) backtest</span><span class="v" style="color:var(--red)">99%+</span></div>
             <div class="kv"><span class="k">Loss streak max</span><span class="v" style="color:var(--amber)">8 trades</span></div>
             <div class="kv"><span class="k">État kill-switch</span><span class="v"><span class="st on">ARMED (sim)</span></span></div>
-            <div class="note">Dimensionner sur P95, pas le DD backtest. <span class="badge b-real">REAL</span></div>
           </div>
-          <div class="card tight"><h3>Risk per trade · copy multiplier</h3>
-            <div class="kv"><span class="k">per_trade_risk_usd</span><span class="v">$50</span></div>
-            <div class="kv"><span class="k">Stop médian réel (MNQ)</span><span class="v" style="color:var(--amber)">~$70</span></div>
-            <div class="kv"><span class="k">Cohérence R↔$</span><span class="v" style="color:var(--red)">incohérent</span></div>
-            <div class="kv"><span class="k">Copy risk multiplier</span><span class="v" style="color:var(--red)">N/A (blocked)</span></div>
-            <div class="note">$50/trade ne couvre pas le stop ~35 pts. À recalibrer. <span class="badge b-real">REAL</span></div>
-          </div>
-        </div>
-        <div class="grid g-2-1">
-          <div class="card"><h3>Drawdown underwater agrégé <span class="r"><span class="badge b-np">NOT PROVEN</span></span></h3><canvas id="riskDD" height="170"></canvas></div>
-          <div class="card"><h3>Exposition par compte</h3>
-            <div class="meter" style="gap:9px">
+          <div class="card tight"><h3>Risk per account</h3>
+            <div class="meter" style="gap:8px">
               <div class="meter"><div class="top"><span>APEX-247</span><span>$2 480</span></div><div class="bar"><i style="width:62%;background:var(--cyan)"></i></div></div>
               <div class="meter"><div class="top"><span>ATAS-LIVE</span><span>$420</span></div><div class="bar"><i style="width:14%;background:var(--cyan)"></i></div></div>
               <div class="meter"><div class="top"><span>MT5-2207</span><span>$180</span></div><div class="bar"><i style="width:8%;background:var(--cyan)"></i></div></div>
               <div class="meter"><div class="top"><span>MT4 / FXcess</span><span style="color:var(--amber)">DOWN</span></div><div class="bar"><i style="width:0%;background:var(--amber)"></i></div></div>
             </div>
+            <div class="note">per_trade_risk $50 incohérent vs stop ~$70 MNQ. <span class="badge b-real">REAL</span></div>
           </div>
         </div>
-        <div class="card" style="margin-top:12px">
+        <div class="card">
           <h3>Account risk heatmap — R par compte / jour (14j) <span class="r"><span class="badge b-np">NOT PROVEN</span></span></h3>
           <div id="heat"></div>
           <div class="legend" style="margin-top:9px"><span><i style="background:rgba(35,209,139,.7)"></i>gain</span><span><i style="background:rgba(125,144,171,.3)"></i>flat / pas de trade</span><span><i style="background:rgba(255,84,112,.7)"></i>perte</span></div>
         </div>
       </section>
 
-      <!-- COPY -->
-      <section class="page" id="pg-copy">
-        <h1 class="pt">Copy Trading Control</h1>
-        <div class="sub">Statut copy-trading.</div>
-        <div class="blocked mb">
-          <div class="big">⛔ COPY TRADING — BLOCKED</div>
-          <div style="color:var(--mute);font-size:12px">Aucun toggle d'activation par design. Réouverture conditionnée à 100+ trades live positifs.</div>
-          <ul class="reasons">
-            <li><span class="x">✕</span> Paper OOS négatif (S17 −0.44R / S18 −5.06R) <span class="badge b-paper">PAPER</span></li>
-            <li><span class="x">✕</span> No verified live track record — master MT4 mort <span class="st down">DOWN/safe-disabled</span></li>
-            <li><span class="x">✕</span> Apex auto-exec BLOCKED</li>
-            <li><span class="x">✕</span> &lt; 100 trades live positifs requis (actuel : 34 + 10) <span class="badge b-paper">PAPER</span></li>
-            <li><span class="x">✕</span> copy-score 95.8 = artefact backtest <span class="badge b-model">MODEL</span></li>
-          </ul>
-        </div>
-        <div class="grid g3">
-          <div class="card tight"><h3>Mode : copy conservative</h3><div class="kv"><span class="k">Statut</span><span class="v"><span class="st off">DISABLED</span></span></div><div class="note">Réservé après 100+ trades live positifs.</div><button class="btn" disabled style="margin-top:8px;width:100%;justify-content:center">Activer <span class="lk">disabled</span></button></div>
-          <div class="card tight"><h3>Mode : copy disabled</h3><div class="kv"><span class="k">Statut</span><span class="v"><span class="st on">ACTIF (par défaut)</span></span></div><div class="note">État sûr courant — aucun copieur exposé.</div></div>
-          <div class="card tight"><h3>Mode : signal only</h3><div class="kv"><span class="k">Statut</span><span class="v"><span class="st sim">VIP paper OK</span></span></div><div class="note">Signaux publiés, zéro %/$, gagnants+perdants.</div><button class="btn" disabled style="margin-top:8px;width:100%;justify-content:center">Configurer <span class="lk">disabled</span></button></div>
-        </div>
-      </section>
-
-      <!-- COMPLIANCE -->
+      <!-- COMPLIANCE (+ copy status folded) -->
       <section class="page" id="pg-compliance">
         <h1 class="pt">Compliance Gate</h1>
-        <div class="sub">Conformité Apex par compte + garde-fous permanents. Statuts <span class="badge b-np">NOT PROVEN</span>.</div>
-        <div class="grid g2">
-          <div class="card" style="padding:5px 7px"><table><thead><tr><th>Compte</th><th>Règle</th><th>Statut</th></tr></thead><tbody id="compTable"></tbody></table></div>
+        <div class="sub">Conformité Apex + garde-fous + statut copy. <span class="badge b-np">NOT PROVEN</span>. Dernière vérif : <b style="color:var(--mute)">2026-05-29 22:40Z (mock)</b>.</div>
+        <div class="grid g2 mb">
+          <div class="card" style="padding:5px 7px"><table><thead><tr><th>Domaine</th><th>Règle</th><th>Statut</th></tr></thead><tbody id="compTable"></tbody></table></div>
           <div class="card"><h3>Garde-fous permanents</h3><ul class="checklist">
-            <li><span class="ok">✓</span> Apex manual OK</li>
-            <li><span class="ok">✓</span> Simulator OK · Dry-run OK</li>
+            <li><span class="ok">✓</span> Apex manual OK · Simulator OK · Dry-run OK</li>
             <li><span class="x">✕</span> Apex auto-exec BLOCKED unless written authorization</li>
-            <li><span class="x">✕</span> FXcess copy blocked until master alive</li>
+            <li><span class="x">✕</span> FXcess copy BLOCKED until master alive</li>
             <li><span class="x">✕</span> No stealth · No detection bypass</li>
-            <li><span class="x">✕</span> % / $ de performance live communiqué</li>
+            <li><span class="x">✕</span> No performance promise · No real money armed</li>
           </ul>
-          <div class="warnrow" style="margin-top:11px"><span class="warn">⚠ Toute activation auto-exec exige une autorisation écrite explicite — sinon BLOCKED.</span></div>
+          <div class="note">Dernière vérification compliance : 2026-05-29 22:40Z (mock). Aucune dérive détectée.</div>
           </div>
+        </div>
+        <div class="copybanner">
+          <div class="big">⛔ COPY TRADING — BLOCKED · NOT MANAGED HERE</div>
+          <div style="color:var(--mute);font-size:12px">Le copy-trading n'est pas un produit du Personal Trading OS. Statut seulement.</div>
+          <ul class="reasons">
+            <li><span class="x">✕</span> Paper OOS négatif (S17 −0.44R / S18 −5.06R) <span class="badge b-paper">PAPER</span></li>
+            <li><span class="x">✕</span> No verified live track record · master MT4 <span class="st down">DOWN</span></li>
+            <li><span class="x">✕</span> &lt; 100 trades live positifs · Apex auto-exec blocked</li>
+          </ul>
+          <a class="btn" style="cursor:not-allowed;text-decoration:none">⮕ Managed later in Revenue / CRM · Telegram Community <span class="lk">link mock</span></a>
         </div>
       </section>
 
@@ -369,18 +376,19 @@
           <div class="card tight"><div class="kpi"><span class="v">4</span><span class="l">Signals <span class="badge b-paper">PAPER</span></span></div></div>
           <div class="card tight"><div class="kpi"><span class="v">2</span><span class="l">Trades (sim) <span class="badge b-paper">PAPER</span></span></div></div>
           <div class="card tight"><div class="kpi"><span class="v red">−0.34 R</span><span class="l">Paper R jour <span class="badge b-paper">PAPER</span></span></div></div>
-          <div class="card tight"><div class="kpi"><span class="v amber">−4.2%</span><span class="l">DD jour <span class="badge b-np">NOT PROVEN</span></span></div></div>
-          <div class="card tight"><div class="kpi"><span class="v green">0</span><span class="l">Rule breaches <span class="badge b-np">NOT PROVEN</span></span></div></div>
+          <div class="card tight"><div class="kpi"><span class="v amber">−4.2%</span><span class="l">DD jour <span class="badge b-np">NP</span></span></div></div>
+          <div class="card tight"><div class="kpi"><span class="v green">0</span><span class="l">Rule breaches <span class="badge b-np">NP</span></span></div></div>
         </div>
         <div class="grid g-2-1">
-          <div class="card"><h3>PnL agrégé 14 jours <span class="r"><span class="badge b-np">NOT PROVEN</span></span></h3><canvas id="dailyChart" height="180"></canvas></div>
-          <div class="card"><h3>Notes & next action</h3>
+          <div class="card"><h3>Timeline journée condensée <span class="r"><span class="badge b-paper">PAPER</span></span></h3><div class="vtl" id="dailyFeed"></div></div>
+          <div class="card"><h3>Risk events · notes · next action</h3>
+            <div class="kv"><span class="k">Risk event</span><span class="v">16:21 SL −1R</span></div>
+            <div class="kv"><span class="k">Rule breaches</span><span class="v" style="color:var(--green2)">0</span></div>
             <div class="kv"><span class="k">Master MT4 FXcess</span><span class="v"><span class="st down">DOWN</span></span></div>
-            <div class="kv"><span class="k">Auto-exec Apex</span><span class="v"><span class="st off">OFF</span></span></div>
             <div class="kv"><span class="k">Copy</span><span class="v"><span class="st blk">BLOCKED</span></span></div>
             <div class="kv"><span class="k">Paper-forward S17</span><span class="v">34/100</span></div>
-            <div class="note"><b>Next action :</b> observation only — forward-record paper, aucun ordre, aucune activation. Re-backtest MNQ + PBO/DSR côté Quant R&D OS.</div>
-            <div class="btnrow" style="margin-top:10px"><button class="btn" disabled>⮕ Export PDF <span class="lk">disabled</span></button><button class="btn" disabled>✦ Ask review <span class="lk">disabled</span></button></div>
+            <div class="note"><b>Next action :</b> observation only — forward-record paper. Re-backtest MNQ + PBO/DSR côté Quant R&D OS.</div>
+            <div class="btnrow" style="margin-top:10px"><button class="btn" disabled>⤓ Export PDF <span class="lk">disabled</span></button><button class="btn" disabled>✦ Ask review <span class="lk">disabled</span></button></div>
           </div>
         </div>
       </section>
@@ -391,79 +399,92 @@
 
 <script>
 const ACCOUNTS=[
-  {n:"APEX-247",b:"Apex Eval · Rithmic",bal:"$50 000",eq:"$48 760",pnl:"−$1 240",up:false,exec:"off",fresh:"live",rl:"$2 500 DD",sig:"S17 +0.66R",ex:"DRY-RUN"},
-  {n:"ATAS-LIVE",b:"ATAS · Rithmic",bal:"$24 100",eq:"$24 040",pnl:"−$60",up:false,exec:"sim",fresh:"live",rl:"sim only",sig:"S17 +3.28R",ex:"sim fill"},
-  {n:"MT4-9981",b:"MT4 · FXcess master",bal:"$31 200",eq:"$31 200",pnl:"$0",up:true,exec:"down",fresh:"stale",rl:"copy off",sig:"—",ex:"—"},
-  {n:"MT5-2207",b:"MT5 · FXcess",bal:"$18 400",eq:"$18 510",pnl:"+$110",up:true,exec:"sim",fresh:"J-1",rl:"manual",sig:"EURUSD",ex:"manual"},
-  {n:"PROP-FT1",b:"Prop challenge (futur)",bal:"$0",eq:"$0",pnl:"$0",up:true,exec:"off",fresh:"—",rl:"non ouvert",sig:"—",ex:"—"},
-  {n:"FXC-MIRROR",b:"FXcess Mirror PM000697",bal:"—",eq:"—",pnl:"—",up:false,exec:"down",fresh:"down",rl:"master mort",sig:"—",ex:"—"},
+  {n:"APEX-247",b:"Apex Eval · Rithmic",brk:"Rithmic",bal:"$50 000",eq:"$48 760",pnl:"−$1 240",dd:"−2.5%",up:false,exec:"off",comp:"PASS",fresh:"live",rl:"$2 500 DD",sig:"S17 +0.66R",ex:"DRY-RUN"},
+  {n:"ATAS-LIVE",b:"ATAS · Rithmic",brk:"Rithmic",bal:"$24 100",eq:"$24 040",pnl:"−$60",dd:"−0.2%",up:false,exec:"sim",comp:"PASS",fresh:"live",rl:"sim only",sig:"S17 +3.28R",ex:"sim fill"},
+  {n:"MT4-9981",b:"MT4 · FXcess master",brk:"FXcess",bal:"$31 200",eq:"$31 200",pnl:"$0",dd:"0%",up:true,exec:"down",comp:"DISABLED",fresh:"stale",rl:"copy off",sig:"—",ex:"—"},
+  {n:"MT5-2207",b:"MT5 · FXcess",brk:"FXcess",bal:"$18 400",eq:"$18 510",pnl:"+$110",dd:"0%",up:true,exec:"sim",comp:"PASS",fresh:"J-1",rl:"manual",sig:"EURUSD",ex:"manual"},
+  {n:"PROP-FT1",b:"Prop challenge (futur)",brk:"Prop",bal:"$0",eq:"$0",pnl:"$0",dd:"0%",up:true,exec:"off",comp:"—",fresh:"—",rl:"non ouvert",sig:"—",ex:"—"},
+  {n:"FXC-MIRROR",b:"FXcess Mirror PM000697",brk:"FXcess",bal:"—",eq:"—",pnl:"—",dd:"—",up:false,exec:"down",comp:"BLOCKED",fresh:"down",rl:"master mort",sig:"—",ex:"—"},
 ];
 const POSITIONS=[
-  {a:"ATAS-LIVE",s:"MNQ",side:"LONG",sz:1,e:"30 361.5",sl:"30 326.8",tp:"30 431 / 30 500 / 30 639",pnl:"+$14",up:true,mode:"sim",src:"STRAT-17 signal",sta:"sim open"},
-  {a:"MT5-2207",s:"EURUSD",side:"SHORT",sz:0.5,e:"1.0842",sl:"1.0871",tp:"1.0795 / — / —",pnl:"+$22",up:true,mode:"man",src:"manual",sta:"manual open"},
+  {a:"ATAS-LIVE",s:"MNQ",side:"LONG",sz:1,e:"30 361.5",sl:"30 326.8",tp:"30 431 / 30 500 / 30 639",pnl:"+$14",up:true,src:"STRAT-17 signal",mode:"sim",sta:"sim open"},
+  {a:"MT5-2207",s:"EURUSD",side:"SHORT",sz:0.5,e:"1.0842",sl:"1.0871",tp:"1.0795 / — / —",pnl:"+$22",up:true,src:"manual",mode:"man",sta:"manual open"},
+];
+const ORDERS=[
+  {a:"APEX-247",ty:"Bracket 3×",s:"MNQ",sz:3,route:"DRY-RUN (33/33/34)",src:"STRAT-17 signal",sta:"dry-run"},
+  {a:"ATAS-LIVE",ty:"Manual pending",s:"MNQ",sz:1,route:"manual / sim",src:"manual",sta:"pending"},
 ];
 const EXEC=[
   {t:"05-29 15:58",b:"SIGNAL",c:"violet",txt:"STRAT-17 LONG NQ @ 30 361.5 généré",sub:"signals.db"},
-  {t:"05-29 15:58",b:"SIM",c:"cyan",txt:"DRY-RUN bracket 3× MNQ placé (33/33/34)",sub:"no real order"},
+  {t:"05-29 15:58",b:"DRY-RUN",c:"cyan",txt:"Bracket 3× MNQ placé (33/33/34)",sub:"no real order"},
   {t:"05-29 16:04",b:"SIM",c:"green",txt:"TP1 touché → BE armé, +0.66R",sub:"paper"},
   {t:"05-28 16:19",b:"SIGNAL",c:"violet",txt:"STRAT-17 SHORT NQ @ 30 299.8",sub:"signals.db"},
   {t:"05-28 16:21",b:"SIM",c:"red",txt:"SL touché, −1.00R",sub:"paper"},
   {t:"05-27 15:49",b:"MANUAL",c:"violet",txt:"STRAT-17 LONG NQ — runner timeout +3.28R",sub:"manual/sim"},
   {t:"05-27 15:22",b:"BLOCKED",c:"red",txt:"STRAT-18 SHORT — auto-exec refusé (RITHMIC_AUTO_EXEC off)",sub:"compliance"},
+  {t:"05-27 09:00",b:"COMPLIANCE",c:"amber",txt:"Check Apex eval — daily loss OK, algo auto interdit confirmé",sub:"compliance gate"},
 ];
 const COMP=[
-  {a:"APEX-247",r:"Daily loss < $2 500",st:"on",lbl:"PASS"},
-  {a:"APEX-247",r:"Trailing DD respecté",st:"on",lbl:"PASS"},
-  {a:"APEX-247",r:"Pas d'algo auto sur eval",st:"on",lbl:"PASS"},
-  {a:"MT4-9981",r:"Master copy disabled",st:"down",lbl:"DISABLED"},
-  {a:"ATAS-LIVE",r:"Manuel/sim only",st:"on",lbl:"PASS"},
-  {a:"ALL",r:"No stealth / no bypass",st:"on",lbl:"ENFORCED"},
+  {d:"Apex",r:"Manual trading", st:"on",lbl:"OK"},
+  {d:"Apex",r:"Auto-exec", st:"off",lbl:"BLOCKED"},
+  {d:"Apex",r:"Simulator / Dry-run", st:"on",lbl:"OK"},
+  {d:"FXcess",r:"Copy trading", st:"off",lbl:"BLOCKED"},
+  {d:"FXcess",r:"Master MT4", st:"down",lbl:"DOWN"},
+  {d:"Global",r:"No stealth / no bypass", st:"on",lbl:"ENFORCED"},
+  {d:"Global",r:"No performance promise", st:"on",lbl:"ENFORCED"},
 ];
-const DETSIG=[["05-29 15:58","LONG","+0.66R"],["05-28 16:19","SHORT","−1.00R"],["05-27 15:49","LONG","+3.28R"]];
 const DETEXEC=[["05-29 15:58","DRY-RUN bracket"],["05-28 16:21","SIM SL −1R"],["05-27 15:49","manual/sim +3.28R"]];
+const DAILY=[
+  {t:"09:00",b:"COMPLIANCE",c:"amber",txt:"Check Apex — OK",sub:""},
+  {t:"15:58",b:"SIGNAL",c:"violet",txt:"S17 LONG +0.66R (BE)",sub:"paper"},
+  {t:"16:19",b:"SIGNAL",c:"violet",txt:"S17 SHORT",sub:"paper"},
+  {t:"16:21",b:"SIM",c:"red",txt:"SL −1R",sub:"risk event"},
+];
 
 const $=s=>document.querySelector(s), $$=s=>[...document.querySelectorAll(s)];
 const C=getComputedStyle(document.documentElement); const col=n=>C.getPropertyValue(n).trim();
 const cmap={red:col('--red'),amber:col('--amber'),cyan:col('--cyan'),green:col('--green2'),violet:col('--violet')};
 function ctx(id){const c=$('#'+id);if(!c)return null;const dpr=window.devicePixelRatio||1;const w=c.clientWidth||c.parentElement.clientWidth;if(w<10)return null;const baseH=c.getAttribute('height')*1;c.width=w*dpr;c.height=baseH*dpr;const x=c.getContext('2d');x.scale(dpr,dpr);return {x,w,h:baseH};}
 function axis(x,w,h){x.strokeStyle='rgba(0,185,255,.10)';for(let i=0;i<=4;i++){const y=10+i*(h-26)/4;x.beginPath();x.moveTo(32,y);x.lineTo(w-8,y);x.stroke();}}
-const stcls={on:'st on',sim:'st sim',off:'st off',down:'st down',blk:'st blk',man:'st man'};
-const stxt={off:'OFF',sim:'SIM',down:'DOWN'};
 
-$$('.nav').forEach(n=>n.onclick=()=>{$$('.nav').forEach(x=>x.classList.remove('on'));n.classList.add('on');$$('.page').forEach(p=>p.classList.remove('on'));$('#pg-'+n.dataset.pg).classList.add('on');setTimeout(draw,30);});
+function go(pg){$$('.nav').forEach(x=>x.classList.toggle('on',x.dataset.pg===pg));$$('.page').forEach(p=>p.classList.remove('on'));$('#pg-'+pg).classList.add('on');setTimeout(draw,30);}
+$$('.nav').forEach(n=>n.onclick=()=>go(n.dataset.pg));
 $$('#viewSeg button').forEach(b=>b.onclick=()=>{$$('#viewSeg button').forEach(x=>x.classList.remove('on'));b.classList.add('on');});
+let execFilter='ALL';
+$$('#execFilters .fb').forEach(f=>f.onclick=()=>{$$('#execFilters .fb').forEach(x=>x.classList.remove('on'));f.classList.add('on');execFilter=f.dataset.f;renderExec();});
 
 function fill(){
-  $('#accCards').innerHTML=ACCOUNTS.slice(0,6).map(a=>`<div class="acard"><div class="h"><div><div class="nm">${a.n}</div><div class="br">${a.b}</div></div><span class="${a.exec==='off'?'st off':a.exec==='down'?'st down':'st sim'}">${a.exec==='off'?'OFF':a.exec==='down'?'DOWN':'SIM'}</span></div><div class="eq" style="color:${a.up?'var(--green2)':a.pnl==='—'?'var(--mute)':'var(--red)'}">${a.eq}</div><div class="row"><span>Balance ${a.bal}</span><span style="color:${a.up?'var(--green2)':'var(--red)'}">${a.pnl}</span></div><div class="row"><span style="font-size:8.5px;color:var(--dim)">freshness ${a.fresh}</span><span class="badge b-np">NOT PROVEN</span></div><div class="mini"><span>risk: ${a.rl}</span><span>sig: ${a.sig}</span></div><div class="mini" style="border:none;padding-top:2px"><span>last exec: ${a.ex}</span></div></div>`).join('');
-  $('#accTable').innerHTML=ACCOUNTS.map(a=>`<tr><td><span class="dot" style="background:${a.up?'var(--green)':'var(--red)'}"></span>${a.n}</td><td style="color:var(--mute)">${a.b}</td><td class="num">${a.bal}</td><td class="num">${a.eq}</td><td class="num ${a.up?'up':'down'}">${a.pnl}</td><td><span class="${a.exec==='off'?'st off':a.exec==='down'?'st down':'st sim'}">${a.exec==='off'?'OFF':a.exec==='down'?'DOWN':'SIM'}</span></td><td><span class="badge b-np">NOT PROVEN</span></td></tr>`).join('');
-  $('#posTable').innerHTML=POSITIONS.map(p=>`<tr><td>${p.a}</td><td>${p.s}</td><td>${p.side}</td><td class="num">${p.sz}</td><td class="num">${p.e}</td><td class="num down">${p.sl}</td><td class="num up">${p.tp}</td><td class="num ${p.up?'up':'down'}">${p.pnl}</td><td><span class="${p.mode==='man'?'st man':'st sim'}">${p.mode==='man'?'MANUAL':'SIM'}</span></td><td style="color:var(--mute);font-size:10px">${p.src}</td><td><span class="st sim">${p.sta}</span></td><td style="color:var(--dim);font-size:9px">read-only · disabled</td></tr>`).join('');
-  $('#execFeed').innerHTML=EXEC.map(e=>`<div class="vev"><span class="nd" style="background:${cmap[e.c]}"></span><span class="t">${e.t}</span><div class="bd"><div class="ti"><span class="${e.b==='SIGNAL'?'st man':e.b==='BLOCKED'?'st off':e.b==='MANUAL'?'st man':'st sim'}">${e.b}</span> ${e.txt}</div><div class="sb">${e.sub}</div></div></div>`).join('');
-  $('#compTable').innerHTML=COMP.map(c=>`<tr><td>${c.a}</td><td>${c.r}</td><td><span class="${c.st==='on'?'st on':'st down'}">${c.lbl}</span></td></tr>`).join('');
-  $('#detSig').innerHTML=DETSIG.map(s=>`<div class="kv" style="padding:4px 0"><span class="k">${s[0]} ${s[1]}</span><span class="v" style="color:${s[2].startsWith('+')?'var(--green2)':'var(--red)'}">${s[2]}</span></div>`).join('');
+  $('#accCards').innerHTML=ACCOUNTS.map(a=>`<div class="acard"><div class="h"><div><div class="nm">${a.n}</div><div class="br">${a.b}</div></div><span class="${a.exec==='off'?'st off':a.exec==='down'?'st down':'st sim'}">${a.exec==='off'?'OFF':a.exec==='down'?'DOWN':'SIM'}</span></div><div class="eq" style="color:${a.up?'var(--green2)':a.pnl==='—'?'var(--mute)':'var(--red)'}">${a.eq}</div><div class="row"><span>Balance ${a.bal}</span><span style="color:${a.up?'var(--green2)':'var(--red)'}">${a.pnl} · DD ${a.dd}</span></div><div class="mini"><span>fresh: ${a.fresh}</span><span class="badge b-np">NOT PROVEN</span></div><div class="mini" style="border:none;padding-top:2px"><span>risk ${a.rl}</span><span>sig ${a.sig}</span></div><div class="mini" style="border:none;padding-top:1px"><span>exec ${a.ex}</span><span>comp ${a.comp}</span></div></div>`).join('');
+  $('#accTable').innerHTML=ACCOUNTS.map(a=>`<tr><td><span class="dot" style="background:${a.up?'var(--green)':'var(--red)'}"></span>${a.n}</td><td style="color:var(--mute)">${a.b}</td><td class="num">${a.bal}</td><td class="num">${a.eq}</td><td class="num ${a.up?'up':'down'}">${a.pnl}</td><td class="num" style="color:var(--mute)">${a.dd}</td><td><span class="${a.exec==='off'?'st off':a.exec==='down'?'st down':'st sim'}">${a.exec==='off'?'OFF':a.exec==='down'?'DOWN':'SIM'}</span></td><td><span class="${a.comp==='PASS'?'st on':a.comp==='—'?'':'st down'}">${a.comp}</span></td><td><span class="badge b-np">NP</span></td></tr>`).join('');
+  // broker view
+  const brokers={};ACCOUNTS.forEach(a=>{(brokers[a.brk]=brokers[a.brk]||[]).push(a);});
+  $('#brokerView').innerHTML=Object.keys(brokers).map(bk=>{const list=brokers[bk];return `<div class="card tight" style="background:var(--panel3)"><h3>${bk} <span class="r">${list.length} compte(s)</span></h3>${list.map(a=>`<div class="kv" style="padding:4px 0"><span class="k">${a.n}</span><span class="v ${a.up?'up':'down'}">${a.pnl}</span></div>`).join('')}</div>`;}).join('');
+  $('#posTable').innerHTML=POSITIONS.map(p=>`<tr><td>${p.a}</td><td>${p.s}</td><td>${p.side}</td><td class="num">${p.sz}</td><td class="num">${p.e}</td><td class="num down">${p.sl}</td><td class="num up">${p.tp}</td><td class="num ${p.up?'up':'down'}">${p.pnl}</td><td style="color:var(--mute);font-size:10px">${p.src}</td><td><span class="${p.mode==='man'?'st man':'st sim'}">${p.mode==='man'?'MANUAL':'SIM'}</span></td><td><span class="st sim">${p.sta}</span></td><td style="color:var(--dim);font-size:9px">read-only · disabled</td></tr>`).join('');
+  $('#ordTable').innerHTML=ORDERS.map(o=>`<tr><td>${o.a}</td><td>${o.ty}</td><td>${o.s}</td><td class="num">${o.sz}</td><td style="color:var(--mute)">${o.route}</td><td style="color:var(--mute);font-size:10px">${o.src}</td><td><span class="${o.sta==='pending'?'st man':'st sim'}">${o.sta==='pending'?'PENDING':'DRY-RUN'}</span></td><td style="color:var(--dim);font-size:9px">cancel disabled</td></tr>`).join('');
+  $('#compTable').innerHTML=COMP.map(c=>`<tr><td style="color:var(--mute)">${c.d}</td><td>${c.r}</td><td><span class="${c.st==='on'?'st on':c.st==='down'?'st down':'st off'}">${c.lbl}</span></td></tr>`).join('');
   $('#detExec').innerHTML=DETEXEC.map(s=>`<div class="kv" style="padding:4px 0"><span class="k">${s[0]}</span><span class="v" style="font-size:10px">${s[1]}</span></div>`).join('');
-  buildHeat();
+  $('#dailyFeed').innerHTML=DAILY.map(e=>`<div class="vev"><span class="nd" style="background:${cmap[e.c]}"></span><span class="t">${e.t}</span><div class="bd"><div class="ti"><span class="st ${e.b==='SIGNAL'?'man':e.b==='COMPLIANCE'?'down':e.b==='SIM'?'sim':'off'}">${e.b}</span> ${e.txt}</div><div class="sb">${e.sub}</div></div></div>`).join('');
+  renderExec();buildHeat();
 }
-function buildHeat(){const el=$('#heat');if(!el)return;const accs=['APEX-247','ATAS-LIVE','MT5-2207','MT4-FXcess'];
-  const days=14;let seed=42;const rnd=()=>{seed=(seed*1103515245+12345)&0x7fffffff;return seed/0x7fffffff;};
-  let html='<div class="heat" style="grid-template-columns:88px repeat('+days+',1fr)"><div class="lbl"></div>';
+function renderExec(){const rows=EXEC.filter(e=>execFilter==='ALL'||e.b===execFilter);
+  $('#execFeed').innerHTML=rows.map(e=>`<div class="vev"><span class="nd" style="background:${cmap[e.c]}"></span><span class="t">${e.t}</span><div class="bd"><div class="ti"><span class="st ${e.b==='SIGNAL'||e.b==='MANUAL'?'man':e.b==='BLOCKED'?'off':e.b==='COMPLIANCE'?'down':'sim'}">${e.b}</span> ${e.txt}</div><div class="sb">${e.sub}</div></div></div>`).join('')||'<div class="note">aucun événement pour ce filtre.</div>';}
+function buildHeat(){const el=$('#heat');if(!el)return;const accs=['APEX-247','ATAS-LIVE','MT5-2207','MT4-FXcess'];const days=14;let seed=42;const rnd=()=>{seed=(seed*1103515245+12345)&0x7fffffff;return seed/0x7fffffff;};
+  let html='<div class="heat" style="display:grid;grid-template-columns:88px repeat('+days+',1fr);gap:4px"><div class="lbl"></div>';
   for(let d=0;d<days;d++)html+=`<div class="lbl">${d+1}</div>`;
   accs.forEach(a=>{html+=`<div class="lbl" style="justify-content:flex-start;font-size:9.5px;color:var(--mute)">${a}</div>`;
     for(let d=0;d<days;d++){let v;if(a==='MT4-FXcess'){v=null;}else{const r=rnd();v=r<0.34?0:(r-0.5)*4;}
-      let bg,txt;if(v===null){bg='rgba(255,178,62,.12)';txt='·';}else if(Math.abs(v)<0.15){bg='rgba(125,144,171,.18)';txt='';}else if(v>0){const i=Math.min(.75,.2+v/4);bg='rgba(35,209,139,'+i+')';txt=v.toFixed(1);}else{const i=Math.min(.75,.2+Math.abs(v)/4);bg='rgba(255,84,112,'+i+')';txt=v.toFixed(1);}
+      let bg,txt;if(v===null){bg='rgba(255,178,62,.12)';txt='·';}else if(Math.abs(v)<0.15){bg='rgba(125,144,171,.18)';txt='';}else if(v>0){bg='rgba(35,209,139,'+Math.min(.75,.2+v/4)+')';txt=v.toFixed(1);}else{bg='rgba(255,84,112,'+Math.min(.75,.2+Math.abs(v)/4)+')';txt=v.toFixed(1);}
       html+=`<div class="hc" style="background:${bg}">${txt}</div>`;}});
   html+='</div>';el.innerHTML=html;}
+
 function donut(id,data){const o=ctx(id);if(!o)return;const{x,w,h}=o;const cx=w/2,cy=h/2,R=Math.min(w,h)/2-12;if(R<=0)return;const tot=data.reduce((s,d)=>s+d[1],0);let a=-Math.PI/2;data.forEach(d=>{const ang=d[1]/tot*Math.PI*2;x.beginPath();x.moveTo(cx,cy);x.arc(cx,cy,R,a,a+ang);x.closePath();x.fillStyle=d[2];x.fill();a+=ang;});x.beginPath();x.arc(cx,cy,R*.58,0,7);x.fillStyle=col('--navy');x.fill();x.fillStyle=col('--mute');x.font='10px sans-serif';x.textAlign='center';x.fillText('6 comptes',cx,cy+3);}
 function lineC(id,arr,c,fill){const o=ctx(id);if(!o)return;const{x,w,h}=o;axis(x,w,h);const mn=Math.min(...arr),mx=Math.max(...arr);x.strokeStyle=c;x.lineWidth=2;x.beginPath();arr.forEach((v,i)=>{const px=32+i*(w-40)/(arr.length-1),py=h-14-(v-mn)/(mx-mn||1)*(h-26);i?x.lineTo(px,py):x.moveTo(px,py);});x.stroke();if(fill){const g=x.createLinearGradient(0,0,0,h);g.addColorStop(0,fill);g.addColorStop(1,'rgba(0,0,0,0)');x.lineTo(w-8,h-14);x.lineTo(32,h-14);x.fillStyle=g;x.fill();}}
 function bars(id,arr){const o=ctx(id);if(!o)return;const{x,w,h}=o;const mx=Math.max(...arr.map(Math.abs));const bw=(w-40)/arr.length;const zero=h/2;arr.forEach((v,i)=>{const bh=(v/mx)*(h/2-14);const px=34+i*bw;x.fillStyle=v>=0?col('--green'):col('--red');x.fillRect(px,zero-(v>=0?bh:0),bw*.6,Math.abs(bh));});x.strokeStyle='rgba(255,255,255,.12)';x.beginPath();x.moveTo(32,zero);x.lineTo(w-8,zero);x.stroke();}
-function ddC(id){const o=ctx(id);if(!o)return;const{x,w,h}=o;axis(x,w,h);const dd=[0,-0.5,-1.2,-2,-1.4,-2.8,-3.5,-4.2,-3.1,-2.2,-2.9,-4.2,-3.6,-4.2];const mn=Math.min(...dd);x.fillStyle='rgba(255,84,112,.3)';x.strokeStyle=col('--red');x.lineWidth=1.5;x.beginPath();dd.forEach((v,i)=>{const px=32+i*(w-40)/(dd.length-1),py=12-(v/mn)*(h-24);i?x.lineTo(px,py):x.moveTo(px,py);});x.stroke();x.lineTo(w-8,12);x.lineTo(32,12);x.fill();}
-
 function draw(){try{
   lineC('cmdEq',[183600,183100,183400,182800,182200,181900,182400,182100,181600,182000,181400,182600,181200,182400],col('--cyan'),'rgba(0,185,255,.16)');
   donut('alloc',[['Apex',50,col('--cyan')],['ATAS',24,col('--blue')],['MT4',31,'#1bb877'],['MT5',18,col('--amber')]]);
   lineC('detEq',[50000,49800,50100,49600,49200,48900,49100,48760],col('--cyan'),'rgba(0,185,255,.16)');
   bars('detPnl',[200,-300,400,-600,-300,200,-240,110]);
-  ddC('riskDD');
-  bars('dailyChart',[300,-200,500,-1240,400,-300,200,600,-400,300,-150,420,-280,-1240]);
 }catch(e){console.warn(e);}}
 fill();draw();
 window.addEventListener('resize',()=>setTimeout(draw,80));
