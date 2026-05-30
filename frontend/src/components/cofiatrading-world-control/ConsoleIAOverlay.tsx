@@ -988,20 +988,24 @@ export function ConsoleIAOverlay() {
   }, [isOpen]);
 
   useEffect(() => {
-    if (!isOpen || !activePacketId) return;
+    if (!isOpen || (!threadId && !activePacketId)) return;
     let stopped = false;
 
     const loadThread = async () => {
       try {
-        const response = await fetch(`/api/cofiatrading-world-control/console-ia?packetId=${encodeURIComponent(activePacketId)}`, {
+        const query = threadId
+          ? `threadId=${encodeURIComponent(threadId)}`
+          : `packetId=${encodeURIComponent(activePacketId ?? "")}`;
+        const response = await fetch(`/api/cofiatrading-world-control/console-ia?${query}`, {
           cache: "no-store",
         });
-        const data = (await response.json()) as { ok: boolean; error?: string; thread?: ConsoleThread };
+        const data = (await response.json()) as { ok: boolean; error?: string; thread?: ConsoleThread; threadId?: string };
         if (stopped) return;
         if (!response.ok || !data.ok || !data.thread) {
           throw new Error(data.error ?? `THREAD_HTTP_${response.status}`);
         }
         setThread(data.thread);
+        if (data.threadId) setThreadId(data.threadId);
         if (data.thread.target?.id && TARGETS.some((target) => target.id === data.thread?.target?.id)) {
           setSelectedTargetId(data.thread.target.id);
         }
