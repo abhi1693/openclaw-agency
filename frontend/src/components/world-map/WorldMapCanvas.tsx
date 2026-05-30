@@ -117,10 +117,13 @@ export function WorldMapCanvas() {
     const pos =
       index.houses.get(focusedId)?.position ?? index.agentPositions.get(focusedId) ?? index.zones.get(focusedId)?.position;
     if (!pos) return;
-    setVp((prev) => {
-      const scale = Math.max(prev.scale, 1.35);
-      return { scale, tx: VIEW_W / 2 - pos.x * scale, ty: VIEW_H / 2 - pos.y * scale };
+    const raf = requestAnimationFrame(() => {
+      setVp((prev) => {
+        const scale = Math.max(prev.scale, 1.35);
+        return { scale, tx: VIEW_W / 2 - pos.x * scale, ty: VIEW_H / 2 - pos.y * scale };
+      });
     });
+    return () => cancelAnimationFrame(raf);
   }, [focusedId, index]);
 
   /* ── Pan / zoom helpers ── */
