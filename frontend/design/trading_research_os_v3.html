@@ -647,7 +647,7 @@ $$('[id^="pg-p-"]').forEach(p=>p.classList.remove('on'));
 
 function flowSync(){$('#flowState').textContent=STATE.strategy+' · '+STATE.instrument+' · '+STATE.slippage+' · '+STATE.mode;if(typeof persist==='function')persist();}
 function setTab(t){STATE.tab=t;$$('#mainTabs button').forEach(b=>b.classList.toggle('on',b.dataset.tab===t));$('#rail-quant').classList.toggle('on',t==='quant');$('#rail-personal').classList.toggle('on',t==='personal');go(t==='quant'?'q-cmd':'p-cmd');if(typeof persist==='function')persist();}
-function go(pg){const rail=pg[0]==='q'?'#rail-quant':'#rail-personal';$$(rail+' .nav').forEach(x=>x.classList.toggle('on',x.dataset.pg===pg));$$('.page').forEach(p=>p.classList.remove('on'));const el=$('#pg-'+pg);if(el)el.classList.add('on');const m=$('#main');if(m)m.scrollTop=0;setTimeout(redrawAll,30);}
+function go(pg){const rail=pg[0]==='q'?'#rail-quant':'#rail-personal';$$(rail+' .nav').forEach(x=>x.classList.toggle('on',x.dataset.pg===pg));$$('.page').forEach(p=>p.classList.remove('on'));const el=$('#pg-'+pg);if(el)el.classList.add('on');const m=$('#main');if(m)m.scrollTop=0;if(pg==='q-replay')setTimeout(initTV,60);setTimeout(redrawAll,30);}
 $$('#mainTabs button').forEach(b=>b.onclick=()=>setTab(b.dataset.tab));
 $$('.nav').forEach(n=>n.onclick=()=>go(n.dataset.pg));
 
