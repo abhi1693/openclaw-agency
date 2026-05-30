@@ -1345,12 +1345,26 @@ export function ConsoleIAOverlay() {
                         ? "border-emerald-300/35 text-emerald-200"
                         : primaryParticipant.status === "working"
                           ? "border-cyan-300/35 text-cyan-200"
-                          : primaryParticipant.status === "queued"
-                            ? "border-sky-300/30 text-sky-200"
-                            : "border-slate-600 text-slate-400"
+                          : primaryParticipant.status === "adapter_missing"
+                            ? "border-amber-300/40 text-amber-200"
+                            : primaryParticipant.status === "ack_local"
+                              ? "border-sky-300/30 text-sky-200"
+                              : primaryParticipant.status === "queued"
+                                ? "border-sky-300/30 text-sky-200"
+                                : "border-slate-600 text-slate-400"
                     }`}
                     >
-                      {primaryParticipant.status === "working" ? "ACTIF" : primaryParticipant.status === "answered" ? "ACTIF" : primaryParticipant.status}
+                      {primaryParticipant.status === "working" || primaryParticipant.status === "answered"
+                        ? "ACTIF"
+                        : primaryParticipant.status === "adapter_missing"
+                          ? "Runtime non branché"
+                          : primaryParticipant.status === "ack_local"
+                            ? "ACK local reçu"
+                            : primaryParticipant.status === "queued"
+                              ? "En file"
+                              : primaryParticipant.status === "pending"
+                                ? "En attente"
+                                : primaryParticipant.status}
                     </span>
                   ) : null}
                 </div>
