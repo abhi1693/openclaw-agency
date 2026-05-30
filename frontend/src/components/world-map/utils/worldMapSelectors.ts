@@ -179,8 +179,14 @@ export function getTelemetryForEntity(
   id: string,
 ): Record<string, number> | undefined {
   if (!telemetry) return undefined;
-  if (kind === "agent") return telemetry.agents[id] as Record<string, number> | undefined;
-  if (kind === "house") return telemetry.houses[id] as Record<string, number> | undefined;
+  if (kind === "agent") {
+    const m = telemetry.agents[id];
+    return m ? (m as unknown as Record<string, number>) : undefined;
+  }
+  if (kind === "house") {
+    const m = telemetry.houses[id];
+    return m ? (m as unknown as Record<string, number>) : undefined;
+  }
   if (kind === "link") {
     const l = telemetry.links[id];
     return l ? { intensity: l.intensity, health: l.health, frequency: l.frequency } : undefined;
