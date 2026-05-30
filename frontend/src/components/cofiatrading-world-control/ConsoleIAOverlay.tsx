@@ -219,17 +219,28 @@ type TargetCoherence = {
   mediaAllowed: boolean;
 };
 
-const LOCAL_REASONING_LANES = ["spark_5_3", "codex_5_5", "codex_5_5_xhigh"];
+// Lanes autorisées par agent — chaque agent ne voit QUE ses propres lanes.
+// Claude n'hérite jamais d'une lane Codex (spark_5_3), Codex jamais d'une lane Claude, etc.
+const CODEX_LANES = ["spark_5_3", "codex_5_5", "codex_5_5_xhigh", "codex_patch", "codex_tests"];
+const CLAUDE_LANES = ["claude_4_8_max_high", "claude_4_8_high", "claude_4_8", "claude_4_7", "claude_memory_qa"];
+const QWEN_LANES = ["qwen_local", "qwen_cheap_bulk", "qwen_contradiction", "qwen_reasoning"];
+const PERPLEXITY_LANES = ["perplexity_bridge", "perplexity_subscription", "perplexity_api_fallback"];
+const JAROD_LANES = ["jarod_runtime", "jarod_orchestration", "jarod_team_synthesis"];
+const KEVIN_LANES = ["gemini_perception", "kevin_screen", "kevin_camera", "kevin_audio", "kevin_gemini"];
+const CHATGPT_LANES = ["chatgpt_desktop", "chatgpt_desktop_brief", "chatgpt_bridge_only"];
+const COUNCIL_LANES = ["council_synthesis", "council_arbitration"];
 
 const TARGET_COHERENCE: Record<string, TargetCoherence> = {
-  chatgpt_sync: { defaultModel: "chatgpt_desktop", defaultAction: "ASK", allowedModels: ["chatgpt_desktop"], mediaAllowed: false },
-  codex_local: { defaultModel: "spark_5_3", defaultAction: "ASK", allowedModels: LOCAL_REASONING_LANES, mediaAllowed: false },
-  claude_local: { defaultModel: "spark_5_3", defaultAction: "ASK", allowedModels: LOCAL_REASONING_LANES, mediaAllowed: false },
-  qwen_local: { defaultModel: "spark_5_3", defaultAction: "ASK", allowedModels: LOCAL_REASONING_LANES, mediaAllowed: false },
-  perplexity_local: { defaultModel: "spark_5_3", defaultAction: "ASK", allowedModels: LOCAL_REASONING_LANES, mediaAllowed: false },
-  jarod_openclaw: { defaultModel: "spark_5_3", defaultAction: "ASK", allowedModels: LOCAL_REASONING_LANES, mediaAllowed: false },
-  kevin_gemini: { defaultModel: "kevin_gemini", defaultAction: "PERCEPTION", allowedModels: ["kevin_gemini"], mediaAllowed: true },
-  central_council: { defaultModel: "spark_5_3", defaultAction: "ASK", allowedModels: LOCAL_REASONING_LANES, mediaAllowed: false },
+  chatgpt_sync: { defaultModel: "chatgpt_desktop", defaultAction: "ASK", allowedModels: CHATGPT_LANES, mediaAllowed: false },
+  codex_local: { defaultModel: "spark_5_3", defaultAction: "ASK", allowedModels: CODEX_LANES, mediaAllowed: false },
+  claude_local: { defaultModel: "claude_4_8_max_high", defaultAction: "ASK", allowedModels: CLAUDE_LANES, mediaAllowed: false },
+  qwen_local: { defaultModel: "qwen_local", defaultAction: "ASK", allowedModels: QWEN_LANES, mediaAllowed: false },
+  perplexity_local: { defaultModel: "perplexity_bridge", defaultAction: "ASK", allowedModels: PERPLEXITY_LANES, mediaAllowed: false },
+  jarod_openclaw: { defaultModel: "jarod_runtime", defaultAction: "ASK", allowedModels: JAROD_LANES, mediaAllowed: false },
+  kevin_gemini: { defaultModel: "gemini_perception", defaultAction: "PERCEPTION", allowedModels: KEVIN_LANES, mediaAllowed: true },
+  central_council: { defaultModel: "council_synthesis", defaultAction: "ASK", allowedModels: COUNCIL_LANES, mediaAllowed: false },
+  // Canaux Telegram = destinations (colonne droite), pas des agents. Conservés ici
+  // pour robustesse, mais un clic canal ne pilote plus la cible centrale (ÉTAPE 2).
   telegram_iron: { defaultModel: "spark_5_3", defaultAction: "DRAFT", allowedModels: ["spark_5_3"], mediaAllowed: false },
   telegram_free: { defaultModel: "spark_5_3", defaultAction: "DRAFT", allowedModels: ["spark_5_3"], mediaAllowed: false },
   telegram_vip: { defaultModel: "spark_5_3", defaultAction: "DRAFT", allowedModels: ["spark_5_3"], mediaAllowed: false },
@@ -239,8 +250,19 @@ const TARGET_COHERENCE: Record<string, TargetCoherence> = {
 const DEFAULT_COHERENCE: TargetCoherence = {
   defaultModel: "spark_5_3",
   defaultAction: "ASK",
-  allowedModels: LOCAL_REASONING_LANES,
+  allowedModels: CODEX_LANES,
   mediaAllowed: false,
+};
+
+// Sentinelle affichée quand aucune lane cohérente n'existe pour l'agent actif :
+// on n'affiche JAMAIS une lane incohérente (ex: Claude > 5.3 Spark) ni un fallback silencieux.
+const LANE_MISSING_MODE: ConsoleModelMode = {
+  id: "lane_missing",
+  label: "LANE_MISSING",
+  provider: "—",
+  model: "aucune lane propre",
+  reasoning: "standard",
+  scope: "aucune lane cohérente pour cet agent",
 };
 
 const coherenceFor = (targetId: string): TargetCoherence => TARGET_COHERENCE[targetId] ?? DEFAULT_COHERENCE;
