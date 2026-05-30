@@ -640,8 +640,8 @@ def execute_vip(voice_id=None) -> dict:
         hero2 = str(RA / "hero2_runway_real.mp4")        # fallback hero Runway réel précédent
     # SCÉNARIO V5 2026-05-30 (anti-gourou frais, PAS recyclé) — angle "deux types de traders : gourou vs cadre".
     beats = [
-        {"t": "Y'a deux types de traders. Ceux qui courent après des gourous. Et ceux qui ont un vrai cadre.", "dur": 7, "q": "lone trader dark room glowing screen serious face night", "role": "hook"},
-        {"t": "Le premier achète un signal balancé dans un groupe, suit un type qui montre des billets, et prie pour que ça monte.", "dur": 9, "q": "flashy fake guru luxury money social media screenshots", "role": "douleur"},
+        {"t": "Il existe deux types de traders. Le premier passe son temps à suivre des gourous sur internet. Le second a construit un vrai cadre.", "dur": 8, "q": "lone trader dark room glowing screen serious face night", "role": "hook"},
+        {"t": "Le premier achète un signal balancé dans un groupe, il fait confiance à un inconnu qui montre des billets, et il espère très fort que le marché monte.", "dur": 10, "q": "flashy fake guru luxury money social media screenshots", "role": "douleur"},
         {"t": "Pas de plan, pas de risque défini, aucune raison claire d'entrer. Juste de l'espoir. Et l'espoir, sur les marchés, ça finit toujours par coûter cher.", "dur": 10, "q": "crowded chaotic phone notifications red falling chart", "role": "douleur2"},
         {"t": "Le VIP Cofiatrading prend l'autre chemin. Un cadre clair, une vraie équipe, et chaque décision expliquée avec son contexte et son niveau de risque. Aucune promesse magique, juste de la méthode.", "dur": 13, "q": "premium modern trading team office blue calm collaboration", "role": "solution", "badge": True},
         {"t": "Deux cents intelligences artificielles surveillent les marchés en continu et filtrent le bruit, pour ne garder que ce qui compte vraiment.", "dur": 9, "hero": hero1, "role": "ia", "counter": True},
@@ -772,7 +772,7 @@ def _emit_vip_reports(rd, run_id, beats, shots, captions, audio_dur, suno, vr, b
       "shots": [{"shot_id": "hero_ia_200", "engine": "Luma", "output": "hero_09155fc4.mp4", "mode": "session_ui",
                  "generation_id": "luma_board_09155fc4", "status": "USED_IN_FINAL_MP4"},
                 {"shot_id": "hero_risk", "engine": "Runway gen4_turbo", "output": "hero2_runway_real.mp4", "mode": "image_to_video API",
-                 "generation_id": "378645eb-52ef-4b7b-8844-7ede52b0132d", "seed_generation_id": "27de6c50-cffc-45ad-8285-1b226c19f825", "status": "USED_IN_FINAL_MP4"}],
+                 "generation_id": "0936bd6d-3c6c-41e3-bf4c-ae22b03181f3", "seed_generation_id": "356cab65-1b9f-4a88-aa06-4e6f3647c528", "status": "USED_IN_FINAL_MP4"}],
       "note": "Luma#1 + Runway#2 = 2 heros IA RÉELS distincts (pas de Pexels déguisé). Runway labellisé Runway, pas Luma.",
       "verdict": "PASS" if n_hero >= 2 else ("PARTIAL_1_HERO" if n_hero == 1 else "BLOCKED")})
     # tool_usage_ledger strict
