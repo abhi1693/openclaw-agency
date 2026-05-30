@@ -1291,9 +1291,9 @@ export function ConsoleIAOverlay() {
                       <Paperclip className="h-4 w-4" /> Vider
                     </button>
                   ) : null}
-                  {proofItems.length > 0 && !proofsOpen ? (
-                    <button type="button" onClick={openProofs} className="tool-button">
-                      {proofItems.length} preuves ›
+                  {!proofsOpen ? (
+                    <button type="button" onClick={() => setProofsOpen(true)} className="tool-button" title="Détails, mémoire, preuves, destinations">
+                      Détails ›
                     </button>
                   ) : null}
                   <button
