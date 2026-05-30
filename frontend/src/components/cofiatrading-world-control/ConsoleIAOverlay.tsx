@@ -1211,6 +1211,33 @@ export function ConsoleIAOverlay() {
     }
   };
 
+  // Commandes Erwin entrantes (Telegram) — indicateur read-only.
+  useEffect(() => {
+    if (!isOpen) return;
+    let stopped = false;
+    const load = async () => {
+      try {
+        const r = await fetch("/api/cofiatrading-world-control/console-ia?commands=1", { cache: "no-store" });
+        const d = (await r.json()) as { ok: boolean; commands?: Array<{ targetId: string; targetAgent: string; text: string; ts: string; threadId: string }> };
+        if (!stopped && d.ok && Array.isArray(d.commands)) setInboundCommands(d.commands);
+      } catch {
+        // garde l'état
+      }
+    };
+    load();
+    const timer = window.setInterval(load, 15000);
+    return () => {
+      stopped = true;
+      window.clearInterval(timer);
+    };
+  }, [isOpen]);
+
+  const inboundByTarget = useMemo(() => {
+    const counts = new Map<string, number>();
+    for (const cmd of inboundCommands) counts.set(cmd.targetId, (counts.get(cmd.targetId) ?? 0) + 1);
+    return counts;
+  }, [inboundCommands]);
+
   useEffect(() => {
     if (!isOpen || (!threadId && !activePacketId)) return;
     let stopped = false;
