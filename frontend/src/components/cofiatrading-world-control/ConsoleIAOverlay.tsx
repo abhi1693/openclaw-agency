@@ -1232,13 +1232,30 @@ export function ConsoleIAOverlay() {
     if (threadTargetId && threadTargetId !== targetId) {
       setThread(null);
       setActivePacketId(null);
+      setThreadId(null);
       setPacketResult(null);
     }
     setSelectedTargetId(targetId);
-    if (!threadTargetId || threadTargetId !== targetId) {
-      const c = coherenceFor(targetId);
-      setSelectedModelModeId(c.defaultModel);
-      setSelectedActionMode(c.defaultAction);
+    const c = coherenceFor(targetId);
+    setSelectedModelModeId(c.defaultModel);
+    setSelectedActionMode(c.defaultAction);
+    // ÉTAPE 4 — reprend le thread actif de CET agent s'il existe (threads séparés par agent).
+    // Choisir un agent ne mélange jamais les turns d'un autre.
+    if (typeof window !== "undefined") {
+      fetch(`/api/cofiatrading-world-control/console-ia?targetId=${encodeURIComponent(targetId)}`, { cache: "no-store" })
+        .then((response) => response.json())
+        .then((data) => {
+          if (!data?.ok || !data.thread || data.thread.target?.id !== targetId) return;
+          setThread(data.thread as ConsoleThread);
+          setThreadId(typeof data.threadId === "string" ? data.threadId : null);
+          if (typeof data.thread.packetId === "string") setActivePacketId(data.thread.packetId);
+          const lane = data.thread.modelMode?.id;
+          if (lane && coherenceFor(targetId).allowedModels.includes(lane)) setSelectedModelModeId(lane);
+          if (data.thread.actionMode && PACKET_MODES.some((mode) => mode.id === data.thread.actionMode)) {
+            setSelectedActionMode(data.thread.actionMode);
+          }
+        })
+        .catch(() => {});
     }
   };
 
