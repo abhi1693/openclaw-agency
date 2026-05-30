@@ -1178,6 +1178,7 @@ export function ConsoleIAOverlay() {
       const formData = new FormData();
       formData.append("payload", JSON.stringify({
         message: message.trim(),
+        threadId: threadId ?? undefined,
         targetId: selectedTarget.id,
         targetLabel: selectedTarget.label,
 	        modelModeId: selectedModelMode.id,
