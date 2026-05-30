@@ -972,14 +972,17 @@ async function buildThread(packetId: string) {
       id: `${packetId}:user`,
       role: "user",
       title: "Erwin",
-      content: [
-        asString(input.message) || "(message sans texte)",
-        "",
-        `Mode demandé: ${asString(modelMode.label) || "5.3 Spark"} (${asString(modelMode.model) || "gpt-5.3-codex-spark"} / ${asString(modelMode.reasoning) || "standard"})`,
-        "",
-        "Pièces jointes:",
-        attachmentSummary,
-      ].join("\n"),
+      content: asString(packet.source)
+        ? (asString(input.message) || "(commande vide)")
+        : [
+            asString(input.message) || "(message sans texte)",
+            "",
+            `Mode demandé: ${asString(modelMode.label) || "5.3 Spark"} (${asString(modelMode.model) || "gpt-5.3-codex-spark"} / ${asString(modelMode.reasoning) || "standard"})`,
+            "",
+            "Pièces jointes:",
+            attachmentSummary,
+          ].join("\n"),
+      source: asString(packet.source) || undefined,
       createdAt,
       status: "sent",
     },
