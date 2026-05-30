@@ -1531,20 +1531,28 @@ export function ConsoleIAOverlay() {
               </footer>
             </main>
 
-            {proofsOpen ? (
-            <aside className="max-h-64 overflow-auto border-t border-slate-800 p-3 lg:max-h-none lg:border-l lg:border-t-0">
-              <div className="mb-3 flex items-center justify-between gap-2">
-                <p className="text-[10px] font-black uppercase tracking-[0.18em] text-cyan-100">Détails / Preuves</p>
-                <button
-                  type="button"
-                  onClick={() => setProofsOpen(false)}
-                  className="grid h-7 w-7 place-items-center rounded-lg border border-slate-700 text-slate-300 transition hover:border-cyan-300"
-                  aria-label="Fermer détails"
-                >
-                  <X className="h-3.5 w-3.5" />
-                </button>
-              </div>
-              <div className="mb-3 rounded-xl border border-cyan-300/20 bg-slate-950/70 p-3">
+            <aside className="max-h-80 overflow-auto border-t border-slate-800 p-3 lg:max-h-none lg:border-l lg:border-t-0">
+              <ChannelColumn
+                channels={CHANNEL_TARGETS}
+                activeChannelId={activeChannelId}
+                onSelect={setActiveChannelId}
+                destinationFor={destinationFor}
+                workMode={channelWorkMode}
+                onWorkMode={setChannelWorkMode}
+                activeAgentLabel={selectedTarget.label}
+              />
+
+              <button
+                type="button"
+                onClick={() => setProofsOpen((value) => !value)}
+                className="mt-3 flex w-full items-center justify-between rounded-lg border border-slate-800 bg-slate-900/55 px-3 py-2 text-[10px] font-black uppercase tracking-[0.16em] text-slate-300 transition hover:border-cyan-300/40"
+              >
+                <span>Détails / Preuves</span>
+                <span className="text-slate-500">{proofsOpen ? "▾" : "▸"}</span>
+              </button>
+              {proofsOpen ? (
+              <div className="mt-2 grid gap-3 border-t border-slate-800 pt-3">
+              <div className="rounded-xl border border-cyan-300/20 bg-slate-950/70 p-3">
                 <p className="text-[10px] font-black uppercase tracking-[0.18em] text-cyan-100">Thread local</p>
                 <h4 className="mt-2 truncate text-sm font-black text-white">
                   {thread?.target?.label ?? selectedTarget.label}
