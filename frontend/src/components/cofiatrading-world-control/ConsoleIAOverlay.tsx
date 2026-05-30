@@ -925,6 +925,8 @@ function ConversationsInbox({
   onBack,
   messages,
   loadingMessages,
+  onSend,
+  sending,
 }: {
   threads: ConvThread[];
   selectedId: string | null;
