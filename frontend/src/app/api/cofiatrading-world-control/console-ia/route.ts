@@ -1061,6 +1061,49 @@ async function buildThread(packetId: string) {
   };
 }
 
+async function countPacketRealReplies(packetId: string): Promise<number> {
+  const responsePath = path.join(RESPONSES_DIR, `${packetId}.jsonl`);
+  const responses = await readJsonlTail<Record<string, unknown>>(responsePath, 120, 256 * 1024);
+  return responses.filter((response) => {
+    if (response.realReply === true) return true;
+    if (response.realReply === false) return false;
+    const kind = sanitizeText(asString(response.kind), 40).toUpperCase();
+    if (kind === "AGENT_REPLY") return true;
+    if (kind === "WORKER_ACK" || kind === "ACK_LOCAL") return false;
+    return asString(response.source) === "console_ia_local_agent_reply";
+  }).length;
+}
+
+// Vue multi-tour : assemble les turns user+agent de TOUS les packets du thread,
+// méta depuis le dernier packet. realReplyCount recalculé live depuis responses (vérité,
+// jamais stocké comme acquis ; un ACK worker ne compte jamais comme réponse).
+async function buildThreadView(threadId: string) {
+  const trec = await readJsonFile<ThreadFile>(threadFilePath(threadId));
+  if (!trec) return null;
+  const packetIds = Array.isArray(trec.packetIds) ? trec.packetIds : [];
+  if (!packetIds.length) return null;
+  const built = await Promise.all(packetIds.map((pid) => buildThread(pid)));
+  const valid = built.filter((item): item is NonNullable<typeof item> => item !== null);
+  if (!valid.length) return null;
+  const last = valid[valid.length - 1];
+  const messages = valid
+    .flatMap((view) => view.messages.filter((message) => message.role === "user" || message.role === "agent"))
+    .sort((a, b) => (a.createdAt ?? "").localeCompare(b.createdAt ?? ""))
+    .slice(-120);
+  const realReplyCount = (await Promise.all(packetIds.map(countPacketRealReplies))).reduce((sum, count) => sum + count, 0);
+  return {
+    ...last,
+    threadId,
+    packetId: last.packetId,
+    packetIds,
+    turns: packetIds.length,
+    realReplyCount,
+    summary: trec.summary ?? "",
+    status: realReplyCount > 0 ? "THREAD_HAS_AGENT_REPLIES" : last.status,
+    messages,
+  };
+}
+
 async function recordAgentReply(body: Record<string, unknown>) {
   const packetId = sanitizeText(asString(body.packetId), 140);
   const agentId = sanitizeText(asString(body.agentId), 80) || "agent";
