@@ -500,17 +500,24 @@
           <button class="btn act" onclick="filterVar('promote')">Promote</button>
           <button class="btn act" onclick="filterVar('reject')">Reject/Insuf</button>
         </div>
+        <div class="card mb" style="padding:5px 7px;overflow-x:auto">
+          <table><thead><tr>
+            <th class="sortable" onclick="sortVar('s')">Strat</th><th>Variant</th>
+            <th class="num sortable" onclick="sortVar('pf')">PF</th><th class="num">R/PnL</th><th class="num sortable" onclick="sortVar('ddr')">DD</th>
+            <th class="num">n</th><th class="num">kept%</th><th>OOS</th><th>slip4t</th><th>PBO/DSR</th><th>Tail</th>
+            <th>Why not live?</th><th>Next required proof</th><th>Verdict</th>
+          </tr></thead><tbody id="varTable"></tbody></table>
+        </div>
         <div class="grid g-2-1">
-          <div class="card" style="padding:5px 7px">
-            <table><thead><tr>
-              <th class="sortable" onclick="sortVar('s')">Strat</th><th>Variant</th>
-              <th class="num sortable" onclick="sortVar('pf')">PF</th><th class="num">R/PnL</th><th class="num sortable" onclick="sortVar('ddr')">DD</th>
-              <th class="num">n</th><th class="num">kept%</th><th>OOS</th><th>slip4t</th><th>PBO/DSR</th><th>Tail</th><th>Paper-fwd?</th><th>Verdict</th>
-            </tr></thead><tbody id="varTable"></tbody></table>
+          <div class="card"><h3>PF × DD reduction <span class="r"><span class="badge b-real">REAL</span></span></h3><canvas id="varScatter" height="200"></canvas>
+            <div class="legend"><span><i style="background:var(--green)"></i>PAPER TEST CANDIDATE</span><span><i style="background:var(--red)"></i>REJECT</span><span><i style="background:var(--amber)"></i>INSUFFICIENT N</span></div></div>
+          <div class="card"><h3>Lecture</h3>
+            <div class="warnrow" style="flex-direction:column;align-items:stretch">
+              <span class="warn amber">⚠ Aucune variante n'est « live-ready ». Le mieux = PAPER TEST CANDIDATE (research-only).</span>
+              <span class="warn">⚠ PBO / Deflated Sharpe non calculé sur 32 variantes — « validé » = NOT PROVEN.</span>
+              <span class="warn">⚠ Tout candidate exige 100+ paper trades positifs avant toute discussion de taille.</span>
+            </div>
           </div>
-          <div class="card"><h3>PF × DD reduction <span class="r"><span class="badge b-real">REAL</span></span></h3><canvas id="varScatter" height="240"></canvas>
-            <div class="legend"><span><i style="background:var(--green)"></i>PROMOTE</span><span><i style="background:var(--red)"></i>REJECT</span><span><i style="background:var(--amber)"></i>INSUF N</span></div>
-            <div class="warnrow"><span class="warn amber">⚠ PBO / Deflated Sharpe non calculé — « validé » = NOT PROVEN</span></div></div>
         </div>
       </section>
 
