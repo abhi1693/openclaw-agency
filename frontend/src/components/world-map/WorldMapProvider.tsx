@@ -68,7 +68,6 @@ export function WorldMapProvider({
       console.error("[WorldMap] config invalide:", result.errors);
     }
     if (result.warnings.length > 0) {
-      // eslint-disable-next-line no-console
       console.warn("[WorldMap] avertissements config:", result.warnings);
     }
   }, [config]);
