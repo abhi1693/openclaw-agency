@@ -1532,7 +1532,12 @@ export function ConsoleIAOverlay() {
             {target.label.slice(0, 2).toUpperCase()}
           </span>
           <span className="min-w-0">
-            <span className="block truncate text-sm font-black text-white">{target.label}</span>
+            <span className="flex items-center gap-1.5 truncate text-sm font-black text-white">
+              {target.label}
+              {inboundByTarget.has(target.id) ? (
+                <span className="inline-block h-1.5 w-1.5 shrink-0 rounded-full bg-cyan-300 shadow-[0_0_6px_rgba(103,232,249,.85)]" title="commande entrante" />
+              ) : null}
+            </span>
             <span className="mt-0.5 block truncate text-[10px] uppercase tracking-[0.08em] text-slate-400">
               {target.scope}
             </span>
