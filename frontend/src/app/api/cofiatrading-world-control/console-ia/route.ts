@@ -1173,6 +1173,40 @@ async function buildThreadView(threadId: string) {
   };
 }
 
+// Répondre à un client depuis la dashboard — proxy vers le POST send EXISTANT du hub.
+// Gated : déclenché uniquement par un clic explicite (double-confirm UI). dryRun=true prouve
+// le câblage sans envoyer (pas de spam client en test). Aucun nouveau système d'envoi.
+async function proxyConversationSend(body: Record<string, unknown>) {
+  const uid = sanitizeText(asString(body.uid), 40);
+  const text = sanitizeText(asString(body.text), MAX_REPLY_CHARS);
+  const via = sanitizeText(asString(body.via), 20) || "iron";
+  const dryRun = body.dryRun === true;
+  if (!uid || !text) {
+    return NextResponse.json({ ok: false, error: "MISSING_UID_OR_TEXT", sourceTag: SOURCE_TAG }, { status: 400 });
+  }
+  if (dryRun) {
+    return NextResponse.json({
+      ok: true, dryRun: true, target: uid, via, by: "erwin", text,
+      wouldCall: `${HUB_URL}/api/conversations/${uid}/send`, sourceTag: SOURCE_TAG,
+    });
+  }
+  try {
+    const res = await fetch(`${HUB_URL}/api/conversations/${encodeURIComponent(uid)}/send`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ text, via, by: "erwin" }),
+      signal: AbortSignal.timeout(8000),
+    });
+    const result = await res.json().catch(() => ({}));
+    return NextResponse.json(
+      { ok: res.ok, status: res.status, result, target: uid, via, sourceTag: SOURCE_TAG },
+      { status: res.ok ? 200 : 502 },
+    );
+  } catch {
+    return NextResponse.json({ ok: false, error: "SEND_PROXY_FAILED", target: uid, sourceTag: SOURCE_TAG }, { status: 502 });
+  }
+}
+
 async function recordAgentReply(body: Record<string, unknown>) {
   const packetId = sanitizeText(asString(body.packetId), 140);
   const agentId = sanitizeText(asString(body.agentId), 80) || "agent";
