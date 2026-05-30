@@ -631,7 +631,10 @@ def execute_vip(voice_id=None) -> dict:
     run_id = f"vip_{int(time.time())}"
     rd = OUT_ROOT / run_id; rd.mkdir(parents=True, exist_ok=True)
     LD = Path.home() / ".openclaw/state/cofiapublisher/luma_generations"
-    hero1, hero2 = str(LD / "hero_09155fc4.mp4"), str(LD / "hero2_runway.mp4")
+    # G1/G3 (2026-05-30) : hero1 = SEUL hero Luma RÉEL. hero2 Luma BLOCKED (retrieval cassé) →
+    # path inexistant volontaire → le beat 'preuve' retombe sur Pexels HONNÊTEMENT (pas de Runway déguisé).
+    hero1 = str(LD / "hero_09155fc4.mp4")
+    hero2 = str(LD / "hero2_luma_BLOCKED_NONEXISTENT.mp4")  # BLOCKED_LUMA — pas de fake
     beats = [
         {"t": "Il est deux heures du matin. T'es seul devant tes écrans. Le marché bouge, ton cœur s'emballe, et personne pour te dire si t'as raison, ou si tu vas encore tout perdre.", "dur": 12, "q": "lone trader night dark screens stressed face", "role": "hook"},
         {"t": "Pas de cadre. Pas de signaux fiables. Juste du bruit permanent, des promesses de riche en une semaine, et des faux gourous qui crient plus fort que les autres pour te vendre du rêve.", "dur": 12, "q": "phone notifications scam social media chaos dark", "role": "douleur"},
