@@ -1249,30 +1249,34 @@ export function ConsoleIAOverlay() {
                   className="min-h-20 w-full resize-y rounded-xl border border-slate-700 bg-slate-900/90 p-3 text-[15px] leading-7 text-slate-100 outline-none transition placeholder:text-slate-500 focus:border-cyan-300/60"
                 />
                 <div className="mt-2 flex flex-wrap items-center gap-2">
-                  <span className={`inline-flex items-center gap-1 rounded-lg border px-2 py-1 text-[9px] font-black uppercase tracking-[0.08em] ${
-                    kevinPerception === "ready"
-                      ? "border-emerald-300/40 bg-emerald-400/10 text-emerald-100"
-                      : kevinPerception === "degraded"
-                        ? "border-amber-300/40 bg-amber-400/10 text-amber-100"
-                        : "border-slate-700 bg-slate-900/60 text-slate-400"
-                  }`}>
-                    Kevin · {kevinPerception}
-                  </span>
-                  <button
-                    type="button"
-                    onClick={isRecordingAudio ? stopAudioRecording : startAudioRecording}
-                    className="tool-button is-media"
-                    title="Micro — perception Kevin"
-                  >
-                    {isRecordingAudio ? <Square className="h-4 w-4" /> : <Mic className="h-4 w-4" />}
-                    {isRecordingAudio ? "Stop" : "Micro"}
-                  </button>
-                  <button type="button" onClick={captureScreen} className="tool-button is-media" title="Écran — perception Kevin">
-                    <MonitorUp className="h-4 w-4" /> Écran
-                  </button>
-                  <button type="button" onClick={captureCamera} className="tool-button is-media" title="Caméra — perception Kevin">
-                    <Camera className="h-4 w-4" /> Caméra
-                  </button>
+                  {perceptionContext ? (
+                    <>
+                      <span className={`inline-flex items-center gap-1 rounded-lg border px-2 py-1 text-[9px] font-black uppercase tracking-[0.08em] ${
+                        kevinPerception === "ready"
+                          ? "border-emerald-300/40 bg-emerald-400/10 text-emerald-100"
+                          : kevinPerception === "degraded"
+                            ? "border-amber-300/40 bg-amber-400/10 text-amber-100"
+                            : "border-slate-700 bg-slate-900/60 text-slate-400"
+                      }`}>
+                        Kevin · {kevinPerception}
+                      </span>
+                      <button
+                        type="button"
+                        onClick={isRecordingAudio ? stopAudioRecording : startAudioRecording}
+                        className="tool-button is-media"
+                        title="Micro — perception Kevin"
+                      >
+                        {isRecordingAudio ? <Square className="h-4 w-4" /> : <Mic className="h-4 w-4" />}
+                        {isRecordingAudio ? "Stop" : "Micro"}
+                      </button>
+                      <button type="button" onClick={captureScreen} className="tool-button is-media" title="Écran — perception Kevin">
+                        <MonitorUp className="h-4 w-4" /> Écran
+                      </button>
+                      <button type="button" onClick={captureCamera} className="tool-button is-media" title="Caméra — perception Kevin">
+                        <Camera className="h-4 w-4" /> Caméra
+                      </button>
+                    </>
+                  ) : null}
                   <button type="button" onClick={() => fileInputRef.current?.click()} className="tool-button" title="Joindre fichier ou image">
                     <FileUp className="h-4 w-4" /> Joindre
                   </button>
