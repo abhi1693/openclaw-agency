@@ -946,6 +946,28 @@ export function ConsoleIAOverlay() {
     setOpenInspectorSection("proofs");
   };
 
+  // Capture média / perception = seulement cible Kevin ou action PERCEPTION (règle 9/11).
+  const activeCoherence = coherenceFor(selectedTargetId);
+  const perceptionContext = activeCoherence.mediaAllowed || selectedActionMode === "PERCEPTION";
+
+  // Source-of-truth : changer de cible quand un thread d'une autre cible est chargé
+  // vide le thread/packet actif (règle 8), puis applique le modèle/action par défaut
+  // de la nouvelle cible si aucun thread ne la pilote (règles 1-3, 7).
+  const selectTarget = (targetId: string) => {
+    const threadTargetId = thread?.target?.id;
+    if (threadTargetId && threadTargetId !== targetId) {
+      setThread(null);
+      setActivePacketId(null);
+      setPacketResult(null);
+    }
+    setSelectedTargetId(targetId);
+    if (!threadTargetId || threadTargetId !== targetId) {
+      const c = coherenceFor(targetId);
+      setSelectedModelModeId(c.defaultModel);
+      setSelectedActionMode(c.defaultAction);
+    }
+  };
+
   const renderTargetButton = (target: ConsoleTarget) => {
     const bus = TARGET_BUS_BY_ID[target.id];
     const visual = targetVisualStatus(target, selectedTargetId, activeRouteBuses, bus ? participantStatusById.get(bus) : undefined);
@@ -954,7 +976,7 @@ export function ConsoleIAOverlay() {
       <button
         key={target.id}
         type="button"
-        onClick={() => setSelectedTargetId(target.id)}
+        onClick={() => selectTarget(target.id)}
         className={`rounded-xl border p-3 text-left transition focus-visible:outline focus-visible:outline-1 focus-visible:outline-cyan-200/50 ${
           target.id === selectedTargetId
             ? "border-cyan-300/60 bg-cyan-400/10"
