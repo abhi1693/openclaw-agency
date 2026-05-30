@@ -1419,6 +1419,37 @@ export async function POST(request: Request) {
 
 export async function GET(request: Request) {
   const url = new URL(request.url);
+
+  // ÉTAPE 3 — destinations (canaux opérationnels) ; statuts honnêtes, aucun feed inventé.
+  if (url.searchParams.get("destinations")) {
+    const destinations = await buildDestinations();
+    return NextResponse.json(
+      { ok: true, sourceTag: SOURCE_TAG, destinations },
+      { headers: { "Cache-Control": "no-store" } },
+    );
+  }
+
+  // ÉTAPE 3/4 — thread par threadId ou agent actif (targetId). threadId stable :
+  // un refresh recharge le thread, un retour sur un agent reprend SON thread.
+  const threadIdParam = sanitizeText(url.searchParams.get("threadId") ?? "", 140);
+  const targetIdParam = sanitizeText(url.searchParams.get("targetId") ?? "", 80);
+  if (threadIdParam || targetIdParam) {
+    let tid = threadIdParam;
+    if (!tid && targetIdParam) tid = await resolveActiveThreadId(targetIdParam);
+    const trec = tid ? await readJsonFile<ThreadFile>(threadFilePath(tid)) : null;
+    if (!trec || !trec.lastPacketId) {
+      return NextResponse.json(
+        { ok: true, sourceTag: SOURCE_TAG, status: "THREAD_EMPTY", threadId: tid || null, turns: 0, thread: null },
+        { headers: { "Cache-Control": "no-store" } },
+      );
+    }
+    const thread = await buildThread(trec.lastPacketId);
+    return NextResponse.json(
+      { ok: true, sourceTag: SOURCE_TAG, status: "THREAD_READY_LOCAL", threadId: tid, turns: trec.packetIds.length, thread },
+      { headers: { "Cache-Control": "no-store" } },
+    );
+  }
+
   const packetId = sanitizeText(url.searchParams.get("packetId") ?? "", 140);
   if (packetId) {
     const thread = await buildThread(packetId);
