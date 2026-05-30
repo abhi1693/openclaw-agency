@@ -743,6 +743,34 @@ const DESTINATION_LABELS: Record<string, string> = {
   telegram_vip: "Telegram VIP",
   telegram_erwin: "Compte perso Erwin",
 };
+// Hub local existant (telegram-hub-bridge). On LIT seulement (read-only), jamais d'écriture hub.
+const HUB_URL = process.env.COF_HUB_URL ?? "http://127.0.0.1:8430";
+
+// Lit le feed d'un canal depuis la brique LIVE déjà en place — le même endpoint que
+// iron_free_listener consomme. Aucun Telethon recréé, aucun envoi. Seul 'free' a un endpoint hub.
+async function fetchTelegramFeed(channel: string): Promise<{ ok: boolean; items: Array<{ id: string; author: string; text: string; ts: string }> }> {
+  try {
+    const res = await fetch(`${HUB_URL}/api/telegram/${channel}/recent?since=0&limit=20`, {
+      cache: "no-store",
+      signal: AbortSignal.timeout(2500),
+    });
+    if (!res.ok) return { ok: false, items: [] };
+    const data = (await res.json()) as { messages?: Array<Record<string, unknown>> };
+    const msgs = Array.isArray(data?.messages) ? data.messages : [];
+    const items = msgs.map((m, i) => ({
+      id: String(m?.msg_id ?? m?.telegram_msg_id ?? `${channel}_${i}`),
+      author: typeof m?.username === "string" && m.username
+        ? m.username
+        : (m?.user_id && m.user_id !== 0 ? String(m.user_id) : "Free"),
+      text: sanitizeText(asString(m?.text), 400) || "[média]",
+      ts: String(m?.ts ?? ""),
+    }));
+    return { ok: true, items };
+  } catch {
+    return { ok: false, items: [] };
+  }
+}
+
 async function buildDestinations() {
   return Promise.all(DESTINATION_IDS.map(async (id) => {
     const draftPath = path.join(DRAFTS_DIR, `${id}.jsonl`);
@@ -754,14 +782,26 @@ async function buildDestinations() {
         createdAt: sanitizeText(asString(d.createdAt), 80),
       }))
       .filter((d) => d.text);
+    // Feed read-only : seul 'free' a une brique hub live aujourd'hui. iron/vip/perso → statut honnête MISSING.
+    let feed: Array<{ id: string; author: string; text: string; ts: string }> = [];
+    let readStatus = "READ_MISSING";
+    let bridgeStatus = "BRIDGE_MISSING";
+    if (id === "telegram_free") {
+      const r = await fetchTelegramFeed("free");
+      if (r.ok) {
+        feed = r.items;
+        bridgeStatus = "BRIDGE_LIVE";
+        readStatus = "READ_CONNECTED";
+      }
+    }
     return {
       destinationId: id,
       label: DESTINATION_LABELS[id] ?? id,
       kind: "telegram",
-      readStatus: "READ_MISSING",
+      readStatus,
       writeStatus: "WRITE_LOCKED",
-      bridgeStatus: "BRIDGE_MISSING",
-      feed: [] as unknown[],
+      bridgeStatus,
+      feed,
       drafts,
       summary: "",
       updatedAt: new Date().toISOString(),
