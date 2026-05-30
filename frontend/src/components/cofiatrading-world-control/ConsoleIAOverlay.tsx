@@ -1829,6 +1829,8 @@ export function ConsoleIAOverlay() {
                   onBack={() => setSelectedConvId(null)}
                   messages={convMessages}
                   loadingMessages={convLoading}
+                  onSend={sendConversationReply}
+                  sending={convSending}
                 />
               ) : (
                 <ChannelColumn
