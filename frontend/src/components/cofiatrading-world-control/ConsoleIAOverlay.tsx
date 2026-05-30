@@ -963,7 +963,43 @@ function ConversationsInbox({
             );
           })}
         </div>
-        <p className="rounded-lg border border-slate-800 bg-slate-950/50 px-2 py-1.5 text-[10px] leading-4 text-slate-500">Lecture seule. Répondre depuis la dashboard (POST send) à activer ensuite, gated.</p>
+        <div className="grid gap-1.5 border-t border-slate-800 pt-2">
+          <textarea
+            value={reply}
+            onChange={(e) => { setReply(e.target.value); setConfirm(false); }}
+            placeholder={`Répondre à ${active?.name ?? "ce client"} via ${active?.agent || "iron"}…`}
+            rows={2}
+            className="w-full resize-none rounded-lg border border-slate-800 bg-slate-950/70 px-2 py-1.5 text-[12px] text-slate-100 outline-none focus:border-cyan-300/40"
+          />
+          {!confirm ? (
+            <button
+              type="button"
+              disabled={!reply.trim() || sending}
+              onClick={() => setConfirm(true)}
+              className="ml-auto rounded-lg border border-emerald-300/50 bg-emerald-400/10 px-3 py-1.5 text-[11px] font-black text-emerald-100 transition hover:bg-emerald-400/20 disabled:cursor-not-allowed disabled:opacity-40"
+            >
+              Envoyer →
+            </button>
+          ) : (
+            <div className="flex items-center gap-2">
+              <span className="text-[10px] font-black text-amber-200">Envoyer à {active?.name ?? selectedId} via {active?.agent || "iron"} ?</span>
+              <button
+                type="button"
+                disabled={sending}
+                onClick={async () => {
+                  const ok = await onSend(selectedId, reply.trim(), active?.agent || "iron");
+                  if (ok) setReply("");
+                  setConfirm(false);
+                }}
+                className="ml-auto rounded-lg border border-emerald-300/55 bg-emerald-400/15 px-3 py-1 text-[11px] font-black text-emerald-100 disabled:opacity-40"
+              >
+                {sending ? "Envoi…" : "Confirmer"}
+              </button>
+              <button type="button" onClick={() => setConfirm(false)} className="rounded-lg border border-slate-700 px-2 py-1 text-[11px] text-slate-300">Annuler</button>
+            </div>
+          )}
+          <span className="text-[9px] leading-3 text-slate-500">Envoi réel gated · clic + confirmation · via le bot {active?.agent || "iron"}. Le reste = lecture seule.</span>
+        </div>
       </div>
     );
   }
