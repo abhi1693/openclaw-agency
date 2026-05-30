@@ -55,11 +55,7 @@ export function WorldMapProvider({
   live = true,
   children,
 }: WorldMapProviderProps) {
-  const storeRef = useRef<WorldMapStore | null>(null);
-  if (storeRef.current === null) {
-    storeRef.current = createWorldMapStore(config);
-  }
-  const store = storeRef.current;
+  const [store] = useState(() => createWorldMapStore(config));
 
   const state = useSyncExternalStore(store.subscribe, store.getState, store.getServerState);
   const index = store.getIndex();
