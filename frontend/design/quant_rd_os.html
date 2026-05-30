@@ -564,6 +564,27 @@
             <div class="warnrow" style="margin-top:9px"><span class="warn">⚠ STOP STRATEGY if health &lt; threshold</span></div>
           </div>
         </div>
+        <div class="grid g2" style="margin-top:12px">
+          <div class="card"><h3>PASS conditions <span class="r">toutes requises avant tout statut live</span></h3>
+            <ul class="checklist">
+              <li><span class="x">✕</span> 100+ paper trades (actuel 44)</li>
+              <li><span class="x">✕</span> sum R positive (actuel S17 +0.22 / S18 −5.06)</li>
+              <li><span class="x">✕</span> rolling-20 WR positive vs backtest (actuel 30% &lt; 40%)</li>
+              <li><span class="x">✕</span> DD under threshold (P95 ≈ 2× backtest)</li>
+              <li><span class="ok">✓</span> accepted &gt; rejected (44 vs 9)</li>
+              <li><span class="ok">✓</span> no compliance issue (EXEC OFF, no bypass)</li>
+            </ul>
+            <div class="warnrow" style="margin-top:8px"><span class="warn">4/6 conditions échouent → HEALTH FAIL</span></div>
+          </div>
+          <div class="card"><h3>Next 30 days <span class="r">plan paper-forward</span></h3>
+            <div class="feed">
+              <div class="it"><span class="dotv" style="background:var(--violet)"></span><div><b>S1-S2</b> · forward-record continu, viser n=60-70, comparer R live vs backtest chaque semaine</div></div>
+              <div class="it"><span class="dotv" style="background:var(--cyan)"></span><div><b>S2</b> · re-backtest MNQ natif ($2/pt) — corriger le mismatch ×10</div></div>
+              <div class="it"><span class="dotv" style="background:var(--amber)"></span><div><b>S3</b> · estimer PBO (CSCV) + Deflated Sharpe sur les 32 variantes</div></div>
+              <div class="it"><span class="dotv" style="background:var(--green2)"></span><div><b>S4</b> · review : si sum R live &gt; 0 sur n≥100 → passer WATCH, sinon RESEARCH ONLY maintenu</div></div>
+            </div>
+          </div>
+        </div>
       </section>
 
       <!-- TEMPLATE STUDIO -->
