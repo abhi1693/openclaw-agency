@@ -1742,15 +1742,40 @@ export function ConsoleIAOverlay() {
             </main>
 
             <aside className="max-h-80 overflow-auto border-t border-slate-800 p-3 lg:max-h-none lg:border-l lg:border-t-0">
-              <ChannelColumn
-                channels={CHANNEL_TARGETS}
-                activeChannelId={activeChannelId}
-                onSelect={setActiveChannelId}
-                destinationFor={destinationFor}
-                workMode={channelWorkMode}
-                onWorkMode={setChannelWorkMode}
-                activeAgentLabel={selectedTarget.label}
-              />
+              <div className="mb-3 grid grid-cols-2 gap-1 rounded-xl border border-slate-800 bg-slate-950/60 p-1">
+                {([["conversations", "Conversations"], ["canaux", "Canaux"]] as const).map(([id, label]) => (
+                  <button
+                    key={id}
+                    type="button"
+                    onClick={() => setInboxSegment(id)}
+                    className={`rounded-lg px-2 py-1.5 text-[10px] font-black uppercase tracking-[0.08em] transition ${
+                      inboxSegment === id ? "bg-cyan-400/14 text-cyan-50" : "text-slate-500 hover:bg-slate-800/70 hover:text-slate-200"
+                    }`}
+                  >
+                    {label}{id === "conversations" && conversations.length ? ` (${conversations.length})` : ""}
+                  </button>
+                ))}
+              </div>
+              {inboxSegment === "conversations" ? (
+                <ConversationsInbox
+                  threads={conversations}
+                  selectedId={selectedConvId}
+                  onSelect={setSelectedConvId}
+                  onBack={() => setSelectedConvId(null)}
+                  messages={convMessages}
+                  loadingMessages={convLoading}
+                />
+              ) : (
+                <ChannelColumn
+                  channels={CHANNEL_TARGETS}
+                  activeChannelId={activeChannelId}
+                  onSelect={setActiveChannelId}
+                  destinationFor={destinationFor}
+                  workMode={channelWorkMode}
+                  onWorkMode={setChannelWorkMode}
+                  activeAgentLabel={selectedTarget.label}
+                />
+              )}
 
               <button
                 type="button"
