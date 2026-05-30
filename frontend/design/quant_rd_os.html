@@ -536,6 +536,14 @@
       <section class="page" id="pg-paper">
         <h1 class="pt">Paper-Forward Health</h1>
         <div class="sub">Seul OOS temps réel. Health gate = <b>100 trades live positifs</b> avant tout claim/taille. <span class="badge b-paper">PAPER</span></div>
+        <div class="card mb" style="padding:12px 14px;border-color:rgba(255,84,112,.3);background:linear-gradient(90deg,rgba(255,84,112,.1),transparent)">
+          <div style="display:flex;align-items:center;gap:16px;flex-wrap:wrap">
+            <span style="font-size:18px;font-weight:800;color:var(--red)">HEALTH : FAIL</span>
+            <span style="font-size:11.5px;color:var(--mute)">STRAT-17 et STRAT-18 <b>pas prêts</b> tant que le paper OOS ne confirme pas un edge. sum R live négatif, n insuffisant.</span>
+            <span class="spacer" style="flex:1"></span>
+            <span class="pill reject">FAIL &lt; 100 tr</span><span class="pill insuf">WATCH 100-200</span><span class="pill promote">PASS &gt; 200 + sumR&gt;0</span>
+          </div>
+        </div>
         <div class="grid g4 mb">
           <div class="card tight"><h3>Rolling 20 trades</h3><div class="meter"><div class="top"><span>WR</span><span style="color:var(--red)">30%</span></div><div class="bar"><i style="width:30%;background:var(--red)"></i></div></div><div class="note">backtest 40% (S17)</div></div>
           <div class="card tight"><h3>Rolling 50 trades</h3><div class="meter"><div class="top"><span>sum R</span><span style="color:var(--red)">négatif</span></div><div class="bar"><i style="width:22%;background:var(--red)"></i></div></div><div class="note">n insuffisant (44)</div></div>
