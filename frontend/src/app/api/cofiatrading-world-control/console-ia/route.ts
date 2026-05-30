@@ -1324,6 +1324,7 @@ export async function POST(request: Request) {
     await writeKevinPacket(packet, packetHash, kevinPacketPath);
   }
   appendJsonl(PACKETS_JSONL, { ...packet, packetHash });
+  await appendUserTurn(threadRecord, packetId, modelMode.id, timestamp);
 
   for (const route of routes) {
     appendJsonl(route.path, {
