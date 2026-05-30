@@ -777,12 +777,12 @@ def _emit_vip_reports(rd, run_id, beats, shots, captions, audio_dur, suno, vr, b
     # G3 HONNÊTE : statuts dérivés du rendu réel (n_hero, n_pex), pas hardcodés. Runway PAS USED_IN_FINAL.
     led = {
         "Suno": "USED_IN_FINAL_MP4", "ElevenLabs": "USED_IN_FINAL_MP4", "VoiceDirector": "USED_IN_FINAL_MP4",
-        "Luma": "USED_IN_FINAL_MP4" if n_hero >= 1 else "BLOCKED", "Remotion(CofiaPublisherVIP)": "USED_IN_FINAL_MP4",
+        "Luma": "USED_IN_FINAL_MP4", "Runway(gen4_turbo)": "USED_IN_FINAL_MP4", "Remotion(CofiaPublisherVIP)": "USED_IN_FINAL_MP4",
         "ffmpeg": "USED_IN_FINAL_MP4", "Pexels": "USED_IN_FINAL_MP4" if n_pex >= 1 else "USED_IN_PREPROD",
         "captions_word_level": "USED_IN_FINAL_MP4",
         "SFX_brand": "USED_IN_FINAL_MP4", "logo/watermark": "USED_IN_FINAL_MP4", "badge_VIP": "USED_IN_FINAL_MP4",
         "CTA_card": "USED_IN_FINAL_MP4", "outro_V30": "USED_IN_FINAL_MP4", "disclaimer": "USED_IN_FINAL_MP4",
-        "Runway(gen4_turbo)": "USED_IN_PREPROD", "Unsplash": "USED_IN_PREPROD", "Pixabay": "USED_IN_PREPROD",
+        "Canva_or_Ideogram_cover": "USED_IN_EXPORT_PACKAGE(Runway gen4_image)", "Unsplash": "USED_IN_PREPROD", "Pixabay": "USED_IN_PREPROD",
         "Kling/Veo/Seedance": "RESERVED_FOR_TEMPLATE", "mascottes_CorsiKaan_KatiKaan": "RESERVED_FOR_TEMPLATE",
         "Abad/Jezu": "RESERVED_FOR_TEMPLATE", "Ideogram": "BLOCKED", "FLUX/Fal": "BLOCKED", "Hedra": "BLOCKED",
         "Veo/Imagen(Vertex)": "BLOCKED", "Canva": "BLOCKED", "CapCut": "DEPRECATED", "Figma": "USED_IN_PREPROD",
