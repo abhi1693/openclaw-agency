@@ -814,10 +814,18 @@ export function ConsoleIAOverlay() {
     [selectedTargetId],
   );
 
-  const selectedModelMode = useMemo(
-    () => MODEL_MODES.find((mode) => mode.id === selectedModelModeId) ?? MODEL_MODES[0],
-    [selectedModelModeId],
-  );
+  // La lane affichée doit TOUJOURS appartenir à l'agent actif. Si l'id courant
+  // n'est pas dans les lanes de l'agent (ex: thread legacy, switch d'agent),
+  // on retombe sur la lane par défaut de l'agent ; si même elle manque → LANE_MISSING.
+  // Jamais de fallback silencieux vers MODEL_MODES[0] (= spark_5_3 Codex).
+  const selectedModelMode = useMemo(() => {
+    const c = coherenceFor(selectedTargetId);
+    const current = MODEL_MODES.find((mode) => mode.id === selectedModelModeId);
+    if (current && c.allowedModels.includes(current.id)) return current;
+    const fallback = MODEL_MODES.find((mode) => mode.id === c.defaultModel);
+    if (fallback && c.allowedModels.includes(fallback.id)) return fallback;
+    return LANE_MISSING_MODE;
+  }, [selectedModelModeId, selectedTargetId]);
 
   const canSubmit = message.trim().length > 0 || attachments.length > 0;
   const activeWhyStatus = thread?.whyStatus ?? packetResult?.whyStatus;
