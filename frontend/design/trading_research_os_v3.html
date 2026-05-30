@@ -711,7 +711,14 @@ function restore(){let s={};try{s=JSON.parse(localStorage.getItem('tros_v31')||'
  if(s.mode){STATE.mode=s.mode;$$('#modeSeg button').forEach(b=>b.classList.toggle('on',b.dataset.m===s.mode));}
  STATE.tab=urlTab==='personal'?'personal':(urlTab==='quant'?'quant':(s.tab||'quant'));}
 
-function init(){restore();setInst();flowSync();buildRules('STRAT-17');buildTradeBar();fillRail();syncPersonalFromTrade();buildQuantTables();buildTpl();buildPersonal();
+const CALENDAR=[["1j 22h","US CPI core (m/m)","HIGH","±2 min","spike vol"],["2j","FOMC minutes","HIGH","±2 min","whipsaw"],["4j","US NFP + chômage","HIGH","±5 min","gap risk"],["+8j","PCE price index","HIGH","±2 min","trend day"],["+10j","Triple-witching (opex)","MED","1ère heure","liquidité faussée"]];
+const SESSIONS=[["Asia 18:00→02:00","calme · range",18,false],["London 02:00→07:00","expansion",55,false],["NY pre 07:00→09:30","setup",40,false],["NY RTH 09:30→16:00","actif · COURANT",92,true],["Lunch 12:00→13:30","lull · skip",22,false],["Last hour 15:00→16:00","squeeze",70,false]];
+function buildContext(){
+  if($('#calTable'))$('#calTable').innerHTML=CALENDAR.map(c=>`<tr><td style="color:var(--mute)">${c[0]}</td><td>${c[1]}</td><td><span class="pill ${c[2]==='HIGH'?'reject':'insuf'}" style="font-size:8.5px">${c[2]}</span></td><td style="color:#ffc1cd">${c[3]}</td><td style="color:var(--mute);font-size:10.5px">${c[4]}</td></tr>`).join('');
+  if($('#sessMap'))$('#sessMap').innerHTML=SESSIONS.map(s=>`<div class="meter" style="margin-bottom:7px"><div class="top"><span style="${s[3]?'color:#eafaff;font-weight:700':''}">${s[0]}</span><span style="color:var(--mute);font-size:10px">${s[1]}</span></div><div class="bar"><i style="width:${s[2]}%;background:${s[3]?'var(--cyan)':'rgba(125,144,171,.4)'}"></i></div></div>`).join('');
+  if($('#hourHeat')){const hrs=['08','09','10','11','12','13','14','15'];const v=[0.3,0.6,-1.4,-0.2,-0.5,0.1,0.4,0.7];$('#hourHeat').innerHTML='<div style="display:flex;gap:4px;align-items:flex-end;height:64px">'+hrs.map((h,i)=>{const val=v[i];const bg=val<0?'rgba(255,84,112,'+Math.min(.8,.3+Math.abs(val)/2)+')':'rgba(35,209,139,'+Math.min(.8,.3+val/2)+')';return `<div style="flex:1;text-align:center"><div style="height:${18+Math.abs(val)*24}px;background:${bg};border-radius:3px"></div><div style="font-size:8.5px;color:var(--dim);margin-top:3px">${h}</div></div>`;}).join('')+'</div>';}
+}
+function init(){restore();setInst();flowSync();buildRules('STRAT-17');buildTradeBar();fillRail();syncPersonalFromTrade();buildQuantTables();buildTpl();buildPersonal();buildContext();
  const detSel=$('#detSel');if(detSel){detSel.value=ACCT_DETAIL[STATE.account]?STATE.account:'APEX-247';detSel.onchange=()=>setAccountDetail(detSel.value);}
  setAccountDetail(ACCT_DETAIL[STATE.account]?STATE.account:'APEX-247');
  applyStrat();runBacktest(true);setTab(STATE.tab);persist();redrawAll();}
