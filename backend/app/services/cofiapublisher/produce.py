@@ -725,7 +725,7 @@ def execute_vip(voice_id=None) -> dict:
           "[m][a0]sidechaincompress=threshold=0.05:ratio=4:attack=15:release=300[duck];"
           "[a1][duck]amix=inputs=2:duration=first:normalize=0[mx];[mx]loudnorm=I=-14:TP=-1.2:LRA=11[a]")
     mix = subprocess.run(["ffmpeg", "-y", "-i", raw_mp4, "-stream_loop", "-1", "-i", suno, "-filter_complex", fc,
-                          "-map", "0:v", "-map", "[a]", "-c:v", "copy", "-c:a", "aac", "-b:a", "192k", "-shortest", out_mp4], capture_output=True, text=True, timeout=600)
+                          "-map", "0:v", "-map", "[a]", "-c:v", "copy", "-c:a", "aac", "-b:a", "192k", "-ar", "48000", "-shortest", out_mp4], capture_output=True, text=True, timeout=600)
     if mix.returncode != 0 or not os.path.exists(out_mp4):
         _sh.copyfile(raw_mp4, out_mp4)
     _emit_vip_reports(rd, run_id, beats, shots, captions, audio_dur, suno, vr, badge_f, counter_f, cta_f, used_pexels, used_hero, out_mp4)
