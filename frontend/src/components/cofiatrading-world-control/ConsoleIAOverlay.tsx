@@ -1064,25 +1064,11 @@ export function ConsoleIAOverlay() {
           <div className={`grid min-h-0 grid-cols-1 overflow-hidden ${proofsOpen ? "lg:grid-cols-[240px_1fr_330px]" : "lg:grid-cols-[240px_1fr]"}`}>
             <aside className="max-h-56 overflow-auto border-b border-slate-800/80 p-3 lg:max-h-none lg:border-b-0 lg:border-r">
               <p className="mb-3 text-[10px] font-black uppercase tracking-[0.18em] text-cyan-100">
-                Cibles IA
+                Agents IA
               </p>
               <div className="grid gap-2">
                 {AGENT_TARGETS.map((target) => renderTargetButton(target))}
               </div>
-
-              <button
-                type="button"
-                onClick={() => setChannelsOpen((value) => !value)}
-                className="mt-4 flex w-full items-center justify-between rounded-lg border border-slate-800 bg-slate-900/60 px-3 py-2 text-[10px] font-black uppercase tracking-[0.14em] text-slate-300 transition hover:border-cyan-300/40"
-              >
-                <span>Canaux Telegram</span>
-                <span className="text-slate-500">{channelsOpen ? "▾" : "▸"}</span>
-              </button>
-              {channelsOpen ? (
-                <div className="mt-2 grid gap-2">
-                  {CHANNEL_TARGETS.map((target) => renderTargetButton(target))}
-                </div>
-              ) : null}
             </aside>
 
             <main className="grid min-h-0 grid-rows-[auto_1fr_auto] overflow-hidden">
