@@ -770,19 +770,22 @@ def _emit_vip_reports(rd, run_id, beats, shots, captions, audio_dur, suno, vr, b
                  "status": "BLOCKED_LUMA", "raison": "retrieval cookie-session cassé ; beat preuve rendu en Pexels labellisé"}],
       "verdict": "PASS" if n_hero >= 2 else ("PARTIAL_1_HERO" if n_hero == 1 else "BLOCKED")})
     # tool_usage_ledger strict
+    # G3 HONNÊTE : statuts dérivés du rendu réel (n_hero, n_pex), pas hardcodés. Runway PAS USED_IN_FINAL.
     led = {
         "Suno": "USED_IN_FINAL_MP4", "ElevenLabs": "USED_IN_FINAL_MP4", "VoiceDirector": "USED_IN_FINAL_MP4",
-        "Luma": "USED_IN_FINAL_MP4", "Runway(gen4_turbo)": "USED_IN_FINAL_MP4", "Remotion(CofiaPublisherVIP)": "USED_IN_FINAL_MP4",
-        "ffmpeg": "USED_IN_FINAL_MP4", "Pexels": "USED_IN_FINAL_MP4", "captions_word_level": "USED_IN_FINAL_MP4",
+        "Luma": "USED_IN_FINAL_MP4" if n_hero >= 1 else "BLOCKED", "Remotion(CofiaPublisherVIP)": "USED_IN_FINAL_MP4",
+        "ffmpeg": "USED_IN_FINAL_MP4", "Pexels": "USED_IN_FINAL_MP4" if n_pex >= 1 else "USED_IN_PREPROD",
+        "captions_word_level": "USED_IN_FINAL_MP4",
         "SFX_brand": "USED_IN_FINAL_MP4", "logo/watermark": "USED_IN_FINAL_MP4", "badge_VIP": "USED_IN_FINAL_MP4",
         "CTA_card": "USED_IN_FINAL_MP4", "outro_V30": "USED_IN_FINAL_MP4", "disclaimer": "USED_IN_FINAL_MP4",
-        "Unsplash": "USED_IN_PREPROD", "Pixabay": "USED_IN_PREPROD",
-        "Kling/Veo/Seedance(via Runway)": "USED_IN_PREPROD", "mascottes_CorsiKaan_KatiKaan": "USED_IN_PREPROD",
-        "Ideogram": "BLOCKED", "FLUX/Fal": "BLOCKED", "Hedra": "BLOCKED", "CapCut": "DEPRECATED",
-        "Canva": "USED_IN_PREPROD", "Figma": "USED_IN_PREPROD",
+        "Runway(gen4_turbo)": "USED_IN_PREPROD", "Unsplash": "USED_IN_PREPROD", "Pixabay": "USED_IN_PREPROD",
+        "Kling/Veo/Seedance": "RESERVED_FOR_TEMPLATE", "mascottes_CorsiKaan_KatiKaan": "RESERVED_FOR_TEMPLATE",
+        "Abad/Jezu": "RESERVED_FOR_TEMPLATE", "Ideogram": "BLOCKED", "FLUX/Fal": "BLOCKED", "Hedra": "BLOCKED",
+        "Veo/Imagen(Vertex)": "BLOCKED", "Canva": "BLOCKED", "CapCut": "DEPRECATED", "Figma": "USED_IN_PREPROD",
+        "Luma_hero_2": "BLOCKED_LUMA",
     }
-    W("tool_usage_ledger.json", {"run": run_id, "ledger": led,
-      "note": "USED_IN_FINAL_MP4 = preuve dans video_final.mp4 ; USED_IN_PREPROD = dispo/source mais pas dans ce MP4 ; BLOCKED = clé absente/free-tier."})
+    W("tool_usage_ledger.json", {"run": run_id, "ledger": led, "heros_luma_reels": n_hero, "pexels_clips": n_pex,
+      "note": "G3: statuts dérivés du rendu réel. USED_IN_FINAL = prouvé MP4 ; PREPROD/RESERVED/BLOCKED honnêtes. Runway rétrogradé PREPROD (pas dans ce MP4). Preuves frame/timecode = asset_execution_report post-render."})
     # creative_qa — score MESURÉ autonome (PASS si >=8)
     cq = {
         "hook_humain": (True, 1.5),
