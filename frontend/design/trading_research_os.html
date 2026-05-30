@@ -244,6 +244,19 @@
   .filterrow{display:flex; gap:6px; flex-wrap:wrap; margin-bottom:11px}
   .fb{font-size:10.5px; font-weight:700; padding:5px 11px; border-radius:20px; border:1px solid var(--line); background:var(--panel2); color:var(--mute); cursor:pointer}
   .fb.on{border-color:var(--cyan); color:#eafaff; background:rgba(0,185,255,.12)}
+  /* ===== V3.1 polish — lisibilité ≥10px ===== */
+  .badge{font-size:10px} .bstat{font-size:10px; min-width:92px} .tpl .st{font-size:10px} .vev .sb{font-size:10px}
+  .acard .mini{font-size:10px} .nba .pr{font-size:10px} .nba .d{font-size:11px} .console{font-size:12px}
+  .legend{font-size:10.5px} #replayTip{font-size:11px} .feed .it .d{font-size:10.5px} .heat .hc{font-size:9.5px}
+  /* boutons action MOCK clairement désactivés (vs navigation active) */
+  .btn:not(.act):not(.actv){opacity:.5; border-style:dashed}
+  .btn:not(.act):not(.actv) .lk::before{content:"🔒 "}
+  /* coverage bars Data Explorer */
+  .covrow{display:flex; align-items:center; gap:8px; margin:5px 0; font-size:11px}
+  .covrow .nm{width:210px; color:var(--silver)} .covrow .t{flex:1; height:7px; border-radius:5px; background:rgba(255,255,255,.05); overflow:hidden} .covrow .t>i{display:block;height:100%} .covrow .x{width:108px; text-align:right; font-size:10px; color:var(--mute)}
+  /* bandeau MOCK permanent (les 2 onglets) */
+  .mockbar{position:fixed; left:0; right:0; bottom:0; height:22px; display:flex; align-items:center; justify-content:center; gap:12px; font-size:10px; font-weight:700; letter-spacing:1.5px; color:#a7bad4; background:linear-gradient(90deg,rgba(255,84,112,.13),rgba(4,13,32,.94) 50%,rgba(255,178,62,.11)); border-top:1px solid rgba(255,84,112,.28); z-index:60; backdrop-filter:blur(6px)}
+  .main{padding-bottom:64px !important}
 </style>
 </head>
 <body>
