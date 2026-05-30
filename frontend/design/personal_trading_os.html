@@ -441,7 +441,17 @@ function fill(){
   $('#compTable').innerHTML=COMP.map(c=>`<tr><td>${c.a}</td><td>${c.r}</td><td><span class="${c.st==='on'?'st on':'st down'}">${c.lbl}</span></td></tr>`).join('');
   $('#detSig').innerHTML=DETSIG.map(s=>`<div class="kv" style="padding:4px 0"><span class="k">${s[0]} ${s[1]}</span><span class="v" style="color:${s[2].startsWith('+')?'var(--green2)':'var(--red)'}">${s[2]}</span></div>`).join('');
   $('#detExec').innerHTML=DETEXEC.map(s=>`<div class="kv" style="padding:4px 0"><span class="k">${s[0]}</span><span class="v" style="font-size:10px">${s[1]}</span></div>`).join('');
+  buildHeat();
 }
+function buildHeat(){const el=$('#heat');if(!el)return;const accs=['APEX-247','ATAS-LIVE','MT5-2207','MT4-FXcess'];
+  const days=14;let seed=42;const rnd=()=>{seed=(seed*1103515245+12345)&0x7fffffff;return seed/0x7fffffff;};
+  let html='<div class="heat" style="grid-template-columns:88px repeat('+days+',1fr)"><div class="lbl"></div>';
+  for(let d=0;d<days;d++)html+=`<div class="lbl">${d+1}</div>`;
+  accs.forEach(a=>{html+=`<div class="lbl" style="justify-content:flex-start;font-size:9.5px;color:var(--mute)">${a}</div>`;
+    for(let d=0;d<days;d++){let v;if(a==='MT4-FXcess'){v=null;}else{const r=rnd();v=r<0.34?0:(r-0.5)*4;}
+      let bg,txt;if(v===null){bg='rgba(255,178,62,.12)';txt='·';}else if(Math.abs(v)<0.15){bg='rgba(125,144,171,.18)';txt='';}else if(v>0){const i=Math.min(.75,.2+v/4);bg='rgba(35,209,139,'+i+')';txt=v.toFixed(1);}else{const i=Math.min(.75,.2+Math.abs(v)/4);bg='rgba(255,84,112,'+i+')';txt=v.toFixed(1);}
+      html+=`<div class="hc" style="background:${bg}">${txt}</div>`;}});
+  html+='</div>';el.innerHTML=html;}
 function donut(id,data){const o=ctx(id);if(!o)return;const{x,w,h}=o;const cx=w/2,cy=h/2,R=Math.min(w,h)/2-12;if(R<=0)return;const tot=data.reduce((s,d)=>s+d[1],0);let a=-Math.PI/2;data.forEach(d=>{const ang=d[1]/tot*Math.PI*2;x.beginPath();x.moveTo(cx,cy);x.arc(cx,cy,R,a,a+ang);x.closePath();x.fillStyle=d[2];x.fill();a+=ang;});x.beginPath();x.arc(cx,cy,R*.58,0,7);x.fillStyle=col('--navy');x.fill();x.fillStyle=col('--mute');x.font='10px sans-serif';x.textAlign='center';x.fillText('6 comptes',cx,cy+3);}
 function lineC(id,arr,c,fill){const o=ctx(id);if(!o)return;const{x,w,h}=o;axis(x,w,h);const mn=Math.min(...arr),mx=Math.max(...arr);x.strokeStyle=c;x.lineWidth=2;x.beginPath();arr.forEach((v,i)=>{const px=32+i*(w-40)/(arr.length-1),py=h-14-(v-mn)/(mx-mn||1)*(h-26);i?x.lineTo(px,py):x.moveTo(px,py);});x.stroke();if(fill){const g=x.createLinearGradient(0,0,0,h);g.addColorStop(0,fill);g.addColorStop(1,'rgba(0,0,0,0)');x.lineTo(w-8,h-14);x.lineTo(32,h-14);x.fillStyle=g;x.fill();}}
 function bars(id,arr){const o=ctx(id);if(!o)return;const{x,w,h}=o;const mx=Math.max(...arr.map(Math.abs));const bw=(w-40)/arr.length;const zero=h/2;arr.forEach((v,i)=>{const bh=(v/mx)*(h/2-14);const px=34+i*bw;x.fillStyle=v>=0?col('--green'):col('--red');x.fillRect(px,zero-(v>=0?bh:0),bw*.6,Math.abs(bh));});x.strokeStyle='rgba(255,255,255,.12)';x.beginPath();x.moveTo(32,zero);x.lineTo(w-8,zero);x.stroke();}
