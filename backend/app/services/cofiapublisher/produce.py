@@ -635,15 +635,17 @@ def execute_vip(voice_id=None) -> dict:
     # (gen_id 378645eb-52ef-4b7b-8844-7ede52b0132d, seed 27de6c50) généré via adapters/video_runway.py.
     RA = Path.home() / ".openclaw/state/cofiapublisher/runway_assets"
     hero1 = str(LD / "hero_09155fc4.mp4")               # Luma hero #1 (réel)
-    hero2 = str(RA / "hero2_runway_real.mp4")            # Runway hero #2 (réel, labellisé Runway, PAS Luma)
-    # NOUVEAU SCÉNARIO 2026-05-30 (anti-gourou frais, PAS recyclé) — angle "90% perdent parce qu'ils sont seuls".
+    hero2 = str(RA / "hero_v5_runway.mp4")               # Runway hero #2 V5 (réel, anti-répétition)
+    if not os.path.exists(hero2):
+        hero2 = str(RA / "hero2_runway_real.mp4")        # fallback hero Runway réel précédent
+    # SCÉNARIO V5 2026-05-30 (anti-gourou frais, PAS recyclé) — angle "deux types de traders : gourou vs cadre".
     beats = [
-        {"t": "Tu veux la vérité sur pourquoi la plupart des traders perdent ? C'est pas ta stratégie. C'est que t'es tout seul.", "dur": 7, "q": "lone trader dark room glowing screen serious face night", "role": "hook"},
-        {"t": "Seul face à ton écran, tu suis des gourous qui affichent des grosses voitures et des captures d'écran que personne ne peut vérifier.", "dur": 9, "q": "flashy fake guru luxury car social media screenshots money", "role": "douleur"},
-        {"t": "Tu copies un signal balancé dans un groupe de milliers d'inconnus, sans contexte, sans risque défini. Et après tu te demandes pourquoi ça casse.", "dur": 9, "q": "crowded chaotic phone notifications red falling chart", "role": "douleur2"},
-        {"t": "Le VIP Cofiatrading, c'est l'inverse exact du gourou. Aucune promesse magique. Un vrai cadre, une équipe, et chaque décision expliquée, pas balancée dans le vide. Ici, on partage le contexte, le raisonnement, et le niveau de risque avant chaque mouvement.", "dur": 14, "q": "premium modern trading team office blue calm collaboration", "role": "solution", "badge": True},
-        {"t": "Deux cents intelligences artificielles scannent les marchés en continu, vingt-quatre heures sur vingt-quatre, et font ressortir ce qui compte vraiment, sans le bruit.", "dur": 9, "hero": hero1, "role": "ia", "counter": True},
-        {"t": "Et surtout, chaque signal arrive avec son risque chiffré. Avant d'entrer, tu sais exactement ce que tu peux perdre. C'est ça, trader comme un pro, pas comme un parieur.", "dur": 12, "hero": hero2, "q": "professional risk management dashboard calm trader discipline", "role": "preuve"},
+        {"t": "Y'a deux types de traders. Ceux qui courent après des gourous. Et ceux qui ont un vrai cadre.", "dur": 7, "q": "lone trader dark room glowing screen serious face night", "role": "hook"},
+        {"t": "Le premier achète un signal balancé dans un groupe, suit un type qui montre des billets, et prie pour que ça monte.", "dur": 9, "q": "flashy fake guru luxury money social media screenshots", "role": "douleur"},
+        {"t": "Pas de plan, pas de risque défini, aucune raison claire d'entrer. Juste de l'espoir. Et l'espoir, sur les marchés, ça finit toujours par coûter cher.", "dur": 10, "q": "crowded chaotic phone notifications red falling chart", "role": "douleur2"},
+        {"t": "Le VIP Cofiatrading prend l'autre chemin. Un cadre clair, une vraie équipe, et chaque décision expliquée avec son contexte et son niveau de risque. Aucune promesse magique, juste de la méthode.", "dur": 13, "q": "premium modern trading team office blue calm collaboration", "role": "solution", "badge": True},
+        {"t": "Deux cents intelligences artificielles surveillent les marchés en continu et filtrent le bruit, pour ne garder que ce qui compte vraiment.", "dur": 9, "hero": hero1, "role": "ia", "counter": True},
+        {"t": "Avant chaque position, tu sais exactement ce que tu peux perdre. Le risque est chiffré, la sortie est prévue. Tu décides comme un pro, pas comme un parieur.", "dur": 12, "hero": hero2, "q": "professional risk management dashboard calm trader discipline", "role": "preuve"},
         {"t": "Tu arrêtes de courir après le prochain gourou. Tu construis une méthode, une discipline, un vrai edge. Tu sais pourquoi tu entres, pourquoi tu sors, et combien tu risques. Zéro promesse de gain, juste de la rigueur et un cadre clair.", "dur": 14, "q": "focused confident trader premium desk methodical", "role": "valeur"},
         {"t": "Si t'es prêt à trader sérieusement, pour de vrai, le VIP Cofiatrading t'attend. Le lien est juste en dessous.", "dur": 8, "q": "finger tapping phone screen confident sunrise hopeful", "role": "cta", "cta": True},
     ]
@@ -788,7 +790,7 @@ def _emit_vip_reports(rd, run_id, beats, shots, captions, audio_dur, suno, vr, b
         "Veo/Imagen(Vertex)": "BLOCKED", "Canva": "BLOCKED", "CapCut": "DEPRECATED", "Figma": "USED_IN_PREPROD",
         "hero_2_engine": "Runway gen4_turbo (réel, gen_id 378645eb) — Luma#2 retrieval reste BLOCKED, remplacé par Runway labellisé",
     }
-    W("tool_usage_ledger.json", {"run": run_id, "ledger": led, "heros_luma_reels": n_hero, "pexels_clips": n_pex,
+    W("tool_usage_ledger.json", {"run": run_id, "ledger": led, "heros_ia_total": n_hero, "heros_luma": 1, "heros_runway": 1, "pexels_clips": n_pex,
       "note": "G3: statuts dérivés du rendu réel. USED_IN_FINAL = prouvé MP4 ; PREPROD/RESERVED/BLOCKED honnêtes. Runway rétrogradé PREPROD (pas dans ce MP4). Preuves frame/timecode = asset_execution_report post-render."})
     # creative_qa — score MESURÉ autonome (PASS si >=8)
     # G4 (2026-05-30) : gate teste la SOURCE RÉELLE des heros + position disclaimer (plus de True hardcodé).
@@ -804,7 +806,7 @@ def _emit_vip_reports(rd, run_id, beats, shots, captions, audio_dur, suno, vr, b
         "cta_visible": (cta_f > 0, 1.5),
         "brand_assets>=5": (n_brand >= 5, 1.5),
         "disclaimer_hors_UI(>=288px)": (_disc_ok, 1.0),
-        "hero_source_reelle_Luma": (_hero_real, 1.0),
+        "hero_sources_reelles_Luma_Runway": (_hero_real and n_hero>=2, 1.0),
         "hero_motion>=2": (n_hero >= 2, 1.0),
         "duree_60_80s": (60 <= audio_dur <= 82, 1.5),
     }
