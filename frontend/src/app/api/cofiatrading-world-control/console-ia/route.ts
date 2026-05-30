@@ -688,9 +688,6 @@ async function buildThread(packetId: string) {
     return asString(response.source) === "console_ia_local_agent_reply";
   };
   const realReplies = responses.filter(isRealAgentReply);
-  const ackAgentIds = new Set(
-    responses.filter((response) => !isRealAgentReply(response)).map((response) => sanitizeText(asString(response.agentId), 80)).filter(Boolean),
-  );
 
   const agentReplyStatus = new Map<string, string>();
   for (const response of realReplies) {
@@ -703,20 +700,36 @@ async function buildThread(packetId: string) {
     }
   }
 
+  // Statut honnête par bus quand AUCUNE vraie réponse (realReply=true) n'existe.
+  // Aucun adapter réel aujourd'hui: chaque bus est marqué selon sa nature, jamais "réponse".
+  const busHonestStatus: Record<string, string> = {
+    codex: "adapter_missing",
+    claude: "adapter_missing",
+    jarod: "adapter_missing",
+    perplexity: "adapter_missing",
+    tasks: "adapter_missing",
+    central_council: "adapter_missing",
+    chatgpt: "draft_only",
+    qwen: "draft_only",
+    kevin: "waiting",
+    telegram_iron: "draft_only",
+    telegram_free: "draft_only",
+    telegram_vip: "draft_only",
+    telegram_erwin: "draft_only",
+  };
+
   const participants = await Promise.all(routes.map(async (route) => {
     const bus = sanitizeText(asString(route.bus), 80);
     const routePath = asString(route.path);
     const busLines = routePath ? await readJsonlTail<Record<string, unknown>>(routePath, 360, 256 * 1024) : [];
     const queued = busLines.some((line) => asString(line.packet_id) === packetId || asString(line.packetId) === packetId);
     const realStatus = agentReplyStatus.get(bus) ?? "";
-    const ackOnly = !realStatus && ackAgentIds.has(bus);
+    // Une vraie réponse (realReply=true) gagne; sinon statut honnête du bus; sinon file/attente.
     const status = terminalReplyStatuses.has(realStatus)
       ? "answered"
       : workingReplyStatuses.has(realStatus)
         ? "working"
-        : ackOnly
-          ? (bus === "jarod" ? "adapter_missing" : "ack_local")
-          : queued ? "queued" : "pending";
+        : busHonestStatus[bus] ?? (queued ? "queued" : "pending");
     return {
       id: bus,
       label: bus ? `${bus[0]?.toUpperCase() ?? ""}${bus.slice(1)}` : "Agent",
