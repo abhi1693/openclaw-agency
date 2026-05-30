@@ -386,12 +386,12 @@
 
 <script>
 const ACCOUNTS=[
-  {n:"APEX-247",b:"Apex Eval · Rithmic",bal:"$50 000",eq:"$48 760",pnl:"−$1 240",up:false,exec:"off"},
-  {n:"ATAS-LIVE",b:"ATAS · Rithmic",bal:"$24 100",eq:"$24 040",pnl:"−$60",up:false,exec:"sim"},
-  {n:"MT4-9981",b:"MT4 · FXcess master",bal:"$31 200",eq:"$31 200",pnl:"$0",up:true,exec:"down"},
-  {n:"MT5-2207",b:"MT5 · FXcess",bal:"$18 400",eq:"$18 510",pnl:"+$110",up:true,exec:"sim"},
-  {n:"PROP-FT1",b:"Prop challenge (futur)",bal:"$0",eq:"$0",pnl:"$0",up:true,exec:"off"},
-  {n:"FXC-MIRROR",b:"FXcess Mirror PM000697",bal:"—",eq:"—",pnl:"—",up:false,exec:"down"},
+  {n:"APEX-247",b:"Apex Eval · Rithmic",bal:"$50 000",eq:"$48 760",pnl:"−$1 240",up:false,exec:"off",fresh:"live",rl:"$2 500 DD",sig:"S17 +0.66R",ex:"DRY-RUN"},
+  {n:"ATAS-LIVE",b:"ATAS · Rithmic",bal:"$24 100",eq:"$24 040",pnl:"−$60",up:false,exec:"sim",fresh:"live",rl:"sim only",sig:"S17 +3.28R",ex:"sim fill"},
+  {n:"MT4-9981",b:"MT4 · FXcess master",bal:"$31 200",eq:"$31 200",pnl:"$0",up:true,exec:"down",fresh:"stale",rl:"copy off",sig:"—",ex:"—"},
+  {n:"MT5-2207",b:"MT5 · FXcess",bal:"$18 400",eq:"$18 510",pnl:"+$110",up:true,exec:"sim",fresh:"J-1",rl:"manual",sig:"EURUSD",ex:"manual"},
+  {n:"PROP-FT1",b:"Prop challenge (futur)",bal:"$0",eq:"$0",pnl:"$0",up:true,exec:"off",fresh:"—",rl:"non ouvert",sig:"—",ex:"—"},
+  {n:"FXC-MIRROR",b:"FXcess Mirror PM000697",bal:"—",eq:"—",pnl:"—",up:false,exec:"down",fresh:"down",rl:"master mort",sig:"—",ex:"—"},
 ];
 const POSITIONS=[
   {a:"ATAS-LIVE",s:"MNQ",side:"LONG",sz:1,e:"30 361.5",sl:"30 326.8",tp:"30 431 / 30 500 / 30 639",pnl:"+$14",up:true,mode:"sim"},
