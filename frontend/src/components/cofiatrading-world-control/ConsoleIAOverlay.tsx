@@ -1029,7 +1029,7 @@ export function ConsoleIAOverlay() {
       stopped = true;
       window.clearInterval(timer);
     };
-  }, [activePacketId, isOpen]);
+  }, [activePacketId, isOpen, threadId]);
 
   const selectedTarget = useMemo(
     () => TARGETS.find((target) => target.id === selectedTargetId) ?? TARGETS[0],
