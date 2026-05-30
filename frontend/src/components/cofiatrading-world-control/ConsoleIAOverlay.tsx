@@ -265,6 +265,188 @@ const LANE_MISSING_MODE: ConsoleModelMode = {
   scope: "aucune lane cohérente pour cet agent",
 };
 
+// ── ÉTAPE 2/3 — état destination (canal opérationnel à droite) ─────────────
+// Telegram/Slack = canaux de sortie, PAS des agents. Statuts honnêtes par défaut :
+// aucun bridge lecture branché → READ_MISSING/BRIDGE_MISSING ; aucun envoi réel → WRITE_LOCKED.
+type ChannelFeedItem = { id: string; author?: string; text: string; ts?: string };
+type ChannelDraft = { draftId: string; text: string; status: string; createdAt?: string };
+type DestinationState = {
+  destinationId: string;
+  label: string;
+  kind: string;
+  readStatus: string;
+  writeStatus: string;
+  bridgeStatus: string;
+  feed: ChannelFeedItem[];
+  drafts: ChannelDraft[];
+  summary: string;
+  updatedAt?: string;
+};
+
+const CHANNEL_LABELS: Record<string, string> = {
+  telegram_iron: "Telegram Iron",
+  telegram_free: "Telegram Free",
+  telegram_vip: "Telegram VIP",
+  telegram_erwin: "Compte perso Erwin",
+};
+
+const DEFAULT_DESTINATION = (id: string): DestinationState => ({
+  destinationId: id,
+  label: CHANNEL_LABELS[id] ?? id,
+  kind: "telegram",
+  readStatus: "READ_MISSING",
+  writeStatus: "WRITE_LOCKED",
+  bridgeStatus: "BRIDGE_MISSING",
+  feed: [],
+  drafts: [],
+  summary: "",
+});
+
+function ChannelStatusPill({ status }: { status: string }) {
+  const tone = /LIVE|CONNECTED/.test(status)
+    ? "border-emerald-300/40 text-emerald-200"
+    : /STALE|APPROVAL/.test(status)
+      ? "border-amber-300/40 text-amber-200"
+      : "border-slate-600 text-slate-400";
+  return (
+    <span className={`shrink-0 rounded-full border px-2 py-0.5 text-[8px] font-black uppercase tracking-[0.06em] ${tone}`}>
+      {status}
+    </span>
+  );
+}
+
+// Colonne droite = surface canal. Sélectionner un canal NE change PAS l'agent actif :
+// le canal fournit du contexte/feed/brouillons, l'agent reste piloté au centre.
+function ChannelColumn({
+  channels,
+  activeChannelId,
+  onSelect,
+  destinationFor,
+  workMode,
+  onWorkMode,
+  activeAgentLabel,
+}: {
+  channels: ConsoleTarget[];
+  activeChannelId: string | null;
+  onSelect: (id: string | null) => void;
+  destinationFor: (id: string) => DestinationState;
+  workMode: "agent_context" | "draft";
+  onWorkMode: (mode: "agent_context" | "draft") => void;
+  activeAgentLabel: string;
+}) {
+  const active = activeChannelId ? destinationFor(activeChannelId) : null;
+  return (
+    <div className="grid gap-3">
+      <section>
+        <p className="mb-2 text-[10px] font-black uppercase tracking-[0.18em] text-sky-100">Canal actif</p>
+        <div className="grid grid-cols-2 gap-1.5">
+          {channels.map((channel) => {
+            const dest = destinationFor(channel.id);
+            const on = channel.id === activeChannelId;
+            return (
+              <button
+                key={channel.id}
+                type="button"
+                onClick={() => onSelect(on ? null : channel.id)}
+                className={`rounded-lg border px-2 py-1.5 text-left transition ${
+                  on ? "border-sky-300/60 bg-sky-400/12" : "border-slate-800 bg-slate-900/60 hover:border-sky-300/30"
+                }`}
+              >
+                <span className="block truncate text-xs font-black text-white">{dest.label}</span>
+                <span className="mt-0.5 block truncate text-[9px] font-black uppercase tracking-[0.06em] text-slate-400">{dest.bridgeStatus}</span>
+              </button>
+            );
+          })}
+        </div>
+      </section>
+
+      {active ? (
+        <>
+          <section className="rounded-xl border border-slate-800 bg-slate-950/60 p-3">
+            <div className="mb-2 flex items-center justify-between gap-2">
+              <p className="truncate text-[10px] font-black uppercase tracking-[0.16em] text-cyan-100">Feed · {active.label}</p>
+              <ChannelStatusPill status={active.readStatus} />
+            </div>
+            {active.feed.length ? (
+              <div className="grid gap-1.5">
+                {active.feed.slice(0, 6).map((item) => (
+                  <div key={item.id} className="rounded-lg border border-slate-800 bg-slate-900/55 px-2 py-1.5 text-[11px] leading-4 text-slate-200">
+                    {item.author ? <span className="mr-1 font-black text-slate-400">{item.author}:</span> : null}
+                    {item.text}
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <p className="text-[11px] leading-4 text-slate-500">
+                {active.bridgeStatus === "BRIDGE_MISSING"
+                  ? "Aucun bridge lecture branché — READ_MISSING. Aucun feed inventé."
+                  : "Aucun message récent."}
+              </p>
+            )}
+          </section>
+
+          <section className="rounded-xl border border-slate-800 bg-slate-950/60 p-3">
+            <p className="mb-2 text-[10px] font-black uppercase tracking-[0.16em] text-cyan-100">Mode</p>
+            <div className="grid gap-1.5">
+              <button
+                type="button"
+                onClick={() => onWorkMode("agent_context")}
+                className={`rounded-lg border px-2 py-1.5 text-left text-[11px] font-black transition ${
+                  workMode === "agent_context" ? "border-cyan-300/55 bg-cyan-400/10 text-cyan-50" : "border-slate-800 bg-slate-900/60 text-slate-300"
+                }`}
+              >
+                {activeAgentLabel} utilise le contexte {active.label}
+              </button>
+              <button
+                type="button"
+                onClick={() => onWorkMode("draft")}
+                className={`rounded-lg border px-2 py-1.5 text-left text-[11px] font-black transition ${
+                  workMode === "draft" ? "border-sky-300/55 bg-sky-400/10 text-sky-50" : "border-slate-800 bg-slate-900/60 text-slate-300"
+                }`}
+              >
+                Préparer un brouillon vers {active.label}
+              </button>
+            </div>
+            <p className="mt-2 text-[10px] leading-4 text-slate-500">
+              Envoi réel désactivé · {active.writeStatus}. Actions : préparer · copier · à valider.
+            </p>
+          </section>
+
+          <section className="rounded-xl border border-slate-800 bg-slate-950/60 p-3">
+            <div className="mb-2 flex items-center justify-between gap-2">
+              <p className="text-[10px] font-black uppercase tracking-[0.16em] text-cyan-100">Brouillons</p>
+              <ChannelStatusPill status={active.writeStatus} />
+            </div>
+            {active.drafts.length ? (
+              <div className="grid gap-1.5">
+                {active.drafts.map((draft) => (
+                  <div key={draft.draftId} className="rounded-lg border border-sky-300/20 bg-slate-900/55 p-2">
+                    <p className="text-[11px] leading-4 text-slate-200">{draft.text}</p>
+                    <span className="mt-1.5 inline-flex rounded-full border border-sky-300/30 px-2 py-0.5 text-[8px] font-black uppercase tracking-[0.06em] text-sky-200">{draft.status}</span>
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <p className="text-[11px] leading-4 text-slate-500">Aucun brouillon. Demande à l’agent actif de préparer une réponse pour ce canal.</p>
+            )}
+          </section>
+
+          <section className="rounded-xl border border-slate-800 bg-slate-950/60 p-3">
+            <p className="mb-1 text-[10px] font-black uppercase tracking-[0.16em] text-cyan-100">Mémoire canal</p>
+            <p className="text-[11px] leading-4 text-slate-400">
+              {active.summary.trim() ? active.summary : "Aucun résumé canal pour l’instant."}
+            </p>
+          </section>
+        </>
+      ) : (
+        <p className="rounded-xl border border-slate-800 bg-slate-950/50 p-3 text-[11px] leading-4 text-slate-500">
+          Sélectionne un canal pour voir son feed, préparer un brouillon et donner du contexte à l’agent actif. Choisir un canal ne change pas l’agent.
+        </p>
+      )}
+    </div>
+  );
+}
+
 const coherenceFor = (targetId: string): TargetCoherence => TARGET_COHERENCE[targetId] ?? DEFAULT_COHERENCE;
 
 // Catalogue de lanes — chaque lane appartient à UN agent (cohérence stricte
