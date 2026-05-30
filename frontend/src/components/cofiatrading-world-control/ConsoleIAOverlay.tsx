@@ -892,6 +892,108 @@ const toAttachmentMetadata = (attachment: ConsoleIAAttachment) => ({
   note: attachment.note ?? null,
 });
 
+// ── Inbox conversations clients (alimentée par conversations_api.py du hub, read-only) ──
+type ConvThread = {
+  userId: string;
+  name: string;
+  username: string;
+  agent: string;
+  stage: string;
+  unread: number;
+  vip: boolean;
+  intentScore: number | null;
+  lastPreview: string;
+  lastDirection: string;
+  lastTs: string;
+  totalMessages: number;
+  sourceChannel: string;
+  muted: boolean;
+};
+type ConvMessage = { ts: string; direction: string; by: string; text: string };
+
+const AGENT_ACCENT: Record<string, string> = {
+  iron: "text-amber-200 border-amber-300/40",
+  david: "text-sky-200 border-sky-300/40",
+  jarod: "text-cyan-200 border-cyan-300/40",
+  erwin: "text-emerald-200 border-emerald-300/40",
+};
+
+function ConversationsInbox({
+  threads,
+  selectedId,
+  onSelect,
+  onBack,
+  messages,
+  loadingMessages,
+}: {
+  threads: ConvThread[];
+  selectedId: string | null;
+  onSelect: (id: string) => void;
+  onBack: () => void;
+  messages: ConvMessage[];
+  loadingMessages: boolean;
+}) {
+  const active = selectedId ? threads.find((t) => t.userId === selectedId) ?? null : null;
+  if (selectedId) {
+    return (
+      <div className="grid gap-2">
+        <div className="flex items-center gap-2">
+          <button type="button" onClick={onBack} className="shrink-0 rounded-lg border border-slate-700 px-2 py-1 text-[11px] font-black text-slate-300 transition hover:border-cyan-300/50">‹ Inbox</button>
+          <span className="min-w-0">
+            <span className="block truncate text-sm font-black text-white">{active?.vip ? "⭐ " : ""}{active?.name ?? selectedId}</span>
+            <span className="block truncate text-[10px] uppercase tracking-[0.08em] text-slate-400">
+              {active?.agent ? `géré par ${active.agent}` : ""}{active?.stage ? ` · ${active.stage}` : ""}
+            </span>
+          </span>
+        </div>
+        <div className="grid max-h-[52vh] gap-1.5 overflow-auto pr-1">
+          {loadingMessages && !messages.length ? <p className="text-[11px] text-slate-500">Chargement…</p> : null}
+          {!loadingMessages && !messages.length ? <p className="text-[11px] text-slate-500">Aucun message.</p> : null}
+          {messages.map((m, i) => {
+            const out = m.direction.toUpperCase() === "OUT";
+            return (
+              <div key={i} className={`rounded-lg border px-2 py-1.5 text-[11px] leading-4 ${out ? "ml-5 border-cyan-300/25 bg-cyan-400/8 text-cyan-50" : "mr-5 border-slate-800 bg-slate-900/55 text-slate-200"}`}>
+                <span className="mb-0.5 block text-[9px] font-black uppercase tracking-[0.06em] text-slate-500">{out ? (m.by || "agent") : "client"} · {m.ts}</span>
+                {m.text}
+              </div>
+            );
+          })}
+        </div>
+        <p className="rounded-lg border border-slate-800 bg-slate-950/50 px-2 py-1.5 text-[10px] leading-4 text-slate-500">Lecture seule. Répondre depuis la dashboard (POST send) à activer ensuite, gated.</p>
+      </div>
+    );
+  }
+  return (
+    <div className="grid gap-1.5">
+      <p className="text-[10px] font-black uppercase tracking-[0.16em] text-cyan-100">Conversations · {threads.length}</p>
+      {!threads.length ? <p className="text-[11px] text-slate-500">Aucune conversation chargée.</p> : null}
+      <div className="grid max-h-[56vh] gap-1.5 overflow-auto pr-1">
+        {threads.map((t) => (
+          <button
+            key={t.userId}
+            type="button"
+            onClick={() => onSelect(t.userId)}
+            className="rounded-lg border border-slate-800 bg-slate-900/55 px-2.5 py-2 text-left transition hover:border-cyan-300/35"
+          >
+            <div className="flex items-center gap-2">
+              <span className="min-w-0 flex-1">
+                <span className="block truncate text-xs font-black text-white">{t.vip ? "⭐ " : ""}{t.name}</span>
+                <span className="block truncate text-[10px] text-slate-400">{t.lastPreview || `${t.totalMessages} msg`}</span>
+              </span>
+              {t.unread > 0 ? <span className="shrink-0 rounded-full border border-cyan-300/40 bg-cyan-400/20 px-1.5 py-0.5 text-[9px] font-black text-cyan-100">{t.unread}</span> : null}
+            </div>
+            <div className="mt-1 flex items-center gap-1.5">
+              {t.agent ? <span className={`rounded-full border px-1.5 py-0.5 text-[8px] font-black uppercase ${AGENT_ACCENT[t.agent.toLowerCase()] ?? "border-slate-600 text-slate-300"}`}>{t.agent}</span> : null}
+              {t.stage ? <span className="truncate text-[9px] uppercase tracking-[0.05em] text-slate-500">{t.stage}</span> : null}
+              <span className="ml-auto shrink-0 text-[9px] text-slate-600">{t.lastTs}</span>
+            </div>
+          </button>
+        ))}
+      </div>
+    </div>
+  );
+}
+
 export function ConsoleIAOverlay() {
   const [isOpen, setIsOpen] = useState(false);
   const [message, setMessage] = useState("");
