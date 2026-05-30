@@ -901,6 +901,7 @@ export function ConsoleIAOverlay() {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [packetResult, setPacketResult] = useState<PacketResponse | null>(null);
   const [activePacketId, setActivePacketId] = useState<string | null>(null);
+  const [threadId, setThreadId] = useState<string | null>(null);
   const [openInspectorSection, setOpenInspectorSection] = useState<InspectorSection>("summary");
   const [proofsOpen, setProofsOpen] = useState(false);
   const [pickerOpen, setPickerOpen] = useState(false);
