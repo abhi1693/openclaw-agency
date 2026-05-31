@@ -49,6 +49,7 @@ const INBOUND_DIR = path.join(CONSOLE_STATE_DIR, "inbound");
 // Flux 5 — takeover : quand Erwin gère une conv, on écrit le user_id ici ; le daemon Iron
 // (iron_support_daemon.py) le lit et se tait (anti double-contact). TTL côté daemon (30 min).
 const TAKEOVER_FILE = path.join(CONSOLE_STATE_DIR, "takeover.json");
+const TAKEOVER_TTL_SEC = 1800;  // aligné avec iron_support_daemon.TAKEOVER_TTL_SEC
 const AGENT_MESH_DIR = path.join(STATE_ROOT, "agent_mesh");
 const WARP_AGENT_MESH_DIR = path.join(STATE_ROOT, "warp", "agent_mesh");
 const WARP_MISSION_PACKETS_DIR = path.join(STATE_ROOT, "warp", "agent_mesh", "mission_packets");
