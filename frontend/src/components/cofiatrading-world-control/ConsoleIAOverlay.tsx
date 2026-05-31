@@ -927,7 +927,7 @@ type ConvThread = {
 // Flux 7 — totaux CRM réels (en-tête console).
 type CrmTotals = {
   clients?: number | null; clientsTg?: number | null; hot?: number | null; warm?: number | null;
-  brokerAccounts?: number | null; depositors?: number | null; netDepUsd?: number | null; commissionUsd?: number | null; sheetUrl?: string;
+  brokerAccounts?: number | null; depositors?: number | null; netDepUsd?: number | null; commissionUsd?: number | null; dmContacts?: number | null; sheetUrl?: string;
 };
 type ConvMessage = { ts: string; direction: string; by: string; text: string };
 
