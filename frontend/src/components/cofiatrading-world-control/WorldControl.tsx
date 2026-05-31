@@ -4215,7 +4215,7 @@ function HouseDrawer({
                       {list.length > 40 && <p className="mt-1 text-[8.5px] text-slate-500">+{list.length - 40} de plus…</p>}
                     </div>
                   ))}</div>
-                  <p className="mt-2 text-[9px] text-slate-500">Source : /api/inventory-matrix (742 items) · rattachés par houseId/catégorie · statut honnête (jamais GREEN par défaut)</p>
+                  <p className="mt-2 text-[9px] text-slate-500">Source : /api/inventory-matrix ({inventory.length} items au total) · rattachés par houseId/catégorie · statut honnête (jamais GREEN par défaut)</p>
                 </section>
               );
             })()}
