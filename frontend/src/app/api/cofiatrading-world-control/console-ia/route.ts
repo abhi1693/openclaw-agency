@@ -2064,22 +2064,36 @@ export async function GET(request: Request) {
   // Inbox conversations clients (read-only). Liste des threads.
   if (url.searchParams.get("conversations")) {
     const raw = await fetchConversationThreads();
-    const threads = raw.map((t) => ({
-      userId: String(t.user_id ?? ""),
-      name: asString(t.first_name) || asString(t.username) || `#${String(t.user_id ?? "?")}`,
-      username: asString(t.username),
-      agent: asString(t.agent),
-      stage: asString(t.stage),
-      unread: Number(t.unread_count ?? 0) || 0,
-      vip: t.vip_flag === 1 || t.vip_flag === true,
-      intentScore: typeof t.intent_score === "number" ? t.intent_score : null,
-      lastPreview: sanitizeText(asString(t.last_msg_preview), 90),
-      lastDirection: asString(t.last_msg_direction),
-      lastTs: asString(t.last_msg_ts_str),
-      totalMessages: Number(t.total_messages ?? 0) || 0,
-      sourceChannel: asString(t.source_channel),
-      muted: t.muted === true,
-    }));
+    const byTg = await loadCrmByTg();  // Flux 6b — heat-map : enrichit chaque conv avec le CRM
+    const threads = raw.map((t) => {
+      const userId = String(t.user_id ?? "");
+      const c = isRecord(byTg[userId]) ? byTg[userId] : null;
+      const dealStage = c ? sanitizeText(asString(c.deal_stage), 40) : "";
+      const segment = c ? sanitizeText(asString(c.segment), 40) : "";
+      return {
+        userId,
+        name: asString(t.first_name) || asString(t.username) || `#${String(t.user_id ?? "?")}`,
+        username: asString(t.username),
+        agent: asString(t.agent),
+        stage: asString(t.stage),
+        unread: Number(t.unread_count ?? 0) || 0,
+        vip: t.vip_flag === 1 || t.vip_flag === true,
+        intentScore: typeof t.intent_score === "number" ? t.intent_score : null,
+        lastPreview: sanitizeText(asString(t.last_msg_preview), 90),
+        lastDirection: asString(t.last_msg_direction),
+        lastTs: asString(t.last_msg_ts_str),
+        totalMessages: Number(t.total_messages ?? 0) || 0,
+        sourceChannel: asString(t.source_channel),
+        muted: t.muted === true,
+        // Flux 6b — données CRM pour la carte de chaleur (avant clic)
+        crmFound: !!c,
+        crmTemp: c ? sanitizeText(asString(c.temperature), 20).toUpperCase() : "",
+        crmScore: c ? crmNum(c.score) : null,
+        crmTier: c ? sanitizeText(asString(c.value_tier), 40).toUpperCase() : "",
+        crmStripe: c ? sanitizeText(asString(c.stripe_status), 30).toLowerCase() : "",
+        crmIsClient: c ? (["VIP_ACTIVE", "CLIENT", "WON"].some((s) => dealStage.toUpperCase().includes(s)) || segment.toLowerCase().includes("paid")) : false,
+      };
+    });
     return NextResponse.json({ ok: true, sourceTag: SOURCE_TAG, threads }, { headers: { "Cache-Control": "no-store" } });
   }
 
