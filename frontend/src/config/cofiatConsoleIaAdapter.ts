@@ -68,7 +68,34 @@ export type ConsoleIaAdapterState = {
   blocker?: string;
   /** chaîne de repli évaluée, dans l'ordre de préférence */
   fallbackChain: string[];
+  /** provider primaire visé (tête de chaîne). */
+  primaryProvider?: ConsoleIaProvider;
+  /** provider réellement actif après résolution. */
+  activeProvider?: ConsoleIaProvider;
+  /** statut IA GLOBAL (reflète la réalité : AMBER si fallback actif sans preuve hard). */
+  globalStatus?: OperationalStatus;
+  /** statut + raison par provider de la chaîne (chacun sa vérité). */
+  providers?: Array<{ id: ConsoleIaProvider; status: OperationalStatus; reason: string; proof?: string }>;
 };
+
+/**
+ * buildProviders — statut RÉEL de chaque provider de la chaîne (no-false-green).
+ * Aucun fallback n'est GREEN par défaut : openrouter/gemini/local-memory/manual = AMBER/UNKNOWN.
+ * perplexity-api absent = ADAPTER_MISSING (pas un blocker auth global).
+ */
+function buildProviders(): NonNullable<ConsoleIaAdapterState["providers"]> {
+  const apiKey = perplexityApiKeyPresent();
+  const desktop = perplexityDesktopBridgePresent();
+  const gemKey = geminiKeyPresent();
+  return [
+    { id: "perplexity-api", status: apiKey ? "LIVE" : "ADAPTER_MISSING", reason: apiKey ? "PERPLEXITY_API_KEY présent" : "PERPLEXITY_API_KEY absent — pas un blocker auth global", proof: apiKey ? "PERPLEXITY_API_KEY présent (env)" : undefined },
+    { id: "perplexity-desktop", status: desktop ? "AMBER_SESSION" : "UNKNOWN", reason: desktop ? "bridge desktop/abonnement actif (session, pas durci)" : "bridge desktop non prouvé (flag runtime absent)" },
+    { id: "openrouter", status: "AMBER", reason: "fallback LLM routing actif — AMBER, jamais GREEN sans preuve hard (paid-hold)" },
+    { id: "gemini", status: gemKey ? "AMBER" : "UNKNOWN", reason: gemKey ? "clé Gemini présente — fallback AMBER" : "clé Gemini absente → UNKNOWN" },
+    { id: "local-memory", status: "AMBER", reason: "réponse mémoire/contexte local — jamais GREEN par défaut" },
+    { id: "manual", status: "AMBER", reason: "brouillon opérateur — AMBER, jamais GREEN" },
+  ];
+}
 
 /** Chaîne de repli canonique, dans l'ordre de préférence. */
 export const FALLBACK_CHAIN: ConsoleIaProvider[] = [
