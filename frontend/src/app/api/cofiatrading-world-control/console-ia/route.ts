@@ -1502,6 +1502,24 @@ async function clientProfileFromRow(row: Record<string, unknown>, tgId: string, 
   };
 }
 
+// Profil 360 : d'abord par telegram_id ; sinon FALLBACK par EMAIL capté (idée Erwin — l'email
+// identifie la personne, fiable contrairement au nom). resolvedBy = "telegram_id" | "email".
+async function buildClient360(tgId: string) {
+  const tg = safeTgId(tgId);
+  const byTgRows = tg ? crmDbRows(`SELECT json, broker_uid, updated_at FROM clients WHERE telegram_id='${tg}' LIMIT 1`) : [];
+  if (byTgRows.length) return clientProfileFromRow(byTgRows[0], tgId, "telegram_id");
+  const email = (await readCapturedEmails())[tgId] || "";
+  if (email && EMAIL_RE.test(email)) {
+    const safe = email.toLowerCase().replace(/'/g, "''");
+    const byEmail = crmDbRows(`SELECT json, broker_uid, updated_at FROM clients WHERE lower(email)='${safe}' LIMIT 1`);
+    if (byEmail.length) return clientProfileFromRow(byEmail[0], tgId, "email");
+  }
+  return {
+    found: false, telegramId: tgId, capturedEmail: email,
+    note: email ? `Pas encore au CRM — email capté ${email} (file de sync)` : "Non recensé au CRM (prospect / lead non qualifié)",
+  };
+}
+
 type CrmLite = { temp: string; score: number | null; tier: string; stripe: string; isClient: boolean; firstDep: number | null };
 let _crmTgCache: { mtimeMs: number; byTg: Record<string, CrmLite> } | null = null;
 // Map CRM léger par telegram_id (DB live, TOUS les clients) — pour la heat-map inbox + liste.
