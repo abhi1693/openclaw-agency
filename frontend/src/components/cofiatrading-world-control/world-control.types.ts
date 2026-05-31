@@ -40,6 +40,40 @@ export type Snapshot = {
     stale_names_top: string[];
     freshness_ratio: number;
   };
+  openclawRuntime?: {
+    sourceTag: string;
+    status: "LIVE" | "AMBER" | "QUARANTINE" | string;
+    sourcePaths: Record<string, string>;
+    counts: {
+      total: number;
+      fresh: number;
+      stale: number;
+      noHeartbeat: number;
+      disabled: number;
+      tickEnabled: number;
+      tickExpected: number;
+      servicesOk: number;
+      servicesTotal: number;
+      lobsterConfigured: number | null;
+      lobsterEnabled: number | null;
+    };
+    jarod: OpenClawRuntimeAgent | null;
+    services: Array<{
+      id: string;
+      label: string;
+      url: string;
+      ok: boolean;
+      status: string;
+      http_code: number | null;
+    }>;
+    agents: OpenClawRuntimeAgent[];
+    problems: Array<{
+      severity: string;
+      title: string;
+      proof: string;
+      patch: string;
+    }>;
+  };
   commerce_machine?: Array<{
     id: string;
     name: string;
@@ -115,6 +149,28 @@ export type Snapshot = {
   writeBlocked: boolean;
   piiBlocked: boolean;
   dangerousActions: string[];
+};
+
+export type OpenClawRuntimeAgent = {
+  id: string;
+  name: string;
+  team: string;
+  enabled: boolean;
+  homeHouse: string;
+  primaryModel: string;
+  heartbeat: {
+    ok: boolean;
+    path: string | null;
+    rawStatus: string;
+    ts: string | null;
+    ageSeconds: number | null;
+    fresh: boolean;
+  };
+  tickLabel: string | null;
+  tickEnabled: boolean;
+  runtimeStatus: "FRESH" | "STALE" | "NO_HEARTBEAT" | "DISABLED" | string;
+  proof: string;
+  nextAction: string;
 };
 
 export type CofiaAgent = NonNullable<Snapshot["agentsCanon"]>["agents"][number];

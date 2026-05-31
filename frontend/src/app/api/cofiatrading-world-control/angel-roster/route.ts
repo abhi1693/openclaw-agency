@@ -4,9 +4,8 @@
 
 import { NextResponse } from "next/server";
 
-// Statuts honest-by-design Sourate LXI Sidq al-Mutlaq (V9 ULTIME)
-// "Dieu ne ment jamais" : pas de fake green · RED/AMBER si vraiment cassé
-// LIVE (green)             = vraiment opérationnel + prouvé
+// Statuts canon historiques. Cette route n'est PAS un healthcheck runtime.
+// LIVE (green)             = statut canon déclaré. Pas une preuve heartbeat/runtime.
 // OPERATIONAL_PARTIAL (cy) = fonctionnel mais incomplet, à améliorer
 // CANON_GATE (cyan-light)  = LOCKED par design HARDLOCK §18/§34 — par design, pas anomalie
 // AWAITING_SETUP (slate)   = OFFLINE à activer, neutre, prévu
@@ -83,7 +82,9 @@ export async function GET() {
     cap_para_45: 38,
     counts: { live, operational_partial, canon_gate, awaiting_setup, degraded, broken },
     arr_impact_total_eur_year,
-    canon_sourate: "LVI + LXI · Sidq al-Mutlaq · pas de fake green · RED/AMBER si cassé (V9 ULTIME)",
+    status_semantics: "CANON_ROSTER_NOT_RUNTIME_PROOF",
+    runtime_proof_policy: "Utiliser snapshot.openclawRuntime / heartbeats pour dire runtime FRESH/LIVE. Ici les statuts sont déclaratifs.",
+    canon_sourate: "Roster canon historique · ne pas utiliser comme preuve runtime GREEN",
     runtime_ts: new Date().toISOString(),
     anges: ANGEL_ROSTER,
   });

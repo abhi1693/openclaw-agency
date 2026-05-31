@@ -1,0 +1,305 @@
+{
+  "generated_utc": "2026-05-30T20:55:16Z",
+  "study": "Open-Drive + CVD (NQ)",
+  "status": "RESEARCH ONLY / MODEL / NOT PROVEN",
+  "verdict": "RETEST",
+  "verdict_reason": "Structure statistique reelle et stable (reversion agression open-drive, IC -0.114 t -8.8, 100% mensuel) mais AUCUNE direction profitable apres couts MNQ (fade ecrase par trend-days, continuation = fat-tail). Structure vraie, edge non exploitable en l'etat.",
+  "data": {
+    "instrument": "NQ (exec MNQ)",
+    "days": 255,
+    "bars_rth": 97655,
+    "range": "20250401->20260331",
+    "quality": "0 NaN, 0 doublon, index monotone",
+    "features": [
+      "delta (signed vol)",
+      "cvd",
+      "is_rth"
+    ],
+    "source": "ohlcv-1m-enriched/NQ_c_0",
+    "caveat": "trade-flow imbalance (proxy), pas OFI carnet (pas de BBO)"
+  },
+  "ic": [
+    {
+      "feature": "delta_z",
+      "regime": "all",
+      "H": 5,
+      "ic": -0.0117,
+      "t": -3.33,
+      "stab": 0.83
+    },
+    {
+      "feature": "delta_z",
+      "regime": "open-drive",
+      "H": 5,
+      "ic": -0.0705,
+      "t": -5.83,
+      "stab": 1.0
+    },
+    {
+      "feature": "delta_z",
+      "regime": "rest",
+      "H": 5,
+      "ic": -0.0112,
+      "t": -3.01,
+      "stab": 0.83
+    },
+    {
+      "feature": "delta_z",
+      "regime": "all",
+      "H": 15,
+      "ic": -0.0117,
+      "t": -3.0,
+      "stab": 0.83
+    },
+    {
+      "feature": "delta_z",
+      "regime": "open-drive",
+      "H": 15,
+      "ic": -0.0887,
+      "t": -7.28,
+      "stab": 1.0
+    },
+    {
+      "feature": "delta_z",
+      "regime": "rest",
+      "H": 15,
+      "ic": -0.0132,
+      "t": -3.19,
+      "stab": 0.92
+    },
+    {
+      "feature": "delta_z",
+      "regime": "all",
+      "H": 30,
+      "ic": -0.0081,
+      "t": -2.12,
+      "stab": 0.75
+    },
+    {
+      "feature": "delta_z",
+      "regime": "open-drive",
+      "H": 30,
+      "ic": -0.1142,
+      "t": -8.8,
+      "stab": 1.0
+    },
+    {
+      "feature": "delta_z",
+      "regime": "rest",
+      "H": 30,
+      "ic": -0.0087,
+      "t": -2.14,
+      "stab": 0.75
+    },
+    {
+      "feature": "cvd_dz",
+      "regime": "all",
+      "H": 5,
+      "ic": -0.0125,
+      "t": -1.69,
+      "stab": 0.67
+    },
+    {
+      "feature": "cvd_dz",
+      "regime": "rest",
+      "H": 5,
+      "ic": -0.0125,
+      "t": -1.69,
+      "stab": 0.67
+    },
+    {
+      "feature": "cvd_dz",
+      "regime": "all",
+      "H": 15,
+      "ic": -0.0227,
+      "t": -2.08,
+      "stab": 0.75
+    },
+    {
+      "feature": "cvd_dz",
+      "regime": "rest",
+      "H": 15,
+      "ic": -0.0227,
+      "t": -2.08,
+      "stab": 0.75
+    },
+    {
+      "feature": "cvd_dz",
+      "regime": "all",
+      "H": 30,
+      "ic": -0.0404,
+      "t": -3.04,
+      "stab": 0.83
+    },
+    {
+      "feature": "cvd_dz",
+      "regime": "rest",
+      "H": 30,
+      "ic": -0.0404,
+      "t": -3.04,
+      "stab": 0.83
+    },
+    {
+      "feature": "divg",
+      "regime": "all",
+      "H": 5,
+      "ic": 0.0019,
+      "t": 0.47,
+      "stab": 0.58
+    },
+    {
+      "feature": "divg",
+      "regime": "open-drive",
+      "H": 5,
+      "ic": 0.0027,
+      "t": 0.28,
+      "stab": 0.42
+    },
+    {
+      "feature": "divg",
+      "regime": "rest",
+      "H": 5,
+      "ic": 0.0005,
+      "t": 0.11,
+      "stab": 0.58
+    },
+    {
+      "feature": "divg",
+      "regime": "all",
+      "H": 15,
+      "ic": -0.0072,
+      "t": -1.59,
+      "stab": 0.75
+    },
+    {
+      "feature": "divg",
+      "regime": "open-drive",
+      "H": 15,
+      "ic": -0.0118,
+      "t": -1.13,
+      "stab": 0.58
+    },
+    {
+      "feature": "divg",
+      "regime": "rest",
+      "H": 15,
+      "ic": -0.0061,
+      "t": -1.29,
+      "stab": 0.67
+    },
+    {
+      "feature": "divg",
+      "regime": "all",
+      "H": 30,
+      "ic": -0.0081,
+      "t": -1.73,
+      "stab": 0.67
+    },
+    {
+      "feature": "divg",
+      "regime": "open-drive",
+      "H": 30,
+      "ic": -0.0163,
+      "t": -1.46,
+      "stab": 0.58
+    },
+    {
+      "feature": "divg",
+      "regime": "rest",
+      "H": 30,
+      "ic": -0.0077,
+      "t": -1.58,
+      "stab": 0.67
+    }
+  ],
+  "composite": [
+    {
+      "variant": "delta CONTINU",
+      "cost_bp": 0.3,
+      "n": 509,
+      "sumret": 0.0575,
+      "win": 0.499,
+      "sharpe": 1.08,
+      "keep_no_top": -0.47,
+      "maxdd": -0.0604
+    },
+    {
+      "variant": "delta CONTINU",
+      "cost_bp": 0.6,
+      "n": 509,
+      "sumret": 0.0422,
+      "win": 0.495,
+      "sharpe": 0.79,
+      "keep_no_top": -0.51,
+      "maxdd": -0.0701
+    },
+    {
+      "variant": "delta CONTINU",
+      "cost_bp": 1.0,
+      "n": 509,
+      "sumret": 0.0219,
+      "win": 0.481,
+      "sharpe": 0.41,
+      "keep_no_top": -0.57,
+      "maxdd": -0.083
+    },
+    {
+      "variant": "delta FADE",
+      "cost_bp": 0.3,
+      "n": 509,
+      "sumret": -0.088,
+      "win": 0.479,
+      "sharpe": -1.65,
+      "keep_no_top": -0.79,
+      "maxdd": -0.1067
+    },
+    {
+      "variant": "delta FADE",
+      "cost_bp": 0.6,
+      "n": 509,
+      "sumret": -0.1033,
+      "win": 0.466,
+      "sharpe": -1.93,
+      "keep_no_top": -0.85,
+      "maxdd": -0.121
+    },
+    {
+      "variant": "delta FADE",
+      "cost_bp": 1.0,
+      "n": 509,
+      "sumret": -0.1237,
+      "win": 0.45,
+      "sharpe": -2.32,
+      "keep_no_top": -0.93,
+      "maxdd": -0.14
+    }
+  ],
+  "tail_fade": {
+    "bottom20": -0.3554,
+    "mid60": -0.0328,
+    "top20": 0.2849
+  },
+  "hypotheses": {
+    "H1 (CVD horizon plus long > 5min)": "CONFIRMEE",
+    "H2 (open-drive > reste seance)": "CONFIRMEE (~13x)",
+    "H3 (composite ameliore)": "ECHOUEE",
+    "H4 (survit couts+fat-tail)": "ECHOUEE"
+  },
+  "failure_modes": [
+    "Fat-tail adverse : trend-days d'ouverture (bottom-20% = -35%) ecrasent le fade",
+    "Continuation = bruit de queue (PnL hors top-10% negatif)",
+    "Signal < couts MNQ dans le bulk (reversion mediane ~ -0.009%)",
+    "Proxy trade-flow, pas OFI carnet (BBO absent)"
+  ],
+  "next_tests": [
+    "Filtre trend-day (gap/ATR-expansion) avant fade",
+    "Execution en limit au lieu de market-fade",
+    "Microstructure sub-barre via trades/ (side=aggressor)",
+    "DSR + PBO/CSCV seulement quand un candidat passe les couts"
+  ],
+  "sources": [
+    "Cont-Kukanov-Stoikov, Price Impact of Order Book Events (SSRN 1712822)",
+    "Gao-Han-Li-Zhou, Market Intraday Momentum (JFE)",
+    "Bailey-Lopez de Prado, Deflated Sharpe / PBO (SSRN 2460551 / 2326253)"
+  ]
+}

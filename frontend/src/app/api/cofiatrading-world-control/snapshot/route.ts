@@ -1,5 +1,7 @@
 import { NextResponse } from "next/server";
 import { readdir, readFile } from "fs/promises";
+import { execFile } from "child_process";
+import { promisify } from "util";
 
 import { readLocalRevenue } from "../_lib/localRevenue";
 import { getCofHost, getOpenClawApiBase, getLocalAuthToken } from "../../../../lib/cof-runtime";
@@ -17,25 +19,29 @@ type FetchResult = {
 const HOST = getCofHost();
 const OPENCLAW_API = getOpenClawApiBase();
 const LOCAL_AUTH_TOKEN = getLocalAuthToken();
+const execFileAsync = promisify(execFile);
 
 const endpoints = {
   revenue: "local://cof_state.json (readLocalRevenue — fallback Abidjan :8430 COUPÉ 20260529)",
   houses: process.env.COF_CENTRAL_BRAIN_HOUSES_URL ?? `${HOST}:8767/api/central-brain/houses`,
   publisher: process.env.COF_PUBLISHER_STATUS_URL ?? `${HOST}:8540/api/status`,
   ack: process.env.COF_ACK_HEALTH_URL ?? `${HOST}:8443/health`,
-  rtk: process.env.COF_RTK_HEALTH_URL ?? `${HOST}:11435/health`,
+  rtk: process.env.COF_RTK_HEALTH_URL ?? `${HOST}:11435/rtk/health`,
+  proofLedger: process.env.COF_PROOF_LEDGER_HOME_URL ?? `${HOST}:8430/api/mission-control/home`,
 };
 
-// P11 Sourate LXVIII Al-Muharrik · 8 services canon probes LIVE (cockpit Hub Vivant)
-const SERVICE_PROBES: ReadonlyArray<{ id: string; label: string; url: string; role: string }> = [
+// Services canon probes LIVE (cockpit Hub Vivant). OpenClaw official local network
+// model = one loopback Gateway on :18789; legacy duplicate ports are not canon.
+const SERVICE_PROBES: ReadonlyArray<{ id: string; label: string; url: string; role: string; onDemand?: boolean }> = [
   { id: "hub_8430", label: "Hub :8430", url: `${HOST}:8430/cofiacontrol.html`, role: "Hub principal Iron + revenue + chat" },
   { id: "mission_control_3000", label: "Mission Control :3000", url: `${HOST}:3000/cofiatrading-world-control`, role: "Cockpit Hub Vivant NY" },
   { id: "central_brain_8767", label: "Central Brain :8767", url: `${HOST}:8767/api/central-brain/houses`, role: "Registry 15 maisons SSOT" },
   { id: "cofiapublisher_8540", label: "CofiaPublisher :8540", url: `${HOST}:8540/api/status`, role: "Pipeline vidéos 89 MP4" },
-  { id: "inventory_8433", label: "Inventory :8433", url: `${HOST}:8433/`, role: "Living Inventory canon" },
-  { id: "llm_proxy_11435", label: "rtk-llm-proxy :11435", url: `${HOST}:11435`, role: "Gemini/Qwen routing local" },
-  { id: "lightrag_9621", label: "LightRAG :9621", url: `${HOST}:9621/api/health`, role: "Semantic graph recall" },
-  { id: "paperclip_3100", label: "Paperclip :3100", url: `${HOST}:3100`, role: "Universal assets pipeline" },
+  { id: "openclaw_gateway_18789", label: "OpenClaw Gateway :18789", url: `${HOST}:18789/health`, role: "Gateway OpenClaw/Lobster runtime" },
+  { id: "inventory_8433", label: "Inventory :8433", url: `${HOST}:8433/health`, role: "Living Inventory canon", onDemand: true },
+  { id: "llm_proxy_11435", label: "rtk-llm-proxy :11435", url: `${HOST}:11435/rtk/health`, role: "Gemini/Qwen routing local" },
+  { id: "lightrag_9621", label: "LightRAG :9621", url: `${HOST}:9621/health`, role: "Semantic graph recall" },
+  { id: "paperclip_3100", label: "Paperclip :3100", url: `${HOST}:3100/api/health`, role: "Universal assets pipeline" },
 ];
 
 // P11 Sourate LXV Adwāt al-Mu'minīn · 20 boutiques commerciales canon (machine 100M€ Déc 2026)
@@ -57,7 +63,7 @@ const COMMERCE_MACHINE_CANON: ReadonlyArray<CommerceShop> = [
   { id: "telegram_vip", name: "Telegram VIP", status: "LIVE", problem: "29 members, sous-utilisé pour Welcome flow + signaux quotidiens", next_action: "Welcome flow auto post-Stripe + 1 signal STRAT-17 quotidien Marco", owner_agent: "Antho + Marco", proof_source: "Stripe webhook → Telegram VIP invite" },
   { id: "whatsapp_business", name: "WhatsApp Business WABA US", status: "PARTIAL", problem: "Phone +1 555-964-8716 VERIFIED, template cofia_welcome_vip_fr PENDING Meta ~24h, 0 message envoyé", next_action: "Wait approval template + send 3 brokers + onboarding VIP", owner_agent: "David + Jack", proof_source: "Meta Graph waba_id 1320675216711048 template review" },
   { id: "gmail_brokers", name: "Gmail brokers reclaim", status: "PARTIAL", problem: "3 drafts (Nicolas/Fabienne/François) JAMAIS sent depuis 24h+", next_action: "Send via Gmail API Python OAuth refresh_token OR WhatsApp template approved", owner_agent: "Jack", proof_source: "Gmail drafts r-1313936... r-885955... r-412545..." },
-  { id: "stripe", name: "Stripe", status: "LIVE", problem: "MRR 879€ / 7 VIP / 3 past_due 291€ (Jérôme + Albina + Jérémy), past_due retry Iron daemon bloqué 33 instances depuis 22/05", next_action: "Past_due retry via Customer Portal session URL + DM peer_context Iron daemon fix", owner_agent: "Mikā'īl", proof_source: "Stripe MCP search status=past_due → 3 subs LIVE 2026-05-27T16:11Z" },
+  { id: "stripe", name: "Stripe", status: "LIVE", problem: "MRR/VIP/past_due lus depuis le backend NY live, jamais figés dans le snapshot", next_action: "Comparer snapshot ↔ :8000/api/v1/cof/past-due avant toute relance past_due", owner_agent: "Mikā'īl", proof_source: "readLocalRevenue + backend NY :8000 Stripe read-only" },
   { id: "brokers_cellxpert", name: "Brokers CellXpert", status: "CANON_GATE", problem: "6884 broker_accounts Default, IP whitelist ES pending, 4 brokers (FXcess/IronFX/RaiseFX/Libertex) PDFs daily 0 dispatched", next_action: "IP whitelist fix + dispatch quotidien WhatsApp/Gmail PDF reclaim", owner_agent: "Jack", proof_source: "broker_accounts Iron CRM + affiliate_contacts.json" },
   { id: "notion", name: "Notion workspace", status: "PARTIAL", problem: "3 DBs créées (38 Anges + 4 Leviers + 11 Prices), pas de sync cron Hub↔Notion ni orders canon", next_action: "Script notion_to_orders.py LaunchAgent 1h + Welcome VIP page template + canon docs B2B", owner_agent: "Steward + Antho", proof_source: "Notion API 3 DBs ID 7a2d1ad6 + 7c54ea95 + 4e93d058" },
   { id: "linear", name: "Linear cofiatrading team", status: "LIVE", problem: "76+ issues, 4 doublons §21 fermés 27/05, pas de cycles structurés ni projects par 4 leviers", next_action: "Cycles 2 weekly + projects par 4 leviers ROI + roadmap visible Hub", owner_agent: "Sentinel", proof_source: "Linear MCP list_issues team Cofiatrading" },
@@ -80,12 +86,6 @@ const ASSET_FACTORY_CANON = {
   brochures: 6,
   scripts: 6,
 };
-const STRIPE_DIRECT_PAST_DUE = {
-  eur: 291,
-  count: 3,
-  source: "Stripe MCP direct — Hub drift detected",
-} as const;
-
 const toRecord = (value: unknown): Record<string, unknown> =>
   value && typeof value === "object" && !Array.isArray(value)
     ? (value as Record<string, unknown>)
@@ -216,6 +216,7 @@ const readStringArray = (record: Record<string, unknown>, keys: string[]): strin
 
 const sanitizeTask = (task: Record<string, unknown>) => {
   const fields = toRecord(task.custom_field_values);
+
   return {
     id: readString(task, ["id"]) ?? "UNKNOWN",
     title: readString(task, ["title"]) ?? "UNKNOWN",
@@ -332,6 +333,15 @@ const sanitizeKnowledgeTruck = (
 type SanitizedTask = ReturnType<typeof sanitizeTask>;
 type SanitizedOffer = NonNullable<ReturnType<typeof sanitizeOffer>>;
 type KnowledgeSnapshot = ReturnType<typeof sanitizeKnowledgeTruck>;
+type ProofLedgerSnapshot = {
+  ok: boolean;
+  status: string;
+  sourceTag: string;
+  proofsCount: number;
+  proofGapsCount: number;
+  latestProof: string | null;
+  latestTitle: string | null;
+};
 
 const findTruck = (tasks: SanitizedTask[], truckNames: string[]) =>
   tasks.find((task) => task.truckName && truckNames.includes(task.truckName));
@@ -356,6 +366,7 @@ const buildRouteAggregation = ({
   garageTasks,
   knowledge,
   publisher,
+  proofLedger,
 }: {
   revenue: Record<string, unknown>;
   brokers: Record<string, unknown>;
@@ -363,6 +374,7 @@ const buildRouteAggregation = ({
   garageTasks: SanitizedTask[];
   knowledge: Record<string, KnowledgeSnapshot>;
   publisher: Record<string, unknown>;
+  proofLedger: ProofLedgerSnapshot;
 }) => {
   const currentArr = readNumber(revenue, ["arr_eur"]);
   const currentMrr = readNumber(revenue, ["mrr_eur", "mrr_active_eur"]);
@@ -375,6 +387,10 @@ const buildRouteAggregation = ({
   const gmailTruck = findTruck(garageTasks, ["GmailSupportTruck"]);
   const telegramTruck = findTruck(garageTasks, ["TelegramTruck", "TelegramVipTruck", "TelegramFreeTruck"]);
   const proofTruck = findTruck(garageTasks, ["ProofTruck"]);
+  const proofTruckProof = proofTruck?.lastProof && proofTruck.lastProof !== "UNKNOWN" ? proofTruck.lastProof : null;
+  const proofLedgerHasProof = proofLedger.ok && proofLedger.proofsCount > 0 && proofLedger.proofGapsCount === 0 && Boolean(proofLedger.latestProof);
+  const complianceProof = proofTruckProof ?? proofLedger.latestProof;
+  const complianceHasLiveProof = Boolean(proofTruckProof) || proofLedgerHasProof;
   const offersById = Object.fromEntries(
     offers.map((offer) => [offer.offerId, offer.subsCount]),
   );
@@ -482,20 +498,28 @@ const buildRouteAggregation = ({
     compliance_route: {
       id: "compliance_route",
       label: "Compliance Route",
-      source: "Proof Ledger + approval gates + write locks",
+      source: "Proof Ledger local + approval gates + write locks",
       publish_lock: true,
       send_lock: true,
       stripe_write_lock: true,
-      status: "GREEN",
+      status: complianceHasLiveProof ? "GREEN" : "AMBER",
       key_metrics: {
         publish_lock: true,
         send_lock: true,
         stripe_write_lock: true,
+        proof_ledger_count: proofLedger.proofsCount,
+        proof_gaps_count: proofLedger.proofGapsCount,
       },
-      last_proof: proofTruck?.lastProof ?? "Dangerous actions locked in World Control",
-      next_checkpoint: "Keep proof ledger blocking fake GREEN",
+      last_proof: complianceProof ?? "UNKNOWN",
+      next_checkpoint: complianceHasLiveProof
+        ? "Keep proof ledger blocking fake GREEN"
+        : "Attach live Proof Ledger proof before GREEN",
       gate_required: "DIRECTOR_GO required for send/publish/deploy/Stripe write",
-      blockers: [],
+      blockers: complianceHasLiveProof
+        ? []
+        : proofLedger.proofGapsCount > 0
+          ? [`Proof Ledger has ${proofLedger.proofGapsCount} proof gap(s)`]
+          : ["Proof Ledger live proof missing in current snapshot"],
     },
   };
 };
@@ -675,35 +699,585 @@ async function readAgentsCanon() {
   }
 }
 
+const OPENCLAW_JSON_PATH =
+  process.env.COF_OPENCLAW_JSON_PATH ?? "/Users/burakokyay/.openclaw/openclaw.json";
+const HEARTBEATS_DIR =
+  process.env.COF_OPENCLAW_HEARTBEATS_DIR ?? "/Users/burakokyay/.openclaw/heartbeats";
+const LOCAL_AGENT_TICK_INTERVAL_SEC = 900;
+const LOBSTER_CONFIG_PATH =
+  process.env.COF_LOBSTER_AGENTS_CONFIG_PATH ??
+  "/Users/burakokyay/.openclaw/state/lobsterai_openclaw/cof_lobster_agents_360_config.json";
+const LOBSTER_STATUS_PATH =
+  process.env.COF_LOBSTER_STATUS_PATH ??
+  "/Users/burakokyay/.openclaw/state/lobsterai_openclaw/cof_lobster_agents_status.json";
+const LOBSTER_COMPANY_STATUS_PATH =
+  process.env.COF_LOBSTER_COMPANY_STATUS_PATH ??
+  "/Users/burakokyay/.openclaw/state/company_os/lobsterai_openclaw_status.json";
+const TRUCKS_MANIFEST_PATH =
+  process.env.COF_TRUCKS_MANIFEST_PATH ??
+  "/Users/burakokyay/.openclaw/config/trucks_manifest.json";
+
+const LOCAL_BOARD_HOUSE_MAP = [
+  ["mission_control_tower", "Command Tower", ["mission_control_tower", "investor-accountability", "investor-room"]],
+  ["youtube_studio", "COF IA Publisher", ["cofiapublisher-studio", "cofiapublisher", "social-distribution", "acquisition-engine"]],
+  ["iron_office", "Revenue & CRM", ["revenue-command", "broker-reclaim", "support-recovery", "support-ops"]],
+  ["vip_gate", "Telegram Community", ["vip_gate", "offer-factory"]],
+  ["mt4_signal_tower", "Trading Tower", ["mt4_signal_tower"]],
+  ["site_seo_lab", "Site & SEO Lab", ["product-new-york", "new-york-build", "release-gate", "site_seo_lab"]],
+  ["openclaw_agent_barracks", "Agents Village", ["agentops-skills", "agentops", "garage-trucks", "toolchain"]],
+  ["paperclip_factory", "Paperclip Factory", ["dispatch-queue", "paperclip_factory"]],
+  ["lightrag_observatory", "LightRAG Observatory", ["lightrag_observatory"]],
+  ["obsidian_library", "Knowledge Vault", ["obsidian_library", "notion-ops"]],
+  ["calendar_tower", "Calendar Tower", ["calendar_tower"]],
+  ["compliance_port", "Compliance Gate", ["compliance-gate", "compliance_port"]],
+  ["central_brain", "Central Brain", ["central_brain", "proof-ledger", "cost-runway", "old-city-quarantine"]],
+  ["trading_academy", "Trading Academy", ["trading_academy"]],
+  ["assets_warehouse", "Publisher Suite", ["asset-factory", "content-factory", "assets_warehouse"]],
+] as const;
+
+const AGENT_HOUSE_OVERRIDES: Record<string, string> = {
+  main: "openclaw_agent_barracks",
+  jarod: "openclaw_agent_barracks",
+  "cof-jarod": "openclaw_agent_barracks",
+  "cof-mission-control-router": "openclaw_agent_barracks",
+  router: "openclaw_agent_barracks",
+  luffy: "central_brain",
+  codex: "central_brain",
+  kevin: "central_brain",
+  oracle: "lightrag_observatory",
+  guardian: "obsidian_library",
+  steward: "paperclip_factory",
+  sentinel: "openclaw_agent_barracks",
+};
+
+const readSafeJsonFile = async <T,>(filePath: string, fallback: T): Promise<T> => {
+  try {
+    return JSON.parse(await readFile(filePath, "utf8")) as T;
+  } catch {
+    return fallback;
+  }
+};
+
+const parseTimestampMs = (value: unknown): number | null => {
+  if (typeof value === "number" && Number.isFinite(value)) {
+    return value > 10_000_000_000 ? value : value * 1000;
+  }
+  if (typeof value === "string" && value.trim()) {
+    const numeric = Number.parseFloat(value);
+    if (Number.isFinite(numeric) && /^\d+(\.\d+)?$/.test(value.trim())) {
+      return numeric > 10_000_000_000 ? numeric : numeric * 1000;
+    }
+    const parsed = Date.parse(value);
+    if (Number.isFinite(parsed)) return parsed;
+  }
+  return null;
+};
+
+const normalizeAgentKey = (value: string) =>
+  value
+    .toLowerCase()
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .replace(/^cof-/, "")
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/^-|-$/g, "");
+
+const heartbeatAliasesFor = (id: string, name: string) => {
+  const aliases = new Set<string>();
+  const normalizedId = normalizeAgentKey(id);
+  const normalizedName = normalizeAgentKey(name);
+  aliases.add(normalizedId);
+  aliases.add(normalizedName);
+  aliases.add(normalizedId.replace(/-/g, "_"));
+  aliases.add(normalizedName.replace(/-/g, "_"));
+  if (normalizedId === "main" || normalizedName.includes("jarod")) aliases.add("jarod");
+  if (normalizedId === "brand-manager") aliases.add("brand_manager");
+  if (normalizedId === "paul-mkt") aliases.add("paul_mkt");
+  if (normalizedId === "paul-reseau") aliases.add("paul_reseau");
+  return Array.from(aliases).filter(Boolean);
+};
+
+const runtimeMergeKeyFor = (id: string, name: string) => {
+  const normalizedId = normalizeAgentKey(id);
+  const normalizedName = normalizeAgentKey(name);
+  if ((normalizedId === "main" || normalizedId === "jarod") && normalizedName.includes("jarod")) {
+    return "jarod";
+  }
+  return normalizedId || normalizedName;
+};
+
+const readHeartbeat = async (aliases: string[], nowMs: number) => {
+  const candidates = [];
+  for (const alias of aliases) {
+    const filePath = `${HEARTBEATS_DIR}/${alias}.json`;
+    try {
+      const raw = JSON.parse(await readFile(filePath, "utf8")) as Record<string, unknown>;
+      const tsMs =
+        parseTimestampMs(raw.ts) ??
+        parseTimestampMs(raw.timestamp) ??
+        parseTimestampMs(raw.updated_at) ??
+        parseTimestampMs(raw.last_tick_at);
+      const ageSeconds = tsMs === null ? null : Math.max(0, Math.round((nowMs - tsMs) / 1000));
+      const intervalSec = readNumber(raw, ["interval_sec"]);
+      const scheduledIntervalSec = Math.max(intervalSec ?? 0, LOCAL_AGENT_TICK_INTERVAL_SEC);
+      const aliveMaxSec = Math.max(180, Math.min(scheduledIntervalSec + 90, 1800));
+      const rawStatus = String(raw.status ?? "UNKNOWN");
+      const statusLower = rawStatus.toLowerCase();
+      const fresh =
+        ageSeconds !== null &&
+        ageSeconds <= aliveMaxSec &&
+        ["alive", "running", "live", "ok", "fresh"].some((token) => statusLower.includes(token));
+      candidates.push({
+        ok: true,
+        path: filePath,
+        rawStatus,
+        ts: tsMs ? new Date(tsMs).toISOString() : null,
+        ageSeconds,
+        intervalSec,
+        aliveMaxSec,
+        fresh,
+      });
+    } catch {
+      // Try next alias.
+    }
+  }
+  if (candidates.length > 0) {
+    candidates.sort((left, right) => {
+      if (left.fresh !== right.fresh) return left.fresh ? -1 : 1;
+      return (left.ageSeconds ?? Number.MAX_SAFE_INTEGER) - (right.ageSeconds ?? Number.MAX_SAFE_INTEGER);
+    });
+    return candidates[0];
+  }
+  return {
+    ok: false,
+    path: null,
+    rawStatus: "NO_HEARTBEAT",
+    ts: null,
+    ageSeconds: null,
+    fresh: false,
+  };
+};
+
+const readLaunchctlText = async () => {
+  try {
+    // `launchctl print gui/<uid>` dumps inherited environment and can expose
+    // local tokens. For Mission Control we only need labels, so use list +
+    // plist names as the proof surface.
+    const [listResult, plistNames] = await Promise.all([
+      execFileAsync("launchctl", ["list"], {
+        timeout: 1800,
+        maxBuffer: 2_000_000,
+      }),
+      readdir("/Users/burakokyay/Library/LaunchAgents")
+        .then((names) => names.filter((name) => name.endsWith(".plist")).map((name) => name.replace(/\.plist$/, "")).join("\n"))
+        .catch(() => ""),
+    ]);
+    return `${listResult.stdout}\n${plistNames}`;
+  } catch {
+    try {
+      const plistNames = await readdir("/Users/burakokyay/Library/LaunchAgents");
+      return plistNames.filter((name) => name.endsWith(".plist")).map((name) => name.replace(/\.plist$/, "")).join("\n");
+    } catch {
+      return "";
+    }
+  }
+};
+
+const launchctlEnabled = (launchctlText: string, label: string | null) => {
+  if (!label) return false;
+  const escaped = label.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+  return new RegExp(`(^|\\s)${escaped}($|\\s)`).test(launchctlText);
+};
+
+const isOnDemandInventoryReady = async () => {
+  const [inventoryJson, launchAgents] = await Promise.all([
+    readSafeJsonFile<Record<string, unknown>>("/Users/burakokyay/.openclaw/state/INVENTORY/inventory.json", {}),
+    readdir("/Users/burakokyay/Library/LaunchAgents").catch(() => [] as string[]),
+  ]);
+  const generatedMs = parseTimestampMs(readString(inventoryJson, ["generated_at_utc"]));
+  const ageSeconds = generatedMs === null ? null : Math.max(0, Math.round((Date.now() - generatedMs) / 1000));
+  const hasLaunchAgent = launchAgents.includes("com.coftrading.inventory-http-server.plist");
+  return {
+    ok: hasLaunchAgent && ageSeconds !== null && ageSeconds < 86_400,
+    ageSeconds,
+    proof: hasLaunchAgent
+      ? `/Users/burakokyay/.openclaw/state/INVENTORY/inventory.json age=${ageSeconds ?? "UNKNOWN"}s; on-demand LaunchAgent present`
+      : "inventory on-demand LaunchAgent missing",
+  };
+};
+const localTickLabelFor = (id: string, name: string) => {
+  const aliases = heartbeatAliasesFor(id, name);
+  const preferred = aliases.includes("jarod") ? "jarod" : aliases[0];
+  return preferred ? `com.coftrading.${preferred}-tick` : null;
+};
+
+const readTrucksManifest = async () => {
+  const data = await readSafeJsonFile<Record<string, unknown>>(TRUCKS_MANIFEST_PATH, {});
+  const trucks = Array.isArray(data.trucks) ? (data.trucks as Record<string, unknown>[]) : [];
+  return {
+    sourceTag: readString(data, ["source_tag"]) ?? "TRUCKS_MANIFEST_LOCAL",
+    trucks,
+  };
+};
+
+const buildLocalGarageTasks = (trucks: Record<string, unknown>[]) =>
+  trucks.map((truck, index) => {
+    const name = readString(truck, ["name", "truckName"]) ?? `LocalTruck${index + 1}`;
+    const from = readString(truck, ["from"]) ?? "UNKNOWN";
+    const to = readString(truck, ["to"]) ?? "UNKNOWN";
+    const owner = readString(truck, ["owner"]) ?? "UNKNOWN";
+    return {
+      id: readString(truck, ["id"]) ?? `local-truck-${index + 1}`,
+      title: name,
+      status: "local",
+      priority: "normal",
+      boardId: null,
+      assignedAgentId: null,
+      truckId: readString(truck, ["id"]) ?? `T${index + 1}`,
+      truckName: name,
+      truckType: readString(truck, ["kind"]) ?? "local_manifest",
+      truckStatus: "AMBER",
+      driverAgent: owner,
+      destinationBoard: to,
+      currentJob: readString(truck, ["payload"]) ?? "Flux local manifeste",
+      route: `${from} -> ${to}`,
+      payloadType: readString(truck, ["kind"]) ?? "manifest",
+      sourceOfTruth: readString(truck, ["source"]) ?? TRUCKS_MANIFEST_PATH,
+      lastRunAt: null,
+      lastPayloadSummary: readString(truck, ["payload"]) ?? "UNKNOWN",
+      lastProof: `${TRUCKS_MANIFEST_PATH} · fallback local, gateway OpenClaw down`,
+      writeLock: true,
+      approvalGate: "READ_ONLY_FALLBACK",
+      arrImpact: "indirect",
+      riskLevel: "low",
+      nextAction: "Rebrancher gateway OpenClaw pour passer de fallback local à runtime task",
+      failureMode: "OPENCLAW_API_DOWN",
+      owner,
+      proofRequired: "gateway :18789 + task proof",
+      oldCityFlag: false,
+      dueTime: null,
+      sourceTag: "OPENCLAW_LOCAL_TRUCKS_FALLBACK_V1_20260529",
+    };
+  });
+
+const buildLocalBoards = () =>
+  LOCAL_BOARD_HOUSE_MAP.flatMap(([houseId, name, slugs]) =>
+    slugs.map((slug) => ({
+      id: `local-${slug}`,
+      name,
+      slug,
+      houseId,
+    })),
+  );
+
+const readOpenClawRuntime = async () => {
+  const nowMs = Date.now();
+  const [openclawConfig, lobsterConfig, lobsterStatus, lobsterCompanyStatus, launchctlText] =
+    await Promise.all([
+      readSafeJsonFile<Record<string, unknown>>(OPENCLAW_JSON_PATH, {}),
+      readSafeJsonFile<Record<string, unknown>>(LOBSTER_CONFIG_PATH, {}),
+      readSafeJsonFile<Record<string, unknown>>(LOBSTER_STATUS_PATH, {}),
+      readSafeJsonFile<Record<string, unknown>>(LOBSTER_COMPANY_STATUS_PATH, {}),
+      readLaunchctlText(),
+    ]);
+
+  const visualCanon = await readSafeJsonFile<Record<string, unknown>>(AGENTS_CANON_PATH, {});
+  const visualAgents = Array.isArray(visualCanon.agents)
+    ? (visualCanon.agents as Record<string, unknown>[])
+    : [];
+  const houseByKey = new Map<string, string>();
+  for (const agent of visualAgents) {
+    const id = readString(agent, ["id"]);
+    const name = readString(agent, ["name"]);
+    const house = readString(agent, ["house_attached"]);
+    if (house) {
+      if (id) houseByKey.set(normalizeAgentKey(id), house);
+      if (name) houseByKey.set(normalizeAgentKey(name), house);
+    }
+  }
+
+  const openclawAgentsConfig = Array.isArray(toRecord(openclawConfig.agents).list)
+    ? (toRecord(openclawConfig.agents).list as Record<string, unknown>[])
+    : [];
+  const lobsterAgentsConfig = Array.isArray(lobsterConfig.agents)
+    ? (lobsterConfig.agents as Record<string, unknown>[])
+    : [];
+
+  const merged = new Map<string, Record<string, unknown>>();
+  for (const agent of openclawAgentsConfig) {
+    const id = readString(agent, ["id"]);
+    const name = readString(agent, ["name"]) ?? id ?? "unknown";
+    if (id) merged.set(runtimeMergeKeyFor(id, name), { ...agent, source: "openclaw.json" });
+  }
+  for (const agent of lobsterAgentsConfig) {
+    const id = readString(agent, ["id"]);
+    if (!id) continue;
+    const name = readString(agent, ["name"]) ?? id;
+    const key = runtimeMergeKeyFor(id, name);
+    merged.set(key, { ...(merged.get(key) ?? {}), ...agent, source: "lobster_360_config" });
+  }
+
+  const rows = await Promise.all(
+    Array.from(merged.entries()).map(async ([key, agent]) => {
+      const id = readString(agent, ["id"]) ?? key;
+      const name = readString(agent, ["name"]) ?? id;
+      const aliases = heartbeatAliasesFor(id, name);
+      const heartbeat = await readHeartbeat(aliases, nowMs);
+      const tickLabel = localTickLabelFor(id, name);
+      const tickEnabled = launchctlEnabled(launchctlText, tickLabel);
+      const enabled = readBool(agent, ["enabled"]) ?? true;
+      const primaryModel =
+        readString(toRecord(agent.model), ["primary"]) ??
+        readString(agent, ["model"]) ??
+        "UNKNOWN";
+      const team = readString(agent, ["team"]) ?? "openclaw";
+      const homeHouse =
+        AGENT_HOUSE_OVERRIDES[normalizeAgentKey(id)] ??
+        AGENT_HOUSE_OVERRIDES[normalizeAgentKey(name)] ??
+        houseByKey.get(normalizeAgentKey(id)) ??
+        houseByKey.get(normalizeAgentKey(name)) ??
+        (team.toLowerCase().includes("openclaw") ? "openclaw_agent_barracks" : "central_brain");
+      const runtimeStatus = !enabled
+        ? "DISABLED"
+        : heartbeat.fresh
+          ? "FRESH"
+          : heartbeat.ok
+            ? "STALE"
+            : "NO_HEARTBEAT";
+      return {
+        id,
+        name,
+        team,
+        enabled,
+        homeHouse,
+        primaryModel,
+        heartbeat,
+        tickLabel,
+        tickEnabled,
+        runtimeStatus,
+        proof: heartbeat.ok
+          ? `${heartbeat.path} age=${heartbeat.ageSeconds ?? "UNKNOWN"}s; launchctl=${tickEnabled ? "enabled" : "missing"}`
+          : `no heartbeat in ${HEARTBEATS_DIR}; launchctl=${tickEnabled ? "enabled" : "missing"}`,
+        nextAction: heartbeat.fresh
+          ? "Surveiller, pas de relance nécessaire"
+          : tickEnabled
+            ? `kickstart ${tickLabel}`
+            : `restaurer/charger ${tickLabel ?? "tick LaunchAgent"}`,
+      };
+    }),
+  );
+
+	  const serviceTargets: ReadonlyArray<{ id: string; label: string; url: string; onDemand?: boolean }> = [
+	    { id: "openclaw_gateway_18789", label: "OpenClaw Gateway :18789", url: `${HOST}:18789/health` },
+	    { id: "paperclip_3100", label: "Paperclip :3100", url: `${HOST}:3100/api/health` },
+    { id: "inventory_8433", label: "Inventory :8433", url: `${HOST}:8433/health`, onDemand: true },
+	    { id: "lightrag_9621", label: "LightRAG :9621", url: `${HOST}:9621/health` },
+  ] as const;
+  const services = await Promise.all(
+    serviceTargets.map(async (svc) => {
+      const result = await readJson(svc.url);
+      const onDemandReady = svc.onDemand && !result.ok ? await isOnDemandInventoryReady() : null;
+      return {
+        id: svc.id,
+        label: svc.label,
+        url: svc.url,
+        ok: result.ok || Boolean(onDemandReady?.ok),
+        status:
+          result.ok ? "LIVE" :
+          onDemandReady?.ok ? "SLEEPING" :
+          result.status === null ? "DOWN" :
+          result.status === 404 ? "NOT_FOUND" :
+          result.status === 401 ? "AUTH_REQUIRED" :
+          "DEGRADED",
+        http_code: result.status,
+        proof: onDemandReady?.proof,
+      };
+    }),
+  );
+
+  const fresh = rows.filter((row) => row.runtimeStatus === "FRESH").length;
+  const stale = rows.filter((row) => row.runtimeStatus === "STALE").length;
+  const noHeartbeat = rows.filter((row) => row.runtimeStatus === "NO_HEARTBEAT").length;
+  const disabled = rows.filter((row) => row.runtimeStatus === "DISABLED").length;
+  const tickEnabled = rows.filter((row) => row.tickEnabled).length;
+  const tickExpected = rows.filter((row) => Boolean(row.tickLabel)).length;
+  const jarod = rows.find((row) => normalizeAgentKey(row.id) === "main" || normalizeAgentKey(row.name).includes("jarod"));
+  const gatewayOk = services.some((svc) => svc.id === "openclaw_gateway_18789" && svc.ok);
+  const servicesDown = services.filter((svc) => !svc.ok);
+  const allRuntimeServicesOk = servicesDown.length === 0;
+  const lobsterGeneratedAt = readString(lobsterStatus, ["generated_at_utc"]) ?? readString(lobsterConfig, ["generated_at_utc"]);
+  const lobsterAgeSeconds = parseTimestampMs(lobsterGeneratedAt) === null
+    ? null
+    : Math.max(0, Math.round((nowMs - (parseTimestampMs(lobsterGeneratedAt) ?? nowMs)) / 1000));
+  const lobsterConfigured = readNumber(lobsterStatus, ["agent_count"]) ??
+    readNumber(lobsterConfig, ["agent_count"]) ??
+    lobsterAgentsConfig.length;
+  const lobsterEnabled = readNumber(lobsterStatus, ["enabled_agent_count"]) ??
+    readNumber(lobsterConfig, ["enabled_agent_count"]) ??
+    lobsterAgentsConfig.filter((agent) => readBool(agent, ["enabled"]) !== false).length;
+  const lobsterCompanyStatusLabel = readString(lobsterCompanyStatus, ["status"]) ?? "UNKNOWN";
+
+  const problems = [
+    !gatewayOk
+      ? {
+          severity: "RED",
+          title: "OpenClaw/Lobster gateway down",
+          proof: "Probe :18789 non-OK dans snapshot",
+          patch: "launchctl kickstart -k gui/$(id -u)/com.coftrading.openclaw-gateway ou relancer launcher Lobster OpenClaw",
+        }
+      : null,
+    jarod && jarod.runtimeStatus !== "FRESH"
+      ? {
+          severity: "RED",
+          title: "Jarod pas frais",
+          proof: jarod.proof,
+          patch: jarod.nextAction,
+        }
+      : null,
+    stale > 0
+      ? {
+          severity: "AMBER",
+          title: `${stale} agents stale`,
+          proof: rows.filter((row) => row.runtimeStatus === "STALE").slice(0, 8).map((row) => row.name).join(", "),
+          patch: "kickstart ciblé des LaunchAgents tick, pas relance massive",
+        }
+      : null,
+    noHeartbeat > 0
+      ? {
+          severity: "AMBER",
+          title: `${noHeartbeat} agents sans heartbeat`,
+          proof: rows.filter((row) => row.runtimeStatus === "NO_HEARTBEAT").slice(0, 8).map((row) => row.name).join(", "),
+          patch: "créer heartbeat/tick ou marquer dormant explicitement",
+        }
+      : null,
+    servicesDown.length > 0
+      ? {
+          severity: "AMBER",
+          title: `${servicesDown.length} runtime services down`,
+          proof: servicesDown.map((svc) => `${svc.label}=${svc.status}`).join(", "),
+          patch: "wake/kickstart ciblé du service concerné; ne pas marquer OpenClaw runtime GREEN",
+        }
+      : null,
+    lobsterAgeSeconds !== null && lobsterAgeSeconds > 86_400
+      ? {
+          severity: "AMBER",
+          title: "Lobster 360 status stale",
+          proof: `${LOBSTER_STATUS_PATH} generated_at=${lobsterGeneratedAt}`,
+          patch: "relancer probe/config sync Lobster 360 après gateway",
+        }
+      : null,
+  ].filter(Boolean);
+
+  return {
+    sourceTag: "OPENCLAW_LOBSTER_MISSION_CONTROL_RUNTIME_V1_20260529",
+    sourcePaths: {
+      openclawJson: OPENCLAW_JSON_PATH,
+      lobsterConfig: LOBSTER_CONFIG_PATH,
+      lobsterStatus: LOBSTER_STATUS_PATH,
+      lobsterCompanyStatus: LOBSTER_COMPANY_STATUS_PATH,
+      heartbeatsDir: HEARTBEATS_DIR,
+    },
+    status: gatewayOk && allRuntimeServicesOk && jarod?.runtimeStatus === "FRESH" && fresh >= 5 ? "LIVE" : fresh > 0 ? "AMBER" : "QUARANTINE",
+    lobsterCompanyStatus: lobsterCompanyStatusLabel,
+    counts: {
+      total: rows.length,
+      fresh,
+      stale,
+      noHeartbeat,
+      disabled,
+      tickEnabled,
+      tickExpected,
+      servicesOk: services.filter((svc) => svc.ok).length,
+      servicesTotal: services.length,
+      lobsterConfigured,
+      lobsterEnabled,
+    },
+    jarod: jarod ?? null,
+    services,
+    agents: rows.sort((a, b) => {
+      const order = { FRESH: 0, STALE: 1, NO_HEARTBEAT: 2, DISABLED: 3 } as Record<string, number>;
+      return (order[a.runtimeStatus] ?? 9) - (order[b.runtimeStatus] ?? 9) || a.name.localeCompare(b.name);
+    }),
+    problems,
+  };
+};
+
 export async function GET() {
-  const [revenueResult, housesResult, publisherResult, ackResult, rtkResult, boardsResult, agentsResult, fieldsResult] =
+  const [
+    revenueResult,
+    housesResult,
+    publisherResult,
+	    ackResult,
+	    rtkResult,
+	    proofLedgerResult,
+	    boardsResult,
+	    agentsResult,
+	    fieldsResult,
+    openclawRuntime,
+    trucksManifest,
+  ] =
     await Promise.all([
       readLocalRevenue(),
       readJson(endpoints.houses),
       readJson(endpoints.publisher),
-      readJson(endpoints.ack),
-      readJson(endpoints.rtk),
-      readOpenClaw("/boards"),
-      readOpenClaw("/agents"),
-      readOpenClaw("/organizations/me/custom-fields"),
+	      readJson(endpoints.ack),
+	      readJson(endpoints.rtk),
+	      readJson(endpoints.proofLedger),
+	      readOpenClaw("/boards"),
+	      readOpenClaw("/agents"),
+	      readOpenClaw("/organizations/me/custom-fields"),
+      readOpenClawRuntime(),
+      readTrucksManifest(),
     ]);
 
-  const revenue = toRecord(revenueResult.data);
-  const housesPayload = toRecord(housesResult.data);
-  const publisher = toRecord(publisherResult.data);
+	  const revenue = toRecord(revenueResult.data);
+	  const housesPayload = toRecord(housesResult.data);
+	  const publisher = toRecord(publisherResult.data);
+	  const proofLedgerPayload = toRecord(proofLedgerResult.data);
+	  const proofLedgerProofs = Array.isArray(proofLedgerPayload.proofs)
+	    ? proofLedgerPayload.proofs.filter((item) => item && typeof item === "object") as Record<string, unknown>[]
+	    : [];
+	  const proofLedgerGaps = Array.isArray(proofLedgerPayload.proof_gaps)
+	    ? proofLedgerPayload.proof_gaps
+	    : [];
+	  const latestProof = proofLedgerProofs[0] ? toRecord(proofLedgerProofs[0]) : {};
+	  const proofLedger: ProofLedgerSnapshot = {
+	    ok: proofLedgerResult.ok && proofLedgerProofs.length > 0 && proofLedgerGaps.length === 0,
+	    status: readString(proofLedgerPayload, ["status"]) ?? (proofLedgerResult.ok ? "UNKNOWN" : "SOURCE_DOWN"),
+	    sourceTag: readString(proofLedgerPayload, ["source_tag"]) ?? "LOCAL_MISSION_CONTROL_PROOF_LEDGER",
+	    proofsCount: proofLedgerProofs.length,
+	    proofGapsCount: proofLedgerGaps.length,
+	    latestProof: readString(latestProof, ["path", "proof", "source"]) ?? null,
+	    latestTitle: readString(latestProof, ["title", "label", "kind"]) ?? null,
+	  };
 
   const houses = Array.isArray(housesPayload.houses) ? housesPayload.houses : [];
   const brokers = toRecord(revenue.brokers);
-  const boards = pageItems(boardsResult.data);
-  const agents = pageItems(agentsResult.data);
+  const apiBoards = pageItems(boardsResult.data);
+  const boards = apiBoards.length > 0 ? apiBoards : buildLocalBoards();
+  const apiAgents = pageItems(agentsResult.data);
+  const agents = apiAgents.length > 0
+    ? apiAgents
+    : openclawRuntime.agents.map((agent) => ({
+        id: agent.id,
+        name: agent.name,
+        status: agent.runtimeStatus === "FRESH" ? "fresh" : agent.runtimeStatus.toLowerCase(),
+        board_id: `local-${agent.homeHouse}`,
+        identity_profile: {
+          role: agent.team,
+          authorized_trucks: "READ_ONLY_LOCAL_FALLBACK",
+          daily_output: agent.runtimeStatus,
+          forbidden_actions: "send,publish,deploy,stripe_write",
+        },
+      }));
   const customFields = pageItems(fieldsResult.data);
-  const garageBoard = boards.find((board) => readString(board, ["slug"]) === "garage-trucks");
+  const garageBoard = apiBoards.find((board) => readString(board, ["slug"]) === "garage-trucks");
   const garageBoardId = garageBoard ? readString(garageBoard, ["id"]) : null;
-  const offerBoard = boards.find((board) => readString(board, ["slug"]) === "offer-factory");
+  const offerBoard = apiBoards.find((board) => readString(board, ["slug"]) === "offer-factory");
   const offerBoardId = offerBoard ? readString(offerBoard, ["id"]) : null;
-  const proofBoard = boards.find((board) => readString(board, ["slug"]) === "proof-ledger");
+  const proofBoard = apiBoards.find((board) => readString(board, ["slug"]) === "proof-ledger");
   const boardTaskResults = await Promise.all(
-    boards.slice(0, 60).map(async (board) => {
+    apiBoards.slice(0, 60).map(async (board) => {
       const boardId = readString(board, ["id"]);
       if (!boardId) return { board, result: { ok: false, status: null, data: null, error: "MISSING_BOARD_ID" } as FetchResult };
       return {
@@ -720,7 +1294,9 @@ export async function GET() {
         data: null,
         error: "GARAGE_TRUCKS_BOARD_NOT_FOUND",
       };
-  const garageTasks = pageItems(garageTasksResult.data).map(sanitizeTask);
+  const apiGarageTasks = pageItems(garageTasksResult.data).map(sanitizeTask);
+  const localGarageTasks = buildLocalGarageTasks(trucksManifest.trucks);
+  const garageTasks = apiGarageTasks.length > 0 ? apiGarageTasks : localGarageTasks;
   const knowledge = Object.fromEntries(
     knowledgeTruckConfig.map((config) => [
       config.id,
@@ -769,30 +1345,24 @@ export async function GET() {
       arrImpact: tasks.some((task) => task.arrImpact === "direct") ? "direct" : "indirect",
     };
   });
-  // P11 Sourate LXVIII · Revenue drift detection (Hub past_due vs Stripe MCP real)
-  const hubPastDueEur = readNumber(revenue, ["past_due_eur", "past_due_eur_total"]);
-  const hubPastDueCount = readNumber(revenue, ["past_due_count"]);
-  const revenueDriftDetected =
-    hubPastDueEur !== STRIPE_DIRECT_PAST_DUE.eur ||
-    hubPastDueCount !== STRIPE_DIRECT_PAST_DUE.count;
+  // Revenue unifiée : aucune constante Stripe figée. readLocalRevenue applique
+  // l'overlay backend NY :8000 quand il répond; sinon fallback cof_state local.
   const unifiedRevenue = {
     ...revenue,
-    past_due_eur: STRIPE_DIRECT_PAST_DUE.eur,
-    past_due_eur_total: STRIPE_DIRECT_PAST_DUE.eur,
-    past_due_count: STRIPE_DIRECT_PAST_DUE.count,
-    past_due_source: revenueDriftDetected
-      ? STRIPE_DIRECT_PAST_DUE.source
-      : readString(revenue, ["source_tag"]) ?? "Hub Iron revenue summary",
+    past_due_eur_total: readNumber(revenue, ["past_due_eur_total", "past_due_eur"]),
+    past_due_source: readString(revenue, ["source_tag"]) ?? "NY local revenue snapshot",
   };
+  const revenueDriftDetected = false;
 
   const routes = buildRouteAggregation({
     revenue: unifiedRevenue,
     brokers,
-    offers: offers as SanitizedOffer[],
-    garageTasks,
-    knowledge,
-    publisher,
-  });
+	    offers: offers as SanitizedOffer[],
+	    garageTasks,
+	    knowledge,
+	    publisher,
+	    proofLedger,
+	  });
   const investorRoom = buildInvestorRoom({
     revenue: unifiedRevenue,
     routes,
@@ -804,40 +1374,68 @@ export async function GET() {
   const serviceProbes = await Promise.all(
     SERVICE_PROBES.map(async (svc) => {
       const result = await readJson(svc.url);
+      const onDemandReady = svc.onDemand && !result.ok ? await isOnDemandInventoryReady() : null;
       const status: string =
         result.ok ? "LIVE" :
+        onDemandReady?.ok ? "SLEEPING" :
         result.status === 307 || result.status === 302 ? "REDIRECT" :
         result.status === 401 ? "AUTH_REQUIRED" :
         result.status === 404 ? "NOT_FOUND" :
         result.status === null ? "DOWN" :
         "DEGRADED";
-      return { id: svc.id, label: svc.label, url: svc.url, role: svc.role, http_code: result.status, ok: result.ok, status };
+      return {
+        id: svc.id,
+        label: svc.label,
+        url: svc.url,
+        role: svc.role,
+        http_code: result.status,
+        ok: result.ok || Boolean(onDemandReady?.ok),
+        status,
+        proof: onDemandReady?.proof,
+      };
     }),
   );
 
-  // P11 Sourate LVI · Agents fresh/stale depuis OpenClaw backend status field
-  const freshAgentsList = agents.filter((a) => {
+  // P11 Sourate LVI · Agents fresh/stale depuis OpenClaw backend, fallback local heartbeats si gateway down.
+  const freshAgentsList = apiAgents.length > 0 ? agents.filter((a) => {
     const st = readString(toRecord(a), ["status"]);
     return st === "active" || st === "fresh" || st === "online";
-  });
-  const staleAgentsList = agents.filter((a) => {
+  }) : [];
+  const staleAgentsList = apiAgents.length > 0 ? agents.filter((a) => {
     const st = readString(toRecord(a), ["status"]);
     return st !== "active" && st !== "fresh" && st !== "online";
-  });
-  const agentsBlock = {
-    total: agents.length,
-    fresh: freshAgentsList.length,
-    stale: staleAgentsList.length,
-    fresh_names: freshAgentsList
-      .map((a) => readString(toRecord(a), ["name"]))
-      .filter((n): n is string => !!n)
-      .slice(0, 15),
-    stale_names_top: staleAgentsList
-      .map((a) => readString(toRecord(a), ["name"]))
-      .filter((n): n is string => !!n)
-      .slice(0, 15),
-    freshness_ratio: agents.length > 0 ? freshAgentsList.length / agents.length : 0,
-  };
+  }) : [];
+  const agentsBlock = apiAgents.length > 0
+    ? {
+        total: agents.length,
+        fresh: freshAgentsList.length,
+        stale: staleAgentsList.length,
+        fresh_names: freshAgentsList
+          .map((a) => readString(toRecord(a), ["name"]))
+          .filter((n): n is string => !!n)
+          .slice(0, 15),
+        stale_names_top: staleAgentsList
+          .map((a) => readString(toRecord(a), ["name"]))
+          .filter((n): n is string => !!n)
+          .slice(0, 15),
+        freshness_ratio: agents.length > 0 ? freshAgentsList.length / agents.length : 0,
+      }
+    : {
+        total: openclawRuntime.counts.total,
+        fresh: openclawRuntime.counts.fresh,
+        stale: openclawRuntime.counts.stale + openclawRuntime.counts.noHeartbeat,
+        fresh_names: openclawRuntime.agents
+          .filter((agent) => agent.runtimeStatus === "FRESH")
+          .map((agent) => agent.name)
+          .slice(0, 15),
+        stale_names_top: openclawRuntime.agents
+          .filter((agent) => agent.runtimeStatus !== "FRESH")
+          .map((agent) => agent.name)
+          .slice(0, 15),
+        freshness_ratio: openclawRuntime.counts.total > 0
+          ? openclawRuntime.counts.fresh / openclawRuntime.counts.total
+          : 0,
+      };
 
   // P11 Sourate LXVI Tatbīq · 7 actions concrètes Muharrik gates (fallback si filtre vide)
   const fallbackNext7Days = [
@@ -868,9 +1466,10 @@ export async function GET() {
         revenue: { ok: revenueResult.ok, status: revenueResult.status },
         houses: { ok: housesResult.ok, status: housesResult.status },
         publisher: { ok: publisherResult.ok, status: publisherResult.status },
-        ack: { ok: ackResult.ok, status: ackResult.status },
-        rtk: { ok: rtkResult.ok, status: rtkResult.status },
-        openclawBoards: { ok: boardsResult.ok, status: boardsResult.status },
+	        ack: { ok: ackResult.ok, status: ackResult.status },
+	        rtk: { ok: rtkResult.ok, status: rtkResult.status },
+	        proofLedger: { ok: proofLedgerResult.ok, status: proofLedgerResult.status },
+	        openclawBoards: { ok: boardsResult.ok, status: boardsResult.status },
         openclawAgents: { ok: agentsResult.ok, status: agentsResult.status },
         openclawCustomFields: { ok: fieldsResult.ok, status: fieldsResult.status },
         openclawGarageTrucks: { ok: garageTasksResult.ok, status: garageTasksResult.status },
@@ -879,11 +1478,13 @@ export async function GET() {
       has_openclaw: hasOpenClaw,
       hasOpenClaw,
       garageTrucks: garageTasks,
-      knowledge,
-      offers,
+	      knowledge,
+	      proofLedger,
+	      offers,
       routes,
       investor_room: investorRoomEnriched,
       agents: agentsBlock,
+      openclawRuntime,
       commerce_machine: COMMERCE_MACHINE_CANON,
       revenue: {
         sourceTag: readString(unifiedRevenue, ["source_tag"]),

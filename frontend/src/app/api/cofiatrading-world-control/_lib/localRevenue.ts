@@ -78,7 +78,7 @@ export async function readLocalRevenue(): Promise<FetchResultLike> {
         const items = Array.isArray(pd.items) ? pd.items : [];
         if (totalEur != null) pastDueEur = totalEur;
         else if (items.length) pastDueEur = items.reduce((s: number, it: unknown) => s + (num(rec(it).amount_due_eur) ?? 0), 0);
-        pastDueCount = items.length || null;
+        pastDueCount = num(pd.items_count) ?? (items.length || null);
       }
     } catch {
       /* backend down → on garde cof_state local, aucune régression */

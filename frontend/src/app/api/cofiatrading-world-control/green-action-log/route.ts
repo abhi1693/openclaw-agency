@@ -159,6 +159,12 @@ export async function GET() {
     nyRevenue.ok &&
     readNumber(revenueData, ["mrr_eur", "mrr_active_eur"]) !== null &&
     readNumber(revenueData, ["arr_eur"]) !== null;
+  const snapshotData = toRecord(nySnapshot.data);
+  const oldCityContained = false;
+  const oldCityProof =
+    typeof snapshotData.sourceTag === "string"
+      ? `snapshot source=${snapshotData.sourceTag}; containment scan not computed in this route`
+      : "containment scan not computed in this route";
 
   const gates = [
     gate({
@@ -225,12 +231,14 @@ export async function GET() {
       id: "old_city_contained",
       label: "Old City contained read-only",
       building: "Old City Locked",
-      status: "GREEN",
+      status: oldCityContained ? "GREEN" : "LOCKED",
       owner: "Codex",
       source: "Abidjan legacy read-only shadow",
       target: "New York remains the write/control plane",
-      proof: `${nyRevenue.proof}; snapshot/control path uses read-only revenue proof and no publish/write path.`,
-      nextAction: "Porter Iron CRM brokers/clients dans NY puis retirer le shadow legacy du snapshot.",
+      proof: `${nyRevenue.proof}; ${oldCityProof}`,
+      nextAction: oldCityContained
+        ? "Porter Iron CRM brokers/clients dans NY puis retirer le shadow legacy du snapshot."
+        : "Calculer une preuve anti-shadow réelle avant GREEN: scan routes write/publish vers :8430 hors docs/logs.",
       killCondition: "No write/publish through Abidjan; kill final seulement quand brokers/clients Iron CRM sont dans NY et que rg :8430 retourne 0 hors docs/logs.",
     }),
   ];
