@@ -1376,6 +1376,69 @@ async function isTakeoverActive(uid: string): Promise<boolean> {
   }
 }
 
+// Flux 6 — cache mtime du gros JSON CRM (évite de reparser ~6.6 Mo à chaque clic client).
+let _crmCache: { mtimeMs: number; byTg: Record<string, Record<string, unknown>> } | null = null;
+async function loadCrmByTg(): Promise<Record<string, Record<string, unknown>>> {
+  try {
+    const st = await statFile(CRM_ULTRA_JSON);
+    if (_crmCache && _crmCache.mtimeMs === st.mtimeMs) return _crmCache.byTg;
+    const raw = JSON.parse(await readFile(CRM_ULTRA_JSON, "utf8")) as Record<string, unknown>;
+    const byTg = (isRecord(raw.clients_by_tg) ? raw.clients_by_tg : {}) as Record<string, Record<string, unknown>>;
+    _crmCache = { mtimeMs: st.mtimeMs, byTg };
+    return byTg;
+  } catch {
+    return {};
+  }
+}
+
+const crmNum = (v: unknown): number | null => {
+  const n = typeof v === "number" ? v : Number(asString(v));
+  return Number.isFinite(n) ? n : null;
+};
+
+// Profil CRM 360 affichable d'un client (par telegram_id) — champs whitelistés, lecture seule.
+// found:false = prospect non recensé (honnête). Source : clients_by_tg de iron_crm_ultra_runtime.json.
+async function buildClient360(tgId: string) {
+  const byTg = await loadCrmByTg();
+  const c = isRecord(byTg[tgId]) ? byTg[tgId] : null;
+  if (!c) {
+    return { found: false, telegramId: tgId, note: "Non recensé au CRM (prospect / lead non qualifié)" };
+  }
+  const pick = (k: string, max = 200) => sanitizeText(asString(c[k]), max);
+  const dealStage = pick("deal_stage", 40);
+  const segment = pick("segment", 40);
+  return {
+    found: true,
+    telegramId: tgId,
+    identity: {
+      name: pick("client_name"), username: pick("username"), country: pick("country"),
+      language: pick("language"), email: pick("email", 120), phone: pick("phone", 40),
+    },
+    temperature: { label: pick("temperature", 20), score: crmNum(c.score), urgency: pick("urgency", 30) },
+    money: {
+      valueTier: pick("value_tier", 40), depositUsd: crmNum(c.deposit_usd), netDepositUsd: crmNum(c.net_deposit_usd),
+      redepositUsd: crmNum(c.redeposit_usd), broker: pick("broker", 40), brokerUid: pick("broker_uid", 60),
+      moneyScore: crmNum(c.money_score),
+    },
+    subscription: {
+      stripeStatus: pick("stripe_status", 30), stripePlan: pick("stripe_plan", 40),
+      stripeAmountEur: crmNum(c.stripe_amount_eur), vipTelegram: pick("vip_telegram", 10), vipPerma: pick("vip_perma", 10),
+      segment, dealStage, vipReason: pick("vip_invite_reason", 120),
+    },
+    risk: { riskScore: crmNum(c.risk_score), sentiment: pick("sentiment", 30), frustration: pick("frustration_level", 20) },
+    timeline: {
+      depositDate: pick("deposit_date", 40), lastDepositDate: pick("last_deposit_date", 40),
+      daysSinceDeposit: pick("days_since_deposit", 20), lastContactUtc: crmNum(c.last_contact_utc), status: pick("status", 30),
+    },
+    context: {
+      isClient: ["VIP_ACTIVE", "CLIENT", "WON"].some((s) => dealStage.toUpperCase().includes(s)) || segment.toLowerCase().includes("paid"),
+      nextBestAction: pick("next_best_action_code", 60), nextAction: pick("next_action", 200),
+      last3Facts: Array.isArray(c.last_3_facts) ? c.last_3_facts.map((f) => sanitizeText(asString(f), 200)).slice(0, 3) : [],
+      lastMessageSummary: pick("last_message_summary", 300),
+    },
+  };
+}
+
 // Envoi d'une note VOCALE à un client depuis la dashboard — proxy vers la brique média
 // EXISTANTE du hub (/api/agent-oversight/send-media-b64, kind=voice → sendVoice).
 // Transcode webm→ogg/opus avant envoi (vraie note vocale) + journalise le transcript.
