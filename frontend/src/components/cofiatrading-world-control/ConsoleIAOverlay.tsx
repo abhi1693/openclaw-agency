@@ -930,6 +930,8 @@ function ConversationsInbox({
   sending,
   onSendVoice,
   sendingVoice,
+  onSendPhoto,
+  sendingPhoto,
 }: {
   threads: ConvThread[];
   selectedId: string | null;
@@ -941,6 +943,8 @@ function ConversationsInbox({
   sending: boolean;
   onSendVoice: (uid: string, fileB64: string, via: string) => Promise<boolean>;
   sendingVoice: boolean;
+  onSendPhoto: (uid: string, fileB64: string, via: string) => Promise<boolean>;
+  sendingPhoto: boolean;
 }) {
   const active = selectedId ? threads.find((t) => t.userId === selectedId) ?? null : null;
   const [reply, setReply] = useState("");
