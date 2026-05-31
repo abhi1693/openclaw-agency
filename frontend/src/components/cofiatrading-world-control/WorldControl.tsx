@@ -2215,6 +2215,9 @@ export function WorldControl() {
                 onSelectHouse={openHouseDrawer}
               />
             </div>
+            <div className="mt-3">
+              <InventoryStatusMatrix />
+            </div>
           </details>
 
 
