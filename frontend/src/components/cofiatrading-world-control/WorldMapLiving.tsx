@@ -231,7 +231,7 @@ export function WorldMapLiving({ snapshot, angelRoster, onSelectHouse }: { snaps
   const [selectedAgent, setSelectedAgent] = useState<CanonAgent | null>(null);
   const [hoverHouse, setHoverHouse] = useState<string | null>(null);
   const [hoverAgent, setHoverAgent] = useState<string | null>(null);
-  const [houseTab, setHouseTab] = useState<"vue" | "kpis" | "anges" | "machines">("vue");
+  const [houseTab, setHouseTab] = useState<"vue" | "kpis" | "anges" | "machines" | "inventaire">("vue");
   const [houseKpiData, setHouseKpiData] = useState<Record<string, { kpis: Array<{ label: string; value: string; source?: string }>; gap?: string }> | null>(null);
   const [syncStamp, setSyncStamp] = useState<string>("");
   const sceneRef = useRef<HTMLDivElement | null>(null);
