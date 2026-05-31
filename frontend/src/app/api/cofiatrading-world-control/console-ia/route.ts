@@ -1544,6 +1544,32 @@ async function buildAllClients(limit = 500) {
   return [...scored, ...brokerOnly].sort((a, b) => rankValue(b) - rankValue(a) || (b.depositUsd ?? 0) - (a.depositUsd ?? 0)).slice(0, limit);
 }
 
+// Flux 8 — pool DM Telethon (reengage erwin+red) : ~8757 contacts Telegram RÉELS, contactables
+// (ont un tg + first_name/username). Dédupliqués, hors clients CRM déjà listés, récents d'abord.
+async function buildDmPool(limit = 400) {
+  const crmTg = new Set(Object.keys(await crmLiteByTg()));
+  const q = "SELECT user_id, username, first_name, last_msg_ts, last_msg_direction FROM dm_inbox_snapshot WHERE user_id IS NOT NULL AND user_id!='0' ORDER BY last_msg_ts DESC LIMIT 3000";
+  const all = [...sqliteRows(REENGAGE_DB, q), ...sqliteRows(REENGAGE_RED_DB, q)]
+    .sort((a, b) => asString(b.last_msg_ts).localeCompare(asString(a.last_msg_ts)));
+  const seen = new Set<string>();
+  const out: Record<string, unknown>[] = [];
+  for (const r of all) {
+    const uid = asString(r.user_id);
+    if (!uid || uid === "0" || seen.has(uid) || crmTg.has(uid)) continue;
+    seen.add(uid);
+    out.push({
+      userId: uid,
+      name: sanitizeText(asString(r.first_name), 60) || (asString(r.username) ? `@${sanitizeText(asString(r.username), 50)}` : `#${uid}`),
+      username: sanitizeText(asString(r.username), 60), country: "",
+      crmTemp: "", crmScore: null, crmTier: "DM", crmStripe: "", depositUsd: null, commissionUsd: null,
+      isClient: false, brokerOnly: false, broker: "", churnRisk: "", dmLead: true,
+      lastTs: sanitizeText(asString(r.last_msg_ts), 30), lastDirection: sanitizeText(asString(r.last_msg_direction), 8),
+    });
+    if (out.length >= limit) break;
+  }
+  return out;
+}
+
 // Envoi d'une note VOCALE à un client depuis la dashboard — proxy vers la brique média
 // EXISTANTE du hub (/api/agent-oversight/send-media-b64, kind=voice → sendVoice).
 // Transcode webm→ogg/opus avant envoi (vraie note vocale) + journalise le transcript.
