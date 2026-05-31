@@ -1369,6 +1369,23 @@ export function ConsoleIAOverlay() {
     }
   };
 
+  // Flux 5 — toggle visible « Iron en pause / rendre à Iron » pour la conv active.
+  const toggleTakeover = async (uid: string, on: boolean): Promise<boolean> => {
+    if (!uid) return false;
+    try {
+      const r = await fetch("/api/cofiatrading-world-control/console-ia", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ action: "set_takeover", uid, on }),
+      });
+      const d = (await r.json()) as { ok?: boolean; takeover?: boolean };
+      if (d.ok) setConvTakeover(d.takeover === true);
+      return d.ok === true;
+    } catch {
+      return false;
+    }
+  };
+
   const sendConversationReply = async (uid: string, text: string, via: string): Promise<boolean> => {
     if (!uid || !text) return false;
     setConvSending(true);
