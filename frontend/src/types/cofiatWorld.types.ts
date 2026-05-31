@@ -105,7 +105,7 @@ export type AuthLedgerItem = {
   criticality: AuthLedgerCriticality;
   /** preuve sourçable — OBLIGATOIRE pour GREEN/LIVE (sinon rétrogradé) */
   proof?: string;
-  /** ce qui manque — attendu pour AMBER*/RED/OPTIONAL_*/ADAPTER_MISSING */
+  /** ce qui manque — attendu pour les AMBER, RED, OPTIONAL_* et ADAPTER_MISSING */
   blocker?: string;
   /** ids des providers qui couvrent ce manque (fallback réel) */
   coveredBy?: string[];
