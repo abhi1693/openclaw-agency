@@ -163,7 +163,7 @@ const CATEGORY_TO_HOUSE: Record<string, string> = {
 /* alias maison non-canon de l'inventaire → maison visible la plus proche */
 const HOUSE_ALIAS: Record<string, string> = { erwin_perso_ceo: "mission_control_tower" };
 /* resolveHouseId — priorité : houseId → house → ownerHouse → catégorie → "unassigned" (gère le multi-maison "a,b") */
-function resolveHouseIds(item: InvItem): string[] {
+export function resolveHouseIds(item: InvItem): string[] {
   const raw = (item.houseId || item.house || item.ownerHouse || "").trim();
   const ids = raw ? raw.split(",").map((s) => s.trim()).filter(Boolean).map((h) => HOUSE_ALIAS[h] ?? h) : [];
   if (ids.length) return ids;
