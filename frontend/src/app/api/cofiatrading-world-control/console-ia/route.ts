@@ -1435,6 +1435,7 @@ async function proxyConversationPhoto(body: Record<string, unknown>) {
     const ok = res.ok && result.success === true;
     if (ok) {
       await logConversationOutMarker(uid, via, `📷 Photo envoyée${result.message_id ? ` (msg ${result.message_id})` : ""}`);
+      await markTakeover(uid, true);  // Flux 5 — Erwin gère → Iron se tait
     }
     return NextResponse.json(
       { ok, status: res.status, result, target: uid, via, kind: "photo", sourceTag: SOURCE_TAG },
