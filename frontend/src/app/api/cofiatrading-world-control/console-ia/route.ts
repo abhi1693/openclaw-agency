@@ -2235,6 +2235,14 @@ export async function GET(request: Request) {
     );
   }
 
+  // Flux 8 — pool DM Telethon : contacts Telegram réels contactables (hors clients CRM).
+  if (url.searchParams.get("dmpool")) {
+    return NextResponse.json(
+      { ok: true, sourceTag: SOURCE_TAG, clients: await buildDmPool(), totals: await crmTotals() },
+      { headers: { "Cache-Control": "no-store" } },
+    );
+  }
+
   // Transcript d'un client (read-only).
   const conversationUid = sanitizeText(url.searchParams.get("conversation") ?? "", 40);
   if (conversationUid) {
