@@ -1,6 +1,7 @@
 import { readFile } from "fs/promises";
 import type { OperationalStatus, StatusSource } from "@/types/cofiatWorld.types";
 import { enforceNoFalseGreenAll, computeCanonicalTotals, totalsInvariantOk } from "@/utils/cofiatNoFalseGreenGuard";
+import { classifySubscriptionHouse } from "@/utils/cofiatSubscriptionHouse";
 
 /**
  * inventory-matrix — matrice opérationnelle COMPLÈTE inventaire/statut, lue 100% LOCAL
