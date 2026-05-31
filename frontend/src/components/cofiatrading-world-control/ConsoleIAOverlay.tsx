@@ -1144,7 +1144,7 @@ function ConversationsInbox({
               </div>
               <div className="flex flex-wrap items-center gap-x-3 text-[10px] text-slate-400">
                 {crm.identity?.username ? <span>@{crm.identity.username}</span> : null}
-                {crm.identity?.email ? <span className="truncate">✉ {crm.identity.email}</span> : null}
+                {crm.identity?.email ? <span className="truncate">✉ {crm.identity.email}{crm.capturedEmail && crm.capturedEmail === crm.identity.email ? <span className="ml-1 rounded border border-emerald-300/40 px-1 text-[8px] font-black text-emerald-200">📧 capté</span> : null}</span> : null}
                 {crm.identity?.phone ? <span>📞 {crm.identity.phone}</span> : null}
               </div>
               {crm.context?.nextBestAction ? (
