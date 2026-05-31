@@ -417,7 +417,11 @@ export function WorldMapLiving({ snapshot, angelRoster, onSelectHouse }: { snaps
       }
     });
 
-    return { built, vbMinX, vbMinY, vbW, vbH, viewBox: `${vbMinX.toFixed(0)} ${vbMinY.toFixed(0)} ${vbW.toFixed(0)} ${vbH.toFixed(0)}`, islandPath, coastPath, districts, roads, lamps, decor };
+    // place centrale (town square) + jonctions pavées devant les portes
+    const plaza = ic;
+    const junctions = built.map((b) => { const f = isoProject(houseFrontWorld(b.house).wx, houseFrontWorld(b.house).wy); return { x: f.sx, y: f.sy }; });
+
+    return { built, vbMinX, vbMinY, vbW, vbH, viewBox: `${vbMinX.toFixed(0)} ${vbMinY.toFixed(0)} ${vbW.toFixed(0)} ${vbH.toFixed(0)}`, islandPath, coastPath, districts, roads, lamps, decor, plaza, junctions };
   }, [effHouses]);
 
   const builtSorted = useMemo(() => [...scene.built].sort((a, b) => a.depth - b.depth), [scene.built]);
