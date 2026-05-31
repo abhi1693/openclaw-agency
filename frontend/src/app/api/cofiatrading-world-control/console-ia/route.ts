@@ -2099,6 +2099,15 @@ export async function GET(request: Request) {
     );
   }
 
+  // Flux 6 — profil CRM 360 d'un client par telegram_id.
+  const clientUid = sanitizeText(url.searchParams.get("client") ?? "", 40);
+  if (clientUid) {
+    return NextResponse.json(
+      { ok: true, sourceTag: SOURCE_TAG, profile: await buildClient360(clientUid) },
+      { headers: { "Cache-Control": "no-store" } },
+    );
+  }
+
   // ÉTAPE 3/4 — thread par threadId ou agent actif (targetId). threadId stable :
   // un refresh recharge le thread, un retour sur un agent reprend SON thread.
   const threadIdParam = sanitizeText(url.searchParams.get("threadId") ?? "", 140);
