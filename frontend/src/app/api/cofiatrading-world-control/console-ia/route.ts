@@ -2151,12 +2151,10 @@ export async function GET(request: Request) {
   // Inbox conversations clients (read-only). Liste des threads.
   if (url.searchParams.get("conversations")) {
     const raw = await fetchConversationThreads();
-    const byTg = await loadCrmByTg();  // Flux 6b — heat-map : enrichit chaque conv avec le CRM
+    const byTg = await crmLiteByTg();  // Flux 7 — heat-map depuis la DB CRM live
     const threads = raw.map((t) => {
       const userId = String(t.user_id ?? "");
-      const c = isRecord(byTg[userId]) ? byTg[userId] : null;
-      const dealStage = c ? sanitizeText(asString(c.deal_stage), 40) : "";
-      const segment = c ? sanitizeText(asString(c.segment), 40) : "";
+      const c = byTg[userId] ?? null;
       return {
         userId,
         name: asString(t.first_name) || asString(t.username) || `#${String(t.user_id ?? "?")}`,
@@ -2172,16 +2170,25 @@ export async function GET(request: Request) {
         totalMessages: Number(t.total_messages ?? 0) || 0,
         sourceChannel: asString(t.source_channel),
         muted: t.muted === true,
-        // Flux 6b — données CRM pour la carte de chaleur (avant clic)
+        // Flux 7 — données CRM live (heat-map avant clic)
         crmFound: !!c,
-        crmTemp: c ? sanitizeText(asString(c.temperature), 20).toUpperCase() : "",
-        crmScore: c ? crmNum(c.score) : null,
-        crmTier: c ? sanitizeText(asString(c.value_tier), 40).toUpperCase() : "",
-        crmStripe: c ? sanitizeText(asString(c.stripe_status), 30).toLowerCase() : "",
-        crmIsClient: c ? (["VIP_ACTIVE", "CLIENT", "WON"].some((s) => dealStage.toUpperCase().includes(s)) || segment.toLowerCase().includes("paid")) : false,
+        crmTemp: c?.temp ?? "",
+        crmScore: c?.score ?? null,
+        crmTier: c?.tier ?? "",
+        crmStripe: c?.stripe ?? "",
+        crmIsClient: c?.isClient ?? false,
+        depositUsd: c?.firstDep ?? null,
       };
     });
-    return NextResponse.json({ ok: true, sourceTag: SOURCE_TAG, threads }, { headers: { "Cache-Control": "no-store" } });
+    return NextResponse.json({ ok: true, sourceTag: SOURCE_TAG, threads, totals: await crmTotals() }, { headers: { "Cache-Control": "no-store" } });
+  }
+
+  // Flux 7 — vue "Tous les clients" : toute la base CRM live classée chaud + dépôt.
+  if (url.searchParams.get("allclients")) {
+    return NextResponse.json(
+      { ok: true, sourceTag: SOURCE_TAG, clients: await buildAllClients(), totals: await crmTotals() },
+      { headers: { "Cache-Control": "no-store" } },
+    );
   }
 
   // Transcript d'un client (read-only).
