@@ -6,10 +6,10 @@
  * (runtime/api/filesystem) ET une preuve. Sinon NoFalseGreenGuard rétrograde.
  * ════════════════════════════════════════════════════════════════ */
 
-export type StatusSource = "runtime" | "api" | "filesystem" | "config" | "mock" | "unknown";
-
-export type OperationalStatus =
-  | "GREEN" | "AMBER" | "RED" | "UNKNOWN" | "LOCKED" | "STALE" | "QUARANTINE" | "DRAFT" | "LIVE";
+/* Source unique de vérité des types de statut : src/types/cofiatWorld.types.ts.
+ * Ré-export ici pour compat ascendante des imports existants — PAS de redéfinition. */
+import type { StatusSource, OperationalStatus } from "@/types/cofiatWorld.types";
+export type { StatusSource, OperationalStatus } from "@/types/cofiatWorld.types";
 
 export type StatusCell = {
   status: OperationalStatus;
