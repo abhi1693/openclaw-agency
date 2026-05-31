@@ -1320,7 +1320,7 @@ function Building({
       <polygon points={body.leftStr} fill="none" stroke={st.color} strokeWidth={focus ? 1.8 : 0.9} opacity={focus ? 1 : 0.7} />
       <polygon points={body.rightStr} fill="none" stroke={st.color} strokeWidth={focus ? 1.5 : 0.7} opacity={focus ? 0.9 : 0.5} />
       {/* porte */}
-      <polygon points={`${P(doorBL)} ${P(doorBR)} ${P(doorTR)} ${P(doorTL)}`} fill="#05media".replace("media", "0a14")} opacity="0.9" stroke={h.accent} strokeWidth="0.5" strokeOpacity="0.5" />
+      <polygon points={`${P(doorBL)} ${P(doorBR)} ${P(doorTR)} ${P(doorTL)}`} fill="#050a14" opacity="0.9" stroke={h.accent} strokeWidth="0.5" strokeOpacity="0.5" />
 
       {/* toit du corps */}
       <polygon points={body.roofPoly} fill={h.roofColor} />
