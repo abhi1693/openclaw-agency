@@ -2312,7 +2312,7 @@ export function ConsoleIAOverlay() {
               </div>
               {inboxSegment === "conversations" ? (
                 <ConversationsInbox
-                  threads={allClientsMode ? allClients : conversations}
+                  threads={inboxMode === "dm" ? dmPool : inboxMode === "clients" ? allClients : conversations}
                   selectedId={selectedConvId}
                   onSelect={setSelectedConvId}
                   onBack={() => setSelectedConvId(null)}
