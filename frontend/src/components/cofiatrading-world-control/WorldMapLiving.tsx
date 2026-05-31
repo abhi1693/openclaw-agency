@@ -219,6 +219,7 @@ export function WorldMapLiving({ snapshot, angelRoster, onSelectHouse }: { snaps
   const [onDemandSet, setOnDemandSet] = useState<Set<string>>(new Set());
   const [events, setEvents] = useState<FeedEvent[]>([]);
   const [trucks, setTrucks] = useState<Truck[]>([]);
+  const [toolMachines, setToolMachines] = useState<WorldMachine[]>([]); // outils SaaS rattachés à leur maison (Notion/Linear…), statut depuis probe live
   const [registryError, setRegistryError] = useState(false);
   const [selectedHouse, setSelectedHouse] = useState<string | null>(null);
   const [selectedAngel, setSelectedAngel] = useState<Angel | null>(null);
