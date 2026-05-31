@@ -115,6 +115,7 @@ export async function GET() {
         { label: "Hub services up", value: `${fr(g(cof, "system_status", "hub", "running"))} / ${fr(g(cof, "system_status", "hub", "total"))}`, source: SRC_COF } as Kpi,
         { label: "Guardian heartbeat", value: g(cof, "system_status", "guardian", "heartbeat_running") ? `LIVE (${fr(g(cof, "system_status", "guardian", "heartbeat_age_sec"))}s)` : "DOWN", source: SRC_COF } as Kpi,
         { label: "Data source trading", value: `${g(cof, "system_status", "data_source", "status") ?? "?"} (${g(cof, "system_status", "data_source", "provider") ?? "?"})`, source: SRC_COF } as Kpi,
+        { label: "Linear issues récentes", value: linearTotal != null ? `${linearTotal}` : "UNKNOWN", source: "Linear API live (route /linear, lecture seule)" } as Kpi,
       ],
     };
 
