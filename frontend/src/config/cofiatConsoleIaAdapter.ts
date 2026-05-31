@@ -18,12 +18,19 @@
  * RÉUTILISE les types canoniques OperationalStatus + StatusSource
  * (src/types/cofiatWorld.types.ts) — AUCUN nouvel enum n'est créé ici.
  *
+ * CLIENT-SAFE (NO-FALSE-GREEN strict) : ce module est importé par
+ * AuthProviderStatusPanel, lui-même rendu dans WorldControl ("use client").
+ * On n'importe donc AUCUN built-in Node (node:fs/os/path) — cela casserait
+ * le bundle client (build + runtime navigateur) alors que `tsc` reste vert.
+ * La résolution du provider s'appuie uniquement sur process.env (lisible des
+ * deux côtés ; côté navigateur, les vars non-NEXT_PUBLIC sont `undefined`,
+ * ce qui produit le défaut HONNÊTE openrouter/AMBER — jamais un faux-vert).
+ * L'enrichissement optionnel de la preuve via le rapport paid_api_guard sur
+ * disque (server-only) est volontairement retiré : il ne peut pas s'exécuter
+ * dans le navigateur et n'est requis que pour un statut AMBER (pas GREEN/LIVE).
+ *
  * source_tag: COFIAT_CONSOLE_IA_ADAPTER_STATE_V1_20260531
  * ════════════════════════════════════════════════════════════════ */
-
-import { existsSync, readFileSync, statSync } from "node:fs";
-import path from "node:path";
-import os from "node:os";
 
 import type { OperationalStatus, StatusSource } from "@/types/cofiatWorld.types";
 
