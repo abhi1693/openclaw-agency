@@ -41,6 +41,56 @@ DEFAULT_FR_VOICE = os.environ.get("COF_VOICE_FR_ID", VALIDATED_FR_VOICES["raphae
 # Modèle FR validé (multilingual_v2 = prononciation FR propre, accepte language_code+normalisation+style).
 VOICE_MODEL = os.environ.get("COF_VOICE_MODEL", "eleven_multilingual_v2").strip()
 
+# ── Casting multi-voix piloté par roster (étend VALIDATED_FR_VOICES) ──
+# Source de vérité : ~/.openclaw/config/cofiapublisher_voice_roster.json (voix FR fine-tunées +
+# mapping rôle→voix + voix cassées). Vérifié live 2026-05-31 via /v1/voices.
+VOICE_ROSTER_PATH = Path(os.environ.get("COF_VOICE_ROSTER",
+                         str(Path.home() / ".openclaw/config/cofiapublisher_voice_roster.json")))
+VOICE_ROLES: dict = {}        # rôle sémantique (hook/narrator/hype/cta…) -> voice_id
+DEAD_VOICES: set = set()      # voice_ids inutilisables (ex: clone burak jamais fine-tuné)
+FALLBACK_VOICE = DEFAULT_FR_VOICE
+
+def _load_roster() -> None:
+    """Charge le roster JSON → enrichit VALIDATED_FR_VOICES / VOICE_ROLES / DEAD_VOICES.
+    Sans effet si le fichier manque (on garde les défauts hardcodés)."""
+    global FALLBACK_VOICE
+    try:
+        data = json.loads(VOICE_ROSTER_PATH.read_text(encoding="utf-8"))
+    except Exception:
+        return
+    for key, meta in (data.get("voices") or {}).items():
+        vid = (meta or {}).get("id")
+        if vid:
+            VALIDATED_FR_VOICES[key] = vid
+    for role, key in (data.get("roles") or {}).items():
+        vid = VALIDATED_FR_VOICES.get(key)
+        if vid:
+            VOICE_ROLES[role] = vid
+    for key, meta in (data.get("broken") or {}).items():
+        vid = (meta or {}).get("id")
+        if vid:
+            DEAD_VOICES.add(vid)
+        VALIDATED_FR_VOICES.pop(key, None)   # ne jamais exposer une voix cassée
+    fb = data.get("fallback_voice")
+    if fb and VALIDATED_FR_VOICES.get(fb):
+        FALLBACK_VOICE = VALIDATED_FR_VOICES[fb]
+
+_load_roster()
+
+def pick_voice(role_or_voice=None) -> str:
+    """Résout un rôle (hook/narrator/hype/cta…) OU un nom de voix (raphael/louis…) OU un voice_id brut
+    → voice_id utilisable. Une voix cassée/None retombe sur le fallback (jamais de voix robot)."""
+    if not role_or_voice:
+        return FALLBACK_VOICE
+    k = str(role_or_voice).strip()
+    if k in VOICE_ROLES:
+        return VOICE_ROLES[k]
+    if k in VALIDATED_FR_VOICES:
+        return VALIDATED_FR_VOICES[k]
+    if k in DEAD_VOICES:
+        return FALLBACK_VOICE
+    return k  # déjà un voice_id valide
+
 WHISPER_PY = os.environ.get("COF_WHISPER_PY", "/opt/homebrew/bin/python3")
 WHISPER_MODEL = os.environ.get("COF_WHISPER_MODEL", "small")
 
