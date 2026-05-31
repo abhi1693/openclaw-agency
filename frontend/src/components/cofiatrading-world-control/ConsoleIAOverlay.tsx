@@ -1284,8 +1284,9 @@ export function ConsoleIAOverlay() {
     const load = async () => {
       try {
         const r = await fetch(`/api/cofiatrading-world-control/console-ia?conversation=${encodeURIComponent(selectedConvId)}`, { cache: "no-store" });
-        const d = (await r.json()) as { ok: boolean; messages?: ConvMessage[] };
+        const d = (await r.json()) as { ok: boolean; messages?: ConvMessage[]; takeover?: boolean };
         if (!stopped && d.ok && Array.isArray(d.messages)) setConvMessages(d.messages);
+        if (!stopped && d.ok) setConvTakeover(d.takeover === true);
       } catch {
         // garde
       } finally {
