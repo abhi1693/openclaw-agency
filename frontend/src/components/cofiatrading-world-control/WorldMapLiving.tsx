@@ -883,8 +883,9 @@ function RPGCharacter({ agent, x, y, size, state, selected, hover, onSelect, onH
   const sL = 20 - 7 * bw, sR = 20 + 7 * bw, hL = 20 - 9 * bw, hR = 20 + 9 * bw;
   const cloak = `M${sL.toFixed(1)} 17 C${(sL - 1).toFixed(1)} 24 ${(hL + 1).toFixed(1)} 34 ${hL.toFixed(1)} 44 L${hR.toFixed(1)} 44 C${(hR - 1).toFixed(1)} 34 ${(sR + 1).toFixed(1)} 24 ${sR.toFixed(1)} 17 Z`;
   // tête : forme selon faceShape
-  const headRx = seed.faceShape === "soft" ? 5.7 : seed.faceShape === "sharp" ? 4.6 : seed.faceShape === "oval" ? 4.8 : 5.2;
-  const headRy = seed.faceShape === "oval" ? 5.7 : seed.faceShape === "round" ? 5.2 : 5.3;
+  // proportions chibi (Dofus) : grosse tête dominante
+  const headRx = seed.faceShape === "soft" ? 7.0 : seed.faceShape === "sharp" ? 5.8 : seed.faceShape === "oval" ? 6.0 : 6.5;
+  const headRy = seed.faceShape === "oval" ? 7.0 : seed.faceShape === "round" ? 6.6 : 6.6;
   const idleAnim = state === "idle" ? "char-idle" : state === "alert" ? "char-alert" : "char-active";
   return (
     <div className="pointer-events-auto absolute" style={{ left: x, top: y, width: W, height: Hh, transform: "translate(-50%,-82%)", transition: "left .25s linear, top .25s linear, width .15s, height .15s", zIndex: selected ? 40 : hover ? 36 : 20, cursor: "pointer" }} onPointerDown={(e) => e.stopPropagation()} onClick={(e) => { e.stopPropagation(); onSelect(); }} onMouseEnter={() => onHover(true)} onMouseLeave={() => onHover(false)}>
