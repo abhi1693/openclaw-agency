@@ -1404,6 +1404,30 @@ function sqliteRows(db: string, sql: string): Record<string, unknown>[] {
 }
 const crmDbRows = (sql: string) => sqliteRows(CRM_DB, sql);
 
+// Flux 9 — file des emails captés (sync + re-contact). Lecture : dernier email par tg.
+async function readCapturedEmails(): Promise<Record<string, string>> {
+  const rows = await readJsonlTail<Record<string, unknown>>(CAPTURED_EMAILS_FILE, 5000, 1024 * 1024);
+  const byTg: Record<string, string> = {};
+  for (const r of rows) {
+    const uid = sanitizeText(asString(r.uid), 40);
+    const email = sanitizeText(asString(r.email), 120);
+    if (uid && email) byTg[uid] = email;
+  }
+  return byTg;
+}
+// Capture un email client (append-only, dédup, jamais d'écriture dans la DB CRM live).
+async function captureEmail(uid: string, email: string, source: string) {
+  try {
+    if (!uid || !email) return;
+    const norm = email.toLowerCase();
+    if ((await readCapturedEmails())[uid] === norm) return;  // déjà capté
+    await mkdir(CONSOLE_STATE_DIR, { recursive: true });
+    appendJsonl(CAPTURED_EMAILS_FILE, { uid, email: norm, source, at: new Date().toISOString() });
+  } catch {
+    // best-effort : la capture ne casse jamais l'affichage
+  }
+}
+
 type DepRow = { first: number | null; net: number | null; commission: number | null; ltv: number | null; churn: string };
 let _depCache: { mtimeMs: number; byUid: Record<string, DepRow> } | null = null;
 async function depositsByUid(): Promise<Record<string, DepRow>> {
