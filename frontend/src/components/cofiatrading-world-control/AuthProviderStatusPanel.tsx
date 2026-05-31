@@ -19,6 +19,7 @@ import { cofiatAuthProofLedger } from "@/config/cofiatAuthProofLedger";
 import {
   validateNoFalseGreen,
   summarizeStatuses,
+  enforceNoFalseGreenAll,
 } from "@/utils/cofiatNoFalseGreenGuard";
 import { getConsoleIaAdapterState } from "@/config/cofiatConsoleIaAdapter";
 import type {
