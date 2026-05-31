@@ -23,7 +23,7 @@ import {
 
 import { DashboardShell } from "@/components/templates/DashboardShell";
 import { ConsoleIAOverlay } from "./ConsoleIAOverlay";
-import { WorldMapLiving } from "./WorldMapLiving";
+import { WorldMapLiving, resolveHouseIds, type InvItem } from "./WorldMapLiving";
 import { AuthProviderStatusPanel } from "./AuthProviderStatusPanel";
 import { InventoryStatusMatrix } from "./InventoryStatusMatrix";
 
