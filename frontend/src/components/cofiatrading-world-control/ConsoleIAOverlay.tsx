@@ -1189,6 +1189,7 @@ export function ConsoleIAOverlay() {
   const [convMessages, setConvMessages] = useState<ConvMessage[]>([]);
   const [convLoading, setConvLoading] = useState(false);
   const [convTakeover, setConvTakeover] = useState(false);
+  const [convCrm, setConvCrm] = useState<ClientCrm360 | null>(null);
   const [convSending, setConvSending] = useState(false);
   const [convVoiceSending, setConvVoiceSending] = useState(false);
   const [convPhotoSending, setConvPhotoSending] = useState(false);
