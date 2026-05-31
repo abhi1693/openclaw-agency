@@ -1614,6 +1614,40 @@ async function buildDmPool(limit = 400) {
   return out;
 }
 
+// Flux 11 — COCKPIT vue d'ensemble : argent + santé, repris des endpoints hub VIVANTS de
+// l'ancien hub (/api/kpis, /api/revenue/detailed, /api/health/bots — tous prouvés 200 réels).
+// Lecture seule, fail-open par champ. Les endpoints morts (living-context, learning-events 502)
+// + gardes dormants NE sont PAS intégrés (pas de pièce pourrie).
+async function buildCockpit() {
+  const j = async (p: string): Promise<Record<string, unknown> | null> => {
+    try {
+      const r = await fetch(`${HUB_URL}${p}`, { cache: "no-store", signal: AbortSignal.timeout(5000) });
+      return r.ok ? ((await r.json()) as Record<string, unknown>) : null;
+    } catch { return null; }
+  };
+  const [kpis, rev, health] = await Promise.all([j("/api/kpis"), j("/api/revenue/detailed"), j("/api/health/bots")]);
+  const k = isRecord(kpis) ? kpis : {};
+  const r = isRecord(rev) ? rev : {};
+  const summary = isRecord(health) && isRecord(health.summary) ? health.summary : {};
+  const brokers = isRecord(r.brokers)
+    ? Object.entries(r.brokers).map(([id, b]) => ({
+        id, name: isRecord(b) ? (asString(b.name) || id) : id,
+        earned: isRecord(b) ? crmNum(b.earned ?? b.commission) : null,
+      })).filter((x) => (x.earned ?? 0) > 0).sort((a, b) => (b.earned ?? 0) - (a.earned ?? 0))
+    : [];
+  return {
+    live: !!kpis,
+    mrrGross: crmNum(k.mrr_eur_gross), mrrCollected: crmNum(k.mrr_eur_collected),
+    vipActive: crmNum(k.vip_count_active), ftdRate: crmNum(k.ftd_rate_pct),
+    commissionLifetime: crmNum(r.total_earned), brokers,
+    housesGreen: crmNum(k.houses_green), housesTotal: crmNum(k.houses_total),
+    agentsAlive: crmNum(k.agents_alive_lt5min), agentsTotal: crmNum(k.agents_total),
+    servicesTotal: crmNum(summary.total), servicesErrors: crmNum(summary.errors),
+    truthClaimsOpen: crmNum(k.truth_claims_open),
+    ts: sanitizeText(asString(k.ts), 40),
+  };
+}
+
 // Envoi d'une note VOCALE à un client depuis la dashboard — proxy vers la brique média
 // EXISTANTE du hub (/api/agent-oversight/send-media-b64, kind=voice → sendVoice).
 // Transcode webm→ogg/opus avant envoi (vraie note vocale) + journalise le transcript.
