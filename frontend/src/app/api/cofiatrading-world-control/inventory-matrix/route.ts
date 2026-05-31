@@ -162,6 +162,8 @@ export async function GET() {
               id: id("sub", name),
               name,
               category: "subscription",
+              // dispatch fin : chaque abonnement → SA vraie maison (plus de bloc iron_office).
+              houseId: classifySubscriptionHouse(name),
               cost: costLabel,
               // actif présent mais non re-testé ⇒ AMBER_REVERIFY, PAS vert.
               status: subStatus === "active" ? "AMBER_REVERIFY" : "UNKNOWN",
