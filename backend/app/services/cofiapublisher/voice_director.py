@@ -89,7 +89,7 @@ def pick_voice(role_or_voice=None) -> str:
         return VOICE_ROLES[k]
     if k in VALIDATED_FR_VOICES:
         return VALIDATED_FR_VOICES[k]
-    if k in DEAD_VOICES:
+    if k in DEAD_VOICES or k in DEAD_NAMES:
         return FALLBACK_VOICE
     return k  # déjà un voice_id valide
 
