@@ -258,6 +258,25 @@ export function WorldMapLiving({ snapshot, angelRoster, onSelectHouse }: { snaps
     void load(); const iv = window.setInterval(load, 60_000); return () => { cancelled = true; window.clearInterval(iv); };
   }, []);
   useEffect(() => { fetch("/api/cofiatrading-world-control/trucks", { cache: "no-store" }).then((r) => (r.ok ? r.json() : null)).then((d) => { if (Array.isArray(d?.trucks)) setTrucks(d.trucks); }).catch(() => {}); }, []);
+  // outils SaaS (Notion/Linear) rattachés à LEUR maison — statut depuis les probes live (jamais faux-vert)
+  useEffect(() => {
+    let cancelled = false;
+    const load = async () => {
+      const out: WorldMachine[] = [];
+      try {
+        const r = await fetch("/api/cofiatrading-world-control/linear", { cache: "no-store" });
+        const d = r.ok ? await r.json() : null; const ok = d?.ok === true;
+        out.push({ id: "tool_linear", label: "Linear", homeHouse: "paperclip_factory", ok, status: ok ? "LIVE" : "AMBER", role: "Issue/task tracking — app desktop locale + api.linear.app", proof: ok ? `api.linear.app 200 · ${d?.total ?? "?"} issues live` : "probe linear indisponible" });
+      } catch { /* ignore */ }
+      try {
+        const r = await fetch("/api/cofiatrading-world-control/notion", { cache: "no-store" });
+        const d = r.ok ? await r.json() : null; const liveOk = d?.live?.ok === true; const dbs = Array.isArray(d?.databases) ? d.databases.length : 0;
+        out.push({ id: "tool_notion", label: "Notion", homeHouse: "obsidian_library", ok: liveOk || dbs > 0, status: liveOk ? "LIVE" : "AMBER", role: "Docs/knowledge — Notion Desktop local (§15 subscription-first)", proof: liveOk ? "api.notion.com 200 (token live)" : `couvert par Notion Desktop · ${dbs} DBs mappées` });
+      } catch { /* ignore */ }
+      if (!cancelled) setToolMachines(out);
+    };
+    void load(); const iv = window.setInterval(load, 60_000); return () => { cancelled = true; window.clearInterval(iv); };
+  }, []);
   useEffect(() => {
     const el = sceneRef.current; if (!el) return;
     const ro = new ResizeObserver((entries) => { for (const e of entries) setSize({ cw: e.contentRect.width, ch: e.contentRect.height }); });
