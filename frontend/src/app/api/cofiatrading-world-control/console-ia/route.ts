@@ -1339,6 +1339,24 @@ async function logConversationOutMarker(uid: string, via: string, markerText: st
   }
 }
 
+// Flux 5 — marque/retire un takeover : Erwin gère cette conv → Iron se tait. Écrit le fichier
+// que le daemon Iron lit (anti double-contact). Best-effort, jamais bloquant pour l'envoi.
+async function markTakeover(uid: string, on: boolean) {
+  try {
+    if (!uid) return;
+    await mkdir(CONSOLE_STATE_DIR, { recursive: true });
+    const data = (await readJsonFile<Record<string, unknown>>(TAKEOVER_FILE)) ?? {};
+    if (on) {
+      data[uid] = { since: Math.floor(Date.now() / 1000), by: "erwin" };
+    } else {
+      delete data[uid];
+    }
+    await writeFile(TAKEOVER_FILE, safeJson(data), "utf8");
+  } catch {
+    // best-effort
+  }
+}
+
 // Envoi d'une note VOCALE à un client depuis la dashboard — proxy vers la brique média
 // EXISTANTE du hub (/api/agent-oversight/send-media-b64, kind=voice → sendVoice).
 // Transcode webm→ogg/opus avant envoi (vraie note vocale) + journalise le transcript.
