@@ -1059,6 +1059,40 @@ function ConversationsInbox({
             {takeover ? "Rendre à Iron" : "Prendre la main"}
           </span>
         </button>
+        {crm?.found ? (
+          <div className="grid gap-1.5 rounded-xl border border-cyan-300/25 bg-slate-950/75 p-2.5">
+            <div className="flex flex-wrap items-center gap-1.5">
+              <span className="rounded-md border border-rose-300/40 bg-rose-400/10 px-1.5 py-0.5 text-[10px] font-black text-rose-100">
+                {crm.temperature?.label === "HOT" ? "🔥" : crm.temperature?.label === "WARM" ? "🌤" : "❄️"} {crm.temperature?.label ?? "?"} · {crm.temperature?.score ?? "?"}%
+              </span>
+              <span className="rounded-md border border-amber-300/40 bg-amber-400/10 px-1.5 py-0.5 text-[10px] font-black text-amber-100">💎 {crm.money?.valueTier || "—"}</span>
+              <span className={`rounded-md border px-1.5 py-0.5 text-[10px] font-black ${crm.context?.isClient ? "border-emerald-300/45 bg-emerald-400/10 text-emerald-100" : "border-slate-600 text-slate-400"}`}>
+                {crm.context?.isClient ? "✓ Client" : "Prospect"}
+              </span>
+              {crm.identity?.country ? <span className="rounded-md border border-slate-700 px-1.5 py-0.5 text-[10px] font-black text-slate-300">{crm.identity.country}</span> : null}
+              {crm.temperature?.urgency ? <span className="rounded-md border border-slate-700 px-1.5 py-0.5 text-[10px] text-slate-400">⏱ {crm.temperature.urgency}</span> : null}
+            </div>
+            <div className="grid grid-cols-2 gap-x-3 gap-y-0.5 text-[10px] leading-4 text-slate-300">
+              <span><span className="text-slate-500">Stripe </span>{crm.subscription?.stripeStatus || "—"}{crm.subscription?.stripeAmountEur ? ` · ${crm.subscription.stripeAmountEur}€` : ""} {crm.subscription?.stripePlan || ""}</span>
+              <span><span className="text-slate-500">Broker </span>{crm.money?.broker || "—"}</span>
+              <span><span className="text-slate-500">Dépôt </span>${crm.money?.depositUsd ?? 0}{crm.money?.netDepositUsd ? ` (net $${crm.money.netDepositUsd})` : ""}</span>
+              <span><span className="text-slate-500">Étape </span>{crm.subscription?.dealStage || "—"}</span>
+              <span><span className="text-slate-500">Risk </span>{crm.risk?.riskScore ?? "?"} · <span className="text-slate-500">money </span>{crm.money?.moneyScore ?? "?"}</span>
+              <span className="truncate"><span className="text-slate-500">@</span>{crm.identity?.username || "—"}</span>
+            </div>
+            {crm.identity?.email ? <span className="truncate text-[10px] text-slate-400">✉ {crm.identity.email}</span> : null}
+            {crm.context?.nextBestAction ? (
+              <span className="rounded-md border border-cyan-300/25 bg-cyan-400/8 px-1.5 py-1 text-[10px] leading-4 text-cyan-100">
+                ▶ {crm.context.nextBestAction}{crm.context.nextAction ? ` — ${crm.context.nextAction}` : ""}
+              </span>
+            ) : null}
+            <span className="truncate text-[9px] text-slate-600">CRM live · iron_crm_ultra · {crm.identity?.name || ""}</span>
+          </div>
+        ) : crm && !crm.found ? (
+          <div className="rounded-xl border border-slate-800 bg-slate-900/55 px-2.5 py-1.5 text-[10px] text-slate-400">
+            🆕 {crm.note || "Non recensé au CRM (prospect)"}
+          </div>
+        ) : null}
         <div className="grid max-h-[52vh] gap-1.5 overflow-auto pr-1">
           {loadingMessages && !messages.length ? <p className="text-[11px] text-slate-500">Chargement…</p> : null}
           {!loadingMessages && !messages.length ? <p className="text-[11px] text-slate-500">Aucun message.</p> : null}
