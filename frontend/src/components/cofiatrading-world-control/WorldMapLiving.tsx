@@ -261,6 +261,12 @@ export function WorldMapLiving({ snapshot, angelRoster, onSelectHouse }: { snaps
     const load = () => fetch("/api/cofiatrading-world-control/house-kpis", { cache: "no-store" }).then((r) => (r.ok ? r.json() : null)).then((d) => { if (!cancelled && d?.houses) setHouseKpiData(d.houses); }).catch(() => {});
     void load(); const iv = window.setInterval(load, 60_000); return () => { cancelled = true; window.clearInterval(iv); };
   }, []);
+  // inventaire 742 items rattachés à leur maison (houseId) — clic maison → onglet Inventaire
+  useEffect(() => {
+    let cancelled = false;
+    const load = () => fetch("/api/cofiatrading-world-control/inventory-matrix", { cache: "no-store" }).then((r) => (r.ok ? r.json() : null)).then((d) => { if (!cancelled && Array.isArray(d?.items)) setInventory(d.items as InvItem[]); }).catch(() => {});
+    void load(); const iv = window.setInterval(load, 120_000); return () => { cancelled = true; window.clearInterval(iv); };
+  }, []);
   useEffect(() => { fetch("/api/cofiatrading-world-control/trucks", { cache: "no-store" }).then((r) => (r.ok ? r.json() : null)).then((d) => { if (Array.isArray(d?.trucks)) setTrucks(d.trucks); }).catch(() => {}); }, []);
   // outils SaaS (Notion/Linear) rattachés à LEUR maison — statut depuis les probes live (jamais faux-vert)
   useEffect(() => {
