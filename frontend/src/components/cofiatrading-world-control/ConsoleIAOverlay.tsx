@@ -1255,7 +1255,10 @@ function ConversationsInbox({
       </div>
     );
   }
-  const heatSorted = [...threads].sort((a, b) => (b.crmScore ?? -1) - (a.crmScore ?? -1) || (b.unread - a.unread));
+  // convs : tri chaleur côté client. clients/dm : on garde l'ordre serveur (déjà classé chaud+argent / récence).
+  const ordered = mode === "convs"
+    ? [...threads].sort((a, b) => (b.crmScore ?? -1) - (a.crmScore ?? -1) || (b.unread - a.unread))
+    : threads;
   const hotCount = threads.filter((t) => t.crmTemp === "HOT").length;
   return (
     <div className="grid gap-1.5">
