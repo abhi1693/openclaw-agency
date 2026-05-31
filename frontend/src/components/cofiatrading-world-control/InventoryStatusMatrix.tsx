@@ -538,7 +538,7 @@ export function InventoryStatusMatrix() {
         <div className="rounded-md border border-slate-800 bg-slate-950/70 p-3">
           <p className="text-[10.5px] text-slate-400">
             {total === 0
-              ? "inventaire vide (0 item renvoye par l&apos;API)."
+              ? "inventaire vide (0 item renvoye par l'API)."
               : `aucun item ne correspond au filtre « ${filter} ».`}
           </p>
         </div>
