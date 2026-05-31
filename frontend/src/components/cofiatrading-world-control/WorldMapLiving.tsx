@@ -282,7 +282,7 @@ export function WorldMapLiving({ snapshot, angelRoster, onSelectHouse }: { snaps
     // viewBox cadré sur les bâtiments (+ marge modérée) → carte grande dans le viewport
     let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
     for (const b of built) for (const pt of [...b.ground, { x: b.base.x, y: b.base.y - b.height - 30 }]) { minX = Math.min(minX, pt.x); minY = Math.min(minY, pt.y); maxX = Math.max(maxX, pt.x); maxY = Math.max(maxY, pt.y); }
-    const padX = 70, padY = 60; const vbMinX = minX - padX, vbMinY = minY - padY, vbW = maxX - minX + padX * 2, vbH = maxY - minY + padY * 2;
+    const padX = 28, padY = 22; const vbMinX = minX - padX, vbMinY = minY - padY, vbW = maxX - minX + padX * 2, vbH = maxY - minY + padY * 2;
 
     // île douce (hull serré autour des bâtiments)
     const allGround = built.flatMap((b) => b.ground); const ic = centroid(allGround); const N = 26; const islandPts: Pt[] = [];
