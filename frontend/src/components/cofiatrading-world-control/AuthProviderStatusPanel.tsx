@@ -175,7 +175,8 @@ function ProviderSection({
 /* ── composant principal (pur, no data fetch) ────────────────────── */
 
 export function AuthProviderStatusPanel() {
-  const ledger = cofiatAuthProofLedger;
+  // Garde ACTIVE no-false-green : tout GREEN/LIVE sans preuve/source traçable → UNKNOWN avant rendu.
+  const ledger = enforceNoFalseGreenAll(cofiatAuthProofLedger);
   const summary = summarizeStatuses(ledger);
   const { violations } = validateNoFalseGreen(ledger);
   const adapter = getConsoleIaAdapterState();
