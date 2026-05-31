@@ -34,6 +34,13 @@ export const STATUS_STYLE: Record<OperationalStatus, { color: string; label: str
   LOCKED:     { color: "#94a3b8", label: "LOCKED",     bg: "rgba(148,163,184,0.14)" },
   QUARANTINE: { color: "#fb7185", label: "QUARANTINE", bg: "rgba(251,113,133,0.14)" },
   UNKNOWN:    { color: "#64748b", label: "UNKNOWN",    bg: "rgba(100,116,139,0.14)" },
+  // Cas auth-ledger / provider (variantes AMBER + optionnels + adapter manquant)
+  AMBER_REVERIFY:   { color: "#f59e0b", label: "RE-VERIFY",   bg: "rgba(245,158,11,0.12)" },
+  AMBER_REPAIR:     { color: "#f59e0b", label: "REPAIR",      bg: "rgba(245,158,11,0.16)" },
+  AMBER_SESSION:    { color: "#fbbf24", label: "SESSION",     bg: "rgba(251,191,36,0.14)" },
+  OPTIONAL_MISSING: { color: "#94a3b8", label: "OPT-MISSING", bg: "rgba(148,163,184,0.12)" },
+  OPTIONAL_COVERED: { color: "#38bdf8", label: "OPT-COVERED", bg: "rgba(56,189,248,0.12)" },
+  ADAPTER_MISSING:  { color: "#fb923c", label: "ADAPTER-MISS",bg: "rgba(251,146,60,0.14)" },
 };
 
 const REAL_SOURCES: StatusSource[] = ["runtime", "api", "filesystem"];
