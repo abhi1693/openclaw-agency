@@ -1342,7 +1342,7 @@ function Building({
 
       {/* enseigne emoji (identité instantanée) */}
       <g transform={`translate(${cx} ${apex.y - (h.roof === "dome" ? 30 : 22)})`}>
-        <circle r="9.5" fill="#04media".replace("media", "0a14")} stroke={h.accent} strokeWidth="1.1" opacity="0.95" />
+        <circle r="9.5" fill="#040a14" stroke={h.accent} strokeWidth="1.1" opacity="0.95" />
         <text y="3.4" textAnchor="middle" fontSize="11">{h.sign}</text>
       </g>
 
