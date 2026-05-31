@@ -17,7 +17,7 @@ import { cofiatAuthProofLedger } from "@/config/cofiatAuthProofLedger";
 import { getConsoleIaAdapterState } from "@/config/cofiatConsoleIaAdapter";
 import { HOUSE_DISTRICT, HOUSE_META } from "@/config/cofiatWorldIdentity";
 import { COFIAT_WORKER_POLICY } from "@/config/cofiatCanonicalPaths";
-import { enforceNoFalseGreenAll, computeCanonicalTotals } from "@/utils/cofiatNoFalseGreenGuard";
+import { enforceNoFalseGreenAll, computeCanonicalTotals, validateNoFalseGreen } from "@/utils/cofiatNoFalseGreenGuard";
 import { validateNoDuplicateHub } from "@/utils/cofiatPathGuard";
 import {
   validateWorkContract,
