@@ -50,6 +50,9 @@ const INBOUND_DIR = path.join(CONSOLE_STATE_DIR, "inbound");
 // (iron_support_daemon.py) le lit et se tait (anti double-contact). TTL côté daemon (30 min).
 const TAKEOVER_FILE = path.join(CONSOLE_STATE_DIR, "takeover.json");
 const TAKEOVER_TTL_SEC = 1800;  // aligné avec iron_support_daemon.TAKEOVER_TTL_SEC
+// Flux 6 — CRM 360 vivant : source canonique = iron_crm_ultra_runtime.json, indexé par
+// telegram_id (clients_by_tg). Lecture seule, cache mtime (le fichier fait ~6.6 Mo).
+const CRM_ULTRA_JSON = path.join(STATE_ROOT, "iron_crm", "iron_crm_ultra_runtime.json");
 const AGENT_MESH_DIR = path.join(STATE_ROOT, "agent_mesh");
 const WARP_AGENT_MESH_DIR = path.join(STATE_ROOT, "warp", "agent_mesh");
 const WARP_MISSION_PACKETS_DIR = path.join(STATE_ROOT, "warp", "agent_mesh", "mission_packets");
