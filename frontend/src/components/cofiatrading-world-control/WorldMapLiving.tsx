@@ -607,7 +607,7 @@ const ACT_LABEL: Record<AgentState, string> = { idle: "idle", alert: "alerte", p
 
 /* ════════════════════ BÂTIMENT (grand, premium) ════════════════════ */
 type Built = { house: House; ground: Pt[]; base: Pt; height: number; depth: number };
-function Building({ b, status, selected, hover, dim, machines, agentCount, onSelect, onHover, onMachine }: { b: Built; status: string; selected: boolean; hover: boolean; dim: boolean; machines: WorldMachine[]; agentCount: number; onSelect: () => void; onHover: (v: boolean) => void; onMachine: (m: WorldMachine) => void }) {
+function Building({ b, status, selected, hover, dim, editMode, machines, agentCount, onSelect, onHover, onMachine }: { b: Built; status: string; selected: boolean; hover: boolean; dim: boolean; editMode: boolean; machines: WorldMachine[]; agentCount: number; onSelect: () => void; onHover: (v: boolean) => void; onMachine: (m: WorldMachine) => void }) {
   const h = b.house; const st = houseStatusStyle(status); const ground = b.ground; const bodyH = b.height; const cx = b.base.x; const roofY = b.base.y - bodyH;
   const focus = selected || hover; const alert = status === "SOURCE_DOWN" || status === "DEGRADED" || status === "ERR";
   const body = block(ground, bodyH);
