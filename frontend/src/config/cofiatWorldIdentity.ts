@@ -58,7 +58,7 @@ export const HOUSE_META: Record<string, { recognizableName: string; metaphor: st
   compliance_port:         { recognizableName: "Compliance Gate",        metaphor: "checkpoint/fortification (barrière, bouclier)",              emblem: "shield" },
   calendar_tower:          { recognizableName: "Calendar Tower",         metaphor: "tour planning (horloge, tuiles calendrier)",                 emblem: "calendar" },
   openclaw_agent_barracks: { recognizableName: "Agents Village",         metaphor: "village/dortoir agents (toits multiples, slots)",            emblem: "village" },
-  notebook_alm:            { recognizableName: "Notebook ALM",           metaphor: "carnet de pilotage ouvert (onglets, checklist, roadmap)",    emblem: "notebook" },
+  notebook_alm:            { recognizableName: "NotebookLM",             metaphor: "carnet de recherche Google NotebookLM (sources, grounding, audio overview)", emblem: "notebook" },
   proof_ledger:            { recognizableName: "Proof Ledger",           metaphor: "registre/coffre de preuves (sceau, ledger, cadenas)",        emblem: "seal" },
 };
 
