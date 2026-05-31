@@ -183,6 +183,10 @@ export function getConsoleIaAdapterState(): ConsoleIaAdapterState {
       proof: "CONSOLE_IA_PERPLEXITY_DESKTOP_BRIDGE actif (subscription-browser-first)",
       blocker: "Bridge desktop/abonnement (session) — pas de clé API durcie",
       fallbackChain,
+      primaryProvider: "perplexity-api",
+      activeProvider: "perplexity-desktop",
+      globalStatus: "AMBER_SESSION",
+      providers: buildProviders(),
     };
   }
 
