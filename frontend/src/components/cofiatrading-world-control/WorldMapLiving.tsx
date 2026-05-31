@@ -684,6 +684,7 @@ export function WorldMapLiving({ snapshot, angelRoster, onSelectHouse }: { snaps
                       const byStatus: Record<string, number> = {}; for (const it of houseInv) byStatus[it.status] = (byStatus[it.status] ?? 0) + 1;
                       const byCat: Record<string, InvItem[]> = {}; for (const it of houseInv) (byCat[it.category] ||= []).push(it);
                       return (<>
+                        <p className="mb-1 text-[10px] font-bold text-slate-200">Total <span className="text-cyan-200">{houseInv.length}</span> items rattachés à cette maison</p>
                         <div className="mb-2 flex flex-wrap gap-1">{order.filter((s) => byStatus[s]).map((s) => (<span key={s} className="inline-flex items-center gap-1 rounded-full border px-1.5 py-0.5 text-[8.5px] font-bold" style={{ borderColor: `${invColor(s)}55`, color: invColor(s) }}><span className="h-1.5 w-1.5 rounded-full" style={{ background: invColor(s) }} />{s} {byStatus[s]}</span>))}</div>
                         <div className="flex flex-col gap-2">{Object.entries(byCat).sort((a, b) => b[1].length - a[1].length).map(([cat, list]) => (
                           <div key={cat}>
