@@ -1249,16 +1249,15 @@ export function WorldMapLiving({
   );
 }
 
-/* offset de cluster (place les agents en éventail devant leur maison) */
+/* offset de cluster : éventail en arc devant la maison (anti-empilement) */
 function clusterOffset(idx: number, n: number): { dx: number; dy: number } {
-  if (n <= 1) return { dx: 0, dy: 0 };
-  const perRow = Math.min(4, n);
-  const row = Math.floor(idx / perRow);
-  const col = idx % perRow;
-  const rowCount = Math.ceil(n / perRow);
+  if (n <= 1) return { dx: 0, dy: 0.4 };
+  const spread = 2.4;
+  const half = (n - 1) / 2;
+  const t = idx - half;                 // index centré
   return {
-    dx: (col - (Math.min(perRow, n) - 1) / 2) * 2.1,
-    dy: (row - (rowCount - 1) / 2) * 1.5 + row * 0.3,
+    dx: t * spread,
+    dy: Math.abs(t) * 0.5 + (idx % 2) * 0.85,  // bords plus en retrait + profondeur alternée
   };
 }
 
