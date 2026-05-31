@@ -905,7 +905,10 @@ function RPGCharacter({ agent, x, y, size, state, selected, hover, onSelect, onH
           {seed.faceShape === "square"
             ? <rect x={20 - headRx} y={13 - headRy} width={headRx * 2} height={headRy * 2} rx="2.4" fill={skin} stroke={shade(skin, -30)} strokeWidth="0.6" />
             : <ellipse cx="20" cy="13" rx={headRx} ry={headRy} fill={skin} stroke={shade(skin, -30)} strokeWidth="0.6" />}
-          <circle cx="18.1" cy="13.4" r="0.8" fill="#1f2937" /><circle cx="21.9" cy="13.4" r="0.8" fill="#1f2937" />
+          {/* gros yeux chibi + reflet + joues rosées */}
+          <circle cx="17.7" cy="13.7" r="1.2" fill="#1f2937" /><circle cx="22.3" cy="13.7" r="1.2" fill="#1f2937" />
+          <circle cx="18.15" cy="13.3" r="0.42" fill="#fff" opacity="0.9" /><circle cx="22.75" cy="13.3" r="0.42" fill="#fff" opacity="0.9" />
+          <ellipse cx="16.2" cy="15.6" rx="1.3" ry="0.75" fill="#ff9a9a" opacity="0.32" /><ellipse cx="23.8" cy="15.6" rx="1.3" ry="0.75" fill="#ff9a9a" opacity="0.32" />
           {/* coiffe selon seed (silhouette de tête distincte) */}
           {hairTop(seed.hairStyle, hairC, trim)}
           {/* insigne de rang */}
