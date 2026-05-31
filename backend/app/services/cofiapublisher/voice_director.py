@@ -397,3 +397,36 @@ def direct(script: str, out_path: str, run_dir, voice_id: str | None = None, tak
             "alignment": best["alignment"], "display_restore": display_restore, "spoken_text": spoken,
             "report_path": str(report_path), "qa_report": report, "chosen_take": best["take"],
             "justification": justification}
+
+
+def direct_multi(segments: list, out_path: str, run_dir, takes: int = 2) -> dict:
+    """CASTING MULTI-VOIX. Chaque segment = {"voice": role|nom|id, "text": "..."} passe par la GATE
+    `direct()` (oralise + params FR forcés + QA Whisper), puis concaténation en un seul MP3 (out_path).
+    Permet plusieurs personnages / narration multi-voix dans un même rendu.
+    ok=True seulement si TOUS les segments PASS. {ok, path, segments:[...], failed:[...], n_voices}."""
+    import shutil, subprocess
+    rd = Path(run_dir); rd.mkdir(parents=True, exist_ok=True)
+    results, parts, failed = [], [], []
+    for i, seg in enumerate(segments, 1):
+        sub = rd / f"seg_{i}"; sub.mkdir(parents=True, exist_ok=True)
+        seg_out = str(sub / "selected_voice.mp3")
+        vid = pick_voice(seg.get("voice") or seg.get("role"))
+        r = direct(seg.get("text", ""), seg_out, sub, voice_id=vid, takes=takes)
+        results.append({"i": i, "voice_id": vid, "role": seg.get("voice") or seg.get("role"),
+                        "verdict": r.get("verdict"), "ok": r.get("ok"), "path": r.get("path")})
+        if r.get("ok"):
+            parts.append(r["path"])
+        else:
+            failed.append({"i": i, "voice_id": vid, "error": r.get("error"),
+                           "justification": r.get("justification")})
+    if failed or not parts:
+        return {"ok": False, "error": "MULTIVOICE_SEGMENT_FAILED", "segments": results, "failed": failed}
+    ff = shutil.which("ffmpeg") or "/opt/homebrew/bin/ffmpeg"
+    lst = rd / "concat_list.txt"
+    lst.write_text("".join(f"file '{p}'\n" for p in parts), encoding="utf-8")
+    cp = subprocess.run([ff, "-y", "-f", "concat", "-safe", "0", "-i", str(lst), "-c", "copy", str(out_path)],
+                        capture_output=True, text=True)
+    if cp.returncode != 0 or not Path(out_path).exists():
+        return {"ok": False, "error": f"FFMPEG_CONCAT_FAILED: {cp.stderr[-200:]}", "segments": results}
+    return {"ok": True, "path": str(out_path), "segments": results,
+            "n_voices": len({r["voice_id"] for r in results})}
