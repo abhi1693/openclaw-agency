@@ -2321,6 +2321,14 @@ export async function GET(request: Request) {
     );
   }
 
+  // Flux 11 — cockpit vue d'ensemble (argent + santé), repris de l'ancien hub (endpoints vivants).
+  if (url.searchParams.get("cockpit")) {
+    return NextResponse.json(
+      { ok: true, sourceTag: SOURCE_TAG, cockpit: await buildCockpit() },
+      { headers: { "Cache-Control": "no-store" } },
+    );
+  }
+
   // Transcript d'un client (read-only).
   const conversationUid = sanitizeText(url.searchParams.get("conversation") ?? "", 40);
   if (conversationUid) {
