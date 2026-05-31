@@ -308,19 +308,97 @@ export function ProofLedgerPanel() {
         </div>
       ) : null}
 
-      {/* ── NOTEBOOK ALM ── */}
+      {/* ── NOTEBOOKLM (live, lu via /api/…/notebooklm) ── */}
       {tab === "notebook" ? (
-        <div className="space-y-1.5">
-          <div className="rounded-md border border-amber-300/30 bg-amber-300/5 p-2">
-            <p className="text-[11px] font-semibold text-white">NotebookLM</p>
-            <p className="mt-0.5 text-[10px] leading-4 text-amber-200/80">
-              Carnet de pilotage (roadmap/décisions). Statut honnête : non branché live.
-            </p>
-          </div>
+        <div className="space-y-2">
+          {nbl === null ? (
+            <p className="text-[10px] text-slate-500">Chargement de l&apos;état NotebookLM…</p>
+          ) : !nbl.ok ? (
+            <div className="rounded-md border border-amber-300/30 bg-amber-300/5 p-2">
+              <p className="text-[11px] font-semibold text-white">NotebookLM — index indisponible</p>
+              {nbl.blocker ? <p className="mt-1 text-[10px] text-amber-200/80">blocker: {nbl.blocker}</p> : null}
+              {nbl.nextAction ? <p className="mt-1 text-[10px] text-cyan-200/80">next: {nbl.nextAction}</p> : null}
+            </div>
+          ) : (
+            <>
+              <div className="rounded-md border border-cyan-300/25 bg-cyan-400/5 p-2">
+                <div className="flex items-start justify-between gap-2">
+                  <div className="min-w-0">
+                    <p className="text-[11px] font-semibold text-white">Google NotebookLM</p>
+                    <p className="mt-0.5 text-[9px] uppercase tracking-wide text-slate-500">
+                      {nbl.hubRole ?? "index live"} · filesystem
+                    </p>
+                  </div>
+                  <span
+                    className={`shrink-0 rounded border px-1.5 py-0.5 text-[8px] font-semibold uppercase tracking-wide ${
+                      nbl.status === "LIVE"
+                        ? "border-emerald-400/40 bg-emerald-400/10 text-emerald-100"
+                        : nbl.status.startsWith("AMBER")
+                        ? "border-amber-300/40 bg-amber-300/10 text-amber-100"
+                        : "border-zinc-500/40 bg-zinc-500/10 text-zinc-200"
+                    }`}
+                  >
+                    {nbl.status}
+                  </span>
+                </div>
+                <div className="mt-2 flex flex-wrap gap-1.5 text-[9px] font-semibold uppercase tracking-wide">
+                  <span className="rounded border border-emerald-400/40 bg-emerald-400/10 px-1.5 py-0.5 text-emerald-100">
+                    notebooks {nbl.packsSynced}/{nbl.packsTotal}
+                  </span>
+                  <span className="rounded border border-amber-300/40 bg-amber-300/10 px-1.5 py-0.5 text-amber-100">
+                    à créer {nbl.packsAwaiting}
+                  </span>
+                  {nbl.staleDays !== null ? (
+                    <span className="rounded border border-slate-600/50 bg-slate-800/60 px-1.5 py-0.5 text-slate-300">
+                      audit J-{nbl.staleDays}
+                    </span>
+                  ) : null}
+                </div>
+                {nbl.blocker ? (
+                  <p className="mt-1 text-[10px] leading-4 text-amber-200/80">
+                    <span className="text-amber-300/70">blocker:</span> {nbl.blocker}
+                  </p>
+                ) : null}
+                {nbl.nextAction ? (
+                  <p className="mt-1 text-[10px] leading-4 text-cyan-200/80">
+                    <span className="text-cyan-300/70">next:</span> {nbl.nextAction}
+                  </p>
+                ) : null}
+                <a
+                  href={nbl.deepLink}
+                  target="_blank"
+                  rel="noreferrer"
+                  className="mt-2 inline-block rounded border border-cyan-300/50 bg-cyan-400/10 px-2 py-1 text-[10px] font-semibold text-cyan-100 transition hover:bg-cyan-400/20"
+                >
+                  Ouvrir NotebookLM ↗
+                </a>
+              </div>
+              <div className="grid gap-1.5">
+                {nbl.packs.map((p) => (
+                  <div key={p.id} className="rounded-md border border-slate-800 bg-slate-950/70 p-2">
+                    <div className="flex items-start justify-between gap-2">
+                      <p className="min-w-0 text-[10.5px] text-white">{p.title || p.id}</p>
+                      <span
+                        className={`shrink-0 rounded border px-1 py-0.5 text-[8px] uppercase ${
+                          p.status === "created" || p.status === "synced"
+                            ? "border-emerald-400/40 bg-emerald-400/10 text-emerald-100"
+                            : "border-amber-300/40 bg-amber-300/10 text-amber-100"
+                        }`}
+                      >
+                        {p.status}
+                      </span>
+                    </div>
+                    {p.notebook_url ? (
+                      <a href={p.notebook_url} target="_blank" rel="noreferrer" className="mt-1 inline-block text-[9px] text-cyan-300/80 hover:underline">
+                        notebook ↗
+                      </a>
+                    ) : null}
+                  </div>
+                ))}
+              </div>
+            </>
+          )}
           {notebookGuard?.violations.map((v, i) => <ViolationRow key={i} v={v} />)}
-          <p className="text-[9px] text-slate-500">
-            GREEN si : décisions du chantier synchronisées + Proof Ledger attaché + source réelle.
-          </p>
         </div>
       ) : null}
 
