@@ -327,7 +327,11 @@ def direct(script: str, out_path: str, run_dir, voice_id: str | None = None, tak
     meilleure PASS. Écrit voice_qa_report.json. Retourne ok=True UNIQUEMENT si verdict==PASS.
     {ok, verdict, path, alignment, display_restore, spoken_text, qa_report, report_path}."""
     rd = Path(run_dir)
-    vid = (voice_id or DEFAULT_FR_VOICE).strip()
+    # Accepte un rôle (hook/narrator/…), un nom de voix, ou un voice_id. Jamais le clone mort.
+    vid = pick_voice(voice_id) if voice_id else DEFAULT_FR_VOICE
+    if vid in DEAD_VOICES:
+        vid = FALLBACK_VOICE
+    vid = vid.strip()
     spoken, display_restore = to_spoken(script)
     if not spoken or spoken == script.strip():
         # garde-fou "interdit le texte brut" : on exige une transformation effective
