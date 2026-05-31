@@ -2046,6 +2046,8 @@ export function ConsoleIAOverlay() {
                   sending={convSending}
                   onSendVoice={sendConversationVoice}
                   sendingVoice={convVoiceSending}
+                  onSendPhoto={sendConversationPhoto}
+                  sendingPhoto={convPhotoSending}
                 />
               ) : (
                 <ChannelColumn
