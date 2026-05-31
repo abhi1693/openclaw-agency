@@ -62,6 +62,10 @@ type InventoryMatrixResponse = {
   sourcesRead?: string[];
   /** Horodatage de génération côté backend. */
   generatedAt?: string;
+  /** Politique appliquée (ex. "NO_FALSE_GREEN"). */
+  policy?: string;
+  /** Avertissements backend (invariant, downgrades…). */
+  warnings?: string[];
 };
 
 /* ── ordre canonique des statuts (worst-first) ──────────────────────
