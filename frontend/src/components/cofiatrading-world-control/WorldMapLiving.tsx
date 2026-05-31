@@ -273,7 +273,7 @@ export function WorldMapLiving({ snapshot, angelRoster, onSelectHouse }: { snaps
 
   /* ════════ scène : terrain doux + routes + parcelles (viewBox serré sur les bâtiments) ════════ */
   const scene = useMemo(() => {
-    const built = HOUSES.map((h) => {
+    const built = effHouses.map((h) => {
       const cxw = h.x + h.w / 2, cyw = h.y + h.h / 2; const hw = (h.w * BUILDING_FOOT) / 2, hh = (h.h * BUILDING_FOOT) / 2;
       const corners = [[cxw - hw, cyw - hh], [cxw + hw, cyw - hh], [cxw + hw, cyw + hh], [cxw - hw, cyw + hh]].map(([wx, wy]) => isoProject(wx, wy));
       const ground: Pt[] = corners.map((c) => ({ x: c.sx, y: c.sy })); const base = centroid(ground); const bodyH = buildingBodyH(h);
