@@ -14,7 +14,7 @@
  * source_tag: COFIAT_PROOF_LEDGER_TYPES_SSOT_V1_20260531
  * ════════════════════════════════════════════════════════════════ */
 
-import type { OperationalStatus, StatusSource } from "@/types/cofiatWorld.types";
+import type { StatusSource } from "@/types/cofiatWorld.types";
 
 /* ── 1. WORK CONTRACT — qui a le droit de faire quoi, où ─────────── */
 
