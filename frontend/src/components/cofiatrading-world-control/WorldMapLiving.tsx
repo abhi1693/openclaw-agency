@@ -308,7 +308,7 @@ export function WorldMapLiving({ snapshot, angelRoster, onSelectHouse }: { snaps
     built.forEach((b) => { const f = isoProject(houseFrontWorld(b.house).wx + b.house.w * 0.7, houseFrontWorld(b.house).wy); lamps.push({ x: f.sx, y: f.sy }); });
 
     return { built, vbMinX, vbMinY, vbW, vbH, viewBox: `${vbMinX.toFixed(0)} ${vbMinY.toFixed(0)} ${vbW.toFixed(0)} ${vbH.toFixed(0)}`, islandPath, districts, roads, lamps };
-  }, []);
+  }, [effHouses]);
 
   const builtSorted = useMemo(() => [...scene.built].sort((a, b) => a.depth - b.depth), [scene.built]);
   const uiScale = useMemo(() => (size.cw > 0 ? Math.min(size.cw / scene.vbW, size.ch / scene.vbH) : 0), [size, scene.vbW, scene.vbH]);
