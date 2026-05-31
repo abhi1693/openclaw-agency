@@ -1028,6 +1028,21 @@ function ConversationsInbox({
             </span>
           </span>
         </div>
+        <button
+          type="button"
+          onClick={() => onToggleTakeover(selectedId, !takeover)}
+          title={takeover ? "Iron ne répond pas tant que tu gères. Clique pour lui rendre la main." : "Iron répond en auto. Clique pour prendre la main (Iron se taira)."}
+          className={`flex items-center justify-between gap-2 rounded-lg border px-2.5 py-1.5 text-left text-[10px] font-black transition ${
+            takeover
+              ? "border-amber-300/55 bg-amber-400/10 text-amber-100"
+              : "border-slate-700 bg-slate-900/55 text-slate-400 hover:border-slate-500/70"
+          }`}
+        >
+          <span>{takeover ? "🔇 Iron en pause — tu gères cette conv" : "🔊 Iron répond en auto ici"}</span>
+          <span className={`shrink-0 rounded-full border px-2 py-0.5 ${takeover ? "border-amber-300/50 text-amber-100" : "border-slate-600 text-slate-300"}`}>
+            {takeover ? "Rendre à Iron" : "Prendre la main"}
+          </span>
+        </button>
         <div className="grid max-h-[52vh] gap-1.5 overflow-auto pr-1">
           {loadingMessages && !messages.length ? <p className="text-[11px] text-slate-500">Chargement…</p> : null}
           {!loadingMessages && !messages.length ? <p className="text-[11px] text-slate-500">Aucun message.</p> : null}
