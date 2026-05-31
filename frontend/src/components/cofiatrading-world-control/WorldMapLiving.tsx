@@ -493,7 +493,7 @@ export function WorldMapLiving({ snapshot, angelRoster, onSelectHouse }: { snaps
     const scale = uiScale || 0; const rW = scene.vbW * scale, rH = scene.vbH * scale;
     const ox = (size.cw - rW) / 2, oy = (size.ch - rH) / 2; return { x: (cx - scene.vbMinX) * scale + ox, y: (cy - scene.vbMinY) * scale + oy };
   };
-  const agentSize = Math.max(26, Math.min(44, uiScale * 38));
+  const agentSize = Math.max(30, Math.min(52, uiScale * 46)); // chibi : présence plus marquée
 
   type HouseKpis = { kpis: Array<{ label: string; value: string; source?: string }>; gap?: string };
   const houseKpis = (id: string): HouseKpis => {
