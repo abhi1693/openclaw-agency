@@ -3,7 +3,7 @@
  * ────────────────────────────────────────────────────────────────────
  * Fiche riche du Proof Ledger : verdict de chantier consolidé, violations
  * actionnables, contrats de travail, fichiers touchés, synchros, preuves
- * GREEN, Notebook ALM, log console.IA + adapter. Couleur + TEXTE toujours.
+ * GREEN, NotebookLM, log console.IA + adapter. Couleur + TEXTE toujours.
  *
  * Autonome (comme AuthProviderStatusPanel) → montable dans un <Panel>.
  * Aucune donnée inventée : ce qui ne peut être validé côté client renvoie
@@ -14,7 +14,7 @@
 
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useCofiatProofLedger } from "@/hooks/useCofiatProofLedger";
 import { ProofLedgerBadge } from "./ProofLedgerBadge";
 import { WorkGuardStatus } from "./WorkGuardStatus";
@@ -47,7 +47,7 @@ const TABS: { id: TabId; label: string }[] = [
   { id: "files", label: "Files" },
   { id: "sync", label: "Sync" },
   { id: "green", label: "GREEN Proof" },
-  { id: "notebook", label: "Notebook ALM" },
+  { id: "notebook", label: "NotebookLM" },
   { id: "console", label: "console.IA" },
 ];
 
@@ -97,7 +97,7 @@ export function ProofLedgerPanel() {
   const greenLedger = enforceNoFalseGreenAll(cofiatAuthProofLedger).filter(
     (i) => i.status === "GREEN" || i.status === "LIVE"
   );
-  const notebookGuard = result.guards.find((g) => g.guard === "notebook-alm-sync");
+  const notebookGuard = result.guards.find((g) => g.guard === "notebooklm-sync");
 
   return (
     <div className="space-y-3">
@@ -276,7 +276,7 @@ export function ProofLedgerPanel() {
       {tab === "notebook" ? (
         <div className="space-y-1.5">
           <div className="rounded-md border border-amber-300/30 bg-amber-300/5 p-2">
-            <p className="text-[11px] font-semibold text-white">Notebook ALM</p>
+            <p className="text-[11px] font-semibold text-white">NotebookLM</p>
             <p className="mt-0.5 text-[10px] leading-4 text-amber-200/80">
               Carnet de pilotage (roadmap/décisions). Statut honnête : non branché live.
             </p>
