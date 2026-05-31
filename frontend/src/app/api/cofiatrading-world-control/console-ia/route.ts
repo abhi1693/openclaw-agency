@@ -1376,67 +1376,154 @@ async function isTakeoverActive(uid: string): Promise<boolean> {
   }
 }
 
-// Flux 6 — cache mtime du gros JSON CRM (évite de reparser ~6.6 Mo à chaque clic client).
-let _crmCache: { mtimeMs: number; byTg: Record<string, Record<string, unknown>> } | null = null;
-async function loadCrmByTg(): Promise<Record<string, Record<string, unknown>>> {
+// Flux 7 — SOURCE CRM = la DB LIVE (iron_crm_ultra_runtime.db, fraîche : 277 clients scorés +
+// 6884 broker_accounts = vrais dépôts $976k / commission $2,38M). On ABANDONNE le JSON périmé
+// (data fausse, ex: Jérôme stripe past_due alors que la DB dit canceled). Lecture seule, vraie donnée.
+const CRM_DB = path.join(STATE_ROOT, "iron_crm", "iron_crm_ultra_runtime.db");
+const SQLITE3 = "/usr/bin/sqlite3";
+const CRM_SHEET_URL = "https://docs.google.com/spreadsheets/d/1jp40CxDl3TZx2aeHRvFM5-kbvOg31lCAiyZqzQPHrls";
+
+const crmNum = (v: unknown): number | null => {
+  const n = typeof v === "number" ? v : Number(asString(v));
+  return Number.isFinite(n) ? n : null;
+};
+const safeTgId = (v: string) => (/^-?\d{1,20}$/.test(v) ? v : "");
+
+// Requête sqlite lecture seule → lignes JSON. SELECT-only, fail-open=[].
+function crmDbRows(sql: string): Record<string, unknown>[] {
   try {
-    const st = await statFile(CRM_ULTRA_JSON);
-    if (_crmCache && _crmCache.mtimeMs === st.mtimeMs) return _crmCache.byTg;
-    const raw = JSON.parse(await readFile(CRM_ULTRA_JSON, "utf8")) as Record<string, unknown>;
-    const byTg = (isRecord(raw.clients_by_tg) ? raw.clients_by_tg : {}) as Record<string, Record<string, unknown>>;
-    _crmCache = { mtimeMs: st.mtimeMs, byTg };
+    const out = execFileSync(SQLITE3, ["-json", CRM_DB, sql], { timeout: 8000, maxBuffer: 64 * 1024 * 1024, encoding: "utf8" });
+    const t = out.trim();
+    return t ? (JSON.parse(t) as Record<string, unknown>[]) : [];
+  } catch {
+    return [];
+  }
+}
+
+type DepRow = { first: number | null; net: number | null; commission: number | null; ltv: number | null; churn: string };
+let _depCache: { mtimeMs: number; byUid: Record<string, DepRow> } | null = null;
+async function depositsByUid(): Promise<Record<string, DepRow>> {
+  try {
+    const st = await statFile(CRM_DB);
+    if (_depCache && _depCache.mtimeMs === st.mtimeMs) return _depCache.byUid;
+    const rows = crmDbRows("SELECT uid, first_dep, net_dep, commission, ltv_score, churn_risk FROM broker_accounts");
+    const byUid: Record<string, DepRow> = {};
+    for (const r of rows) {
+      const uid = asString(r.uid);
+      if (uid) byUid[uid] = { first: crmNum(r.first_dep), net: crmNum(r.net_dep), commission: crmNum(r.commission), ltv: crmNum(r.ltv_score), churn: sanitizeText(asString(r.churn_risk), 20) };
+    }
+    _depCache = { mtimeMs: st.mtimeMs, byUid };
+    return byUid;
+  } catch {
+    return {};
+  }
+}
+
+// Totaux RÉELS (vrais chiffres, pas d'estimation) pour l'en-tête de la console.
+async function crmTotals() {
+  const r = crmDbRows("SELECT (SELECT count(*) FROM clients) AS clients, (SELECT count(*) FROM clients WHERE telegram_id!='') AS clients_tg, (SELECT count(*) FROM clients WHERE temperature='HOT') AS hot, (SELECT count(*) FROM clients WHERE temperature='WARM') AS warm, (SELECT count(*) FROM broker_accounts) AS broker_accounts, (SELECT count(*) FROM broker_accounts WHERE CAST(first_dep AS REAL)>0) AS depositors, (SELECT round(sum(CAST(net_dep AS REAL))) FROM broker_accounts) AS net_dep_usd, (SELECT round(sum(CAST(commission AS REAL))) FROM broker_accounts) AS commission_usd")[0] ?? {};
+  return {
+    clients: crmNum(r.clients), clientsTg: crmNum(r.clients_tg), hot: crmNum(r.hot), warm: crmNum(r.warm),
+    brokerAccounts: crmNum(r.broker_accounts), depositors: crmNum(r.depositors),
+    netDepUsd: crmNum(r.net_dep_usd), commissionUsd: crmNum(r.commission_usd), sheetUrl: CRM_SHEET_URL,
+  };
+}
+
+const clientFlags = (c: Record<string, unknown>, firstDep: number | null) => {
+  const dealStage = sanitizeText(asString(c.deal_stage), 40).toUpperCase();
+  const segment = sanitizeText(asString(c.segment), 40).toLowerCase();
+  return ["VIP_ACTIVE", "CLIENT", "WON"].some((s) => dealStage.includes(s)) || segment.includes("paid") || (firstDep ?? 0) > 0;
+};
+
+// Profil 360 d'un client depuis la DB live (blob json frais + dépôt broker réel).
+async function buildClient360(tgId: string) {
+  const tg = safeTgId(tgId);
+  const rows = tg ? crmDbRows(`SELECT json, broker_uid, updated_at FROM clients WHERE telegram_id='${tg}' LIMIT 1`) : [];
+  if (!rows.length) {
+    return { found: false, telegramId: tgId, note: "Non recensé au CRM (prospect / lead non qualifié)" };
+  }
+  let c: Record<string, unknown> = {};
+  try { c = JSON.parse(asString(rows[0].json)) as Record<string, unknown>; } catch { c = {}; }
+  const pick = (k: string, max = 200) => sanitizeText(asString(c[k]), max);
+  const brokerUid = asString(rows[0].broker_uid) || pick("broker_uid", 60);
+  const dep = (await depositsByUid())[brokerUid] || null;
+  const dealStage = pick("deal_stage", 40);
+  const segment = pick("segment", 40);
+  return {
+    found: true,
+    telegramId: tgId,
+    updatedAt: sanitizeText(asString(rows[0].updated_at), 40),
+    identity: { name: pick("client_name"), username: pick("username"), country: pick("country"), language: pick("language"), email: pick("email", 120), phone: pick("phone", 40) },
+    temperature: { label: pick("temperature", 20).toUpperCase(), score: crmNum(c.score), urgency: pick("urgency", 30) },
+    money: {
+      valueTier: pick("value_tier", 40).toUpperCase(),
+      depositUsd: dep?.first ?? crmNum(c.deposit_usd), netDepositUsd: dep?.net ?? crmNum(c.net_deposit_usd),
+      commissionUsd: dep?.commission ?? null, ltvScore: dep?.ltv ?? null, churnRisk: dep?.churn ?? "",
+      redepositUsd: crmNum(c.redeposit_usd), broker: pick("broker", 40), brokerUid, moneyScore: crmNum(c.money_score),
+    },
+    subscription: { stripeStatus: pick("stripe_status", 30), stripePlan: pick("stripe_plan", 40), stripeAmountEur: crmNum(c.stripe_amount_eur), vipTelegram: pick("vip_telegram", 10), vipPerma: pick("vip_perma", 10), segment, dealStage, vipReason: pick("vip_invite_reason", 120) },
+    risk: { riskScore: crmNum(c.risk_score), sentiment: pick("sentiment", 30), frustration: pick("frustration_level", 20) },
+    timeline: { depositDate: pick("deposit_date", 40), lastDepositDate: pick("last_deposit_date", 40), daysSinceDeposit: pick("days_since_deposit", 20), lastContactUtc: crmNum(c.last_contact_utc), status: pick("status", 30) },
+    context: {
+      isClient: clientFlags(c, dep?.first ?? null),
+      nextBestAction: pick("next_best_action_code", 60), nextAction: pick("next_action", 200),
+      last3Facts: Array.isArray(c.last_3_facts) ? c.last_3_facts.map((f) => sanitizeText(asString(f), 200)).slice(0, 3) : [],
+      lastMessageSummary: pick("last_message_summary", 300),
+    },
+  };
+}
+
+type CrmLite = { temp: string; score: number | null; tier: string; stripe: string; isClient: boolean; firstDep: number | null };
+let _crmTgCache: { mtimeMs: number; byTg: Record<string, CrmLite> } | null = null;
+// Map CRM léger par telegram_id (DB live, TOUS les clients) — pour la heat-map inbox + liste.
+async function crmLiteByTg(): Promise<Record<string, CrmLite>> {
+  try {
+    const st = await statFile(CRM_DB);
+    if (_crmTgCache && _crmTgCache.mtimeMs === st.mtimeMs) return _crmTgCache.byTg;
+    const rows = crmDbRows("SELECT telegram_id, broker_uid, json FROM clients WHERE telegram_id IS NOT NULL AND telegram_id!=''");
+    const dep = await depositsByUid();
+    const byTg: Record<string, CrmLite> = {};
+    for (const r of rows) {
+      const tg = asString(r.telegram_id); if (!tg) continue;
+      let c: Record<string, unknown> = {}; try { c = JSON.parse(asString(r.json)) as Record<string, unknown>; } catch { c = {}; }
+      const d = dep[asString(r.broker_uid)] || null;
+      byTg[tg] = {
+        temp: sanitizeText(asString(c.temperature), 20).toUpperCase(),
+        score: crmNum(c.score), tier: sanitizeText(asString(c.value_tier), 40).toUpperCase(),
+        stripe: sanitizeText(asString(c.stripe_status), 30).toLowerCase(),
+        isClient: clientFlags(c, d?.first ?? null), firstDep: d?.first ?? crmNum(c.deposit_usd),
+      };
+    }
+    _crmTgCache = { mtimeMs: st.mtimeMs, byTg };
     return byTg;
   } catch {
     return {};
   }
 }
 
-const crmNum = (v: unknown): number | null => {
-  const n = typeof v === "number" ? v : Number(asString(v));
-  return Number.isFinite(n) ? n : null;
-};
-
-// Profil CRM 360 affichable d'un client (par telegram_id) — champs whitelistés, lecture seule.
-// found:false = prospect non recensé (honnête). Source : clients_by_tg de iron_crm_ultra_runtime.json.
-async function buildClient360(tgId: string) {
-  const byTg = await loadCrmByTg();
-  const c = isRecord(byTg[tgId]) ? byTg[tgId] : null;
-  if (!c) {
-    return { found: false, telegramId: tgId, note: "Non recensé au CRM (prospect / lead non qualifié)" };
-  }
-  const pick = (k: string, max = 200) => sanitizeText(asString(c[k]), max);
-  const dealStage = pick("deal_stage", 40);
-  const segment = pick("segment", 40);
-  return {
-    found: true,
-    telegramId: tgId,
-    identity: {
-      name: pick("client_name"), username: pick("username"), country: pick("country"),
-      language: pick("language"), email: pick("email", 120), phone: pick("phone", 40),
-    },
-    temperature: { label: pick("temperature", 20), score: crmNum(c.score), urgency: pick("urgency", 30) },
-    money: {
-      valueTier: pick("value_tier", 40), depositUsd: crmNum(c.deposit_usd), netDepositUsd: crmNum(c.net_deposit_usd),
-      redepositUsd: crmNum(c.redeposit_usd), broker: pick("broker", 40), brokerUid: pick("broker_uid", 60),
-      moneyScore: crmNum(c.money_score),
-    },
-    subscription: {
-      stripeStatus: pick("stripe_status", 30), stripePlan: pick("stripe_plan", 40),
-      stripeAmountEur: crmNum(c.stripe_amount_eur), vipTelegram: pick("vip_telegram", 10), vipPerma: pick("vip_perma", 10),
-      segment, dealStage, vipReason: pick("vip_invite_reason", 120),
-    },
-    risk: { riskScore: crmNum(c.risk_score), sentiment: pick("sentiment", 30), frustration: pick("frustration_level", 20) },
-    timeline: {
-      depositDate: pick("deposit_date", 40), lastDepositDate: pick("last_deposit_date", 40),
-      daysSinceDeposit: pick("days_since_deposit", 20), lastContactUtc: crmNum(c.last_contact_utc), status: pick("status", 30),
-    },
-    context: {
-      isClient: ["VIP_ACTIVE", "CLIENT", "WON"].some((s) => dealStage.toUpperCase().includes(s)) || segment.toLowerCase().includes("paid"),
-      nextBestAction: pick("next_best_action_code", 60), nextAction: pick("next_action", 200),
-      last3Facts: Array.isArray(c.last_3_facts) ? c.last_3_facts.map((f) => sanitizeText(asString(f), 200)).slice(0, 3) : [],
-      lastMessageSummary: pick("last_message_summary", 300),
-    },
-  };
+// Liste TOUS les clients CRM (DB live) pour la vue "Tous les clients", classés chaud + dépôt.
+async function buildAllClients(limit = 400) {
+  const rows = crmDbRows("SELECT telegram_id, broker_uid, json FROM clients WHERE telegram_id IS NOT NULL AND telegram_id!=''");
+  const dep = await depositsByUid();
+  const tempRank: Record<string, number> = { HOT: 3, WARM: 2, COLD: 1 };
+  const out = rows.map((r) => {
+    let c: Record<string, unknown> = {}; try { c = JSON.parse(asString(r.json)) as Record<string, unknown>; } catch { c = {}; }
+    const d = dep[asString(r.broker_uid)] || null;
+    const temp = sanitizeText(asString(c.temperature), 20).toUpperCase();
+    return {
+      userId: asString(r.telegram_id), name: sanitizeText(asString(c.client_name), 60) || asString(r.telegram_id),
+      username: sanitizeText(asString(c.username), 60), country: sanitizeText(asString(c.country), 8),
+      crmTemp: temp, crmScore: crmNum(c.score), crmTier: sanitizeText(asString(c.value_tier), 40).toUpperCase(),
+      crmStripe: sanitizeText(asString(c.stripe_status), 30).toLowerCase(),
+      depositUsd: d?.first ?? crmNum(c.deposit_usd), commissionUsd: d?.commission ?? null,
+      isClient: clientFlags(c, d?.first ?? null),
+    };
+  }).sort((a, b) =>
+    (tempRank[b.crmTemp] ?? 0) - (tempRank[a.crmTemp] ?? 0)
+    || (b.crmScore ?? 0) - (a.crmScore ?? 0)
+    || (b.depositUsd ?? 0) - (a.depositUsd ?? 0),
+  ).slice(0, limit);
+  return out;
 }
 
 // Envoi d'une note VOCALE à un client depuis la dashboard — proxy vers la brique média
