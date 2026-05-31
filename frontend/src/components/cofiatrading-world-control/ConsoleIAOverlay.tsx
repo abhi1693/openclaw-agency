@@ -912,6 +912,20 @@ type ConvThread = {
 };
 type ConvMessage = { ts: string; direction: string; by: string; text: string };
 
+// Flux 6 — profil CRM 360 (renvoyé par GET ?client=<tg_id>).
+type ClientCrm360 = {
+  found: boolean;
+  telegramId?: string;
+  note?: string;
+  identity?: { name?: string; username?: string; country?: string; language?: string; email?: string; phone?: string };
+  temperature?: { label?: string; score?: number | null; urgency?: string };
+  money?: { valueTier?: string; depositUsd?: number | null; netDepositUsd?: number | null; redepositUsd?: number | null; broker?: string; brokerUid?: string; moneyScore?: number | null };
+  subscription?: { stripeStatus?: string; stripePlan?: string; stripeAmountEur?: number | null; vipTelegram?: string; vipPerma?: string; segment?: string; dealStage?: string; vipReason?: string };
+  risk?: { riskScore?: number | null; sentiment?: string; frustration?: string };
+  timeline?: { depositDate?: string; lastDepositDate?: string; daysSinceDeposit?: string; lastContactUtc?: number | null; status?: string };
+  context?: { isClient?: boolean; nextBestAction?: string; nextAction?: string; last3Facts?: string[]; lastMessageSummary?: string };
+};
+
 const AGENT_ACCENT: Record<string, string> = {
   iron: "text-amber-200 border-amber-300/40",
   david: "text-sky-200 border-sky-300/40",
