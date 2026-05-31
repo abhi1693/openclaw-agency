@@ -2328,8 +2328,8 @@ export function ConsoleIAOverlay() {
                   onToggleTakeover={toggleTakeover}
                   crm={convCrm}
                   totals={crmTotals}
-                  allClientsMode={allClientsMode}
-                  onToggleAllClients={() => setAllClientsMode((v) => !v)}
+                  mode={inboxMode}
+                  onCycleMode={() => setInboxMode((m) => (m === "convs" ? "clients" : m === "clients" ? "dm" : "convs"))}
                 />
               ) : (
                 <ChannelColumn
