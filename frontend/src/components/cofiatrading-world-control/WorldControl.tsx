@@ -22,7 +22,9 @@ import {
 } from "lucide-react";
 
 import { DashboardShell } from "@/components/templates/DashboardShell";
+import { ConsoleIAOverlay } from "./ConsoleIAOverlay";
 import { WorldMapLiving } from "./WorldMapLiving";
+import { AuthProviderStatusPanel } from "./AuthProviderStatusPanel";
 
 import type {
   AssetsWarehouseSnapshot,
@@ -347,8 +349,8 @@ const coreTrucks: TruckRow[] = [
     label: "OpenClaw Gateway",
     status: "LIVE",
     owner: "Jarod",
-    proof: "Docker frontend/backend/db/redis/worker active.",
-    nextAction: "Use as engine and control plane.",
+    proof: "Gateway loopback canon :18789/health uniquement ; port legacy retiré.",
+    nextAction: "Afficher le statut live du snapshot, jamais une preuve Docker statique.",
     writeBlocked: true,
   },
   {
@@ -455,6 +457,7 @@ const SERVICE_HOUSE: Partial<Record<string, HouseId>> = {
   central_brain_8767: "central_brain",
   llm_proxy_11435: "central_brain",
   cofiapublisher_8540: "youtube_studio",
+  openclaw_gateway_18789: "openclaw_agent_barracks",
   inventory_8433: "assets_warehouse",
   lightrag_9621: "lightrag_observatory",
   paperclip_3100: "paperclip_factory",
@@ -506,7 +509,7 @@ const ssotHouses: HouseDefinition[] = [
   {
     id: "openclaw_agent_barracks",
     name: "Agents Village",
-    owners: ["Jarod", "Luffy", "Codex"],
+    owners: ["Jarod", "Claude", "Codex"],
     primaryBoardSlug: "agentops-skills",
     boardAliases: ["agentops", "garage-trucks", "toolchain"],
   },
@@ -572,7 +575,7 @@ const HOUSE_WORKFORCE: Record<HouseId, HouseWorkforce> = {
   mission_control_tower: {
     businessName: "Mission Control Tower",
     owner: "Codex / Atlas",
-    workers: ["Codex", "Atlas", "Luffy", "Guardian"],
+    workers: ["Codex", "Atlas", "Claude", "Guardian"],
     mission: "Piloter le cockpit, preuves, décisions Erwin.",
     nextAction: "Stabiliser first screen et proof ledger.",
     impact: "pilotage",
@@ -806,7 +809,7 @@ const CITY_DISTRICTS: CityDistrict[] = [
     visual: "castle",
     accent: "#67e8f9",
     glow: "rgba(103,232,249,.42)",
-    workers: ["Codex", "Atlas", "Luffy", "Guardian"],
+    workers: ["Codex", "Atlas", "Claude", "Guardian"],
     machines: ["Proof", "Orders", "HUD"],
     role: "Commander le monde",
     next: "Décision Erwin -> dispatch",
@@ -1233,7 +1236,7 @@ function exactKpiLive(id: string, s: Snapshot | null): string {
   }
 }
 
-function _ExactImageWorldControl({
+function ExactImageWorldControl({
   snapshot,
   onSelectHouse,
   onOpenRoutes,
@@ -2159,8 +2162,6 @@ export function WorldControl() {
   };
 
   const services = snapshot?.services ?? [];
-  const servicesOk = services.filter((service) => service.ok).length;
-  const servicesTotal = services.length;
   const primaryActions = snapshot?.investor_room?.next_7_days_tasks ?? [];
   const rosterStatusByName = new Map(
     (angelRoster?.anges ?? []).map((angel) => [angel.name.toLowerCase(), angel.status]),
@@ -2184,6 +2185,7 @@ export function WorldControl() {
               angelRoster={angelRoster}
               onSelectHouse={(id) => openHouseDrawer(id as HouseId)}
             />
+            <ConsoleIAOverlay />
           </div>
 
           {/* Cockpit opérationnel — sous le monde, replié par défaut (pas un poster) */}
