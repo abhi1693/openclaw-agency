@@ -1422,10 +1422,13 @@ async function depositsByUid(): Promise<Record<string, DepRow>> {
 // Totaux RÉELS (vrais chiffres, pas d'estimation) pour l'en-tête de la console.
 async function crmTotals() {
   const r = crmDbRows("SELECT (SELECT count(*) FROM clients) AS clients, (SELECT count(*) FROM clients WHERE telegram_id!='') AS clients_tg, (SELECT count(*) FROM clients WHERE temperature='HOT') AS hot, (SELECT count(*) FROM clients WHERE temperature='WARM') AS warm, (SELECT count(*) FROM broker_accounts) AS broker_accounts, (SELECT count(*) FROM broker_accounts WHERE CAST(first_dep AS REAL)>0) AS depositors, (SELECT round(sum(CAST(net_dep AS REAL))) FROM broker_accounts) AS net_dep_usd, (SELECT round(sum(CAST(commission AS REAL))) FROM broker_accounts) AS commission_usd")[0] ?? {};
+  const dm1 = crmNum(sqliteRows(REENGAGE_DB, "SELECT count(DISTINCT user_id) n FROM dm_inbox_snapshot WHERE user_id IS NOT NULL")[0]?.n) ?? 0;
+  const dm2 = crmNum(sqliteRows(REENGAGE_RED_DB, "SELECT count(DISTINCT user_id) n FROM dm_inbox_snapshot WHERE user_id IS NOT NULL")[0]?.n) ?? 0;
   return {
     clients: crmNum(r.clients), clientsTg: crmNum(r.clients_tg), hot: crmNum(r.hot), warm: crmNum(r.warm),
     brokerAccounts: crmNum(r.broker_accounts), depositors: crmNum(r.depositors),
-    netDepUsd: crmNum(r.net_dep_usd), commissionUsd: crmNum(r.commission_usd), sheetUrl: CRM_SHEET_URL,
+    netDepUsd: crmNum(r.net_dep_usd), commissionUsd: crmNum(r.commission_usd),
+    dmContacts: dm1 + dm2, sheetUrl: CRM_SHEET_URL,
   };
 }
 
