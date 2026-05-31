@@ -80,47 +80,6 @@ export const FALLBACK_CHAIN: ConsoleIaProvider[] = [
   "manual",
 ];
 
-const OPENCLAW_ROOT = process.env.OPENCLAW_ROOT ?? path.join(os.homedir(), ".openclaw");
-const STATE_ROOT = process.env.COF_STATE_ROOT ?? path.join(OPENCLAW_ROOT, "state");
-
-/** Rapport réel du garde « paid API » (même fichier que la route Console IA). */
-const PAID_API_GUARD_REPORT = path.join(STATE_ROOT, "central_brain_paid_api_guard", "latest.json");
-
-/* ── lecture sûre du paid_api_guard (jamais throw) ───────────────── */
-
-type PaidApiGuardCheck = { name?: unknown; status?: unknown; evidence?: unknown };
-
-function readPaidApiGuard(): { checks: PaidApiGuardCheck[]; mtimeIso?: string } | null {
-  try {
-    if (!existsSync(PAID_API_GUARD_REPORT)) return null;
-    const raw = readFileSync(PAID_API_GUARD_REPORT, "utf8");
-    const parsed = JSON.parse(raw) as { checks?: unknown };
-    const checks = Array.isArray(parsed?.checks) ? (parsed.checks as PaidApiGuardCheck[]) : [];
-    let mtimeIso: string | undefined;
-    try {
-      mtimeIso = statSync(PAID_API_GUARD_REPORT).mtime.toISOString();
-    } catch {
-      mtimeIso = undefined;
-    }
-    return { checks, mtimeIso };
-  } catch {
-    return null;
-  }
-}
-
-function findCheck(checks: PaidApiGuardCheck[], name: string): PaidApiGuardCheck | undefined {
-  return checks.find((c) => typeof c?.name === "string" && c.name === name);
-}
-
-/** true si la lane est explicitement en « hold packet only » (donc PAS exécutable sans GO Erwin). */
-function laneIsPaidHoldOnly(check: PaidApiGuardCheck | undefined): boolean {
-  if (!check) return false;
-  const ev = (check.evidence ?? {}) as Record<string, unknown>;
-  const mode = typeof ev.mode === "string" ? ev.mode : "";
-  const executed = ev.executed === true;
-  return !executed && (mode === "paid_api_hold_packet_only" || ev.requires_erwin_paid_api_go === true);
-}
-
 /* ── détection des fallbacks RÉELS ───────────────────────────────── */
 
 /**
