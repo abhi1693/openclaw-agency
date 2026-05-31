@@ -71,6 +71,7 @@ def _load_roster() -> None:
         vid = (meta or {}).get("id")
         if vid:
             DEAD_VOICES.add(vid)
+        DEAD_NAMES.add(key)
         VALIDATED_FR_VOICES.pop(key, None)   # ne jamais exposer une voix cassée
     fb = data.get("fallback_voice")
     if fb and VALIDATED_FR_VOICES.get(fb):
