@@ -1286,7 +1286,7 @@ function ConversationsInbox({
       </div>
       {!threads.length ? <p className="text-[11px] text-slate-500">{mode === "convs" ? "Aucune conversation chargée." : "Chargement…"}</p> : null}
       <div className="grid max-h-[52vh] gap-1.5 overflow-auto pr-1">
-        {heatSorted.map((t) => {
+        {ordered.map((t) => {
           const tv = tempViz(t.crmTemp);
           const whale = isWhaleTier(t.crmTier);
           return (
