@@ -1467,16 +1467,11 @@ const clientFlags = (c: Record<string, unknown>, firstDep: number | null) => {
 };
 
 // Profil 360 d'un client depuis la DB live (blob json frais + dépôt broker réel).
-async function buildClient360(tgId: string) {
-  const tg = safeTgId(tgId);
-  const rows = tg ? crmDbRows(`SELECT json, broker_uid, updated_at FROM clients WHERE telegram_id='${tg}' LIMIT 1`) : [];
-  if (!rows.length) {
-    return { found: false, telegramId: tgId, note: "Non recensé au CRM (prospect / lead non qualifié)" };
-  }
+async function clientProfileFromRow(row: Record<string, unknown>, tgId: string, resolvedBy: string) {
   let c: Record<string, unknown> = {};
-  try { c = JSON.parse(asString(rows[0].json)) as Record<string, unknown>; } catch { c = {}; }
+  try { c = JSON.parse(asString(row.json)) as Record<string, unknown>; } catch { c = {}; }
   const pick = (k: string, max = 200) => sanitizeText(asString(c[k]), max);
-  const brokerUid = asString(rows[0].broker_uid) || pick("broker_uid", 60);
+  const brokerUid = asString(row.broker_uid) || pick("broker_uid", 60);
   const dep = (await depositsByUid())[brokerUid] || null;
   const dealStage = pick("deal_stage", 40);
   const segment = pick("segment", 40);
@@ -1484,7 +1479,8 @@ async function buildClient360(tgId: string) {
   return {
     found: true,
     telegramId: tgId,
-    updatedAt: sanitizeText(asString(rows[0].updated_at), 40),
+    resolvedBy,
+    updatedAt: sanitizeText(asString(row.updated_at), 40),
     capturedEmail,
     identity: { name: pick("client_name"), username: pick("username"), country: pick("country"), language: pick("language"), email: pick("email", 120) || capturedEmail, phone: pick("phone", 40) },
     temperature: { label: pick("temperature", 20).toUpperCase(), score: crmNum(c.score), urgency: pick("urgency", 30) },
