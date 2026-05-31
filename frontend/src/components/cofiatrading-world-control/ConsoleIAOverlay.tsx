@@ -1444,12 +1444,13 @@ export function ConsoleIAOverlay() {
           if (!stopped && da.ok && Array.isArray(da.clients)) {
             setAllClients(da.clients.map((c) => ({
               userId: String(c.userId ?? ""), name: String(c.name ?? ""), username: String(c.username ?? ""),
-              agent: "iron", stage: "", unread: 0, vip: false, intentScore: null,
-              lastPreview: `${String(c.crmTier || "—")}${c.depositUsd ? ` · $${c.depositUsd}` : ""}${c.commissionUsd ? ` · comm $${c.commissionUsd}` : ""}`,
+              agent: c.brokerOnly ? "" : "iron", stage: "", unread: 0, vip: false, intentScore: null,
+              lastPreview: `${String(c.broker || c.crmTier || "—")}${c.depositUsd ? ` · dépôt $${c.depositUsd}` : ""}${c.commissionUsd ? ` · comm $${c.commissionUsd}` : ""}`,
               lastDirection: "", lastTs: String(c.country || ""), totalMessages: 0, sourceChannel: "crm", muted: false,
               crmFound: true, crmTemp: String(c.crmTemp || ""), crmScore: (c.crmScore as number) ?? null,
               crmTier: String(c.crmTier || ""), crmStripe: String(c.crmStripe || ""), crmIsClient: c.isClient === true,
               depositUsd: (c.depositUsd as number) ?? null, commissionUsd: (c.commissionUsd as number) ?? null,
+              brokerOnly: c.brokerOnly === true, broker: String(c.broker || ""), churnRisk: String(c.churnRisk || ""),
             })));
           }
         }
