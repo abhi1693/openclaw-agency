@@ -940,6 +940,19 @@ const AGENT_ACCENT: Record<string, string> = {
   erwin: "text-emerald-200 border-emerald-300/40",
 };
 
+// Flux 6b — code visuel chaleur (carte de chaleur inbox + carte CRM).
+const TEMP_VISUAL: Record<string, { dot: string; border: string; chip: string; emoji: string }> = {
+  HOT:  { dot: "bg-rose-400", border: "border-l-rose-400/80", chip: "border-rose-300/45 bg-rose-400/15 text-rose-100", emoji: "🔥" },
+  WARM: { dot: "bg-amber-400", border: "border-l-amber-400/80", chip: "border-amber-300/45 bg-amber-400/15 text-amber-100", emoji: "🌤" },
+  COLD: { dot: "bg-sky-400", border: "border-l-sky-500/70", chip: "border-sky-300/40 bg-sky-400/10 text-sky-100", emoji: "❄️" },
+};
+const tempViz = (temp?: string) => TEMP_VISUAL[(temp || "").toUpperCase()] ?? { dot: "bg-slate-600", border: "border-l-slate-700", chip: "border-slate-700 text-slate-400", emoji: "·" };
+const isWhaleTier = (tier?: string) => /(GROS|BALEINE|WHALE|GRAND|HIGH|PREMIUM|VIP)/i.test(tier || "");
+const stripeDot = (s?: string) => {
+  const v = (s || "").toLowerCase();
+  return v === "active" ? "bg-emerald-400" : v === "past_due" ? "bg-amber-400" : v === "canceled" ? "bg-rose-500" : "bg-slate-600";
+};
+
 function ConversationsInbox({
   threads,
   selectedId,
