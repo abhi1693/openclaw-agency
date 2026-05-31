@@ -349,7 +349,7 @@ export function WorldMapLiving({ snapshot, angelRoster, onSelectHouse }: { snaps
   const EFF_BY_ID = useMemo(() => Object.fromEntries(effHouses.map((h) => [h.id, h])) as Record<string, House>, [effHouses]);
 
   const statusFor = (id: string): string => {
-    if (MODULE_IDS.has(id)) return "MODULE"; // ALM/Proof = modules config, jamais LIVE/RED faux-vert
+    if (MODULE_IDS.has(id)) return "AMBER"; // ALM/Proof = modules §23/§24, honnêtes AMBER (jamais GREEN faux-vert)
     if (houseStatuses && houseStatuses[id]) { const raw = houseStatuses[id]; if (onDemandSet.has(id) && (raw === "SOURCE_DOWN" || raw === "DEGRADED")) return "SLEEPING"; return raw; }
     if (registryError) return "ERR"; if (houseStatuses === null) return "LOADING"; return "ERR";
   };
