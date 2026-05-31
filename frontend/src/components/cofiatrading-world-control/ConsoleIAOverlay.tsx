@@ -1347,6 +1347,26 @@ export function ConsoleIAOverlay() {
     }
   };
 
+  // Flux 4 — 1-tap approbation/rejet d'un packet EXECUTE en attente. Refresh thread depuis la réponse.
+  const decidePacket = async (action: "approve_packet" | "reject_packet", packetId: string): Promise<boolean> => {
+    if (!packetId || approving) return false;
+    setApproving(true);
+    try {
+      const r = await fetch("/api/cofiatrading-world-control/console-ia", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ action, packetId }),
+      });
+      const d = (await r.json()) as { ok?: boolean; thread?: ConsoleThread };
+      if (d.ok && d.thread) setThread(d.thread);
+      return d.ok === true;
+    } catch {
+      return false;
+    } finally {
+      setApproving(false);
+    }
+  };
+
   const sendConversationReply = async (uid: string, text: string, via: string): Promise<boolean> => {
     if (!uid || !text) return false;
     setConvSending(true);
