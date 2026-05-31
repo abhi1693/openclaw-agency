@@ -223,6 +223,7 @@ export function WorldMapLiving({ snapshot, angelRoster, onSelectHouse }: { snaps
   const [events, setEvents] = useState<FeedEvent[]>([]);
   const [trucks, setTrucks] = useState<Truck[]>([]);
   const [toolMachines, setToolMachines] = useState<WorldMachine[]>([]); // outils SaaS rattachés à leur maison (Notion/Linear…), statut depuis probe live
+  const [inventory, setInventory] = useState<InvItem[]>([]); // matrice inventaire 742 items, rattachés à leur maison (houseId)
   const [registryError, setRegistryError] = useState(false);
   const [selectedHouse, setSelectedHouse] = useState<string | null>(null);
   const [selectedAngel, setSelectedAngel] = useState<Angel | null>(null);
