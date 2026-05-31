@@ -275,15 +275,17 @@ export function runProofLedgerAudit(input: ProofLedgerAuditInput = {}): CofiatPr
       hasSrc ? undefined : "Scan source requis pour le contrôle JSX inline"));
   }
 
-  /* no-false-green — ledger d'auth (toujours actif) */
+  /* no-false-green — DÉTECTION sur le ledger BRUT (le gardien RAPPORTE la
+     tentative de faux-vert au lieu de la masquer via l'auto-downgrade). */
   {
-    const v: CofiatViolation[] = [];
-    for (const item of authLedger) {
-      const green = item.status === "GREEN" || item.status === "LIVE";
-      if (green && !item.proof?.trim()) {
-        v.push({ guard: "no-false-green", severity: "block", subject: item.id, message: `${item.status} sans preuve`, nextAction: "Attacher une preuve réelle ou rétrograder" });
-      }
-    }
+    const { violations: nfg } = validateNoFalseGreen(rawLedger);
+    const v: CofiatViolation[] = nfg.map((x) => ({
+      guard: "no-false-green",
+      severity: "block",
+      subject: x.id,
+      message: x.reason,
+      nextAction: "Attacher une preuve réelle + source traçable, ou rétrograder",
+    }));
     guards.push(verdict("no-false-green", true, v));
   }
 
