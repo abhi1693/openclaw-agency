@@ -937,10 +937,40 @@ function ConversationsInbox({
   loadingMessages: boolean;
   onSend: (uid: string, text: string, via: string) => Promise<boolean>;
   sending: boolean;
+  onSendVoice: (uid: string, fileB64: string, via: string) => Promise<boolean>;
+  sendingVoice: boolean;
 }) {
   const active = selectedId ? threads.find((t) => t.userId === selectedId) ?? null : null;
   const [reply, setReply] = useState("");
   const [confirm, setConfirm] = useState(false);
+  const [recording, setRecording] = useState(false);
+  const [audioB64, setAudioB64] = useState<string | null>(null);
+  const [voiceConfirm, setVoiceConfirm] = useState(false);
+  const recRef = useRef<MediaRecorder | null>(null);
+  const chunksRef = useRef<Blob[]>([]);
+  const startRec = async () => {
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      const mr = new MediaRecorder(stream);
+      chunksRef.current = [];
+      mr.ondataavailable = (e) => { if (e.data.size) chunksRef.current.push(e.data); };
+      mr.onstop = () => {
+        const blob = new Blob(chunksRef.current, { type: mr.mimeType || "audio/webm" });
+        const reader = new FileReader();
+        reader.onloadend = () => { const s = String(reader.result); setAudioB64(s.includes(",") ? s.split(",")[1] : s); };
+        reader.readAsDataURL(blob);
+        stream.getTracks().forEach((t) => t.stop());
+      };
+      recRef.current = mr;
+      mr.start();
+      setRecording(true);
+      setVoiceConfirm(false);
+      setAudioB64(null);
+    } catch {
+      // micro refusé / indisponible — pas de crash
+    }
+  };
+  const stopRec = () => { recRef.current?.stop(); setRecording(false); };
   if (selectedId) {
     return (
       <div className="grid gap-2">
