@@ -1349,15 +1349,19 @@ async function proxyConversationVoice(body: Record<string, unknown>) {
     });
   }
   try {
+    const enc = await transcodeVoiceToOggOpus(fileB64, filename);
     const res = await fetch(`${HUB_URL}/api/agent-oversight/send-media-b64`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ agent: via, chat_id: uid, kind: "voice", file_b64: fileB64, filename, caption }),
+      body: JSON.stringify({ agent: via, chat_id: uid, kind: "voice", file_b64: enc.b64, filename: enc.filename, caption }),
       signal: AbortSignal.timeout(15000),
     });
-    const result = await res.json().catch(() => ({}));
+    const result = await res.json().catch(() => ({})) as { message_id?: number; success?: boolean };
+    if (res.ok && result?.message_id) {
+      await logConversationOutMarker(uid, via, `🎤 Note vocale envoyée (msg ${result.message_id})`);
+    }
     return NextResponse.json(
-      { ok: res.ok, status: res.status, result, target: uid, via, kind: "voice", sourceTag: SOURCE_TAG },
+      { ok: res.ok, status: res.status, result, target: uid, via, kind: "voice", transcoded: enc.filename === "voice.ogg", sourceTag: SOURCE_TAG },
       { status: res.ok ? 200 : 502 },
     );
   } catch {
