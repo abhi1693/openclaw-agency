@@ -1669,6 +1669,13 @@ export async function POST(request: Request) {
   if (sanitizeText(asString(body.action), 80) === "reject_packet") {
     return rejectPacket(body);
   }
+  if (sanitizeText(asString(body.action), 80) === "set_takeover") {
+    const uid = sanitizeText(asString(body.uid), 40);
+    if (!uid) return NextResponse.json({ ok: false, error: "MISSING_UID", sourceTag: SOURCE_TAG }, { status: 400 });
+    const on = body.on !== false;  // défaut true
+    await markTakeover(uid, on);
+    return NextResponse.json({ ok: true, uid, takeover: on, sourceTag: SOURCE_TAG });
+  }
 
   const message = sanitizeText(asString(body.message));
   const targetId = sanitizeText(asString(body.targetId), 80);
