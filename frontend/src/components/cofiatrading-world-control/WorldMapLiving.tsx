@@ -68,7 +68,7 @@ const ZONES: Record<ZoneId, { label: string; sub: string; floor: string; edge: s
 const STONE = "#2c3442", STONE_HI = "#3d4a5c", STONE_LO = "#191f29";
 
 /* ════════ 15 maisons ════════ */
-type BuildingType = "command_tower" | "brain" | "village" | "vault" | "observatory" | "factory" | "studio" | "warehouse" | "lab" | "signal_tower" | "academy" | "business" | "gate" | "compliance" | "calendar";
+type BuildingType = "command_tower" | "brain" | "village" | "vault" | "observatory" | "factory" | "studio" | "warehouse" | "lab" | "signal_tower" | "academy" | "business" | "gate" | "compliance" | "calendar" | "notebook_alm" | "proof_ledger";
 type House = { id: string; name: string; sub: string; x: number; y: number; w: number; h: number; type: BuildingType; zone: ZoneId; roof: "flat" | "pitch" | "saw" | "dome" | "stepped"; levels: number; wall: string; roofColor: string; accent: string; role: string };
 const HOUSES: House[] = [
   { id: "obsidian_library", name: "Knowledge Vault", sub: "Obsidian & Drive", x: 50, y: 11, w: 6, h: 5, type: "vault", zone: "knowledge", roof: "flat", levels: 4, wall: "#222b46", roofColor: "#0b1022", accent: "#cbd5f5", role: "Canon, Drive index et bundles sources" },
