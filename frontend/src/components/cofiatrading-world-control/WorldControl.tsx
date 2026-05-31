@@ -4193,6 +4193,33 @@ function HouseDrawer({
               </section>
             )}
 
+            {houseInventory.length > 0 && (() => {
+              const order = ["GREEN", "LIVE", "AMBER", "AMBER_REVERIFY", "RED", "QUARANTINE", "UNKNOWN"];
+              const byStatus: Record<string, number> = {}; for (const it of houseInventory) byStatus[it.status] = (byStatus[it.status] ?? 0) + 1;
+              const byCat: Record<string, InvItem[]> = {}; for (const it of houseInventory) (byCat[it.category] ||= []).push(it);
+              const invC = (s: string) => s === "GREEN" || s === "LIVE" ? "#34d399" : s === "AMBER" || s === "AMBER_REVERIFY" ? "#f59e0b" : s === "RED" ? "#ef4444" : s === "QUARANTINE" ? "#fb7185" : "#64748b";
+              return (
+                <section className="rounded-md border border-cyan-300/20 bg-cyan-300/5 p-3">
+                  <h3 className="mb-2 flex items-center justify-between text-xs font-semibold uppercase tracking-[0.18em] text-cyan-100"><span>Inventaire rattaché</span><span className="text-[10px] font-normal text-slate-300">{houseInventory.length} items</span></h3>
+                  <div className="mb-3 flex flex-wrap gap-1.5">{order.filter((s) => byStatus[s]).map((s) => (<span key={s} className="inline-flex items-center gap-1 rounded-full border px-2 py-0.5 text-[9px] font-bold" style={{ borderColor: `${invC(s)}55`, color: invC(s) }}><span className="h-1.5 w-1.5 rounded-full" style={{ background: invC(s) }} />{s} {byStatus[s]}</span>))}</div>
+                  <div className="space-y-2">{Object.entries(byCat).sort((a, b) => b[1].length - a[1].length).map(([cat, list]) => (
+                    <div key={cat}>
+                      <p className="mb-1 text-[10px] font-bold uppercase tracking-wide text-cyan-200/80">{cat} <span className="text-slate-500">· {list.length}</span></p>
+                      <div className="grid gap-1 sm:grid-cols-2">{list.slice(0, 40).map((it) => (
+                        <div key={it.id} className="flex items-start gap-1.5 rounded border border-slate-800 bg-slate-900/60 px-2 py-1" title={it.proof || it.blocker || it.nextAction || ""}>
+                          <span className="mt-1 h-1.5 w-1.5 shrink-0 rounded-full" style={{ background: invC(it.status) }} />
+                          <span className="min-w-0 flex-1"><span className="block truncate text-[10.5px] text-slate-200">{it.name}</span>{(it.blocker || it.nextAction) && <span className="block truncate text-[8.5px] text-slate-500">{it.blocker || it.nextAction}</span>}</span>
+                          <span className="shrink-0 text-[8px] font-bold" style={{ color: invC(it.status) }}>{it.status}</span>
+                        </div>
+                      ))}</div>
+                      {list.length > 40 && <p className="mt-1 text-[8.5px] text-slate-500">+{list.length - 40} de plus…</p>}
+                    </div>
+                  ))}</div>
+                  <p className="mt-2 text-[9px] text-slate-500">Source : /api/inventory-matrix (742 items) · rattachés par houseId/catégorie · statut honnête (jamais GREEN par défaut)</p>
+                </section>
+              );
+            })()}
+
             <section className="rounded-md border border-slate-800 bg-slate-950/70 p-3">
               <h3 className="mb-3 text-xs font-semibold uppercase tracking-[0.18em] text-slate-300">
                 Camions garés
