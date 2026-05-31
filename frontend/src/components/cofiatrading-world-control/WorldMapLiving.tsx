@@ -155,6 +155,7 @@ function houseStatusStyle(status: string): { color: string; label: string } {
     case "REGISTERED": return { color: "#f59e0b", label: "REGISTERED" };
     case "LOADING": return { color: "#64748b", label: "…" };
     case "ERR": return { color: "#fb7185", label: "ERR" };
+    case "MODULE": return { color: "#a78bfa", label: "MODULE" };
     default: return { color: "#fb7185", label: status || "ERR" };
   }
 }
