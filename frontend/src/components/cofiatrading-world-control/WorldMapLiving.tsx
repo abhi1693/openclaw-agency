@@ -323,7 +323,10 @@ export function WorldMapLiving({ snapshot, angelRoster, onSelectHouse }: { snaps
       const st = statusFor(h.id);
       if (st === "SOURCE_DOWN" || st === "DEGRADED" || st === "ERR") { map[h.id] = { state: "alert" }; continue; }
       const kws = HOUSE_KEYWORDS[h.id] ?? [];
-      const ev = events.find((e) => { const hay = `${e.label ?? ""} ${e.source ?? ""} ${e.kind ?? ""}`.toLowerCase(); return kws.some((k) => hay.includes(k)); });
+      // 1) attribution EXPLICITE (house_id structuré côté route world-state)
+      // 2) fallback heuristique mots-clés (events sans house_id)
+      const ev = events.find((e) => e.house_id === h.id)
+        ?? events.find((e) => { if (e.house_id) return false; const hay = `${e.label ?? ""} ${e.source ?? ""} ${e.kind ?? ""}`.toLowerCase(); return kws.some((k) => hay.includes(k)); });
       if (ev) {
         const hay = `${ev.label ?? ""} ${ev.source ?? ""} ${ev.kind ?? ""}`.toLowerCase();
         const state: AgentState = /messag|telegram|whatsapp|vip|\bdm\b|broadcast|channel/.test(hay) ? "phone"
