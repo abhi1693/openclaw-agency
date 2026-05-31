@@ -928,6 +928,8 @@ function ConversationsInbox({
   loadingMessages,
   onSend,
   sending,
+  onSendVoice,
+  sendingVoice,
 }: {
   threads: ConvThread[];
   selectedId: string | null;
