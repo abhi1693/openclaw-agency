@@ -1278,8 +1278,58 @@ async function ingestCommand(body: Record<string, unknown>) {
   return NextResponse.json({ ok: true, sourceTag: SOURCE_TAG, threadId, packetId, envelope }, { status: 201 });
 }
 
+// Le navigateur (MediaRecorder) capte du webm/opus. Telegram sendVoice ne rend une
+// VRAIE note vocale jouable qu'avec un OGG/OPUS. On transcode localement (ffmpeg, §15
+// local-only) avant l'envoi. Fallback : si ffmpeg échoue, on renvoie l'original (jamais
+// de crash). Retourne {b64, filename}.
+async function transcodeVoiceToOggOpus(fileB64: string, fallbackName: string): Promise<{ b64: string; filename: string }> {
+  const ffmpeg = path.join(HOME, "bin", "ffmpeg");
+  const stamp = `${Date.now()}_${Math.floor((fileB64.length || 1))}`;
+  const tmpIn = path.join(os.tmpdir(), `cia_voice_${stamp}.in`);
+  const tmpOut = path.join(os.tmpdir(), `cia_voice_${stamp}.ogg`);
+  try {
+    await writeFile(tmpIn, Buffer.from(fileB64, "base64"));
+    execFileSync(ffmpeg, ["-y", "-i", tmpIn, "-ac", "1", "-c:a", "libopus", "-b:a", "32k", tmpOut], {
+      timeout: 12000, stdio: "ignore",
+    });
+    const out = await readFile(tmpOut);
+    if (!out.length) throw new Error("EMPTY_OGG");
+    return { b64: out.toString("base64"), filename: "voice.ogg" };
+  } catch {
+    return { b64: fileB64, filename: fallbackName };
+  } finally {
+    await unlink(tmpIn).catch(() => {});
+    await unlink(tmpOut).catch(() => {});
+  }
+}
+
+// Après un envoi média réussi, journalise un marqueur OUT dans le transcript Obsidian du
+// client (même fichier que les réponses texte, `05_LIVE/<agent>-conversations/<uid>.md`),
+// via l'endpoint hub EXISTANT /api/obsidian/append. Sinon le média part vers Telegram mais
+// n'apparaît jamais dans la console → impression "ça marche pas". Best-effort, jamais bloquant.
+async function logConversationOutMarker(uid: string, via: string, markerText: string) {
+  try {
+    const agentDir = via === "david" ? "david-conversations" : "iron-conversations";
+    const d = new Date();
+    const pad = (n: number) => String(n).padStart(2, "0");
+    const ts = `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())} ${pad(d.getHours())}:${pad(d.getMinutes())}`;
+    await fetch(`${HUB_URL}/api/obsidian/append`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        path: `05_LIVE/${agentDir}/${uid}.md`,
+        content: `\n## [${ts}] OUT | by=erwin | manual_admin\n\n${markerText}\n`,
+      }),
+      signal: AbortSignal.timeout(5000),
+    });
+  } catch {
+    // best-effort : le marqueur transcript ne doit jamais faire échouer un envoi réussi
+  }
+}
+
 // Envoi d'une note VOCALE à un client depuis la dashboard — proxy vers la brique média
 // EXISTANTE du hub (/api/agent-oversight/send-media-b64, kind=voice → sendVoice).
+// Transcode webm→ogg/opus avant envoi (vraie note vocale) + journalise le transcript.
 // Gated : déclenché par un clic explicite. dryRun=true prouve le câblage sans envoyer.
 async function proxyConversationVoice(body: Record<string, unknown>) {
   const uid = sanitizeText(asString(body.uid), 40);
