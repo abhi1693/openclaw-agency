@@ -153,12 +153,13 @@ function hashStr(s: string): number {
 /** seed stable par id agent (identité visuelle constante entre renders) */
 export function avatarSeed(agentId: string): AvatarSeed {
   const h = hashStr(agentId || "x");
+  // décalages NON-SIGNÉS (>>>) : `>>` rend l'index négatif si bit de poids fort à 1
   return {
     faceShape: FACE[h % FACE.length],
-    skinTone: SKIN[(h >> 3) % SKIN.length],
-    hairStyle: HAIR[(h >> 6) % HAIR.length],
-    hairColor: HAIRC[(h >> 9) % HAIRC.length],
-    bodyShape: BODY[(h >> 12) % BODY.length],
+    skinTone: SKIN[(h >>> 3) % SKIN.length],
+    hairStyle: HAIR[(h >>> 6) % HAIR.length],
+    hairColor: HAIRC[(h >>> 9) % HAIRC.length],
+    bodyShape: BODY[(h >>> 12) % BODY.length],
   };
 }
 export const skinHex = (t: AvatarSeed["skinTone"]) => SKIN_HEX[t];
