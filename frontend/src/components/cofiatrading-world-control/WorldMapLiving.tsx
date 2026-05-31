@@ -455,14 +455,20 @@ export function WorldMapLiving({ snapshot, angelRoster, onSelectHouse }: { snaps
   const onScenePointerUp = () => { dragRef.current = { ...dragRef.current, mode: null }; };
 
   // boutons vue
-  const panBy = (dxUser: number, dyUser: number) => setCam((c) => ({ ...c, tx: c.tx + dxUser, ty: c.ty + dyUser }));
   const zoomBy = (factor: number) => setCam((c) => {
     const nz = Math.max(0.4, Math.min(4.5, c.z * factor)); const midX = scene.vbMinX + scene.vbW / 2, midY = scene.vbMinY + scene.vbH / 2;
     const isoX = (midX - c.tx) / c.z, isoY = (midY - c.ty) / c.z; return { z: nz, tx: midX - nz * isoX, ty: midY - nz * isoY };
   });
   const resetView = () => setCam({ z: 1, tx: 0, ty: 0 });
+  // Ajuster : remplir l'écran (cover doux) — l'excédent rogne la marge d'île, jamais les maisons
+  const fitView = () => {
+    const sx = size.cw / scene.vbW, sy = size.ch / scene.vbH;
+    const ratio = (Math.max(sx, sy) || 1) / (Math.min(sx, sy) || 1);
+    const z = Math.max(1, Math.min(1.6, ratio));
+    const Mx = scene.vbMinX + scene.vbW / 2, My = scene.vbMinY + scene.vbH / 2;
+    setCam({ z, tx: Mx * (1 - z), ty: My * (1 - z) });
+  };
   const resetLayout = () => { setPosOverride({}); setCam({ z: 1, tx: 0, ty: 0 }); };
-  const panStep = () => 60 / (cam.z || 1);
   const camG = `translate(${cam.tx.toFixed(2)} ${cam.ty.toFixed(2)}) scale(${cam.z.toFixed(3)})`;
 
   return (
