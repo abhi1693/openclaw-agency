@@ -360,7 +360,7 @@ export function WorldMapLiving({ snapshot, angelRoster, onSelectHouse }: { snaps
   const SLOTS: Array<{ dx: number; dy: number }> = [{ dx: 0, dy: 0.2 }, { dx: -2.6, dy: -0.5 }, { dx: 2.6, dy: -0.5 }];
   const visibleAgents = useMemo(() => {
     const out: Array<{ agent: CanonAgent; wx: number; wy: number; state: AgentState }> = [];
-    for (const h of HOUSES) {
+    for (const h of effHouses) {
       const list = agentsByHome[h.id] ?? []; const f = houseFrontWorld(h); const act = houseActivity[h.id]?.state ?? "idle";
       list.slice(0, 3).forEach((agent, i) => {
         const slot = SLOTS[i]; // slot 0 = "lead" → porte l'activité ; alerte = toute la maison
@@ -369,7 +369,7 @@ export function WorldMapLiving({ snapshot, angelRoster, onSelectHouse }: { snaps
       });
     }
     return out;
-  }, [agentsByHome, houseActivity]);
+  }, [agentsByHome, houseActivity, effHouses]);
 
   const project = (wx: number, wy: number) => {
     const { sx, sy } = isoProject(wx, wy); const scale = uiScale || 0; const rW = scene.vbW * scale, rH = scene.vbH * scale;
