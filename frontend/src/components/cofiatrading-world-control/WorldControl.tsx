@@ -1911,6 +1911,10 @@ function WorldControlDeck({
       <Panel title="Auth / Providers — No-False-Green" tone="cyan">
         <AuthProviderStatusPanel />
       </Panel>
+
+      <Panel title="Proof Ledger — Gardien de chantier" tone="emerald">
+        <ProofLedgerPanel />
+      </Panel>
     </section>
   );
 }
