@@ -705,6 +705,8 @@ function houseIcon(type: BuildingType) {
     case "lab": return (<><path d="M-2 -5 H2 M-1.6 -5 V-1 L-4 4 H4 L1.6 -1 V-5" /></>);
     case "vault": return (<><circle cx="0" cy="0" r="4.6" />{[0, 1, 2, 3].map((k) => { const a = (k / 4) * Math.PI * 2 + 0.4; return <line key={k} x1={Math.cos(a) * 1.6} y1={Math.sin(a) * 1.6} x2={Math.cos(a) * 5.4} y2={Math.sin(a) * 5.4} />; })}</>);
     case "business": return (<><path d="M3 -4 Q-4 -4 -4 0 Q-4 4 3 4" /><line x1="-6" y1="-1.5" x2="1" y2="-1.5" /><line x1="-6" y1="1.5" x2="1" y2="1.5" /></>);
+    case "notebook_alm": return (<><path d="M0 -4 L-5 -3 V4 L0 5 Z" /><path d="M0 -4 L5 -3 V4 L0 5 Z" /><line x1="0" y1="-4" x2="0" y2="5" />{[0, 1].map((i) => <line key={i} x1="-3.6" y1={-1 + i * 2} x2="-1" y2={-0.6 + i * 2} />)}</>); // carnet ouvert
+    case "proof_ledger": return (<><path d="M0 -5 L4.5 -2.6 V2.6 L0 5 L-4.5 2.6 V-2.6 Z" /><path d="M-2 0.2 L-0.5 1.9 L2.4 -1.8" /></>); // sceau + check
     default: return <circle cx="0" cy="0" r="3" />;
   }
 }
