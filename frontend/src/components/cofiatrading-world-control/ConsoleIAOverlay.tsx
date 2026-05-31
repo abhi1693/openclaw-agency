@@ -2162,6 +2162,7 @@ export function ConsoleIAOverlay() {
                   sendingPhoto={convPhotoSending}
                   takeover={convTakeover}
                   onToggleTakeover={toggleTakeover}
+                  crm={convCrm}
                 />
               ) : (
                 <ChannelColumn
