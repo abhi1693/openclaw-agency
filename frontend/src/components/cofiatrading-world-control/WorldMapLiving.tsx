@@ -392,6 +392,12 @@ export function WorldMapLiving({ snapshot, angelRoster, onSelectHouse }: { snaps
     return [...merged.values()];
   }, [services, openclawRuntime, toolMachines]);
   const machinesByHome = useMemo(() => { const map: Record<string, WorldMachine[]> = {}; for (const m of machines) (map[m.homeHouse] ||= []).push(m); return map; }, [machines]);
+  // inventaire groupé par maison (un item multi-maison "a,b" est rattaché à chaque maison)
+  const inventoryByHouse = useMemo(() => {
+    const map: Record<string, InvItem[]> = {};
+    for (const it of inventory) { const hid = (it.houseId || "").trim(); if (!hid) continue; for (const h of hid.split(",").map((s) => s.trim()).filter(Boolean)) (map[h] ||= []).push(it); }
+    return map;
+  }, [inventory]);
   const runtimeAgentsByHome = useMemo(() => { const map: Record<string, RuntimeAgent[]> = {}; for (const agent of openclawRuntime?.agents ?? []) { const home = HOUSE_BY_ID[agent.homeHouse] ? agent.homeHouse : "openclaw_agent_barracks"; (map[home] ||= []).push(agent); } return map; }, [openclawRuntime]);
   const selZone = HOUSE_BY_ID[selectedHouse ?? ""] ?? null;
 
