@@ -977,6 +977,9 @@ function ConversationsInbox({
   takeover,
   onToggleTakeover,
   crm,
+  totals,
+  allClientsMode,
+  onToggleAllClients,
 }: {
   threads: ConvThread[];
   selectedId: string | null;
