@@ -932,6 +932,8 @@ function ConversationsInbox({
   sendingVoice,
   onSendPhoto,
   sendingPhoto,
+  takeover,
+  onToggleTakeover,
 }: {
   threads: ConvThread[];
   selectedId: string | null;
@@ -945,6 +947,8 @@ function ConversationsInbox({
   sendingVoice: boolean;
   onSendPhoto: (uid: string, fileB64: string, via: string) => Promise<boolean>;
   sendingPhoto: boolean;
+  takeover: boolean;
+  onToggleTakeover: (uid: string, on: boolean) => Promise<boolean>;
 }) {
   const active = selectedId ? threads.find((t) => t.userId === selectedId) ?? null : null;
   const [reply, setReply] = useState("");
