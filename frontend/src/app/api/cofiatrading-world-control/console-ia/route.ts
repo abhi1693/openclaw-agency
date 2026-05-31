@@ -1219,6 +1219,7 @@ async function proxyConversationSend(body: Record<string, unknown>) {
       signal: AbortSignal.timeout(8000),
     });
     const result = await res.json().catch(() => ({}));
+    if (res.ok) await markTakeover(uid, true);  // Flux 5 — Erwin gère → Iron se tait
     return NextResponse.json(
       { ok: res.ok, status: res.status, result, target: uid, via, sourceTag: SOURCE_TAG },
       { status: res.ok ? 200 : 502 },
