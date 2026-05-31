@@ -1001,8 +1001,8 @@ function ConversationsInbox({
   onToggleTakeover: (uid: string, on: boolean) => Promise<boolean>;
   crm: ClientCrm360 | null;
   totals: CrmTotals | null;
-  allClientsMode: boolean;
-  onToggleAllClients: () => void;
+  mode: "convs" | "clients" | "dm";
+  onCycleMode: () => void;
 }) {
   const active = selectedId ? threads.find((t) => t.userId === selectedId) ?? null : null;
   const [reply, setReply] = useState("");
