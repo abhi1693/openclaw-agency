@@ -1315,17 +1315,18 @@ async function proxyConversationVoice(body: Record<string, unknown>) {
   }
 }
 
-// Flux 2 — Envoi d'une PHOTO à un client depuis la dashboard. Proxy vers la MÊME brique
-// média EXISTANTE du hub (/api/agent-oversight/send-media-b64, kind=photo → sendPhoto).
-// Zéro hub modifié : le mapping kind=photo→sendPhoto existe déjà (server.py:36097).
+// Flux 2 — Envoi d'une PHOTO à un client depuis la dashboard. Proxy vers la brique média
+// EXISTANTE du hub /api/telegram/send-media (type=photo → sendPhoto, Content-Type image/jpeg).
+// Zéro hub modifié. NB : on N'UTILISE PAS /api/agent-oversight/send-media-b64 pour la photo —
+// cet endpoint force Content-Type application/octet-stream, ce que Telegram sendPhoto refuse
+// (IMAGE_PROCESS_FAILED) ; send-media met le bon image/jpeg (server.py:36352). La vocale reste
+// sur send-media-b64 (octet-stream toléré par sendVoice). Caption non supportée par send-media.
 // Gated : déclenché par un clic explicite (preview + double-confirm UI). dryRun=true prouve
 // le câblage sans envoyer (pas de spam client en test).
 async function proxyConversationPhoto(body: Record<string, unknown>) {
   const uid = sanitizeText(asString(body.uid), 40);
   const via = sanitizeText(asString(body.via), 20) || "iron";
   const fileB64 = typeof body.fileB64 === "string" ? body.fileB64 : "";
-  const filename = sanitizeText(asString(body.filename), 60) || "photo.jpg";
-  const caption = sanitizeText(asString(body.caption), 400);
   const dryRun = body.dryRun === true;
   if (!uid || !fileB64) {
     return NextResponse.json({ ok: false, error: "MISSING_UID_OR_PHOTO", sourceTag: SOURCE_TAG }, { status: 400 });
@@ -1334,20 +1335,21 @@ async function proxyConversationPhoto(body: Record<string, unknown>) {
     return NextResponse.json({
       ok: true, dryRun: true, target: uid, via, kind: "photo",
       approxBytes: Math.floor((fileB64.length * 3) / 4),
-      wouldCall: `${HUB_URL}/api/agent-oversight/send-media-b64`, sourceTag: SOURCE_TAG,
+      wouldCall: `${HUB_URL}/api/telegram/send-media`, sourceTag: SOURCE_TAG,
     });
   }
   try {
-    const res = await fetch(`${HUB_URL}/api/agent-oversight/send-media-b64`, {
+    const res = await fetch(`${HUB_URL}/api/telegram/send-media`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ agent: via, chat_id: uid, kind: "photo", file_b64: fileB64, filename, caption }),
+      body: JSON.stringify({ agent: via, type: "photo", chat_id: uid, media: fileB64, channel: "direct" }),
       signal: AbortSignal.timeout(15000),
     });
     const result = await res.json().catch(() => ({}));
+    const ok = res.ok && (result as { success?: boolean }).success === true;
     return NextResponse.json(
-      { ok: res.ok, status: res.status, result, target: uid, via, kind: "photo", sourceTag: SOURCE_TAG },
-      { status: res.ok ? 200 : 502 },
+      { ok, status: res.status, result, target: uid, via, kind: "photo", sourceTag: SOURCE_TAG },
+      { status: ok ? 200 : 502 },
     );
   } catch {
     return NextResponse.json({ ok: false, error: "PHOTO_PROXY_FAILED", target: uid, sourceTag: SOURCE_TAG }, { status: 502 });
