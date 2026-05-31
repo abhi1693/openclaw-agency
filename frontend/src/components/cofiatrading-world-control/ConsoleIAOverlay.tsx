@@ -1311,6 +1311,7 @@ export function ConsoleIAOverlay() {
   useEffect(() => {
     if (!isOpen || !selectedConvId) {
       setConvMessages([]);
+      setConvCrm(null);
       return;
     }
     let stopped = false;
