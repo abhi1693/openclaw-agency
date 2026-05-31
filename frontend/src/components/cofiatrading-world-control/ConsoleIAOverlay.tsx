@@ -980,6 +980,38 @@ function ConversationsInbox({
     }
   };
   const stopRec = () => { recRef.current?.stop(); setRecording(false); };
+  // Flux 2 — capture une frame caméra (getUserMedia video) → JPEG base64. On-demand only :
+  // le stream est coupé immédiatement après la capture (pas de caméra continue).
+  const capturePhoto = async () => {
+    setCapturing(true);
+    let stream: MediaStream | null = null;
+    try {
+      stream = await navigator.mediaDevices.getUserMedia({ video: true, audio: false });
+      const video = document.createElement("video");
+      video.srcObject = stream;
+      video.muted = true;
+      video.playsInline = true;
+      await new Promise<void>((resolve, reject) => {
+        const to = window.setTimeout(() => reject(new Error("CAM_TIMEOUT")), 4000);
+        video.onloadedmetadata = () => { window.clearTimeout(to); resolve(); };
+        video.onerror = () => { window.clearTimeout(to); reject(new Error("CAM_ERROR")); };
+      });
+      await video.play();
+      const canvas = document.createElement("canvas");
+      canvas.width = Math.max(1, video.videoWidth);
+      canvas.height = Math.max(1, video.videoHeight);
+      const ctx = canvas.getContext("2d");
+      if (ctx) ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+      const dataUrl = canvas.toDataURL("image/jpeg", 0.88);
+      setPhotoB64(dataUrl.includes(",") ? dataUrl.split(",")[1] : dataUrl);
+      setPhotoConfirm(false);
+    } catch {
+      // caméra refusée / indisponible — pas de crash
+    } finally {
+      stream?.getTracks().forEach((t) => t.stop());
+      setCapturing(false);
+    }
+  };
   if (selectedId) {
     return (
       <div className="grid gap-2">
