@@ -2234,7 +2234,7 @@ export function WorldControl() {
             <div className="mt-3">
               <InventoryStatusMatrix />
             </div>
-          </details>
+          </section>
 
 
       {drawerTruck ? (
