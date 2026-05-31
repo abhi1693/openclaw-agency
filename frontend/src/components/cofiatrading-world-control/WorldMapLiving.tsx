@@ -499,7 +499,8 @@ export function WorldMapLiving({ snapshot, angelRoster, onSelectHouse }: { snaps
           {scene.lamps.map((l, i) => (<g key={`lamp-${i}`}><line x1={l.x} y1={l.y} x2={l.x} y2={l.y - 16} stroke="#2c3442" strokeWidth="1.4" /><circle cx={l.x} cy={l.y - 17} r="2.2" fill="#ffd98a" opacity="0.75" /></g>))}
 
           {/* parcelles + bâtiments (tri profondeur) */}
-          {builtSorted.map((b) => (<Building key={b.house.id} b={b} status={statusFor(b.house.id)} selected={selectedHouse === b.house.id} hover={hoverHouse === b.house.id} dim={!!selectedHouse && selectedHouse !== b.house.id} machines={machinesByHome[b.house.id] ?? []} agentCount={(agentsByHome[b.house.id] ?? []).length} onSelect={() => { clearSel(); setSelectedHouse(b.house.id); setHouseTab("vue"); onSelectHouse(b.house.id); }} onHover={(v) => setHoverHouse(v ? b.house.id : null)} onMachine={(m) => { clearSel(); setSelectedMachine(m); }} />))}
+          {builtSorted.map((b) => (<Building key={b.house.id} b={b} editMode={editMode} status={statusFor(b.house.id)} selected={selectedHouse === b.house.id} hover={hoverHouse === b.house.id} dim={!!selectedHouse && selectedHouse !== b.house.id} machines={machinesByHome[b.house.id] ?? []} agentCount={(agentsByHome[b.house.id] ?? []).length} onSelect={() => { if (movedRef.current) { movedRef.current = false; return; } clearSel(); setSelectedHouse(b.house.id); setHouseTab("vue"); onSelectHouse(b.house.id); }} onHover={(v) => setHoverHouse(v ? b.house.id : null)} onMachine={(m) => { clearSel(); setSelectedMachine(m); }} />))}
+          </g>
         </svg>
 
         {/* léger assombrissement des bords (n'intercepte pas les clics) */}
