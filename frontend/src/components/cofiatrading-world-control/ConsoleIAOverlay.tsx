@@ -1108,6 +1108,7 @@ function ConversationsInbox({
                   <span className="text-[12px] font-black text-white">{crm.temperature?.label || "?"}</span>
                   {isWhaleTier(crm.money?.valueTier) ? <span className="rounded-md border border-amber-300/50 bg-amber-400/15 px-1 py-0.5 text-[8px] font-black uppercase text-amber-100">💎 Baleine</span> : null}
                   <span className={`rounded-md border px-1 py-0.5 text-[8px] font-black uppercase ${crm.context?.isClient ? "border-emerald-300/45 text-emerald-200" : "border-slate-600 text-slate-400"}`}>{crm.context?.isClient ? "Client" : "Prospect"}</span>
+                  {crm.resolvedBy === "email" ? <span className="rounded-md border border-violet-300/45 px-1 py-0.5 text-[8px] font-black uppercase text-violet-200">🔗 via email</span> : null}
                   {crm.temperature?.urgency ? <span className="text-[8px] font-black uppercase text-slate-400">⏱ {crm.temperature.urgency}</span> : null}
                 </span>
                 <span className="mt-1 block h-1.5 w-full overflow-hidden rounded-full bg-slate-800">
