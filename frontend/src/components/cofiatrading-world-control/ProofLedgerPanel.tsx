@@ -118,6 +118,23 @@ export function ProofLedgerPanel() {
   );
   const notebookGuard = result.guards.find((g) => g.guard === "notebooklm-sync");
 
+  // État NotebookLM LIVE (lecture réelle de l'index, source filesystem côté API).
+  const [nbl, setNbl] = useState<NblState | null>(null);
+  useEffect(() => {
+    let cancelled = false;
+    fetch("/api/cofiatrading-world-control/notebooklm", { cache: "no-store" })
+      .then((r) => (r.ok ? r.json() : null))
+      .then((d: NblState | null) => {
+        if (!cancelled) setNbl(d);
+      })
+      .catch(() => {
+        if (!cancelled) setNbl(null);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
   return (
     <div className="space-y-3">
       {/* Header : rôle + badge verdict */}
