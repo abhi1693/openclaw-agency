@@ -1080,37 +1080,70 @@ function ConversationsInbox({
           </span>
         </button>
         {crm?.found ? (
-          <div className="grid gap-1.5 rounded-xl border border-cyan-300/25 bg-slate-950/75 p-2.5">
-            <div className="flex flex-wrap items-center gap-1.5">
-              <span className="rounded-md border border-rose-300/40 bg-rose-400/10 px-1.5 py-0.5 text-[10px] font-black text-rose-100">
-                {crm.temperature?.label === "HOT" ? "🔥" : crm.temperature?.label === "WARM" ? "🌤" : "❄️"} {crm.temperature?.label ?? "?"} · {crm.temperature?.score ?? "?"}%
+          <div className="overflow-hidden rounded-xl border border-cyan-300/25 bg-slate-950/80">
+            <div className={`flex items-center gap-2.5 border-b border-slate-800 px-3 py-2 ${crm.temperature?.label === "HOT" ? "bg-rose-500/12" : crm.temperature?.label === "WARM" ? "bg-amber-500/12" : "bg-sky-500/12"}`}>
+              <span className="text-xl leading-none">{tempViz(crm.temperature?.label).emoji}</span>
+              <span className="min-w-0 flex-1">
+                <span className="flex flex-wrap items-center gap-1.5">
+                  <span className="text-[12px] font-black text-white">{crm.temperature?.label || "?"}</span>
+                  {isWhaleTier(crm.money?.valueTier) ? <span className="rounded-md border border-amber-300/50 bg-amber-400/15 px-1 py-0.5 text-[8px] font-black uppercase text-amber-100">💎 Baleine</span> : null}
+                  <span className={`rounded-md border px-1 py-0.5 text-[8px] font-black uppercase ${crm.context?.isClient ? "border-emerald-300/45 text-emerald-200" : "border-slate-600 text-slate-400"}`}>{crm.context?.isClient ? "Client" : "Prospect"}</span>
+                  {crm.temperature?.urgency ? <span className="text-[8px] font-black uppercase text-slate-400">⏱ {crm.temperature.urgency}</span> : null}
+                </span>
+                <span className="mt-1 block h-1.5 w-full overflow-hidden rounded-full bg-slate-800">
+                  <span className={`block h-full ${crm.temperature?.label === "HOT" ? "bg-rose-400" : crm.temperature?.label === "WARM" ? "bg-amber-400" : "bg-sky-400"}`} style={{ width: `${Math.max(0, Math.min(100, crm.temperature?.score ?? 0))}%` }} />
+                </span>
               </span>
-              <span className="rounded-md border border-amber-300/40 bg-amber-400/10 px-1.5 py-0.5 text-[10px] font-black text-amber-100">💎 {crm.money?.valueTier || "—"}</span>
-              <span className={`rounded-md border px-1.5 py-0.5 text-[10px] font-black ${crm.context?.isClient ? "border-emerald-300/45 bg-emerald-400/10 text-emerald-100" : "border-slate-600 text-slate-400"}`}>
-                {crm.context?.isClient ? "✓ Client" : "Prospect"}
+              <span className="shrink-0 text-right">
+                <span className="block text-lg font-black leading-none text-white">{crm.temperature?.score ?? "?"}</span>
+                <span className="block text-[8px] uppercase tracking-[0.08em] text-slate-500">chaleur</span>
               </span>
-              {crm.identity?.country ? <span className="rounded-md border border-slate-700 px-1.5 py-0.5 text-[10px] font-black text-slate-300">{crm.identity.country}</span> : null}
-              {crm.temperature?.urgency ? <span className="rounded-md border border-slate-700 px-1.5 py-0.5 text-[10px] text-slate-400">⏱ {crm.temperature.urgency}</span> : null}
             </div>
-            <div className="grid grid-cols-2 gap-x-3 gap-y-0.5 text-[10px] leading-4 text-slate-300">
-              <span><span className="text-slate-500">Stripe </span>{crm.subscription?.stripeStatus || "—"}{crm.subscription?.stripeAmountEur ? ` · ${crm.subscription.stripeAmountEur}€` : ""} {crm.subscription?.stripePlan || ""}</span>
-              <span><span className="text-slate-500">Broker </span>{crm.money?.broker || "—"}</span>
-              <span><span className="text-slate-500">Dépôt </span>${crm.money?.depositUsd ?? 0}{crm.money?.netDepositUsd ? ` (net $${crm.money.netDepositUsd})` : ""}</span>
-              <span><span className="text-slate-500">Étape </span>{crm.subscription?.dealStage || "—"}</span>
-              <span><span className="text-slate-500">Risk </span>{crm.risk?.riskScore ?? "?"} · <span className="text-slate-500">money </span>{crm.money?.moneyScore ?? "?"}</span>
-              <span className="truncate"><span className="text-slate-500">@</span>{crm.identity?.username || "—"}</span>
+            <div className="grid gap-2 p-2.5">
+              <div className="flex items-center gap-2 text-[11px]">
+                <span className={`h-2 w-2 shrink-0 rounded-full ${stripeDot(crm.subscription?.stripeStatus)}`} />
+                <span className="font-black text-slate-100">{crm.subscription?.stripeStatus || "pas d'abo"}</span>
+                {crm.subscription?.stripeAmountEur ? <span className="text-slate-300">· {crm.subscription.stripeAmountEur}€</span> : null}
+                <span className="text-slate-500">{crm.subscription?.stripePlan || ""}</span>
+                <span className="ml-auto truncate text-[9px] uppercase text-slate-500">{crm.subscription?.dealStage || ""}</span>
+              </div>
+              <div className="grid grid-cols-2 gap-x-3 gap-y-1 text-[10px] text-slate-300">
+                <span><span className="text-slate-500">Tier </span><span className="font-black">{crm.money?.valueTier || "—"}</span></span>
+                <span><span className="text-slate-500">Broker </span>{crm.money?.broker || "—"}</span>
+                <span><span className="text-slate-500">Dépôt </span>${crm.money?.depositUsd ?? 0}{crm.money?.netDepositUsd ? ` (net $${crm.money.netDepositUsd})` : ""}</span>
+                <span><span className="text-slate-500">Pays </span>{crm.identity?.country || "—"}{crm.identity?.language ? ` · ${crm.identity.language}` : ""}</span>
+              </div>
+              <div className="grid grid-cols-2 gap-3">
+                <span className="grid gap-0.5">
+                  <span className="flex justify-between text-[8px] font-black uppercase tracking-[0.06em] text-slate-500"><span>Capital</span><span>{crm.money?.moneyScore ?? "?"}</span></span>
+                  <span className="block h-1 w-full overflow-hidden rounded-full bg-slate-800"><span className="block h-full bg-emerald-400" style={{ width: `${Math.max(0, Math.min(100, crm.money?.moneyScore ?? 0))}%` }} /></span>
+                </span>
+                <span className="grid gap-0.5">
+                  <span className="flex justify-between text-[8px] font-black uppercase tracking-[0.06em] text-slate-500"><span>Risque churn</span><span>{crm.risk?.riskScore ?? "?"}</span></span>
+                  <span className="block h-1 w-full overflow-hidden rounded-full bg-slate-800"><span className="block h-full bg-rose-400" style={{ width: `${Math.max(0, Math.min(100, crm.risk?.riskScore ?? 0))}%` }} /></span>
+                </span>
+              </div>
+              <div className="flex flex-wrap items-center gap-x-3 text-[10px] text-slate-400">
+                {crm.identity?.username ? <span>@{crm.identity.username}</span> : null}
+                {crm.identity?.email ? <span className="truncate">✉ {crm.identity.email}</span> : null}
+                {crm.identity?.phone ? <span>📞 {crm.identity.phone}</span> : null}
+              </div>
+              {crm.context?.nextBestAction ? (
+                <span className="rounded-lg border border-cyan-300/25 bg-cyan-400/8 px-2 py-1.5 text-[10px] leading-4 text-cyan-100">
+                  <span className="font-black">▶ {crm.context.nextBestAction}</span>{crm.context.nextAction ? ` — ${crm.context.nextAction}` : ""}
+                </span>
+              ) : null}
+              {Array.isArray(crm.context?.last3Facts) && crm.context.last3Facts.length ? (
+                <ul className="grid gap-0.5 text-[9px] text-slate-500">
+                  {crm.context.last3Facts.map((f, i) => <li key={i} className="truncate">· {f}</li>)}
+                </ul>
+              ) : null}
+              <span className="truncate text-[8px] text-slate-600">CRM live · iron_crm_ultra · {crm.identity?.name || ""}</span>
             </div>
-            {crm.identity?.email ? <span className="truncate text-[10px] text-slate-400">✉ {crm.identity.email}</span> : null}
-            {crm.context?.nextBestAction ? (
-              <span className="rounded-md border border-cyan-300/25 bg-cyan-400/8 px-1.5 py-1 text-[10px] leading-4 text-cyan-100">
-                ▶ {crm.context.nextBestAction}{crm.context.nextAction ? ` — ${crm.context.nextAction}` : ""}
-              </span>
-            ) : null}
-            <span className="truncate text-[9px] text-slate-600">CRM live · iron_crm_ultra · {crm.identity?.name || ""}</span>
           </div>
         ) : crm && !crm.found ? (
-          <div className="rounded-xl border border-slate-800 bg-slate-900/55 px-2.5 py-1.5 text-[10px] text-slate-400">
-            🆕 {crm.note || "Non recensé au CRM (prospect)"}
+          <div className="rounded-xl border border-slate-800 bg-slate-900/55 px-2.5 py-2 text-[10px] text-slate-400">
+            <span className="font-black text-slate-300">🆕 Prospect non recensé</span> — {crm.note || "pas encore au CRM"}
           </div>
         ) : null}
         <div className="grid max-h-[52vh] gap-1.5 overflow-auto pr-1">
