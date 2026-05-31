@@ -1411,8 +1411,24 @@ export function ConsoleIAOverlay() {
     const load = async () => {
       try {
         const r = await fetch("/api/cofiatrading-world-control/console-ia?conversations=1", { cache: "no-store" });
-        const d = (await r.json()) as { ok: boolean; threads?: ConvThread[] };
+        const d = (await r.json()) as { ok: boolean; threads?: ConvThread[]; totals?: CrmTotals };
         if (!stopped && d.ok && Array.isArray(d.threads)) setConversations(d.threads);
+        if (!stopped && d.ok && d.totals) setCrmTotals(d.totals);
+        if (allClientsMode) {
+          const ra = await fetch("/api/cofiatrading-world-control/console-ia?allclients=1", { cache: "no-store" });
+          const da = (await ra.json()) as { ok: boolean; clients?: Array<Record<string, unknown>> };
+          if (!stopped && da.ok && Array.isArray(da.clients)) {
+            setAllClients(da.clients.map((c) => ({
+              userId: String(c.userId ?? ""), name: String(c.name ?? ""), username: String(c.username ?? ""),
+              agent: "iron", stage: "", unread: 0, vip: false, intentScore: null,
+              lastPreview: `${String(c.crmTier || "—")}${c.depositUsd ? ` · $${c.depositUsd}` : ""}${c.commissionUsd ? ` · comm $${c.commissionUsd}` : ""}`,
+              lastDirection: "", lastTs: String(c.country || ""), totalMessages: 0, sourceChannel: "crm", muted: false,
+              crmFound: true, crmTemp: String(c.crmTemp || ""), crmScore: (c.crmScore as number) ?? null,
+              crmTier: String(c.crmTier || ""), crmStripe: String(c.crmStripe || ""), crmIsClient: c.isClient === true,
+              depositUsd: (c.depositUsd as number) ?? null, commissionUsd: (c.commissionUsd as number) ?? null,
+            })));
+          }
+        }
       } catch {
         // garde l'état courant
       }
@@ -1423,7 +1439,7 @@ export function ConsoleIAOverlay() {
       stopped = true;
       window.clearInterval(timer);
     };
-  }, [isOpen]);
+  }, [isOpen, allClientsMode]);
 
   // Transcript du client sélectionné (read-only).
   useEffect(() => {
