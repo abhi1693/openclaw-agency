@@ -623,8 +623,10 @@ function Building({ b, status, selected, hover, dim, editMode, machines, agentCo
   const parcel = insetTowards(ground, -0.28); const lift = 7; const parcelFront = [parcel[3], parcel[2]].map((p) => ({ x: p.x, y: p.y + lift }));
 
   return (
-    <g style={{ cursor: "pointer" }} opacity={dim ? 0.7 : 1} onClick={(e) => { e.stopPropagation(); onSelect(); }} onMouseEnter={() => onHover(true)} onMouseLeave={() => onHover(false)}>
+    <g data-house={h.id} style={{ cursor: editMode ? "grab" : "pointer" }} opacity={dim ? 0.7 : 1} onClick={(e) => { e.stopPropagation(); onSelect(); }} onMouseEnter={() => onHover(true)} onMouseLeave={() => onHover(false)}>
       <ellipse cx={cx} cy={b.base.y + 6} rx={h.w * 8} ry={h.w * 3.4} fill="#000" opacity="0.3" />
+      {/* poignée de déplacement (mode édition) */}
+      {editMode && <polygon points={insetTowards(parcel, -0.14).map(P).join(" ")} fill="none" stroke="#fbbf24" strokeWidth="1.6" strokeDasharray="4 3" opacity="0.85" />}
       {/* parcelle */}
       <polygon points={[parcel[3], parcel[2], parcelFront[1], parcelFront[0]].map(P).join(" ")} fill={STONE_LO} />
       <polygon points={parcel.map(P).join(" ")} fill={shade(STONE, -6)} stroke={focus ? st.color : STONE_HI} strokeWidth={focus ? 1.5 : 0.7} strokeOpacity={focus ? 0.9 : 0.5} />
