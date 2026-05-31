@@ -80,10 +80,10 @@ export const PROOF_LEDGER_GUARDS: Record<
     onViolation: "WARN/BLOCK selon synchro pending/blocked",
     requiresFs: false,
   },
-  "notebook-alm-sync": {
-    label: "Notebook ALM Sync Guard",
-    protects: "Décisions du chantier répercutées dans Notebook ALM",
-    onViolation: "WARN tant que le carnet n'est pas branché live (AMBER honnête)",
+  "notebooklm-sync": {
+    label: "NotebookLM Sync Guard",
+    protects: "NotebookLM branché au hub (index live lu) — push décisions = Chrome cowork",
+    onViolation: "WARN si l'index NotebookLM n'est pas lu / synchro en attente",
     requiresFs: false,
   },
   "console-ia-log": {
@@ -126,7 +126,7 @@ export type MapSafetyFacts = {
   agentsExpected: number;
   agentsSeen: number | null; // null = inconnu (non fourni) → guard partiel
   proofLedgerVisible: boolean;
-  notebookAlmVisible: boolean;
+  notebookLmVisible: boolean;
   consoleIaConnected: boolean;
   collisions: number;
   orphanRoutes: number;
@@ -146,7 +146,7 @@ export function validateMapSafety(facts: MapSafetyFacts): CofiatMapSafetyReport 
     push("warn", `Agents référencés : ${facts.agentsSeen}/${facts.agentsExpected}`, "Compléter les agents canon");
   }
   if (!facts.proofLedgerVisible) push("warn", "Proof Ledger absent de la map", "Garder le module proof_ledger visible");
-  if (!facts.notebookAlmVisible) push("warn", "Notebook ALM absent de la map", "Garder le module notebook_alm visible");
+  if (!facts.notebookLmVisible) push("warn", "NotebookLM absent de la map", "Garder le module notebook_alm visible");
   if (!facts.consoleIaConnected) push("warn", "console.IA non connectée", "Brancher l'overlay console.IA");
   if (facts.collisions > 0) push("block", `${facts.collisions} collision(s) de bâtiments`, "Réespacer les bâtiments");
   if (facts.orphanRoutes > 0) push("warn", `${facts.orphanRoutes} route(s) orpheline(s)`, "Relier ou retirer les routes");
@@ -162,7 +162,7 @@ export function validateMapSafety(facts: MapSafetyFacts): CofiatMapSafetyReport 
     agentsExpected: facts.agentsExpected,
     agentsSeen: facts.agentsSeen ?? 0,
     proofLedgerVisible: facts.proofLedgerVisible,
-    notebookAlmVisible: facts.notebookAlmVisible,
+    notebookLmVisible: facts.notebookLmVisible,
     consoleIaConnected: facts.consoleIaConnected,
     collisions: facts.collisions,
     orphanRoutes: facts.orphanRoutes,
@@ -190,8 +190,8 @@ export type ProofLedgerAuditInput = {
   /** agents connus (snapshot) pour ownership + identité */
   knownAgentIds?: ReadonlySet<string>;
   agentsWithIdentity?: ReadonlySet<string>;
-  /** synchro Notebook ALM réelle (sinon AMBER honnête par défaut) */
-  notebookAlmSync?: { status: CofiatSyncStatus; reason?: string };
+  /** synchro NotebookLM réelle (sinon AMBER honnête par défaut) */
+  notebookLmSync?: { status: CofiatSyncStatus; reason?: string };
   checkedAtLabel?: string;
 };
 
@@ -297,16 +297,16 @@ export function runProofLedgerAudit(input: ProofLedgerAuditInput = {}): CofiatPr
     guards.push(verdict("auth-coverage", true, v.filter((x) => x.guard === "auth-coverage")));
   }
 
-  /* notebook-alm-sync — AMBER honnête tant que non branché live */
+  /* notebooklm-sync — AMBER honnête tant que non branché live */
   {
-    const sync = input.notebookAlmSync ?? { status: "pending" as CofiatSyncStatus, reason: "Notebook ALM non branché live (AMBER) — décisions non synchronisées" };
+    const sync = input.notebookLmSync ?? { status: "pending" as CofiatSyncStatus, reason: "NotebookLM non branché live (AMBER) — décisions non synchronisées" };
     const v: CofiatViolation[] =
       sync.status === "blocked"
-        ? [{ guard: "notebook-alm-sync", severity: "block", subject: "notebook_alm", message: sync.reason ?? "synchro bloquée", nextAction: "Débloquer la synchro Notebook ALM" }]
+        ? [{ guard: "notebooklm-sync", severity: "block", subject: "notebook_alm", message: sync.reason ?? "synchro bloquée", nextAction: "Débloquer la synchro NotebookLM" }]
         : sync.status === "pending"
-        ? [{ guard: "notebook-alm-sync", severity: "warn", subject: "notebook_alm", message: sync.reason ?? "synchro en attente", nextAction: "Brancher Notebook ALM live (décisions ↔ ledger)" }]
+        ? [{ guard: "notebooklm-sync", severity: "warn", subject: "notebook_alm", message: sync.reason ?? "synchro en attente", nextAction: "Brancher NotebookLM live (décisions ↔ ledger)" }]
         : [];
-    guards.push(verdict("notebook-alm-sync", true, v));
+    guards.push(verdict("notebooklm-sync", true, v));
   }
 
   /* console-ia-log — l'audit produit toujours des logs */
@@ -323,7 +323,7 @@ export function runProofLedgerAudit(input: ProofLedgerAuditInput = {}): CofiatPr
       agentsExpected: input.mapFacts?.agentsExpected ?? 38,
       agentsSeen: input.mapFacts?.agentsSeen ?? null,
       proofLedgerVisible: input.mapFacts?.proofLedgerVisible ?? true,
-      notebookAlmVisible: input.mapFacts?.notebookAlmVisible ?? true,
+      notebookLmVisible: input.mapFacts?.notebookLmVisible ?? true,
       consoleIaConnected: input.mapFacts?.consoleIaConnected ?? true,
       collisions: input.mapFacts?.collisions ?? 0,
       orphanRoutes: input.mapFacts?.orphanRoutes ?? 0,
