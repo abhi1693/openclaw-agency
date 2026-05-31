@@ -2280,7 +2280,7 @@ export function ConsoleIAOverlay() {
               </div>
               {inboxSegment === "conversations" ? (
                 <ConversationsInbox
-                  threads={conversations}
+                  threads={allClientsMode ? allClients : conversations}
                   selectedId={selectedConvId}
                   onSelect={setSelectedConvId}
                   onBack={() => setSelectedConvId(null)}
@@ -2295,6 +2295,9 @@ export function ConsoleIAOverlay() {
                   takeover={convTakeover}
                   onToggleTakeover={toggleTakeover}
                   crm={convCrm}
+                  totals={crmTotals}
+                  allClientsMode={allClientsMode}
+                  onToggleAllClients={() => setAllClientsMode((v) => !v)}
                 />
               ) : (
                 <ChannelColumn
