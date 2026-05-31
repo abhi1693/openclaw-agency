@@ -207,23 +207,49 @@ export async function GET() {
     notes.push("agents_skipped: agents_visual_identity_canon.json absent ou sans agents");
   }
 
-  // ── Agrégats ────────────────────────────────────────────────────────────────
+  // ── Garde NO-FALSE-GREEN : downgrade ACTIF de tout GREEN/LIVE non prouvé ──────
+  const guarded = enforceNoFalseGreenAll(items);
+  const downgraded = guarded.filter((g, i) => g.status !== items[i].status).length;
+
+  // ── Agrégats : CALCULÉS depuis les items GARDÉS (jamais hardcodés) ───────────
   const counts_by_status: Record<string, number> = {};
   const counts_by_category: Record<string, number> = {};
-  for (const it of items) {
+  for (const it of guarded) {
     counts_by_status[it.status] = (counts_by_status[it.status] ?? 0) + 1;
     counts_by_category[it.category] = (counts_by_category[it.category] ?? 0) + 1;
   }
 
+  const totals = computeCanonicalTotals(guarded);
+  const warnings: string[] = [...notes];
+  if (!totalsInvariantOk(totals)) warnings.push("Inventory status totals mismatch");
+  if (downgraded > 0) warnings.push(`${downgraded} item(s) GREEN/LIVE rétrogradé(s) UNKNOWN (preuve/source manquante)`);
+
+  // ── Groupes par catégorie : RED/QUARANTINE remontés en tête (items + groupes) ─
+  const RANK: Record<string, number> = {
+    RED: 0, QUARANTINE: 1, AMBER: 2, AMBER_REVERIFY: 2, AMBER_REPAIR: 2, AMBER_SESSION: 2,
+    ADAPTER_MISSING: 3, UNKNOWN: 4, STALE: 4, DRAFT: 4, LOCKED: 5, OPTIONAL_MISSING: 6, OPTIONAL_COVERED: 6, GREEN: 7, LIVE: 7,
+  };
+  const rank = (s: string) => (s in RANK ? RANK[s] : 4);
+  const byCat = new Map<string, InventoryMatrixItem[]>();
+  for (const it of guarded) { const l = byCat.get(it.category) ?? []; l.push(it); byCat.set(it.category, l); }
+  const categories = [...byCat.entries()]
+    .map(([cat, list]) => ({ id: cat, label: cat, totals: computeCanonicalTotals(list), items: [...list].sort((a, b) => rank(a.status) - rank(b.status)) }))
+    .sort((a, b) => (b.totals.red + b.totals.quarantine) - (a.totals.red + a.totals.quarantine) || b.totals.total - a.totals.total);
+
   return Response.json({
     ok: true,
     source_tag: "COFIAT_INVENTORY_MATRIX_LOCAL",
+    policy: "NO_FALSE_GREEN",
+    generatedAt: new Date().toISOString(),
     generatedAtLabel: new Date().toISOString().replace("T", " ").slice(0, 16) + " UTC",
-    total: items.length,
+    total: totals.total, // = items.length, calculé
+    totals,
     counts_by_status,
     counts_by_category,
+    categories,
+    warnings,
     sourcesRead,
     ...(notes.length ? { notes } : {}),
-    items,
+    items: guarded,
   });
 }
