@@ -107,6 +107,8 @@ const ROAD_LINKS: Array<[string, string, "main" | "second"]> = [
   ["mission_control_tower", "iron_office", "main"], ["iron_office", "trading_academy", "second"], ["iron_office", "vip_gate", "main"], ["vip_gate", "compliance_port", "second"],
   ["mission_control_tower", "youtube_studio", "main"], ["youtube_studio", "assets_warehouse", "main"], ["assets_warehouse", "calendar_tower", "second"], ["calendar_tower", "compliance_port", "second"],
   ["site_seo_lab", "trading_academy", "second"], ["openclaw_agent_barracks", "assets_warehouse", "second"],
+  // modules ALM + Proof reliés au cœur (Command/Brain/Compliance) — intégrés, pas flottants
+  ["mission_control_tower", "notebook_alm", "main"], ["notebook_alm", "proof_ledger", "main"], ["proof_ledger", "central_brain", "second"], ["proof_ledger", "compliance_port", "second"],
 ];
 
 const ANGEL_HOME_BY_ID: Record<number, string> = {
