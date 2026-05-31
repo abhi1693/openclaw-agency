@@ -171,7 +171,7 @@ export function ProofLedgerPanel() {
             result.violations.map((v, i) => <ViolationRow key={`${v.guard}-${i}`} v={v} />)
           ) : (
             <p className="rounded-md border border-emerald-400/30 bg-emerald-400/5 p-2 text-[10px] text-emerald-200/80">
-              ✓ 0 violation détectée par l'audit client
+              ✓ 0 violation détectée — audit client
             </p>
           )}
         </div>
