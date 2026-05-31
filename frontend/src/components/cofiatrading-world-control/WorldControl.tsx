@@ -1911,10 +1911,7 @@ function WorldControlDeck({
       <Panel title="Auth / Providers — No-False-Green" tone="cyan">
         <AuthProviderStatusPanel />
       </Panel>
-
-      <Panel title="Proof Ledger — Gardien de chantier" tone="gold">
-        <ProofLedgerPanel />
-      </Panel>
+      {/* Proof Ledger remonté en haut à droite (Mission Control aside) — Erwin 2026-05-31 */}
     </section>
   );
 }
