@@ -392,6 +392,63 @@ export function WorldMapLiving({ snapshot, angelRoster, onSelectHouse }: { snaps
   };
   const clearSel = () => { setSelectedHouse(null); setSelectedAngel(null); setSelectedRuntimeAgent(null); setSelectedMachine(null); setSelectedAgent(null); };
 
+  // ── molette = zoom centré sur le curseur (listener natif non-passif) ──
+  useEffect(() => {
+    const el = sceneRef.current; if (!el) return;
+    const onWheel = (e: WheelEvent) => {
+      e.preventDefault();
+      const rect = el.getBoundingClientRect(); const px = e.clientX - rect.left, py = e.clientY - rect.top;
+      const scale = uiScale || 1; const rW = scene.vbW * scale, rH = scene.vbH * scale; const ox = (size.cw - rW) / 2, oy = (size.ch - rH) / 2;
+      const ux = (px - ox) / scale + scene.vbMinX, uy = (py - oy) / scale + scene.vbMinY;
+      const factor = e.deltaY < 0 ? 1.12 : 1 / 1.12;
+      setCam((c) => { const nz = Math.max(0.4, Math.min(4.5, c.z * factor)); const isoX = (ux - c.tx) / c.z, isoY = (uy - c.ty) / c.z; return { z: nz, tx: ux - nz * isoX, ty: uy - nz * isoY }; });
+    };
+    el.addEventListener("wheel", onWheel, { passive: false });
+    return () => el.removeEventListener("wheel", onWheel);
+  }, [uiScale, scene.vbW, scene.vbH, scene.vbMinX, scene.vbMinY, size.cw, size.ch]);
+
+  // ── glisser : pan (vide) ou déplacement de maison (mode Édition) ──
+  const onScenePointerDown = (e: React.PointerEvent) => {
+    const el = sceneRef.current; if (!el) return;
+    const rect = el.getBoundingClientRect(); const px = e.clientX - rect.left, py = e.clientY - rect.top;
+    const houseEl = (e.target as HTMLElement).closest?.("[data-house]") as HTMLElement | null;
+    movedRef.current = false;
+    if (editMode && houseEl) {
+      const id = houseEl.getAttribute("data-house") || ""; const h = EFF_BY_ID[id];
+      dragRef.current = { mode: "house", id, sx: px, sy: py, camTx: cam.tx, camTy: cam.ty, hx: h?.x ?? 0, hy: h?.y ?? 0, moved: false };
+    } else {
+      dragRef.current = { mode: "pan", sx: px, sy: py, camTx: cam.tx, camTy: cam.ty, hx: 0, hy: 0, moved: false };
+    }
+    try { el.setPointerCapture(e.pointerId); } catch { /* ignore */ }
+  };
+  const onScenePointerMove = (e: React.PointerEvent) => {
+    const d = dragRef.current; if (!d.mode) return;
+    const el = sceneRef.current; if (!el) return;
+    const rect = el.getBoundingClientRect(); const px = e.clientX - rect.left, py = e.clientY - rect.top;
+    const dxs = px - d.sx, dys = py - d.sy;
+    if (Math.abs(dxs) + Math.abs(dys) > 3) { d.moved = true; movedRef.current = true; }
+    if (d.mode === "pan") {
+      const scale = uiScale || 1; setCam((c) => ({ ...c, tx: d.camTx + dxs / scale, ty: d.camTy + dys / scale }));
+    } else if (d.mode === "house" && d.id) {
+      const f = 1 / ((uiScale || 1) * (cam.z || 1)); const dsx = dxs * f, dsy = dys * f;
+      const dwx = dsx / ISO_W + dsy / ISO_H, dwy = dsy / ISO_H - dsx / ISO_W; // inverse iso
+      const id = d.id; const nx = +(d.hx + dwx).toFixed(2), ny = +(d.hy + dwy).toFixed(2);
+      setPosOverride((p) => ({ ...p, [id]: { x: nx, y: ny } }));
+    }
+  };
+  const onScenePointerUp = () => { dragRef.current = { ...dragRef.current, mode: null }; };
+
+  // boutons vue
+  const panBy = (dxUser: number, dyUser: number) => setCam((c) => ({ ...c, tx: c.tx + dxUser, ty: c.ty + dyUser }));
+  const zoomBy = (factor: number) => setCam((c) => {
+    const nz = Math.max(0.4, Math.min(4.5, c.z * factor)); const midX = scene.vbMinX + scene.vbW / 2, midY = scene.vbMinY + scene.vbH / 2;
+    const isoX = (midX - c.tx) / c.z, isoY = (midY - c.ty) / c.z; return { z: nz, tx: midX - nz * isoX, ty: midY - nz * isoY };
+  });
+  const resetView = () => setCam({ z: 1, tx: 0, ty: 0 });
+  const resetLayout = () => { setPosOverride({}); setCam({ z: 1, tx: 0, ty: 0 }); };
+  const panStep = () => 60 / (cam.z || 1);
+  const camG = `translate(${cam.tx.toFixed(2)} ${cam.ty.toFixed(2)}) scale(${cam.z.toFixed(3)})`;
+
   return (
     <div className="flex w-full max-w-[366px] min-w-0 flex-col gap-2 overflow-hidden rounded-2xl border border-cyan-300/15 bg-slate-950/85 p-3 text-slate-100 shadow-[0_0_40px_-12px_rgba(34,211,238,0.35)] backdrop-blur sm:max-w-[calc(100vw-24px)]">
       <div className="flex min-w-0 flex-wrap items-center justify-between gap-2 px-1">
