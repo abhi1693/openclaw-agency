@@ -600,38 +600,91 @@ function RoofFeatures({ h, apex, cx, accent }: { h: House; apex: Pt; cx: number;
 
 /* ════════════════════ PERSONNAGE (vectoriel, états réels) ════════════════════ */
 function RPGCharacter({ agent, x, y, size, state, selected, hover, onSelect, onHover }: { agent: CanonAgent; x: number; y: number; size: number; state: AgentState; selected: boolean; hover: boolean; onSelect: () => void; onHover: (v: boolean) => void }) {
-  const rank = rankFor(agent); const W = size, Hh = size * 1.4; const c1 = agent.colorPrimary, c2 = agent.colorAccent; const hood = shade(agent.houseColor || "#334155", -8);
+  const rank = rankFor(agent); const W = size, Hh = size * 1.4;
+  // identité visuelle data-driven : 60% rôle (tunique) · 25% maison (accent) · 15% statut/seed
+  const type = resolveAgentType(agent.house, agent.roleBadge);
+  const cat = AGENT_TYPE_CATALOG[type];
+  const seed = avatarSeed(agent.id);
+  const tunic = cat.outfitColor;                 // couleur métier (rôle)
+  const trim = agent.colorAccent || "#94a3b8";   // accent maison propriétaire
+  const skin = skinHex(seed.skinTone);
+  const hairC = hairHex(seed.hairColor);
+  const bw = seed.bodyShape === "slim" ? 0.84 : seed.bodyShape === "broad" ? 1.2 : 1; // largeur corps
+  const sL = 20 - 7 * bw, sR = 20 + 7 * bw, hL = 20 - 9 * bw, hR = 20 + 9 * bw;
+  const cloak = `M${sL.toFixed(1)} 17 C${(sL - 1).toFixed(1)} 24 ${(hL + 1).toFixed(1)} 34 ${hL.toFixed(1)} 44 L${hR.toFixed(1)} 44 C${(hR - 1).toFixed(1)} 34 ${(sR + 1).toFixed(1)} 24 ${sR.toFixed(1)} 17 Z`;
+  // tête : forme selon faceShape
+  const headRx = seed.faceShape === "soft" ? 5.7 : seed.faceShape === "sharp" ? 4.6 : seed.faceShape === "oval" ? 4.8 : 5.2;
+  const headRy = seed.faceShape === "oval" ? 5.7 : seed.faceShape === "round" ? 5.2 : 5.3;
   const idleAnim = state === "idle" ? "char-idle" : state === "alert" ? "char-alert" : "char-active";
   return (
     <div className="pointer-events-auto absolute" style={{ left: x, top: y, width: W, height: Hh, transform: "translate(-50%,-82%)", transition: "left .25s linear, top .25s linear, width .15s, height .15s", zIndex: selected ? 40 : hover ? 36 : 20, cursor: "pointer" }} onClick={(e) => { e.stopPropagation(); onSelect(); }} onMouseEnter={() => onHover(true)} onMouseLeave={() => onHover(false)}>
-      {(selected || hover) && (<div className="absolute left-1/2 -translate-x-1/2 whitespace-nowrap rounded-md border px-1.5 py-0.5 text-[10px] font-bold text-slate-100" style={{ top: -4, background: "rgba(2,6,15,0.95)", borderColor: `${c1}99` }}>{agent.name}<span className="ml-1 font-normal text-slate-400">{agent.roleBadge}</span></div>)}
+      {(selected || hover) && (<div className="absolute left-1/2 -translate-x-1/2 whitespace-nowrap rounded-md border px-1.5 py-0.5 text-[10px] font-bold text-slate-100" style={{ top: -6, background: "rgba(2,6,15,0.95)", borderColor: `${trim}99` }}>{agent.name}<span className="ml-1 font-normal text-slate-400">{agent.roleBadge}</span></div>)}
       <svg viewBox="0 0 40 56" width={W} height={Hh} style={{ overflow: "visible", display: "block" }}>
         <ellipse cx="20" cy="50" rx="10" ry="3" fill="#000" opacity="0.42" />
-        {selected && <ellipse cx="20" cy="50" rx="12" ry="3.6" fill="none" stroke={c2} strokeWidth="1.6"><animate attributeName="opacity" values="1;0.4;1" dur="1.6s" repeatCount="indefinite" /></ellipse>}
+        {selected && <ellipse cx="20" cy="50" rx="12" ry="3.6" fill="none" stroke={trim} strokeWidth="1.6"><animate attributeName="opacity" values="1;0.4;1" dur="1.6s" repeatCount="indefinite" /></ellipse>}
         <g className={idleAnim} style={{ transformOrigin: "20px 48px" }}>
-          {/* cape fine */}
-          <path d="M20 17 C13 19 11 30 11 44 L29 44 C29 30 27 19 20 17 Z" fill={c1} stroke={shade(c1, -36)} strokeWidth="1" />
-          <path d="M20 17 C17 19 16 30 16 44 L20 44 Z" fill={shade(c1, 12)} opacity="0.5" />
-          <path d="M12 36 Q20 39 28 36" fill="none" stroke={c2} strokeWidth="1.6" opacity="0.85" />
+          {/* tunique métier + plastron clair + ceinture accent maison */}
+          <path d={cloak} fill={tunic} stroke={shade(tunic, -40)} strokeWidth="1" />
+          <path d={`M20 17 C${(20 - 3.4 * bw).toFixed(1)} 23 ${(20 - 3.4 * bw).toFixed(1)} 34 20 44 Z`} fill={shade(tunic, 18)} opacity="0.45" />
+          <path d={`M${(hL + 1).toFixed(1)} 35 Q20 38 ${(hR - 1).toFixed(1)} 35`} fill="none" stroke={trim} strokeWidth="1.8" opacity="0.95" />
           {/* mains */}
-          <circle cx="12.5" cy="33" r="2.1" fill="#e8c39e" />
-          <circle cx="27.5" cy="33" r="2.1" fill="#e8c39e" />
-          {/* tête + capuche */}
-          <circle cx="20" cy="13" r="5.4" fill="#e8c39e" stroke={shade("#e8c39e", -28)} strokeWidth="0.6" />
-          <path d="M14.6 12 Q15 5 20 5 Q25 5 25.4 12 Q22.8 8.5 20 8.5 Q17.2 8.5 14.6 12 Z" fill={hood} />
-          <circle cx="18.2" cy="13.4" r="0.8" fill="#1f2937" /><circle cx="21.8" cy="13.4" r="0.8" fill="#1f2937" />
+          <circle cx={sL + 0.5} cy="32" r="2" fill={skin} />
+          <circle cx={sR - 0.5} cy="32" r="2" fill={skin} />
+          {/* tête */}
+          {seed.faceShape === "square"
+            ? <rect x={20 - headRx} y={13 - headRy} width={headRx * 2} height={headRy * 2} rx="2.4" fill={skin} stroke={shade(skin, -30)} strokeWidth="0.6" />
+            : <ellipse cx="20" cy="13" rx={headRx} ry={headRy} fill={skin} stroke={shade(skin, -30)} strokeWidth="0.6" />}
+          <circle cx="18.1" cy="13.4" r="0.8" fill="#1f2937" /><circle cx="21.9" cy="13.4" r="0.8" fill="#1f2937" />
+          {/* coiffe selon seed (silhouette de tête distincte) */}
+          {hairTop(seed.hairStyle, hairC, trim)}
+          {/* insigne de rang */}
           {rank === "crown" && <path d="M14.5 5 L16.5 1 L18.5 4 L20 0 L21.5 4 L23.5 1 L25.5 5 Q20 2.6 14.5 5 Z" fill="#ffd54a" stroke="#a9760a" strokeWidth="0.5" />}
           {rank === "diadem" && <path d="M15 5.5 Q20 1.5 25 5.5 L23.5 7 Q20 4.6 16.5 7 Z" fill="#c9b3ff" stroke="#6b48c7" strokeWidth="0.5" />}
-          {rank === "captain" && <g stroke={c2} strokeWidth="1.3" fill="none" strokeLinecap="round"><path d="M17 3.5 L20 5.6 L23 3.5" /></g>}
+          {rank === "captain" && <g stroke={trim} strokeWidth="1.3" fill="none" strokeLinecap="round"><path d="M17 3.4 L20 5.4 L23 3.4" /></g>}
+          {/* accessoire MÉTIER (identité de rôle, toujours présent) */}
+          {roleProp(type, trim, state)}
         </g>
-        {/* ACCESSOIRE d'état (uniquement si activité réelle) */}
-        {state === "phone" && (<g className="char-prop"><rect x="26" y="9" width="4.6" height="8" rx="1" fill="#0b1320" stroke={c2} strokeWidth="0.8" /><rect x="26.7" y="10" width="3.2" height="5.4" fill={c2} opacity="0.85" /></g>)}
-        {state === "keyboard" && (<g><rect x="11" y="36" width="18" height="3.2" rx="1" fill="#0b1320" stroke={c2} strokeWidth="0.7" /><rect x="14" y="27" width="12" height="8" rx="1" fill="#0b1320" stroke={c2} strokeWidth="0.8" /><rect x="15" y="28" width="10" height="6" fill={c2} opacity="0.7"><animate attributeName="opacity" values="0.4;0.85;0.4" dur="1.4s" repeatCount="indefinite" /></rect></g>)}
-        {state === "inspect" && (<g className="char-prop"><circle cx="30" cy="22" r="4" fill="none" stroke={c2} strokeWidth="1.4" /><line x1="32.8" y1="24.8" x2="36" y2="28" stroke={c2} strokeWidth="1.6" strokeLinecap="round" /></g>)}
-        {state === "alert" && (<g><line x1="31" y1="4" x2="31" y2="11" stroke="#ef4444" strokeWidth="2.4" strokeLinecap="round"><animate attributeName="opacity" values="1;0.3;1" dur="0.9s" repeatCount="indefinite" /></line><circle cx="31" cy="14.5" r="1.4" fill="#ef4444" /></g>)}
+        {/* indicateur d'état (seulement si activité réelle) */}
+        {state === "alert" && (<g><line x1="32" y1="3" x2="32" y2="10" stroke="#ef4444" strokeWidth="2.4" strokeLinecap="round"><animate attributeName="opacity" values="1;0.3;1" dur="0.9s" repeatCount="indefinite" /></line><circle cx="32" cy="13.5" r="1.4" fill="#ef4444" /></g>)}
       </svg>
     </div>
   );
+}
+
+/* coiffe par seed → silhouette de tête variée (jamais deux têtes identiques) */
+function hairTop(style: string, hairC: string, accent: string) {
+  switch (style) {
+    case "bald": return null;
+    case "short": return <path d="M14.8 11.5 Q16 7 20 7 Q24 7 25.2 11.5 Q22.5 9.4 20 9.4 Q17.5 9.4 14.8 11.5 Z" fill={hairC} />;
+    case "curly": return <g fill={hairC}><circle cx="16" cy="9" r="2.2" /><circle cx="20" cy="7.6" r="2.4" /><circle cx="24" cy="9" r="2.2" /></g>;
+    case "long": return <g fill={hairC}><path d="M14.6 12 Q15 6.5 20 6.5 Q25 6.5 25.4 12 Q22.6 9 20 9 Q17.4 9 14.6 12 Z" /><path d="M14.6 11 Q13.6 18 15.4 21 L17 20 Q15.6 15 16 11 Z" /><path d="M25.4 11 Q26.4 18 24.6 21 L23 20 Q24.4 15 24 11 Z" /></g>;
+    case "cap": return <g><path d="M14.4 10.6 Q15 6.2 20 6.2 Q25 6.2 25.6 10.6 Z" fill={accent} /><rect x="20" y="9.6" width="7" height="1.8" rx="0.9" fill={shade(accent, -20)} /></g>;
+    case "helmet": return <g><path d="M14 11 Q14.5 5.4 20 5.4 Q25.5 5.4 26 11 Z" fill="#7c8794" stroke="#4a5560" strokeWidth="0.6" /><rect x="14.5" y="10.2" width="11" height="1.6" fill="#4a5560" /></g>;
+    case "hood": return <path d="M13.8 12 Q14.4 4.6 20 4.6 Q25.6 4.6 26.2 12 Q22.6 8 20 8 Q17.4 8 13.8 12 Z" fill={shade(accent, -34)} />;
+    default: return <path d="M14.8 11.5 Q16 7 20 7 Q24 7 25.2 11.5 Z" fill={hairC} />;
+  }
+}
+
+/* accessoire métier par type d'avatar (la signature du rôle, lisible sans label) */
+function roleProp(type: AgentAvatarType, accent: string, state: AgentState) {
+  const active = state !== "idle";
+  switch (type) {
+    case "operator": return <g stroke={accent} strokeWidth="1" fill="none"><path d="M14.4 11 Q13.4 14.4 15 16" /><rect x="14.2" y="15.6" width="2.4" height="1.4" rx="0.5" fill={accent} /></g>; // casque/micro
+    case "system": return <g><circle cx="30" cy="20" r="3" fill={accent} opacity="0.5"><animate attributeName="opacity" values="0.35;0.8;0.35" dur="2.4s" repeatCount="indefinite" /></circle><circle cx="30" cy="20" r="3" fill="none" stroke="#fff" strokeWidth="0.5" opacity="0.6" /></g>; // core IA
+    case "trader": return <g><rect x="26.5" y="17" width="7.5" height="5.4" rx="0.8" fill="#0b1320" stroke={accent} strokeWidth="0.8" /><path d="M27.5 21 L29.5 18.8 L31 20 L33 17.6" stroke="#34d399" strokeWidth="0.8" fill="none" /></g>; // tablette chart
+    case "analyst": return <g><rect x="27" y="16.5" width="6.5" height="8" rx="0.6" fill="#f1f5f9" stroke={accent} strokeWidth="0.6" />{[0,1,2,3].map(i=><line key={i} x1="28" y1={18+i*1.6} x2="32.5" y2={18+i*1.6} stroke="#64748b" strokeWidth="0.5" />)}</g>; // fiche data
+    case "builder": return <g stroke={accent} strokeWidth="1.6" strokeLinecap="round"><path d="M29 24 L33 20" /><circle cx="33.4" cy="19.4" r="1.6" fill="none" /></g>; // clé/outil
+    case "publisher": return <g><rect x="26.5" y="17.5" width="7" height="5" rx="1" fill="#0b1320" stroke={accent} strokeWidth="0.8" /><circle cx="30" cy="20" r="1.6" fill="none" stroke={accent} strokeWidth="0.8" /><rect x="32.8" y="18.2" width="1.6" height="1.6" fill={accent} /></g>; // caméra
+    case "risk": return <g><path d="M30 15 L34 16.5 V20 Q34 23 30 24.5 Q26 23 26 20 V16.5 Z" fill={accent} opacity="0.22" stroke={accent} strokeWidth="1" /><path d="M28.4 19.6 L29.6 21 L31.8 18.2" stroke={accent} strokeWidth="0.9" fill="none" /></g>; // bouclier
+    case "knowledge": return <g><path d="M26.5 17 L30 18 V24 L26.5 23 Z" fill="#0b1320" stroke={accent} strokeWidth="0.7" /><path d="M33.5 17 L30 18 V24 L33.5 23 Z" fill="#0b1320" stroke={accent} strokeWidth="0.7" /></g>; // livre
+    case "vipHandler": return <g className={active ? "char-prop" : undefined}><rect x="26.5" y="14" width="4.4" height="7.6" rx="1" fill="#0b1320" stroke="#f5b942" strokeWidth="1" /><rect x="27.2" y="15" width="3" height="5" fill="#f5b942" opacity="0.85" /><circle cx="28.7" cy="20.6" r="0.5" fill="#f5b942" /></g>; // tél gold
+    case "telegramHandler": return <g className={active ? "char-prop" : undefined}><rect x="26.5" y="14.5" width="4.2" height="7.2" rx="1" fill="#0b1320" stroke={accent} strokeWidth="0.9" /><rect x="27.1" y="15.4" width="3" height="4.6" fill={accent} opacity="0.8" /><path d="M31.5 15 L35 16.5 L31.5 18 Z" fill={accent} opacity="0.8" /></g>; // tél + paper-plane
+    case "assetManager": return <g><path d="M26.5 18 L30 18 L31 16.6 L34 16.6 V23 H26.5 Z" fill="#0b1320" stroke={accent} strokeWidth="0.7" /></g>; // dossier média
+    case "notebookPlanner": return <g><rect x="26.5" y="16.5" width="7.5" height="7" rx="0.6" fill="#f8f1df" stroke={accent} strokeWidth="0.7" /><line x1="30.2" y1="16.5" x2="30.2" y2="23.5" stroke={accent} strokeWidth="0.6" />{[0,1,2].map(i=><line key={i} x1="27.4" y1={18+i*1.6} x2="29.6" y2={18+i*1.6} stroke="#94a3b8" strokeWidth="0.5" />)}</g>; // carnet ouvert
+    case "proofAuditor": return <g><circle cx="30" cy="20" r="3.6" fill="none" stroke={accent} strokeWidth="1.1" /><path d="M28.4 20 L29.6 21.4 L31.8 18.6" stroke="#34d399" strokeWidth="1" fill="none" /></g>; // sceau preuve
+    case "support": return <g><rect x="27" y="16.5" width="6.5" height="8" rx="0.6" fill="#0b1320" stroke={accent} strokeWidth="0.7" /><rect x="29" y="15.4" width="2.5" height="1.8" rx="0.4" fill={accent} />{[0,1,2].map(i=><line key={i} x1="28" y1={19+i*1.6} x2="32.5" y2={19+i*1.6} stroke="#64748b" strokeWidth="0.5" />)}</g>; // clipboard
+    default: return null;
+  }
 }
 
 /* ════════════════════ INSPECTOR agent ════════════════════ */
