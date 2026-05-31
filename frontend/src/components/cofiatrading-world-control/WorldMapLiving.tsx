@@ -793,8 +793,11 @@ function Building({ b, status, selected, hover, dim, editMode, machines, agentCo
       {leftWin.map((w, i) => <polygon key={`lw${i}`} points={w.pts} fill={w.lit ? h.accent : "#0a0f1c"} opacity={w.lit ? 0.5 : 0.5} />)}
       {rightWin.map((w, i) => <polygon key={`rw${i}`} points={w.pts} fill={w.lit ? h.accent : "#070b14"} opacity={w.lit ? 0.3 : 0.55} />)}
       <polygon points={body.leftStr} fill="none" stroke={shade(h.accent, -30)} strokeWidth="0.8" opacity="0.55" />
-      <polygon points={`${P(doorBL)} ${P(doorBR)} ${P(doorTR)} ${P(doorTL)}`} fill="#050a14" stroke={h.accent} strokeWidth="0.6" strokeOpacity="0.5" />
+      {/* porte en arche (cadre bois chaud, cozy) */}
+      <path d={`M ${P(doorBL)} L ${P(doorBR)} L ${P(doorTR)} Q ${(((doorTL.x + doorTR.x) / 2)).toFixed(1)} ${(((doorTL.y + doorTR.y) / 2) - bodyH * 0.06).toFixed(1)} ${P(doorTL)} Z`} fill="#0a0a12" stroke="#6b5638" strokeWidth="1" strokeOpacity="0.8" />
       <polygon points={body.roofPoly} fill={h.roofColor} /><polygon points={body.roofPoly} fill="url(#roofSheen)" /><polygon points={body.roofPoly} fill="none" stroke={h.accent} strokeWidth={focus ? 1.6 : 1} opacity="0.9" />
+      {/* eave : débord de toit (ombre chaude sous l'avant-toit) */}
+      <polyline points={`${P(body.top[1])} ${P(body.top[2])} ${P(body.top[3])}`} fill="none" stroke="#161009" strokeWidth="2.2" strokeOpacity="0.45" strokeLinejoin="round" strokeLinecap="round" />
       {stepped && upper && (<><polygon points={upper.leftStr} fill={h.wall} /><polygon points={upper.rightStr} fill={shade(h.wall, -18)} /><polygon points={upper.roofPoly} fill={h.roofColor} /><polygon points={upper.roofPoly} fill="url(#roofSheen)" /><polygon points={upper.roofPoly} fill="none" stroke={h.accent} strokeWidth="1.1" opacity="0.9" /></>)}
       <RoofFeatures h={h} apex={apex} cx={cx} accent={h.accent} />
       {/* drapeau statut (anim seulement si alerte) */}
