@@ -2046,6 +2046,26 @@ export function ConsoleIAOverlay() {
             </button>
           </header>
 
+          {cockpit?.live ? (
+            <div className="flex flex-wrap items-center gap-x-3 gap-y-1 border-b border-slate-800 bg-slate-950/70 px-4 py-1.5 text-[10px]">
+              <span className="font-black text-emerald-300">💶 {cockpit.mrrGross ?? "—"}€ MRR</span>
+              <span className="text-slate-700">·</span>
+              <span className="font-black text-amber-200">⭐ {cockpit.vipActive ?? "—"} VIP</span>
+              <span className="text-slate-700">·</span>
+              <span className="text-cyan-200">📈 FTD {cockpit.ftdRate ?? "—"}%</span>
+              <span className="text-slate-700">·</span>
+              <span className="font-black text-emerald-200">💰 ${cockpit.commissionLifetime?.toLocaleString() ?? "—"} comm</span>
+              <span className="text-slate-700">·</span>
+              <span className={(cockpit.housesGreen ?? 0) >= (cockpit.housesTotal ?? 99) ? "text-emerald-300" : "text-amber-200"}>🏠 {cockpit.housesGreen ?? "?"}/{cockpit.housesTotal ?? "?"}</span>
+              <span className="text-slate-700">·</span>
+              <span className="text-slate-300">🤖 {cockpit.agentsAlive ?? "?"}/{cockpit.agentsTotal ?? "?"}</span>
+              <span className="text-slate-700">·</span>
+              <span className={(cockpit.servicesErrors ?? 0) === 0 ? "text-emerald-300" : "text-rose-300"}>🩺 {cockpit.servicesTotal ?? "?"} svc{cockpit.servicesErrors ? ` · ${cockpit.servicesErrors} err` : ""}</span>
+              {cockpit.truthClaimsOpen ? <><span className="text-slate-700">·</span><span className="text-slate-500" title="claims de vérité ouverts (anti-faux-vert)">{cockpit.truthClaimsOpen} claims</span></> : null}
+              <span className="ml-auto text-[8px] uppercase tracking-[0.08em] text-slate-600">ancien hub · live</span>
+            </div>
+          ) : null}
+
           <div className="grid min-h-0 grid-cols-1 overflow-hidden lg:grid-cols-[230px_1fr_350px]">
             <aside className="max-h-56 overflow-auto border-b border-slate-800/80 p-3 lg:max-h-none lg:border-b-0 lg:border-r">
               <p className="mb-3 text-[10px] font-black uppercase tracking-[0.18em] text-cyan-100">
