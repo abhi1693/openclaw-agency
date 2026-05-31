@@ -250,6 +250,22 @@ export function WorldMapLiving({ snapshot, angelRoster, onSelectHouse }: { snaps
     ro.observe(el); setSize({ cw: el.clientWidth, ch: el.clientHeight }); return () => ro.disconnect();
   }, []);
 
+  // ════════ Caméra (pan/zoom) + mode Édition (drag des maisons) + persistance ════════
+  const [cam, setCam] = useState({ z: 1, tx: 0, ty: 0 });
+  const [editMode, setEditMode] = useState(false);
+  const [posOverride, setPosOverride] = useState<Record<string, { x: number; y: number }>>({});
+  const dragRef = useRef<{ mode: "pan" | "house" | null; id?: string; sx: number; sy: number; camTx: number; camTy: number; hx: number; hy: number; moved: boolean }>({ mode: null, sx: 0, sy: 0, camTx: 0, camTy: 0, hx: 0, hy: 0, moved: false });
+  const movedRef = useRef(false); // supprime le clic-sélection juste après un drag
+  useEffect(() => {
+    try { const raw = window.localStorage.getItem("cofiat-world-layout-v1"); if (raw) { const o = JSON.parse(raw); if (o && typeof o === "object") { if (o.pos) setPosOverride(o.pos); if (o.cam) setCam(o.cam); } } } catch { /* ignore */ }
+  }, []);
+  useEffect(() => {
+    try { window.localStorage.setItem("cofiat-world-layout-v1", JSON.stringify({ pos: posOverride, cam })); } catch { /* ignore */ }
+  }, [posOverride, cam]);
+  // maisons effectives (positions overridées par l'édition Erwin)
+  const effHouses = useMemo(() => HOUSES.map((h) => (posOverride[h.id] ? { ...h, x: posOverride[h.id].x, y: posOverride[h.id].y } : h)), [posOverride]);
+  const EFF_BY_ID = useMemo(() => Object.fromEntries(effHouses.map((h) => [h.id, h])) as Record<string, House>, [effHouses]);
+
   const statusFor = (id: string): string => {
     if (houseStatuses && houseStatuses[id]) { const raw = houseStatuses[id]; if (onDemandSet.has(id) && (raw === "SOURCE_DOWN" || raw === "DEGRADED")) return "SLEEPING"; return raw; }
     if (registryError) return "ERR"; if (houseStatuses === null) return "LOADING"; return "ERR";
