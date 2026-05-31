@@ -108,3 +108,99 @@ export function summarizeStatuses(
 
   return summary;
 }
+
+/* ══════════════════════════════════════════════════════════════════
+ * ENFORCER NO-FALSE-GREEN — downgrade ACTIF (≠ simple détection)
+ * ────────────────────────────────────────────────────────────────────
+ * `validateNoFalseGreen` DÉTECTE ; `enforceNoFalseGreen` CORRIGE : il
+ * rétrograde tout GREEN/LIVE non mérité vers UNKNOWN. JAMAIS de promotion
+ * vers GREEN, JAMAIS de preuve inventée. Idempotent, pur.
+ * ════════════════════════════════════════════════════════════════ */
+
+/** Type de preuve (taxonomie canonique, optionnel sur les items). */
+export type ProofKind =
+  | "heartbeat"
+  | "api_probe"
+  | "auth_probe"
+  | "manual_verification"
+  | "billing_check"
+  | "filesystem_check"
+  | "deployment_check";
+
+/** Confiance de la preuve : hard (probe live), soft (dérivé), manual (audit humain). */
+export type ProofConfidence = "hard" | "soft" | "manual";
+
+/** Sources AUTORISANT un GREEN/LIVE (traçables). mock/config/unknown interdits. */
+const TRUSTED_GREEN_SOURCES: ReadonlySet<StatusSource> = new Set<StatusSource>([
+  "runtime",
+  "api",
+  "filesystem",
+  "user_audit",
+]);
+
+/** Forme minimale gardable (vaut pour AuthLedgerItem comme pour un item d'inventaire). */
+export type GuardableItem = {
+  status: OperationalStatus;
+  statusSource: StatusSource;
+  proof?: string;
+  blocker?: string;
+  /** ISO 8601 — si présent et dépassé, la preuve est périmée → UNKNOWN. */
+  expiresAt?: string;
+};
+
+/**
+ * enforceNoFalseGreen — downgrade actif d'un item.
+ * Conserve GREEN/LIVE UNIQUEMENT si : preuve non vide + source traçable + non expiré.
+ * Sinon → UNKNOWN. Ne promeut jamais, ne fabrique jamais de preuve. Idempotent.
+ */
+export function enforceNoFalseGreen<T extends GuardableItem>(item: T): T {
+  if (item.status !== "GREEN" && item.status !== "LIVE") return item; // jamais de promotion
+  const proven = typeof item.proof === "string" && item.proof.trim().length > 0;
+  if (!proven) {
+    return { ...item, status: "UNKNOWN", blocker: item.blocker ?? "GREEN/LIVE sans preuve → UNKNOWN (no-false-green)" };
+  }
+  if (!TRUSTED_GREEN_SOURCES.has(item.statusSource)) {
+    return { ...item, status: "UNKNOWN", blocker: item.blocker ?? `GREEN/LIVE source=${item.statusSource} non traçable → UNKNOWN` };
+  }
+  if (item.expiresAt) {
+    const exp = Date.parse(item.expiresAt);
+    if (Number.isFinite(exp) && exp < Date.now()) {
+      return { ...item, status: "UNKNOWN", blocker: item.blocker ?? "preuve expirée → UNKNOWN (no-false-green)" };
+    }
+  }
+  return item;
+}
+
+/** Applique l'enforcer à un lot (pratique côté route/UI). */
+export function enforceNoFalseGreenAll<T extends GuardableItem>(items: T[]): T[] {
+  return items.map((it) => enforceNoFalseGreen(it));
+}
+
+/* ── Totaux canoniques 5-buckets + invariant (chiffres CALCULÉS, jamais hardcodés) ── */
+export type CanonicalTotals = {
+  total: number;
+  green: number;
+  amber: number;
+  red: number;
+  quarantine: number;
+  unknown: number;
+};
+
+/** Calcule les totaux par bucket canonique depuis les items (toute variante AMBER_* → amber). */
+export function computeCanonicalTotals(items: ReadonlyArray<{ status: OperationalStatus | string }>): CanonicalTotals {
+  const t: CanonicalTotals = { total: items.length, green: 0, amber: 0, red: 0, quarantine: 0, unknown: 0 };
+  for (const it of items) {
+    const s = String(it.status).toUpperCase();
+    if (s === "GREEN" || s === "LIVE") t.green += 1;
+    else if (s.startsWith("AMBER")) t.amber += 1;
+    else if (s === "RED") t.red += 1;
+    else if (s === "QUARANTINE") t.quarantine += 1;
+    else t.unknown += 1; // UNKNOWN/STALE/DRAFT/LOCKED/OPTIONAL_*/ADAPTER_MISSING
+  }
+  return t;
+}
+
+/** Invariant : total === green + amber + red + quarantine + unknown. */
+export function totalsInvariantOk(t: CanonicalTotals): boolean {
+  return t.total === t.green + t.amber + t.red + t.quarantine + t.unknown;
+}
