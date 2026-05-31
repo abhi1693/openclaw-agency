@@ -1240,6 +1240,29 @@ export function ConsoleIAOverlay() {
   }, [isOpen, selectedConvId]);
 
   // Répondre à un client depuis la dashboard (gated : appelé seulement après confirm UI).
+  const sendConversationVoice = async (uid: string, fileB64: string, via: string): Promise<boolean> => {
+    if (!uid || !fileB64) return false;
+    setConvVoiceSending(true);
+    try {
+      const r = await fetch("/api/cofiatrading-world-control/console-ia", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ action: "conversation_send_voice", uid, fileB64, via }),
+      });
+      const d = (await r.json()) as { ok: boolean };
+      if (d.ok) {
+        const rr = await fetch(`/api/cofiatrading-world-control/console-ia?conversation=${encodeURIComponent(uid)}`, { cache: "no-store" });
+        const dd = (await rr.json()) as { ok: boolean; messages?: ConvMessage[] };
+        if (dd.ok && Array.isArray(dd.messages)) setConvMessages(dd.messages);
+      }
+      return d.ok;
+    } catch {
+      return false;
+    } finally {
+      setConvVoiceSending(false);
+    }
+  };
+
   const sendConversationReply = async (uid: string, text: string, via: string): Promise<boolean> => {
     if (!uid || !text) return false;
     setConvSending(true);
