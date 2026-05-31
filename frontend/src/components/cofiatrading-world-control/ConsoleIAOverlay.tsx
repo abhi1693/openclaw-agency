@@ -1918,6 +1918,33 @@ export function ConsoleIAOverlay() {
                   </div>
                 )}
 
+                {approvalPending && activePktId ? (
+                  <div className="mt-4 rounded-2xl border border-amber-300/55 bg-amber-400/10 p-3">
+                    <div className="flex flex-wrap items-center gap-2">
+                      <span className="text-[11px] font-black uppercase tracking-[0.12em] text-amber-100">⚠️ Action réelle — validation requise</span>
+                      <span className="text-[10px] text-amber-200/80">Rien n’est dispatché ni envoyé tant que tu n’as pas approuvé · {shortPacketId(activePktId)}</span>
+                    </div>
+                    <div className="mt-2 flex items-center gap-2">
+                      <button
+                        type="button"
+                        disabled={approving}
+                        onClick={() => decidePacket("approve_packet", activePktId)}
+                        className="rounded-lg border border-emerald-300/55 bg-emerald-400/15 px-3 py-1.5 text-[11px] font-black text-emerald-100 transition hover:bg-emerald-400/25 disabled:opacity-40"
+                      >
+                        {approving ? "…" : "✅ Approuver (1-tap)"}
+                      </button>
+                      <button
+                        type="button"
+                        disabled={approving}
+                        onClick={() => decidePacket("reject_packet", activePktId)}
+                        className="rounded-lg border border-rose-300/50 bg-rose-400/10 px-3 py-1.5 text-[11px] font-black text-rose-100 transition hover:bg-rose-400/20 disabled:opacity-40"
+                      >
+                        ✕ Rejeter
+                      </button>
+                    </div>
+                  </div>
+                ) : null}
+
                 {attachments.length > 0 ? (
                   <div className="mt-4 grid gap-2 sm:grid-cols-2">
                     {attachments.map((attachment) => (
