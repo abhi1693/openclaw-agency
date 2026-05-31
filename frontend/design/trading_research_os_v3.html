@@ -548,6 +548,19 @@
         </div>
       </div>
       <div class="note">Volume Profile = volume agrégé par niveau de prix depuis les <b>trades tick-by-tick réels</b> (RTH 09:30–16:00 NY). POC = prix au volume max ; VA70 = zone des 70% du volume. Delta/CVD = <b>proxy de trade-flow agressé</b> (côté A/B des ticks), <b>PAS un OFI de carnet</b> (BBO/MBO absent du dataset). Aucun signal, aucune promesse d'edge — outil d'exploration honnête.</div></div>
+    <div class="card mb"><h3>Footprint Live — ATAS-like <span class="r"><span class="badge b-real">REAL ticks</span> <span id="ofLiveSrc" class="badge b-model">Rithmic / Databento</span></span></h3>
+      <div style="display:flex;gap:10px;flex-wrap:wrap;align-items:flex-end;margin-bottom:9px">
+        <div><div style="font-size:9.5px;color:var(--dim);text-transform:uppercase">Source</div><select class="mini" id="ofSource" onchange="loadOfDays()"><option value="rithmic">Rithmic live</option><option value="databento">Databento</option></select></div>
+        <div><div style="font-size:9.5px;color:var(--dim);text-transform:uppercase">Contrat</div><select class="mini" id="ofContract" onchange="loadOfDays()"><option>NQM6</option><option>ESM6</option><option>GCM6</option></select></div>
+        <div><div style="font-size:9.5px;color:var(--dim);text-transform:uppercase">Jour</div><select class="mini" id="ofDay" style="min-width:96px" onchange="runFootprint()"></select></div>
+        <div><div style="font-size:9.5px;color:var(--dim);text-transform:uppercase">Session</div><select class="mini" id="ofSession" onchange="runFootprint()"><option value="rth">RTH</option><option value="all">ETH</option></select></div>
+        <div><div style="font-size:9.5px;color:var(--dim);text-transform:uppercase">Cell (ticks)</div><select class="mini" id="ofCell" onchange="runFootprint()"><option>1</option><option>2</option><option selected>4</option><option>8</option></select></div>
+        <div><div style="font-size:9.5px;color:var(--dim);text-transform:uppercase">Barres</div><select class="mini" id="ofLastN" onchange="runFootprint()"><option>15</option><option selected>25</option><option>40</option></select></div>
+        <button class="btn act" onclick="runFootprint()">▷ Charger le footprint</button>
+        <span id="ofFpMeta" style="font-size:10px;color:var(--dim)"></span>
+      </div>
+      <canvas id="ofCanvas" height="460"></canvas>
+      <div class="note">Footprint RÉEL : chaque cellule = volume agressé <b>vendeur×acheteur</b> (bid×ask) au niveau de prix, depuis les ticks. Vert = delta+ (acheteurs dominent), rouge = delta− (vendeurs) ; <b>bord jaune = imbalance ≥3:1</b> ; cadre cyan = POC de la barre. Lignes POC/VAH/VAL session. Rangée du bas = delta net par barre. Classification Lee-Ready. RESEARCH ONLY — aucun ordre.</div></div>
     <div class="grid g-1-1-1 mb"><div class="card" id="evVerdict"></div><div class="card" id="evCoverage"></div><div class="card" id="evCosts"></div></div>
     <div class="card mb" id="evCompare"></div>
     <div class="card mb" id="ofVerdictCard"></div>
