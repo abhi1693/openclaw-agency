@@ -582,8 +582,7 @@ export function WorldMapLiving({
       return { id: `${a}__${b}`, d, kind, zone: ha.zone };
     });
 
-    const plaza = isoProject(ic ? 0 : 0, 0); // placeholder, real plaza = island centroid in screen space
-    return { built, viewBox, vbMinX, vbMinY, vbW, vbH, center, islandPath, islandPath2, beachPath, zoneBlobs, roads, islandCenter: ic, plaza };
+    return { built, viewBox, vbMinX, vbMinY, vbW, vbH, center, islandPath, islandPath2, beachPath, zoneBlobs, roads, islandCenter: ic };
   }, []);
 
   // peindre les bâtiments dans l'ordre de profondeur
