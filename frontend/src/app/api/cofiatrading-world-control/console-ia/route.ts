@@ -1390,6 +1390,7 @@ async function proxyConversationVoice(body: Record<string, unknown>) {
     const result = await res.json().catch(() => ({})) as { message_id?: number; success?: boolean };
     if (res.ok && result?.message_id) {
       await logConversationOutMarker(uid, via, `🎤 Note vocale envoyée (msg ${result.message_id})`);
+      await markTakeover(uid, true);  // Flux 5 — Erwin gère → Iron se tait
     }
     return NextResponse.json(
       { ok: res.ok, status: res.status, result, target: uid, via, kind: "voice", transcoded: enc.filename === "voice.ogg", sourceTag: SOURCE_TAG },
