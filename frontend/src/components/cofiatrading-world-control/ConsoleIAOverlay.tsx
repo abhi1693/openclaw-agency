@@ -909,6 +909,13 @@ type ConvThread = {
   totalMessages: number;
   sourceChannel: string;
   muted: boolean;
+  // Flux 6b — enrichissement CRM (heat-map avant clic)
+  crmFound?: boolean;
+  crmTemp?: string;       // HOT / WARM / COLD
+  crmScore?: number | null;
+  crmTier?: string;       // value_tier (baleine)
+  crmStripe?: string;     // active / past_due / canceled
+  crmIsClient?: boolean;
 };
 type ConvMessage = { ts: string; direction: string; by: string; text: string };
 
