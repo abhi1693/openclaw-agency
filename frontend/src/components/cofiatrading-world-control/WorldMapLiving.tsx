@@ -593,36 +593,52 @@ export function WorldMapLiving({ snapshot, angelRoster, onSelectHouse }: { snaps
         <style>{KEYFRAMES}</style>
         <svg viewBox={scene.viewBox} className="h-full w-full" preserveAspectRatio="xMidYMid meet" onClick={() => { if (movedRef.current) { movedRef.current = false; return; } clearSel(); }}>
           <defs>
-            <radialGradient id="land" cx="50%" cy="42%" r="75%"><stop offset="0%" stopColor="#163049" /><stop offset="60%" stopColor="#0e2236" /><stop offset="100%" stopColor="#091824" /></radialGradient>
+            <radialGradient id="sea" cx="50%" cy="40%" r="82%"><stop offset="0%" stopColor="#1d6065" /><stop offset="55%" stopColor="#103e45" /><stop offset="100%" stopColor="#0a2228" /></radialGradient>
+            <radialGradient id="land" cx="50%" cy="40%" r="78%"><stop offset="0%" stopColor="#34443f" /><stop offset="55%" stopColor="#243531" /><stop offset="100%" stopColor="#16211f" /></radialGradient>
+            <radialGradient id="coast" cx="50%" cy="42%" r="76%"><stop offset="0%" stopColor="#bda66c" /><stop offset="60%" stopColor="#8a7647" /><stop offset="100%" stopColor="#5f4f2f" /></radialGradient>
+            <linearGradient id="path" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stopColor="#7d7360" /><stop offset="100%" stopColor="#534b3c" /></linearGradient>
             <linearGradient id="roofSheen" x1="0" y1="0" x2="0.45" y2="1"><stop offset="0%" stopColor="#fff" stopOpacity="0.26" /><stop offset="55%" stopColor="#fff" stopOpacity="0.05" /><stop offset="100%" stopColor="#000" stopOpacity="0.28" /></linearGradient>
             <filter id="softBlur" x="-40%" y="-40%" width="180%" height="180%"><feGaussianBlur stdDeviation="14" /></filter>
-            {(Object.keys(ZONES) as ZoneId[]).map((zid) => (<radialGradient key={zid} id={`dist-${zid}`} cx="50%" cy="50%" r="50%"><stop offset="0%" stopColor={ZONES[zid].floor} stopOpacity="0.85" /><stop offset="70%" stopColor={ZONES[zid].floor} stopOpacity="0.35" /><stop offset="100%" stopColor={ZONES[zid].floor} stopOpacity="0" /></radialGradient>))}
+            <radialGradient id="lglow" cx="50%" cy="50%" r="50%"><stop offset="0%" stopColor="#ffd98a" stopOpacity="0.5" /><stop offset="100%" stopColor="#ffd98a" stopOpacity="0" /></radialGradient>
+            <pattern id="cobble" width="13" height="7" patternUnits="userSpaceOnUse" patternTransform="rotate(-26)"><rect x="0.6" y="0.6" width="5" height="2.6" rx="1.3" fill="#ffffff" opacity="0.04" /><rect x="6.8" y="3.6" width="5" height="2.6" rx="1.3" fill="#000000" opacity="0.06" /></pattern>
+            {(Object.keys(ZONES) as ZoneId[]).map((zid) => (<radialGradient key={zid} id={`dist-${zid}`} cx="50%" cy="50%" r="50%"><stop offset="0%" stopColor={ZONES[zid].floor} stopOpacity="0.8" /><stop offset="70%" stopColor={ZONES[zid].floor} stopOpacity="0.3" /><stop offset="100%" stopColor={ZONES[zid].floor} stopOpacity="0" /></radialGradient>))}
           </defs>
 
-          {/* mer unie (hors caméra : fond plein) */}
-          <rect x="-100000" y="-100000" width="200000" height="200000" fill="#06141f" />
-          {/* ── CAMÉRA (pan/zoom) : toute la scène se transforme ici ── */}
+          {/* mer teal (Astrub) */}
+          <rect x="-100000" y="-100000" width="200000" height="200000" fill="url(#sea)" />
+          {/* ── CAMÉRA (pan/zoom) ── */}
           <g transform={camG}>
-          {/* île douce */}
-          <path d={scene.islandPath} fill="#000" opacity="0.45" filter="url(#softBlur)" transform="translate(0 10)" />
-          <path d={scene.islandPath} fill="url(#land)" />
-          {/* districts en dégradé doux (sous les routes) */}
-          {scene.districts.map((z) => (<ellipse key={z.id} cx={z.cx} cy={z.cy} rx={z.rx} ry={z.ry} fill={`url(#dist-${z.id})`} opacity="0.55" />))}
+          {/* ombre portée de l'île */}
+          <path d={scene.coastPath} fill="#000" opacity="0.5" filter="url(#softBlur)" transform="translate(0 16)" />
+          {/* plage / côte sable + écume */}
+          <path d={scene.coastPath} fill="url(#coast)" />
+          <path d={scene.coastPath} fill="none" stroke="#cdeee9" strokeWidth="2.6" strokeOpacity="0.22" />
+          {/* île : sol peint + texture pavé douce */}
+          <path d={scene.islandPath} fill="url(#land)" stroke="#0d3a36" strokeWidth="1" strokeOpacity="0.4" />
+          <path d={scene.islandPath} fill="url(#cobble)" />
+          {/* districts en dégradé doux (sous les chemins) */}
+          {scene.districts.map((z) => (<ellipse key={z.id} cx={z.cx} cy={z.cy} rx={z.rx} ry={z.ry} fill={`url(#dist-${z.id})`} opacity="0.5" />))}
 
-          {/* routes de pierre (fonctionnelles ; highlight si maison sélectionnée) */}
+          {/* chemins pavés chauds (highlight si maison sélectionnée) */}
           <g>
             {scene.roads.map((r) => {
               const hot = selectedHouse && (r.a === selectedHouse || r.b === selectedHouse);
-              const col = hot ? HOUSE_BY_ID[selectedHouse!]?.accent ?? "#cfe6ff" : STONE_HI;
-              return (<g key={r.id}><path d={r.d} fill="none" stroke={STONE_LO} strokeWidth={r.w + 3} strokeLinecap="round" opacity="0.85" /><path d={r.d} fill="none" stroke={STONE} strokeWidth={r.w} strokeLinecap="round" /><path d={r.d} fill="none" stroke={col} strokeWidth={hot ? 2.2 : 1} strokeDasharray={hot ? undefined : "1.6 7"} strokeLinecap="round" opacity={hot ? 0.95 : 0.5} /></g>);
+              const acc = hot ? HOUSE_BY_ID[selectedHouse!]?.accent ?? "#ffe3a0" : null;
+              return (<g key={r.id}><path d={r.d} fill="none" stroke="#15120d" strokeWidth={r.w + 5} strokeLinecap="round" opacity="0.5" /><path d={r.d} fill="none" stroke="url(#path)" strokeWidth={r.w + 1} strokeLinecap="round" /><path d={r.d} fill="none" stroke="#c8ac76" strokeWidth={Math.max(1, r.w - 3)} strokeDasharray="0.6 5" strokeLinecap="round" opacity="0.55" />{hot && acc && <path d={r.d} fill="none" stroke={acc} strokeWidth="2.4" strokeLinecap="round" opacity="0.95" />}</g>);
             })}
           </g>
 
-          {/* labels district (sous les bâtiments) */}
-          {scene.districts.map((z) => { const zc = ZONES[z.id]; return (<g key={`lbl-${z.id}`} opacity="0.9"><text x={z.label.x} y={z.label.y} textAnchor="middle" fontSize="15" fontWeight="900" fill={zc.edge} stroke="#06141f" strokeWidth="3.2" paintOrder="stroke" style={{ letterSpacing: "4px" }}>{zc.label}</text></g>); })}
+          {/* décor Astrub : arbres / buissons / rochers en lisière (statique) */}
+          {scene.decor.map((d, i) => (<g key={`dec-${i}`} transform={`translate(${d.x.toFixed(1)} ${d.y.toFixed(1)}) scale(${d.s.toFixed(2)})`}>
+            <ellipse cx="0" cy="1.5" rx={d.kind === "rock" ? 7 : 6} ry="2.4" fill="#000" opacity="0.22" />
+            {d.kind === "tree" ? (<><rect x="-1.5" y="-6" width="3" height="9" rx="1.2" fill="#5b3f29" /><ellipse cx="0" cy="-10" rx="9" ry="8" fill="#2f6b43" /><ellipse cx="-3" cy="-12" rx="5.5" ry="5" fill="#3c8253" /><ellipse cx="3.4" cy="-9" rx="5" ry="4.5" fill="#27583a" /><ellipse cx="-2" cy="-14" rx="3" ry="2.6" fill="#57a06e" opacity="0.7" /></>) : d.kind === "bush" ? (<><ellipse cx="-3" cy="-2" rx="4.5" ry="3.6" fill="#2f6b43" /><ellipse cx="2.5" cy="-2.5" rx="4" ry="3.4" fill="#3c8253" /><ellipse cx="0" cy="-4" rx="3.6" ry="3" fill="#4f9665" opacity="0.8" /></>) : (<><path d="M-6 2 Q-7 -4 -1 -5 Q5 -6 6 -1 Q7 3 0 3 Z" fill="#6b7079" stroke="#474b52" strokeWidth="0.6" /><path d="M-4 -1 Q-2 -3 1 -2" fill="none" stroke="#9aa1ab" strokeWidth="0.7" opacity="0.6" /></>)}
+          </g>))}
 
-          {/* lampadaires sobres (déco statique discrète) */}
-          {scene.lamps.map((l, i) => (<g key={`lamp-${i}`}><line x1={l.x} y1={l.y} x2={l.x} y2={l.y - 16} stroke="#2c3442" strokeWidth="1.4" /><circle cx={l.x} cy={l.y - 17} r="2.2" fill="#ffd98a" opacity="0.75" /></g>))}
+          {/* labels district */}
+          {scene.districts.map((z) => { const zc = ZONES[z.id]; return (<g key={`lbl-${z.id}`} opacity="0.82"><text x={z.label.x} y={z.label.y} textAnchor="middle" fontSize="15" fontWeight="900" fill={zc.edge} stroke="#0a1f1c" strokeWidth="3.4" paintOrder="stroke" style={{ letterSpacing: "4px" }}>{zc.label}</text></g>); })}
+
+          {/* lanternes Dofus (poteau + halo chaud, statique) */}
+          {scene.lamps.map((l, i) => (<g key={`lamp-${i}`}><ellipse cx={l.x} cy={l.y + 1} rx="3" ry="1.2" fill="#000" opacity="0.25" /><line x1={l.x} y1={l.y} x2={l.x} y2={l.y - 20} stroke="#3a2f22" strokeWidth="1.8" /><path d={`M ${l.x} ${(l.y - 20).toFixed(1)} q 5 0 5 4`} fill="none" stroke="#3a2f22" strokeWidth="1.4" /><circle cx={l.x + 5} cy={l.y - 14} r="7" fill="url(#lglow)" /><rect x={l.x + 3} y={l.y - 17} width="4" height="5.5" rx="1" fill="#1a1206" stroke="#caa14a" strokeWidth="0.8" /><rect x={l.x + 3.7} y={l.y - 16} width="2.6" height="3.6" fill="#ffd98a" opacity="0.9" /></g>))}
 
           {/* parcelles + bâtiments (tri profondeur) */}
           {builtSorted.map((b) => (<Building key={b.house.id} b={b} editMode={editMode} status={statusFor(b.house.id)} selected={selectedHouse === b.house.id} hover={hoverHouse === b.house.id} dim={!!selectedHouse && selectedHouse !== b.house.id} machines={machinesByHome[b.house.id] ?? []} agentCount={(agentsByHome[b.house.id] ?? []).length} onSelect={() => { if (movedRef.current) { movedRef.current = false; return; } clearSel(); setSelectedHouse(b.house.id); setHouseTab("vue"); onSelectHouse(b.house.id); }} onHover={(v) => setHoverHouse(v ? b.house.id : null)} onMachine={(m) => { clearSel(); setSelectedMachine(m); }} />))}
