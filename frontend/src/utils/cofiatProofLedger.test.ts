@@ -26,7 +26,7 @@ describe("path guard — chemins canoniques", () => {
   });
 
   it("rejette un fichier hors canon + suggère", () => {
-    const r = validateCofiatPath("src/random/cofiatThing.ts", "utils");
+    const r = validateCofiatPath("src/random/cofiatThing.ts");
     expect(r.valid).toBe(false);
     expect(r.reason).toBeTruthy();
   });
