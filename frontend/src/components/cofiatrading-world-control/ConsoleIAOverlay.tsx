@@ -1321,6 +1321,10 @@ export function ConsoleIAOverlay() {
         const d = (await r.json()) as { ok: boolean; messages?: ConvMessage[]; takeover?: boolean };
         if (!stopped && d.ok && Array.isArray(d.messages)) setConvMessages(d.messages);
         if (!stopped && d.ok) setConvTakeover(d.takeover === true);
+        // Flux 6 — profil CRM 360 du client sélectionné
+        const cr = await fetch(`/api/cofiatrading-world-control/console-ia?client=${encodeURIComponent(selectedConvId)}`, { cache: "no-store" });
+        const cd = (await cr.json()) as { ok: boolean; profile?: ClientCrm360 };
+        if (!stopped && cd.ok && cd.profile) setConvCrm(cd.profile);
       } catch {
         // garde
       } finally {
