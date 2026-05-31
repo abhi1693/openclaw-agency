@@ -52,15 +52,27 @@ export async function GET() {
   const notion = await readJson(NOTION_DBS);
   const cards = await readJsonl(PAPERCLIP_CARDS);
 
-  // ── Linear live : lecture SEULE de la route /linear du hub (zéro write SaaS, zéro doublon) ──
+  // ── Linear live : lecture SEULE de l'API Linear (zéro write SaaS, zéro doublon, pas de self-fetch) ──
   let linearTotal: number | null = null;
   try {
-    const lr = await fetch("http://127.0.0.1:3000/api/cofiatrading-world-control/linear", { cache: "no-store" });
-    if (lr.ok) {
-      const ld = (await lr.json()) as { ok?: boolean; total?: number };
-      if (ld?.ok && typeof ld.total === "number") linearTotal = ld.total;
+    let linKey = process.env.LINEAR_API_KEY ?? "";
+    if (!linKey) {
+      const m = (await readFile(`${HOME}/cof-trading/config/credentials.env`, "utf8")).match(/^LINEAR_API_KEY=(.+)$/m);
+      if (m) linKey = m[1].trim();
     }
-  } catch { /* gap honnête si la route ne répond pas */ }
+    if (linKey) {
+      const lr = await fetch("https://api.linear.app/graphql", {
+        method: "POST",
+        headers: { Authorization: linKey, "Content-Type": "application/json" },
+        cache: "no-store",
+        body: JSON.stringify({ query: "{ issues(first: 50, orderBy: updatedAt) { nodes { id } } }" }),
+      });
+      if (lr.ok) {
+        const nodes = (await lr.json())?.data?.issues?.nodes;
+        if (Array.isArray(nodes)) linearTotal = nodes.length;
+      }
+    }
+  } catch { /* gap honnête si l'API ne répond pas */ }
   const calBusLines = await readJsonl(CALENDAR_BUS);
   let academyModules: string[] = [];
   try {
