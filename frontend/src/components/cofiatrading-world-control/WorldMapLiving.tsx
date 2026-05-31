@@ -812,10 +812,12 @@ function Building({ b, status, selected, hover, dim, editMode, machines, agentCo
       <polygon points={[parcel[3], parcel[2], parcelFront[1], parcelFront[0]].map(P).join(" ")} fill={STONE_LO} />
       <polygon points={parcel.map(P).join(" ")} fill={shade(STONE, -6)} stroke={focus ? st.color : STONE_HI} strokeWidth={focus ? 1.5 : 0.7} strokeOpacity={focus ? 0.9 : 0.5} />
       {/* corps */}
-      <polygon points={body.leftStr} fill={h.wall} /><polygon points={body.rightStr} fill={shade(h.wall, -18)} />
-      {leftWin.map((w, i) => <polygon key={`lw${i}`} points={w.pts} fill={w.lit ? h.accent : "#0a0f1c"} opacity={w.lit ? 0.5 : 0.5} />)}
-      {rightWin.map((w, i) => <polygon key={`rw${i}`} points={w.pts} fill={w.lit ? h.accent : "#070b14"} opacity={w.lit ? 0.3 : 0.55} />)}
-      <polygon points={body.leftStr} fill="none" stroke={shade(h.accent, -30)} strokeWidth="0.8" opacity="0.55" />
+      {/* murs plâtre chaud (village) + fenêtres dorées + colombages bois */}
+      <polygon points={body.leftStr} fill="#9a8b6e" /><polygon points={body.rightStr} fill="#6f6149" />
+      {leftWin.map((w, i) => <polygon key={`lw${i}`} points={w.pts} fill={w.lit ? "#ffce86" : "#2a2114"} opacity={w.lit ? 0.85 : 0.5} />)}
+      {rightWin.map((w, i) => <polygon key={`rw${i}`} points={w.pts} fill={w.lit ? "#f0b566" : "#1f1810"} opacity={w.lit ? 0.7 : 0.5} />)}
+      <polygon points={body.leftStr} fill="none" stroke="#4f4130" strokeWidth="0.8" opacity="0.5" /><polygon points={body.rightStr} fill="none" stroke="#3f3526" strokeWidth="0.7" opacity="0.4" />
+      {[0.34, 0.66].map((u, i) => { const a = lerpPt(ground[1], ground[2], u); const t = lerpPt(body.top[1], body.top[2], u); return <line key={`bm${i}`} x1={a.x.toFixed(1)} y1={a.y.toFixed(1)} x2={t.x.toFixed(1)} y2={t.y.toFixed(1)} stroke="#5b4a32" strokeWidth="0.9" opacity="0.4" />; })}
       {/* porte en arche (cadre bois chaud, cozy) */}
       <path d={`M ${P(doorBL)} L ${P(doorBR)} L ${P(doorTR)} Q ${(((doorTL.x + doorTR.x) / 2)).toFixed(1)} ${(((doorTL.y + doorTR.y) / 2) - bodyH * 0.06).toFixed(1)} ${P(doorTL)} Z`} fill="#0a0a12" stroke="#6b5638" strokeWidth="1" strokeOpacity="0.8" />
       {peaked ? (<>
