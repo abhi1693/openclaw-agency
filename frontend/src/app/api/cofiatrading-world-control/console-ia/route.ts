@@ -860,15 +860,24 @@ async function buildThread(packetId: string) {
   const actionMode = normalizeActionMode(packet.actionMode, packet.requestedMode);
   const approval = isRecord(packet.approval) ? packet.approval : {};
   const approvalRequired = approval.required === true;
+  // Flux 4 — honore le cycle : granted=true → LOCAL_GREEN ; decision=REJECTED → BLOCKED ;
+  // sinon (en attente) → APPROVAL_REQUIRED. Sans ça le thread resterait bloqué APPROVAL_REQUIRED après le 1-tap.
+  const approvalDecision = sanitizeText(asString(approval.decision), 40).toUpperCase();
+  const approvalGranted = approval.granted === true || !approvalRequired;
   const guardSummary = await readGuardSummary();
   const routeBuses = routes.map((route) => sanitizeText(asString(route.bus), 80)).filter(Boolean);
   const statusProjection = deriveHonestStatus({
     actionMode,
-    approvalGranted: approvalRequired ? false : true,
+    approvalGranted,
     guardSummary,
     modelMode: isRecord(packet.modelMode) ? packet.modelMode as ConsoleModelMode : null,
     routeBuses,
   });
+  if (approvalDecision === "REJECTED") {
+    statusProjection.honestStatus.execute = "BLOCKED";
+    const executeBadge = statusProjection.statusBadges.find((b) => b.id === "execute");
+    if (executeBadge) { executeBadge.status = "BLOCKED"; executeBadge.tone = "red"; executeBadge.detail = "Rejeté par Erwin"; }
+  }
   const whyStatus = buildWhyStatus({
     chatgptBriefPath: asString(paths.chatgptBriefPath) || null,
     executeApprovalRequired: approvalRequired,
