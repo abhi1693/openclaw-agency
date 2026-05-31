@@ -87,7 +87,17 @@ const HOUSES: House[] = [
   { id: "compliance_port", name: "Compliance Gate", sub: "CNMV · AEPD · ESMA", x: 82, y: 71, w: 6, h: 5, type: "compliance", zone: "risk", roof: "pitch", levels: 5, wall: "#460914", roofColor: "#150206", accent: "#ff3b52", role: "Compliance CNMV/AEPD/ESMA, safety, DLP, GO packets" },
   { id: "calendar_tower", name: "Calendar Tower", sub: "Recurring missions", x: 94, y: 57, w: 6, h: 5, type: "calendar", zone: "risk", roof: "stepped", levels: 7, wall: "#432b00", roofColor: "#120b00", accent: "#ffb000", role: "Cadence missions et tâches agents récurrentes" },
 ];
-const HOUSE_BY_ID: Record<string, House> = Object.fromEntries(HOUSES.map((h) => [h.id, h]));
+/* ════════ Modules opérationnels (HORS 15 maisons canon) — ALM + Proof Ledger ════════
+ * Bâtiments inspectables, statut HONNÊTE config (no-false-green) : non branchés au
+ * registry :8767 → statut "MODULE" (violet, ni LIVE ni RED). Placés au centre (zone
+ * core) pour remplir le cœur de carte et rester command-adjacent (§23 ALM / §24 Proof). */
+const MODULES: House[] = [
+  { id: "notebook_alm", name: "Notebook ALM", sub: "Planning · Roadmap · ALM", x: 50, y: 44, w: 6, h: 5, type: "notebook_alm", zone: "core", roof: "flat", levels: 4, wall: "#2d2440", roofColor: "#161226", accent: "#f3e2b3", role: "Carnet de pilotage : roadmap, décisions, checklist (planning ↔ console.IA ↔ Proof Ledger). Statut config — pas encore branché live." },
+  { id: "proof_ledger", name: "Proof Ledger", sub: "Preuve · Audit · No-False-Green", x: 63, y: 48, w: 6, h: 5, type: "proof_ledger", zone: "core", roof: "stepped", levels: 5, wall: "#1b2230", roofColor: "#0b1018", accent: "#cbd5e1", role: "Registre de preuves : tout GREEN/LIVE porte sa preuve sourçable (no-false-green). Source config — vert seulement si preuve réelle." },
+];
+const ALL_HOUSES: House[] = [...HOUSES, ...MODULES];
+const MODULE_IDS = new Set<string>(["notebook_alm", "proof_ledger"]);
+const HOUSE_BY_ID: Record<string, House> = Object.fromEntries(ALL_HOUSES.map((h) => [h.id, h]));
 
 /* ════════ Routes (chemins réels entre maisons) ════════ */
 const ROAD_LINKS: Array<[string, string, "main" | "second"]> = [
