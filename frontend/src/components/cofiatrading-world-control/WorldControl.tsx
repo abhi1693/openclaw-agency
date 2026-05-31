@@ -3894,6 +3894,16 @@ function HouseDrawer({
       cancelled = true;
     };
   }, [house.id]);
+  const [inventory, setInventory] = useState<InvItem[]>([]);
+  useEffect(() => {
+    let cancelled = false;
+    fetch("/api/cofiatrading-world-control/inventory-matrix", { cache: "no-store" })
+      .then((r) => (r.ok ? r.json() : null))
+      .then((d) => { if (!cancelled && Array.isArray(d?.items)) setInventory(d.items as InvItem[]); })
+      .catch(() => {});
+    return () => { cancelled = true; };
+  }, []);
+  const houseInventory = inventory.filter((it) => resolveHouseIds(it).includes(house.id));
   const runtimeTone = house.status === "LIVE" ? "LIVE" : workforce.tone;
   const runtimeBadge = house.status === "LIVE" ? "LIVE" : workforce.badge;
   const trucksLabel = house.trucks.length > 0
