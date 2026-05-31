@@ -527,6 +527,22 @@
         <button class="btn act" onclick="runScan()">≣ Scan all</button>
       </div>
       <div id="wResult" style="margin-top:14px"><div class="note">Choisis et clique Run — le moteur calcule en live sur 255 jours NQ. Research-only, aucun ordre.</div></div></div>
+    <div class="card mb"><h3>Microstructure réelle — Volume Profile · VWAP · Order-Flow <span class="r"><span class="badge b-real">REAL ticks</span> <span class="badge b-model">flow = proxy</span></span></h3>
+      <div style="display:flex;gap:12px;flex-wrap:wrap;align-items:flex-end;margin-bottom:10px">
+        <div><div style="font-size:9.5px;color:var(--dim);text-transform:uppercase">Jour RTH</div><select class="mini" id="vpDay" style="font-size:12px;padding:5px 8px"></select></div>
+        <div><div style="font-size:9.5px;color:var(--dim);text-transform:uppercase">Bin (pts)</div><select class="mini" id="vpBin" style="font-size:12px;padding:5px 8px"><option>0.5</option><option selected>1</option><option>2</option><option>5</option></select></div>
+        <button class="btn act" onclick="runVP()">▷ Charger le jour</button>
+        <span id="vpSrc" style="font-size:10px;color:var(--dim)"></span>
+      </div>
+      <div class="grid g5 mb" id="vpKpis"><div class="note">Choisis un jour et clique — volume-at-price calculé sur les trades tick-by-tick réels.</div></div>
+      <div class="grid g-1-2">
+        <div><div style="font-size:10px;color:var(--dim);text-transform:uppercase;margin-bottom:4px">Volume Profile (volume-at-price · POC / VA70 · buy=cyan / sell=rouge)</div><canvas id="vpCanvas" height="300"></canvas></div>
+        <div>
+          <div style="font-size:10px;color:var(--dim);text-transform:uppercase;margin-bottom:4px">Prix RTH (close) + VWAP intraday</div><canvas id="vpPx" height="142"></canvas>
+          <div style="font-size:10px;color:var(--dim);text-transform:uppercase;margin:8px 0 4px">Delta par barre + CVD cumulé (proxy order-flow)</div><canvas id="vpFlow" height="120"></canvas>
+        </div>
+      </div>
+      <div class="note">Volume Profile = volume agrégé par niveau de prix depuis les <b>trades tick-by-tick réels</b> (RTH 09:30–16:00 NY). POC = prix au volume max ; VA70 = zone des 70% du volume. Delta/CVD = <b>proxy de trade-flow agressé</b> (côté A/B des ticks), <b>PAS un OFI de carnet</b> (BBO/MBO absent du dataset). Aucun signal, aucune promesse d'edge — outil d'exploration honnête.</div></div>
     <div class="grid g-1-1-1 mb"><div class="card" id="evVerdict"></div><div class="card" id="evCoverage"></div><div class="card" id="evCosts"></div></div>
     <div class="card mb" id="evCompare"></div>
     <div class="card mb" id="ofVerdictCard"></div>
