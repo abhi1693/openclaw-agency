@@ -461,7 +461,6 @@ export function WorldMapLiving({ snapshot, angelRoster, onSelectHouse }: { snaps
     const nz = Math.max(0.4, Math.min(4.5, c.z * factor)); const midX = scene.vbMinX + scene.vbW / 2, midY = scene.vbMinY + scene.vbH / 2;
     const isoX = (midX - c.tx) / c.z, isoY = (midY - c.ty) / c.z; return { z: nz, tx: midX - nz * isoX, ty: midY - nz * isoY };
   });
-  const resetView = () => setCam({ z: 1, tx: 0, ty: 0 });
   // Ajuster : remplir l'écran (cover doux) — l'excédent rogne la marge d'île, jamais les maisons
   const fitView = () => {
     const sx = size.cw / scene.vbW, sy = size.ch / scene.vbH;
