@@ -464,6 +464,16 @@ export function InventoryStatusMatrix() {
         <p className="text-xs font-semibold text-white">
           Inventory / Status Matrix — No-False-Green
         </p>
+        <p className="mt-0.5 text-[9.5px] leading-4 text-slate-400">
+          Vue <span className="text-cyan-200">audit global</span> · {data?.policy ?? "NO_FALSE_GREEN"} — la distribution par maison est <span className="text-slate-300">sur la carte</span> (clic maison → onglet Inventaire). RED/QUARANTINE en tête.
+        </p>
+        {Array.isArray(data?.warnings) && data!.warnings!.length ? (
+          <div className="mt-1 rounded border border-amber-400/30 bg-amber-400/10 px-2 py-1">
+            {data!.warnings!.map((w, i) => (
+              <p key={i} className="text-[9.5px] leading-4 text-amber-200/90">⚠ {w}</p>
+            ))}
+          </div>
+        ) : null}
         <div className="mt-2 flex flex-wrap gap-1.5 text-[9px] font-semibold uppercase tracking-wide">
           <CountPill
             label="green/live"
