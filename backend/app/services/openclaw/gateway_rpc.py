@@ -28,7 +28,7 @@ from app.services.openclaw.device_identity import (
     sign_device_payload,
 )
 
-PROTOCOL_VERSION = 3
+PROTOCOL_VERSION = 4
 # Resolved once at import time; matches the value written by the openclaw CLI
 # during pairing ("linux", "darwin", or "windows").
 _HOST_PLATFORM: str = _platform.system().lower()
