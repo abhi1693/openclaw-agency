@@ -1499,28 +1499,43 @@ async function crmLiteByTg(): Promise<Record<string, CrmLite>> {
 }
 
 // Liste TOUS les clients CRM (DB live) pour la vue "Tous les clients", classés chaud + dépôt.
-async function buildAllClients(limit = 400) {
-  const rows = crmDbRows("SELECT telegram_id, broker_uid, json FROM clients WHERE telegram_id IS NOT NULL AND telegram_id!=''");
+type AllClientRow = {
+  userId: string; name: string; username: string; country: string;
+  crmTemp: string; crmScore: number | null; crmTier: string; crmStripe: string;
+  depositUsd: number | null; commissionUsd: number | null; isClient: boolean;
+  brokerOnly: boolean; broker: string; churnRisk: string;
+};
+// Flux 7b — valeur de tri unifiée : un client est en haut s'il est CHAUD (score CRM) OU une
+// grosse BALEINE (dépôt). max(score, dépôt normalisé) → hot-engagés ET gros déposants remontent.
+const rankValue = (r: AllClientRow) => Math.max(r.crmScore ?? 0, Math.min(110, Math.round((r.depositUsd ?? 0) / 300)));
+
+// Vue "Tous les clients" : 270 clients CRM scorés (Telegram) UNION les déposants broker non liés
+// (3282, vrais noms+montants, baleines à reconquérir). Toute la vraie donnée DB, classée chaud+argent.
+async function buildAllClients(limit = 500) {
   const dep = await depositsByUid();
-  const tempRank: Record<string, number> = { HOT: 3, WARM: 2, COLD: 1 };
-  const out = rows.map((r) => {
+  // 1) clients CRM scorés (avec Telegram)
+  const crmRows = crmDbRows("SELECT telegram_id, broker_uid, json FROM clients WHERE telegram_id IS NOT NULL AND telegram_id!=''");
+  const scored: AllClientRow[] = crmRows.map((r) => {
     let c: Record<string, unknown> = {}; try { c = JSON.parse(asString(r.json)) as Record<string, unknown>; } catch { c = {}; }
     const d = dep[asString(r.broker_uid)] || null;
-    const temp = sanitizeText(asString(c.temperature), 20).toUpperCase();
     return {
       userId: asString(r.telegram_id), name: sanitizeText(asString(c.client_name), 60) || asString(r.telegram_id),
       username: sanitizeText(asString(c.username), 60), country: sanitizeText(asString(c.country), 8),
-      crmTemp: temp, crmScore: crmNum(c.score), crmTier: sanitizeText(asString(c.value_tier), 40).toUpperCase(),
-      crmStripe: sanitizeText(asString(c.stripe_status), 30).toLowerCase(),
+      crmTemp: sanitizeText(asString(c.temperature), 20).toUpperCase(), crmScore: crmNum(c.score),
+      crmTier: sanitizeText(asString(c.value_tier), 40).toUpperCase(), crmStripe: sanitizeText(asString(c.stripe_status), 30).toLowerCase(),
       depositUsd: d?.first ?? crmNum(c.deposit_usd), commissionUsd: d?.commission ?? null,
-      isClient: clientFlags(c, d?.first ?? null),
+      isClient: clientFlags(c, d?.first ?? null), brokerOnly: false, broker: sanitizeText(asString(c.broker), 20), churnRisk: d?.churn ?? "",
     };
-  }).sort((a, b) =>
-    (tempRank[b.crmTemp] ?? 0) - (tempRank[a.crmTemp] ?? 0)
-    || (b.crmScore ?? 0) - (a.crmScore ?? 0)
-    || (b.depositUsd ?? 0) - (a.depositUsd ?? 0),
-  ).slice(0, limit);
-  return out;
+  });
+  // 2) déposants broker NON liés au CRM (baleines sans Telegram mappé) — top par dépôt
+  const depRows = crmDbRows("SELECT uid, name, broker, country, first_dep, net_dep, commission, churn_risk FROM broker_accounts WHERE CAST(first_dep AS REAL)>0 AND (in_crm_clients=0 OR in_crm_clients IS NULL) AND name IS NOT NULL AND name!='' AND name NOT LIKE '%None%' ORDER BY CAST(first_dep AS REAL) DESC LIMIT 350");
+  const brokerOnly: AllClientRow[] = depRows.map((r) => ({
+    userId: `broker:${asString(r.uid)}`, name: sanitizeText(asString(r.name), 60), username: "", country: sanitizeText(asString(r.country), 8),
+    crmTemp: "", crmScore: null, crmTier: "DÉPOSANT", crmStripe: "",
+    depositUsd: crmNum(r.first_dep), commissionUsd: crmNum(r.commission), isClient: true,
+    brokerOnly: true, broker: sanitizeText(asString(r.broker), 20), churnRisk: sanitizeText(asString(r.churn_risk), 20),
+  }));
+  return [...scored, ...brokerOnly].sort((a, b) => rankValue(b) - rankValue(a) || (b.depositUsd ?? 0) - (a.depositUsd ?? 0)).slice(0, limit);
 }
 
 // Envoi d'une note VOCALE à un client depuis la dashboard — proxy vers la brique média
