@@ -378,8 +378,9 @@ export function WorldMapLiving({ snapshot, angelRoster, onSelectHouse }: { snaps
     const merged = new Map<string, WorldMachine>();
     for (const svc of services) { const id = svc.id ?? ""; const hh = SERVICE_HOME_BY_ID[id]; if (!hh) continue; merged.set(id, { id, label: svc.label ?? id, homeHouse: hh, ok: svc.ok === true, status: svc.status ?? (svc.ok ? "LIVE" : "UNKNOWN"), role: svc.role, proof: svc.url }); }
     for (const svc of openclawRuntime?.services ?? []) { const hh = SERVICE_HOME_BY_ID[svc.id]; if (!hh) continue; merged.set(svc.id, { id: svc.id, label: svc.label, homeHouse: hh, ok: svc.ok, status: svc.status, proof: svc.http_code === null ? "no listener / timeout" : `HTTP ${svc.http_code}` }); }
+    for (const tm of toolMachines) merged.set(tm.id, tm); // Notion/Linear rattachés à leur maison
     return [...merged.values()];
-  }, [services, openclawRuntime]);
+  }, [services, openclawRuntime, toolMachines]);
   const machinesByHome = useMemo(() => { const map: Record<string, WorldMachine[]> = {}; for (const m of machines) (map[m.homeHouse] ||= []).push(m); return map; }, [machines]);
   const runtimeAgentsByHome = useMemo(() => { const map: Record<string, RuntimeAgent[]> = {}; for (const agent of openclawRuntime?.agents ?? []) { const home = HOUSE_BY_ID[agent.homeHouse] ? agent.homeHouse : "openclaw_agent_barracks"; (map[home] ||= []).push(agent); } return map; }, [openclawRuntime]);
   const selZone = HOUSE_BY_ID[selectedHouse ?? ""] ?? null;
