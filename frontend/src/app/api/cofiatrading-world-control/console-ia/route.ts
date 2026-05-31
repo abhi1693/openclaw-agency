@@ -2028,7 +2028,7 @@ export async function GET(request: Request) {
       text: sanitizeText(asString(m.text), 1200),
     }));
     return NextResponse.json(
-      { ok: true, sourceTag: SOURCE_TAG, userId: conversationUid, agent: conv.agent, messages },
+      { ok: true, sourceTag: SOURCE_TAG, userId: conversationUid, agent: conv.agent, messages, takeover: await isTakeoverActive(conversationUid) },
       { headers: { "Cache-Control": "no-store" } },
     );
   }
