@@ -110,7 +110,10 @@ const statusWeight = (status: Status) => {
 const readSnapshot = async (): Promise<SnapshotPayload> => {
   const response = await fetch(SNAPSHOT_URL, {
     cache: "no-store",
-    signal: AbortSignal.timeout(4500),
+    // Le snapshot agrège ~15 probes locales et met ~7s en régime : 4.5s
+    // timeoutait systématiquement (world-state → 500, feed events vide,
+    // donc aucun agent jamais animé). 12s = marge sûre sur la latence réelle.
+    signal: AbortSignal.timeout(12000),
   });
   if (!response.ok) {
     throw new Error(`snapshot_http_${response.status}`);
