@@ -916,7 +916,7 @@ function roleProp(type: AgentAvatarType, accent: string, state: AgentState) {
 }
 
 /* ════════════════════ INSPECTOR agent ════════════════════ */
-function AgentInspector({ agent, state, activityLabel, houseName, houseStatus, onClose, onGotoHouse }: { agent: CanonAgent; state: AgentState; activityLabel?: string; houseName: string; houseStatus: { color: string; label: string }; onClose: () => void; onGotoHouse: () => void }) {
+function AgentInspector({ agent, state, activityLabel, houseName, houseStatus, agentItems, onClose, onGotoHouse }: { agent: CanonAgent; state: AgentState; activityLabel?: string; houseName: string; houseStatus: { color: string; label: string }; agentItems: InvItem[]; onClose: () => void; onGotoHouse: () => void }) {
   const c1 = agent.colorPrimary, c2 = agent.colorAccent, hood = shade(agent.houseColor || "#334155", -8);
   return (
     <div>
