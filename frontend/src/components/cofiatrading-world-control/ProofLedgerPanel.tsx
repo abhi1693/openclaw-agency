@@ -30,6 +30,25 @@ import { enforceNoFalseGreenAll } from "@/utils/cofiatNoFalseGreenGuard";
 import { getConsoleIaAdapterState } from "@/config/cofiatConsoleIaAdapter";
 import type { CofiatViolation, CofiatWorkerPolicy } from "@/types/cofiatProofLedger.types";
 
+/** État live NotebookLM (réponse de /api/cofiatrading-world-control/notebooklm). */
+type NblPack = { id: string; title: string; status: string; notebook_url?: string };
+type NblState = {
+  ok: boolean;
+  status: string;
+  rawStatus: string | null;
+  packsTotal: number;
+  packsSynced: number;
+  packsAwaiting: number;
+  packs: NblPack[];
+  lastAuditUtc: string | null;
+  staleDays: number | null;
+  hubRole: string | null;
+  deepLink: string;
+  proof: string;
+  blocker?: string;
+  nextAction?: string;
+};
+
 type TabId =
   | "vue"
   | "violations"
