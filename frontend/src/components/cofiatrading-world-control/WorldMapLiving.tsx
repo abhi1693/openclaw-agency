@@ -298,7 +298,7 @@ export function WorldMapLiving({ snapshot, angelRoster, onSelectHouse }: { snaps
 
     // routes (chemins réels)
     const roads = ROAD_LINKS.map(([a, b, kind]) => {
-      const ha = HOUSE_BY_ID[a], hb = HOUSE_BY_ID[b]; const fa = isoProject(houseFrontWorld(ha).wx, houseFrontWorld(ha).wy), fb = isoProject(houseFrontWorld(hb).wx, houseFrontWorld(hb).wy);
+      const ha = EFF_BY_ID[a], hb = EFF_BY_ID[b]; const fa = isoProject(houseFrontWorld(ha).wx, houseFrontWorld(ha).wy), fb = isoProject(houseFrontWorld(hb).wx, houseFrontWorld(hb).wy);
       const mx = (fa.sx + fb.sx) / 2, my = (fa.sy + fb.sy) / 2 - 8;
       return { id: `${a}__${b}`, a, b, d: `M ${fa.sx.toFixed(1)} ${fa.sy.toFixed(1)} Q ${mx.toFixed(1)} ${my.toFixed(1)} ${fb.sx.toFixed(1)} ${fb.sy.toFixed(1)}`, w: kind === "main" ? 11 : 7 };
     });
