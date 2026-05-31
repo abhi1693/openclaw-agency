@@ -842,7 +842,9 @@ function Building({ b, status, selected, hover, dim, editMode, machines, agentCo
         <line x1="0" y1="-34" x2="11" y2="-34" stroke="#5a4a32" strokeWidth="1.4" />
         <path d="M2 -33 h9 v18 l-4.5 -4 l-4.5 4 Z" fill={h.accent} stroke={shade(h.accent, -45)} strokeWidth="0.7" />
         <path d="M2 -33 h9 v3.5 h-9 Z" fill={shade(h.accent, 30)} opacity="0.5" />
-        <circle cx="6.5" cy="-25" r="2.6" fill={st.color} stroke="#0a1410" strokeWidth="0.6">{alert && <animate attributeName="opacity" values="1;0.3;1" dur="0.9s" repeatCount="indefinite" />}</circle>
+        {/* écusson métier (houseIcon) brodé sur le drap */}
+        <g transform="translate(6.5 -26) scale(0.46)" fill="none" stroke="#17110a" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">{houseIcon(h.type)}</g>
+        <circle cx="6.5" cy="-18.5" r="2.2" fill={st.color} stroke="#0a1410" strokeWidth="0.6">{alert && <animate attributeName="opacity" values="1;0.3;1" dur="0.9s" repeatCount="indefinite" />}</circle>
       </g>
       {/* enseigne picto SVG (zéro emoji) */}
       <g transform={`translate(${cx} ${signY})`}><polygon points="-11,0 -6,-7.5 6,-7.5 11,0 6,7.5 -6,7.5" fill="#071018" stroke={h.accent} strokeWidth="1.2" opacity="0.97" /><g fill="none" stroke={h.accent} strokeWidth="1.3" strokeLinecap="round" strokeLinejoin="round">{houseIcon(h.type)}</g></g>
