@@ -800,8 +800,14 @@ function Building({ b, status, selected, hover, dim, editMode, machines, agentCo
       <polyline points={`${P(body.top[1])} ${P(body.top[2])} ${P(body.top[3])}`} fill="none" stroke="#161009" strokeWidth="2.2" strokeOpacity="0.45" strokeLinejoin="round" strokeLinecap="round" />
       {stepped && upper && (<><polygon points={upper.leftStr} fill={h.wall} /><polygon points={upper.rightStr} fill={shade(h.wall, -18)} /><polygon points={upper.roofPoly} fill={h.roofColor} /><polygon points={upper.roofPoly} fill="url(#roofSheen)" /><polygon points={upper.roofPoly} fill="none" stroke={h.accent} strokeWidth="1.1" opacity="0.9" /></>)}
       <RoofFeatures h={h} apex={apex} cx={cx} accent={h.accent} />
-      {/* drapeau statut (anim seulement si alerte) */}
-      <g transform={`translate(${cx - h.w * 6.5} ${apex.y - 2})`}><line x1="0" y1="7" x2="0" y2="-18" stroke="#8a98a8" strokeWidth="1.2" /><path d="M0 -18 L12 -14.5 L0 -10 Z" fill={st.color} opacity="0.95" style={alert ? { transformOrigin: "0px -14px", animation: "flag-alert 0.9s ease-in-out infinite" } : undefined} /></g>
+      {/* bannière suspendue Dofus (drap = accent maison · pastille = statut, anim si alerte) */}
+      <g transform={`translate(${(cx - h.w * 6.6).toFixed(1)} ${apex.y.toFixed(1)})`}>
+        <line x1="0" y1="2" x2="0" y2="-34" stroke="#5a4a32" strokeWidth="1.6" />
+        <line x1="0" y1="-34" x2="11" y2="-34" stroke="#5a4a32" strokeWidth="1.4" />
+        <path d="M2 -33 h9 v18 l-4.5 -4 l-4.5 4 Z" fill={h.accent} stroke={shade(h.accent, -45)} strokeWidth="0.7" />
+        <path d="M2 -33 h9 v3.5 h-9 Z" fill={shade(h.accent, 30)} opacity="0.5" />
+        <circle cx="6.5" cy="-25" r="2.6" fill={st.color} stroke="#0a1410" strokeWidth="0.6">{alert && <animate attributeName="opacity" values="1;0.3;1" dur="0.9s" repeatCount="indefinite" />}</circle>
+      </g>
       {/* enseigne picto SVG (zéro emoji) */}
       <g transform={`translate(${cx} ${signY})`}><polygon points="-11,0 -6,-7.5 6,-7.5 11,0 6,7.5 -6,7.5" fill="#071018" stroke={h.accent} strokeWidth="1.2" opacity="0.97" /><g fill="none" stroke={h.accent} strokeWidth="1.3" strokeLinecap="round" strokeLinejoin="round">{houseIcon(h.type)}</g></g>
       {/* machines (puces toit) */}
