@@ -1306,9 +1306,10 @@ function ConversationsInbox({
             <div className="mt-1 flex items-center gap-1.5">
               {t.agent ? <span className={`rounded-full border px-1.5 py-0.5 text-[8px] font-black uppercase ${AGENT_ACCENT[t.agent.toLowerCase()] ?? "border-slate-600 text-slate-300"}`}>{t.agent}</span> : null}
               {t.crmStripe ? <span className="flex items-center gap-1 text-[9px] text-slate-400"><span className={`h-1.5 w-1.5 rounded-full ${stripeDot(t.crmStripe)}`} />{t.crmStripe}</span> : null}
-              {t.crmIsClient ? <span className="text-[8px] font-black uppercase tracking-[0.04em] text-emerald-300/85">client</span> : t.crmFound ? <span className="text-[8px] uppercase tracking-[0.04em] text-slate-500">prospect</span> : null}
+              {t.brokerOnly ? <span className="rounded-full border border-violet-300/40 px-1.5 py-0.5 text-[8px] font-black uppercase tracking-[0.04em] text-violet-200">📊 déposant{t.broker ? ` ${t.broker}` : ""}</span> : t.crmIsClient ? <span className="text-[8px] font-black uppercase tracking-[0.04em] text-emerald-300/85">client</span> : t.crmFound ? <span className="text-[8px] uppercase tracking-[0.04em] text-slate-500">prospect</span> : null}
               {t.depositUsd ? <span className="text-[9px] font-black text-emerald-300/90">${t.depositUsd}</span> : null}
-              {whale && t.crmTier ? <span className="truncate text-[9px] font-black uppercase tracking-[0.05em] text-amber-300/70">{t.crmTier}</span> : null}
+              {/^(ELEVE|ÉLEVÉ|CRITIQUE|HIGH)$/i.test(t.churnRisk || "") ? <span className="text-[8px] font-black uppercase text-rose-300">⚠ churn</span> : null}
+              {!t.brokerOnly && whale && t.crmTier ? <span className="truncate text-[9px] font-black uppercase tracking-[0.05em] text-amber-300/70">{t.crmTier}</span> : null}
               <span className="ml-auto shrink-0 text-[9px] text-slate-600">{t.lastTs}</span>
             </div>
           </button>
