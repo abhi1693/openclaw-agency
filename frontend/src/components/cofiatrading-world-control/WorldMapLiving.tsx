@@ -473,8 +473,10 @@ export function WorldMapLiving({ snapshot, angelRoster, onSelectHouse }: { snaps
             {(Object.keys(ZONES) as ZoneId[]).map((zid) => (<radialGradient key={zid} id={`dist-${zid}`} cx="50%" cy="50%" r="50%"><stop offset="0%" stopColor={ZONES[zid].floor} stopOpacity="0.85" /><stop offset="70%" stopColor={ZONES[zid].floor} stopOpacity="0.35" /><stop offset="100%" stopColor={ZONES[zid].floor} stopOpacity="0" /></radialGradient>))}
           </defs>
 
-          {/* mer unie (pas de cercle/contour décoratif) */}
+          {/* mer unie (hors caméra : fond plein) */}
           <rect x="-100000" y="-100000" width="200000" height="200000" fill="#06141f" />
+          {/* ── CAMÉRA (pan/zoom) : toute la scène se transforme ici ── */}
+          <g transform={camG}>
           {/* île douce */}
           <path d={scene.islandPath} fill="#000" opacity="0.45" filter="url(#softBlur)" transform="translate(0 10)" />
           <path d={scene.islandPath} fill="url(#land)" />
