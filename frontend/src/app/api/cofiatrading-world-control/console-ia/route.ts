@@ -1480,11 +1480,13 @@ async function buildClient360(tgId: string) {
   const dep = (await depositsByUid())[brokerUid] || null;
   const dealStage = pick("deal_stage", 40);
   const segment = pick("segment", 40);
+  const capturedEmail = (await readCapturedEmails())[tgId] || "";
   return {
     found: true,
     telegramId: tgId,
     updatedAt: sanitizeText(asString(rows[0].updated_at), 40),
-    identity: { name: pick("client_name"), username: pick("username"), country: pick("country"), language: pick("language"), email: pick("email", 120), phone: pick("phone", 40) },
+    capturedEmail,
+    identity: { name: pick("client_name"), username: pick("username"), country: pick("country"), language: pick("language"), email: pick("email", 120) || capturedEmail, phone: pick("phone", 40) },
     temperature: { label: pick("temperature", 20).toUpperCase(), score: crmNum(c.score), urgency: pick("urgency", 30) },
     money: {
       valueTier: pick("value_tier", 40).toUpperCase(),
