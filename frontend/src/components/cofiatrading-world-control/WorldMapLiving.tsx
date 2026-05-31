@@ -865,10 +865,10 @@ export function WorldMapLiving({
             const zc = ZONES[z.id];
             return (
               <g key={z.id}>
-                <path d={z.path} fill={zc.color} opacity="0.07" />
-                <path d={z.path} fill="none" stroke={zc.color} strokeWidth="1.2" strokeDasharray="3 6" opacity="0.32" />
-                <text x={z.label.x} y={z.label.y} textAnchor="middle" fontSize="15" fontWeight="900" fill={zc.color} opacity="0.85" style={{ letterSpacing: "3px" }}>{zc.label}</text>
-                <text x={z.label.x} y={z.label.y + 13} textAnchor="middle" fontSize="8" fontWeight="600" fill="#7c93ad" style={{ letterSpacing: "1px" }}>{zc.sub}</text>
+                <path d={z.path} fill={zc.color} opacity="0.08" />
+                <path d={z.path} fill="none" stroke={zc.color} strokeWidth="1.4" strokeDasharray="3 6" opacity="0.38" />
+                <text x={z.label.x} y={z.label.y} textAnchor="middle" fontSize="17" fontWeight="900" fill={zc.color} opacity="0.96" stroke="#02060e" strokeWidth="3.2" paintOrder="stroke" style={{ letterSpacing: "3px" }}>{zc.label}</text>
+                <text x={z.label.x} y={z.label.y + 14} textAnchor="middle" fontSize="8.5" fontWeight="700" fill="#9fb3c8" stroke="#02060e" strokeWidth="2" paintOrder="stroke" style={{ letterSpacing: "1px" }}>{zc.sub}</text>
               </g>
             );
           })}
