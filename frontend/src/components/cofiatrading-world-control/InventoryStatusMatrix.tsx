@@ -139,8 +139,6 @@ function StatusChip({ status }: { status: OperationalStatus }) {
   );
 }
 
-const isGreen = (s: OperationalStatus): boolean => s === "GREEN" || s === "LIVE";
-
 /** true pour les statuts qui doivent exposer un blocker/nextAction. */
 function isBlocked(s: OperationalStatus): boolean {
   return (
