@@ -796,6 +796,8 @@ function Building({ b, status, selected, hover, dim, editMode, machines, agentCo
       {/* porte en arche (cadre bois chaud, cozy) */}
       <path d={`M ${P(doorBL)} L ${P(doorBR)} L ${P(doorTR)} Q ${(((doorTL.x + doorTR.x) / 2)).toFixed(1)} ${(((doorTL.y + doorTR.y) / 2) - bodyH * 0.06).toFixed(1)} ${P(doorTL)} Z`} fill="#0a0a12" stroke="#6b5638" strokeWidth="1" strokeOpacity="0.8" />
       <polygon points={body.roofPoly} fill={h.roofColor} /><polygon points={body.roofPoly} fill="url(#roofSheen)" /><polygon points={body.roofPoly} fill="none" stroke={h.accent} strokeWidth={focus ? 1.6 : 1} opacity="0.9" />
+      {/* tuiles : lignes de toit (texture cozy) */}
+      {[0.28, 0.52, 0.76].map((v, i) => { const a = lerpPt(body.top[3], body.top[0], v); const c = lerpPt(body.top[2], body.top[1], v); return <line key={`sh${i}`} x1={a.x.toFixed(1)} y1={a.y.toFixed(1)} x2={c.x.toFixed(1)} y2={c.y.toFixed(1)} stroke={shade(h.roofColor, -22)} strokeWidth="0.6" opacity="0.5" />; })}
       {/* eave : débord de toit (ombre chaude sous l'avant-toit) */}
       <polyline points={`${P(body.top[1])} ${P(body.top[2])} ${P(body.top[3])}`} fill="none" stroke="#161009" strokeWidth="2.2" strokeOpacity="0.45" strokeLinejoin="round" strokeLinecap="round" />
       {stepped && upper && (<><polygon points={upper.leftStr} fill={h.wall} /><polygon points={upper.rightStr} fill={shade(h.wall, -18)} /><polygon points={upper.roofPoly} fill={h.roofColor} /><polygon points={upper.roofPoly} fill="url(#roofSheen)" /><polygon points={upper.roofPoly} fill="none" stroke={h.accent} strokeWidth="1.1" opacity="0.9" /></>)}
