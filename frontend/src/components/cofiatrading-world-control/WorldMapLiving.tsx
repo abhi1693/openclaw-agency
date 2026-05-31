@@ -419,7 +419,7 @@ export function WorldMapLiving({ snapshot, angelRoster, onSelectHouse }: { snaps
   // inventaire groupé par maison (un item multi-maison "a,b" est rattaché à chaque maison)
   const inventoryByHouse = useMemo(() => {
     const map: Record<string, InvItem[]> = {};
-    for (const it of inventory) { const hid = (it.houseId || "").trim(); if (!hid) continue; for (const h of hid.split(",").map((s) => s.trim()).filter(Boolean)) (map[h] ||= []).push(it); }
+    for (const it of inventory) for (const h of resolveHouseIds(it)) (map[h] ||= []).push(it);
     return map;
   }, [inventory]);
   const runtimeAgentsByHome = useMemo(() => { const map: Record<string, RuntimeAgent[]> = {}; for (const agent of openclawRuntime?.agents ?? []) { const home = HOUSE_BY_ID[agent.homeHouse] ? agent.homeHouse : "openclaw_agent_barracks"; (map[home] ||= []).push(agent); } return map; }, [openclawRuntime]);
