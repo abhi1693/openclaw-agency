@@ -125,4 +125,11 @@ export type AuthLedgerItem = {
   nextAction?: string;
   greenCondition?: string;
   lastCheckedLabel?: string;
+  /** ── enrichissement structuré optionnel (preuve typée, no-false-green) ── */
+  proofKind?: ProofKind;
+  confidence?: ProofConfidence;
+  /** ISO 8601 — horodatage de la vérification. */
+  checkedAt?: string;
+  /** ISO 8601 — expiration de la preuve (si périssable) → UNKNOWN si dépassé. */
+  expiresAt?: string;
 };
