@@ -292,7 +292,7 @@ export function WorldMapLiving({ snapshot, angelRoster, onSelectHouse }: { snaps
     }, 600);
   }, [posOverride, cam]);
   // maisons effectives (positions overridées par l'édition Erwin)
-  const effHouses = useMemo(() => HOUSES.map((h) => (posOverride[h.id] ? { ...h, x: posOverride[h.id].x, y: posOverride[h.id].y } : h)), [posOverride]);
+  const effHouses = useMemo(() => ALL_HOUSES.map((h) => (posOverride[h.id] ? { ...h, x: posOverride[h.id].x, y: posOverride[h.id].y } : h)), [posOverride]);
   const EFF_BY_ID = useMemo(() => Object.fromEntries(effHouses.map((h) => [h.id, h])) as Record<string, House>, [effHouses]);
 
   const statusFor = (id: string): string => {
