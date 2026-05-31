@@ -605,6 +605,7 @@ export function WorldMapLiving({ snapshot, angelRoster, onSelectHouse }: { snaps
             <filter id="softBlur" x="-40%" y="-40%" width="180%" height="180%"><feGaussianBlur stdDeviation="14" /></filter>
             <radialGradient id="lglow" cx="50%" cy="50%" r="50%"><stop offset="0%" stopColor="#ffd98a" stopOpacity="0.5" /><stop offset="100%" stopColor="#ffd98a" stopOpacity="0" /></radialGradient>
             <pattern id="cobble" width="13" height="7" patternUnits="userSpaceOnUse" patternTransform="rotate(-26)"><rect x="0.6" y="0.6" width="5" height="2.6" rx="1.3" fill="#ffffff" opacity="0.04" /><rect x="6.8" y="3.6" width="5" height="2.6" rx="1.3" fill="#000000" opacity="0.06" /></pattern>
+            <pattern id="paving" width="9" height="9" patternUnits="userSpaceOnUse" patternTransform="rotate(-26)"><rect width="9" height="9" fill="#6f6552" /><rect x="0.5" y="0.6" width="3.4" height="3" rx="1.3" fill="#7e745f" /><rect x="4.7" y="1.5" width="3.4" height="3" rx="1.3" fill="#665c4a" /><rect x="2.3" y="4.9" width="3.4" height="3" rx="1.3" fill="#776d58" /><rect x="6.1" y="5.5" width="2.4" height="2.4" rx="1.1" fill="#5d5342" /></pattern>
             {(Object.keys(ZONES) as ZoneId[]).map((zid) => (<radialGradient key={zid} id={`dist-${zid}`} cx="50%" cy="50%" r="50%"><stop offset="0%" stopColor={ZONES[zid].floor} stopOpacity="0.8" /><stop offset="70%" stopColor={ZONES[zid].floor} stopOpacity="0.3" /><stop offset="100%" stopColor={ZONES[zid].floor} stopOpacity="0" /></radialGradient>))}
           </defs>
 
