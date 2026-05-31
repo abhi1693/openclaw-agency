@@ -144,6 +144,9 @@ const HOUSE_KEYWORDS: Record<string, string[]> = {
 
 type RuntimeAgent = NonNullable<CofiaSnapshot["openclawRuntime"]>["agents"][number];
 type WorldMachine = { id: string; label: string; homeHouse: string; ok: boolean; status: string; role?: string; proof?: string };
+/* item d'inventaire (matrice 742) — déjà rattaché à sa maison (houseId) + agent (ownerAgentId) */
+type InvItem = { id: string; name: string; category: string; houseId: string; ownerAgentId?: string; cost?: string; status: string; statusSource?: string; proof?: string; blocker?: string; nextAction?: string };
+const invColor = (s: string) => s === "GREEN" || s === "LIVE" ? "#34d399" : s === "AMBER" || s === "AMBER_REVERIFY" || s === "STALE" || s === "DEGRADED" ? "#f59e0b" : s === "RED" ? "#ef4444" : s === "QUARANTINE" ? "#fb7185" : "#64748b";
 
 const runtimeColor = (s: string) => s === "FRESH" || s === "LIVE" || s === "GREEN" ? "#34d399" : s === "SLEEPING" || s === "PAUSED" ? "#64748b" : s === "STALE" || s === "AMBER" || s === "DEGRADED" ? "#f59e0b" : "#ef4444";
 function houseStatusStyle(status: string): { color: string; label: string } {
