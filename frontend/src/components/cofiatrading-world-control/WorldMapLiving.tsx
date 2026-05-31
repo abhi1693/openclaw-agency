@@ -92,7 +92,7 @@ const HOUSES: House[] = [
  * registry :8767 → statut "MODULE" (violet, ni LIVE ni RED). Placés au centre (zone
  * core) pour remplir le cœur de carte et rester command-adjacent (§23 ALM / §24 Proof). */
 const MODULES: House[] = [
-  { id: "notebook_alm", name: "Notebook ALM", sub: "Planning · Roadmap · ALM", x: 50, y: 44, w: 6, h: 5, type: "notebook_alm", zone: "core", roof: "flat", levels: 4, wall: "#2d2440", roofColor: "#161226", accent: "#f3e2b3", role: "Carnet de pilotage : roadmap, décisions, checklist (planning ↔ console.IA ↔ Proof Ledger). Statut config — pas encore branché live." },
+  { id: "notebook_alm", name: "NotebookLM", sub: "Google NotebookLM · grounding · 8 notebooks", x: 50, y: 44, w: 6, h: 5, type: "notebook_alm", zone: "core", roof: "flat", levels: 4, wall: "#2d2440", roofColor: "#161226", accent: "#f3e2b3", role: "Google NotebookLM (knowledge grounding). État live (notebooks/fraîcheur) lu via /api/cofiatrading-world-control/notebooklm — voir Proof Ledger › NotebookLM. 0 API publique → push via Chrome cowork." },
   { id: "proof_ledger", name: "Proof Ledger", sub: "Preuve · Audit · No-False-Green", x: 63, y: 48, w: 6, h: 5, type: "proof_ledger", zone: "core", roof: "stepped", levels: 5, wall: "#1b2230", roofColor: "#0b1018", accent: "#cbd5e1", role: "Registre de preuves : tout GREEN/LIVE porte sa preuve sourçable (no-false-green). Source config — vert seulement si preuve réelle." },
 ];
 const ALL_HOUSES: House[] = [...HOUSES, ...MODULES];
