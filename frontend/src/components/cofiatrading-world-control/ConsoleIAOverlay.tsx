@@ -924,6 +924,14 @@ type ConvThread = {
   dmLead?: boolean;
 };
 
+// Flux 11 — cockpit vue d'ensemble (argent + santé, depuis l'ancien hub).
+type Cockpit = {
+  live?: boolean; mrrGross?: number | null; mrrCollected?: number | null; vipActive?: number | null; ftdRate?: number | null;
+  commissionLifetime?: number | null; brokers?: Array<{ id: string; name: string; earned: number | null }>;
+  housesGreen?: number | null; housesTotal?: number | null; agentsAlive?: number | null; agentsTotal?: number | null;
+  servicesTotal?: number | null; servicesErrors?: number | null; truthClaimsOpen?: number | null; ts?: string;
+};
+
 // Flux 7 — totaux CRM réels (en-tête console).
 type CrmTotals = {
   clients?: number | null; clientsTg?: number | null; hot?: number | null; warm?: number | null;
