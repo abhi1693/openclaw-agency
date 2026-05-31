@@ -1031,7 +1031,28 @@ function ConversationsInbox({
               <button type="button" onClick={() => setConfirm(false)} className="rounded-lg border border-slate-700 px-2 py-1 text-[11px] text-slate-300">Annuler</button>
             </div>
           )}
-          <span className="text-[9px] leading-3 text-slate-500">Envoi réel gated · clic + confirmation · via le bot {active?.agent || "iron"}. Le reste = lecture seule.</span>
+          <div className="flex flex-wrap items-center gap-2 border-t border-slate-800/60 pt-1.5">
+            {!recording ? (
+              <button type="button" onClick={startRec} disabled={sendingVoice} className="rounded-lg border border-slate-700 px-2.5 py-1 text-[11px] font-black text-slate-200 transition hover:border-cyan-300/50 disabled:opacity-40">🎤 Vocale</button>
+            ) : (
+              <button type="button" onClick={stopRec} className="rounded-lg border border-rose-300/50 bg-rose-400/10 px-2.5 py-1 text-[11px] font-black text-rose-100">⏹ Stop</button>
+            )}
+            {audioB64 && !recording ? (
+              <>
+                <audio controls src={`data:audio/webm;base64,${audioB64}`} className="h-7 max-w-[130px]" />
+                {!voiceConfirm ? (
+                  <button type="button" onClick={() => setVoiceConfirm(true)} className="rounded-lg border border-emerald-300/50 bg-emerald-400/10 px-2.5 py-1 text-[11px] font-black text-emerald-100">Envoyer vocale →</button>
+                ) : (
+                  <>
+                    <span className="text-[10px] font-black text-amber-200">Confirmer vocale → {active?.name} ?</span>
+                    <button type="button" disabled={sendingVoice} onClick={async () => { const ok = await onSendVoice(selectedId, audioB64, active?.agent || "iron"); if (ok) setAudioB64(null); setVoiceConfirm(false); }} className="rounded-lg border border-emerald-300/55 bg-emerald-400/15 px-2 py-1 text-[11px] font-black text-emerald-100 disabled:opacity-40">{sendingVoice ? "Envoi…" : "Confirmer"}</button>
+                    <button type="button" onClick={() => { setVoiceConfirm(false); setAudioB64(null); }} className="rounded-lg border border-slate-700 px-2 py-1 text-[11px] text-slate-300">✕</button>
+                  </>
+                )}
+              </>
+            ) : null}
+          </div>
+          <span className="text-[9px] leading-3 text-slate-500">Envoi réel gated · clic + confirmation · via le bot {active?.agent || "iron"}. Texte + 🎤 vocale (note vocale Telegram). Le reste = lecture seule.</span>
         </div>
       </div>
     );
