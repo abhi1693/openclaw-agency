@@ -1483,6 +1483,10 @@ export function ConsoleIAOverlay() {
   const activeWhyStatus = thread?.whyStatus ?? packetResult?.whyStatus;
   const activeTimeline = thread?.timeline ?? packetResult?.timeline;
   const activeActionMode = thread?.actionMode ?? packetResult?.actionMode ?? selectedActionMode;
+  // Flux 4 — approbation 1-tap : un packet EXECUTE en attente expose execute=APPROVAL_REQUIRED.
+  const activeExecuteStatus = thread?.honestStatus?.execute ?? packetResult?.honestStatus?.execute;
+  const approvalPending = activeExecuteStatus === "APPROVAL_REQUIRED";
+  const activePktId = thread?.packetId ?? activePacketId ?? packetResult?.packetId ?? null;
   const activeStatusBadges = useMemo(
     () => thread?.statusBadges ?? packetResult?.statusBadges ?? [],
     [packetResult?.statusBadges, thread?.statusBadges],
