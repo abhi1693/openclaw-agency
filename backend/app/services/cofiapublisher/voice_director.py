@@ -48,6 +48,7 @@ VOICE_ROSTER_PATH = Path(os.environ.get("COF_VOICE_ROSTER",
                          str(Path.home() / ".openclaw/config/cofiapublisher_voice_roster.json")))
 VOICE_ROLES: dict = {}        # rôle sémantique (hook/narrator/hype/cta…) -> voice_id
 DEAD_VOICES: set = set()      # voice_ids inutilisables (ex: clone burak jamais fine-tuné)
+DEAD_NAMES: set = set()       # noms/clés de voix cassées (ex: "burak") -> fallback
 FALLBACK_VOICE = DEFAULT_FR_VOICE
 
 def _load_roster() -> None:
