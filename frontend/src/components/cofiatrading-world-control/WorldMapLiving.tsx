@@ -506,6 +506,26 @@ export function WorldMapLiving({ snapshot, angelRoster, onSelectHouse }: { snaps
         {/* léger assombrissement des bords (n'intercepte pas les clics) */}
         <div className="pointer-events-none absolute inset-0 rounded-xl" style={{ background: "radial-gradient(120% 120% at 50% 44%, transparent 66%, rgba(0,0,0,0.42))" }} />
 
+        {/* ════════ BARRE OUTILS CAMÉRA + ÉDITION ════════ */}
+        {(() => { const btn = "flex h-6 w-6 items-center justify-center rounded-md border border-slate-700 bg-slate-900/80 text-[12px] font-bold text-slate-200 hover:border-cyan-300/60 hover:text-cyan-100"; return (
+        <div className="absolute left-2 top-2 z-30 flex flex-col gap-1.5 rounded-xl border border-cyan-300/20 bg-slate-950/85 p-1.5 backdrop-blur">
+          <button type="button" onClick={() => setEditMode((v) => !v)} title="Mode édition : clic-glisser pour déplacer les maisons" className={`rounded-md px-2 py-1 text-[10px] font-black uppercase tracking-wide ${editMode ? "border border-amber-300/60 bg-amber-400/20 text-amber-200" : "border border-slate-700 bg-slate-900/80 text-slate-300"}`}>{editMode ? "✎ Édition" : "⊘ Figé"}</button>
+          <div className="grid grid-cols-3 gap-1">
+            <span /><button type="button" className={btn} title="Vue haut" onClick={() => panBy(0, panStep())}>▲</button><span />
+            <button type="button" className={btn} title="Vue gauche" onClick={() => panBy(panStep(), 0)}>◀</button>
+            <button type="button" className={btn} title="Recentrer" onClick={resetView}>◎</button>
+            <button type="button" className={btn} title="Vue droite" onClick={() => panBy(-panStep(), 0)}>▶</button>
+            <span /><button type="button" className={btn} title="Vue bas" onClick={() => panBy(0, -panStep())}>▼</button><span />
+          </div>
+          <div className="flex items-center justify-between gap-1">
+            <button type="button" className={btn} title="Dézoomer" onClick={() => zoomBy(1 / 1.2)}>−</button>
+            <span className="min-w-[34px] text-center text-[9px] font-bold text-slate-400">{Math.round(cam.z * 100)}%</span>
+            <button type="button" className={btn} title="Zoomer" onClick={() => zoomBy(1.2)}>+</button>
+          </div>
+          {editMode && <button type="button" onClick={resetLayout} className="rounded-md border border-rose-400/40 bg-rose-500/10 px-2 py-0.5 text-[9px] font-bold uppercase text-rose-200 hover:bg-rose-500/20">↺ reset layout</button>}
+        </div>
+        ); })()}
+
         {/* ════════ PERSONNAGES (overlay, ancrés, taille scalée ≤ maison) ════════ */}
         <div className="pointer-events-none absolute inset-0 z-10 overflow-hidden">
           {uiScale > 0 && visibleAgents.map(({ agent, wx, wy, state }) => {
