@@ -1377,6 +1377,8 @@ async function isTakeoverActive(uid: string): Promise<boolean> {
 // 6884 broker_accounts = vrais dépôts $976k / commission $2,38M). On ABANDONNE le JSON périmé
 // (data fausse, ex: Jérôme stripe past_due alors que la DB dit canceled). Lecture seule, vraie donnée.
 const CRM_DB = path.join(STATE_ROOT, "iron_crm", "iron_crm_ultra_runtime.db");
+const REENGAGE_DB = path.join(OPENCLAW_ROOT, "data", "reengage_campaign.db");
+const REENGAGE_RED_DB = path.join(OPENCLAW_ROOT, "data", "reengage_campaign_red.db");
 const SQLITE3 = "/usr/bin/sqlite3";
 const CRM_SHEET_URL = "https://docs.google.com/spreadsheets/d/1jp40CxDl3TZx2aeHRvFM5-kbvOg31lCAiyZqzQPHrls";
 
