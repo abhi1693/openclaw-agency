@@ -123,15 +123,14 @@ function geminiKeyPresent(): boolean {
  *  1. perplexity-api → seulement si clé réelle présente (sinon on saute).
  *  2. perplexity-desktop → seulement si flag bridge runtime réel (sinon on saute).
  *  3. Sinon, défaut = "openrouter" en AMBER / source=config : la clé Perplexity
- *     manque, mais le LLM routing reste actif (le paid_api_guard confirme la lane
- *     comme « hold packet only » au niveau paiement, ce qui n'invalide pas le
- *     routing local non-payant). Le blocker explique que ce n'est PAS un blocker
- *     d'auth global.
+ *     manque, mais le LLM routing reste actif. Le blocker explique que ce n'est
+ *     PAS un blocker d'auth global (routing local non-payant via rtk-llm-proxy).
+ *
+ * CLIENT-SAFE : aucune I/O disque/Node — la résolution lit uniquement
+ * process.env (absent côté navigateur ⇒ défaut honnête, jamais faux-vert).
  */
 export function getConsoleIaAdapterState(): ConsoleIaAdapterState {
   const fallbackChain = FALLBACK_CHAIN.map(String);
-  const guard = readPaidApiGuard();
-  const checkedSuffix = guard?.mtimeIso ? ` @ ${guard.mtimeIso}` : "";
 
   // 1) Perplexity API — uniquement avec une vraie clé.
   if (perplexityApiKeyPresent()) {
