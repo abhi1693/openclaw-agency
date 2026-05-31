@@ -735,7 +735,7 @@ function RPGCharacter({ agent, x, y, size, state, selected, hover, onSelect, onH
   const headRy = seed.faceShape === "oval" ? 5.7 : seed.faceShape === "round" ? 5.2 : 5.3;
   const idleAnim = state === "idle" ? "char-idle" : state === "alert" ? "char-alert" : "char-active";
   return (
-    <div className="pointer-events-auto absolute" style={{ left: x, top: y, width: W, height: Hh, transform: "translate(-50%,-82%)", transition: "left .25s linear, top .25s linear, width .15s, height .15s", zIndex: selected ? 40 : hover ? 36 : 20, cursor: "pointer" }} onClick={(e) => { e.stopPropagation(); onSelect(); }} onMouseEnter={() => onHover(true)} onMouseLeave={() => onHover(false)}>
+    <div className="pointer-events-auto absolute" style={{ left: x, top: y, width: W, height: Hh, transform: "translate(-50%,-82%)", transition: "left .25s linear, top .25s linear, width .15s, height .15s", zIndex: selected ? 40 : hover ? 36 : 20, cursor: "pointer" }} onPointerDown={(e) => e.stopPropagation()} onClick={(e) => { e.stopPropagation(); onSelect(); }} onMouseEnter={() => onHover(true)} onMouseLeave={() => onHover(false)}>
       {(selected || hover) && (<div className="absolute left-1/2 -translate-x-1/2 whitespace-nowrap rounded-md border px-1.5 py-0.5 text-[10px] font-bold text-slate-100" style={{ top: -6, background: "rgba(2,6,15,0.95)", borderColor: `${trim}99` }}>{agent.name}<span className="ml-1 font-normal text-slate-400">{agent.roleBadge}</span></div>)}
       <svg viewBox="0 0 40 56" width={W} height={Hh} style={{ overflow: "visible", display: "block" }}>
         <ellipse cx="20" cy="50" rx="10" ry="3" fill="#000" opacity="0.42" />
