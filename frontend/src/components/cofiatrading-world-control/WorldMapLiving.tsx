@@ -1,6 +1,8 @@
 "use client";
 
 import { useEffect, useMemo, useRef, useState } from "react";
+import { resolveAgentType, avatarSeed, AGENT_TYPE_CATALOG, skinHex, hairHex, type AgentAvatarType } from "@/config/cofiatWorldIdentity";
+import { STATUS_STYLE, guardStatus, type StatusCell } from "@/config/cofiatWorldStatus";
 
 /* ══════════════════════════════════════════════════════════════════
  * COFIATRADING WORLD CONTROL — CARTE ISO TACTIQUE (Cof-Island)
