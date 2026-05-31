@@ -463,9 +463,9 @@ export function WorldMapLiving({ snapshot, angelRoster, onSelectHouse }: { snaps
         </div>
       </div>
 
-      <div ref={sceneRef} className="relative h-[640px] min-h-[560px] w-full max-w-full overflow-hidden rounded-xl border border-cyan-300/15 bg-[#071622] sm:h-[calc(100vh-200px)]">
+      <div ref={sceneRef} onPointerDown={onScenePointerDown} onPointerMove={onScenePointerMove} onPointerUp={onScenePointerUp} onPointerCancel={onScenePointerUp} style={{ cursor: editMode ? "grab" : "default", touchAction: "none" }} className="relative h-[640px] min-h-[560px] w-full max-w-full overflow-hidden rounded-xl border border-cyan-300/15 bg-[#071622] sm:h-[calc(100vh-176px)]">
         <style>{KEYFRAMES}</style>
-        <svg viewBox={scene.viewBox} className="h-full w-full" preserveAspectRatio="xMidYMid meet" onClick={clearSel}>
+        <svg viewBox={scene.viewBox} className="h-full w-full" preserveAspectRatio="xMidYMid meet" onClick={() => { if (movedRef.current) { movedRef.current = false; return; } clearSel(); }}>
           <defs>
             <radialGradient id="land" cx="50%" cy="42%" r="75%"><stop offset="0%" stopColor="#163049" /><stop offset="60%" stopColor="#0e2236" /><stop offset="100%" stopColor="#091824" /></radialGradient>
             <linearGradient id="roofSheen" x1="0" y1="0" x2="0.45" y2="1"><stop offset="0%" stopColor="#fff" stopOpacity="0.26" /><stop offset="55%" stopColor="#fff" stopOpacity="0.05" /><stop offset="100%" stopColor="#000" stopOpacity="0.28" /></linearGradient>
