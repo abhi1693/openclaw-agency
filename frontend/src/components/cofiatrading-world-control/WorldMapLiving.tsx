@@ -46,7 +46,7 @@ export type CofiaSnapshot = {
 };
 export type AngelStatus = "LIVE" | "OPERATIONAL_PARTIAL" | "CANON_GATE" | "AWAITING_SETUP" | "DEGRADED" | "BROKEN";
 export type Angel = { id: number; name: string; name_ar: string; platform: string; manzilah: string; status: AngelStatus; mission: string; stack?: string; proof_url?: string; arr_impact_eur_year?: number };
-export type FeedEvent = { id: string; kind?: string; status?: string; label: string; source?: string; proof?: string; ts?: string };
+export type FeedEvent = { id: string; kind?: string; status?: string; label: string; source?: string; proof?: string; ts?: string; house_id?: string | null };
 export type Truck = { id: string; name: string; from: string; to: string; payload: string; owner: string; cadence?: string; kind?: string; source?: string };
 export type AngelRoster = { total_anges?: number; counts?: { live: number; operational_partial: number; canon_gate: number; awaiting_setup: number; degraded: number; broken: number }; anges?: Angel[] };
 
