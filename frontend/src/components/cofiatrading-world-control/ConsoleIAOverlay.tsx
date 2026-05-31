@@ -1204,32 +1204,50 @@ function ConversationsInbox({
       </div>
     );
   }
+  const heatSorted = [...threads].sort((a, b) => (b.crmScore ?? -1) - (a.crmScore ?? -1) || (b.unread - a.unread));
+  const hotCount = threads.filter((t) => t.crmTemp === "HOT").length;
   return (
     <div className="grid gap-1.5">
-      <p className="text-[10px] font-black uppercase tracking-[0.16em] text-cyan-100">Conversations · {threads.length}</p>
+      <div className="flex items-center justify-between gap-2">
+        <p className="text-[10px] font-black uppercase tracking-[0.16em] text-cyan-100">Clients · {threads.length}{hotCount ? ` · 🔥 ${hotCount}` : ""}</p>
+        <span className="flex items-center gap-1.5 text-[8px] font-black uppercase tracking-[0.05em] text-slate-500">
+          <span className="h-2 w-2 rounded-full bg-rose-400" />chaud
+          <span className="h-2 w-2 rounded-full bg-amber-400" />tiède
+          <span className="h-2 w-2 rounded-full bg-sky-400" />froid
+        </span>
+      </div>
       {!threads.length ? <p className="text-[11px] text-slate-500">Aucune conversation chargée.</p> : null}
       <div className="grid max-h-[56vh] gap-1.5 overflow-auto pr-1">
-        {threads.map((t) => (
+        {heatSorted.map((t) => {
+          const tv = tempViz(t.crmTemp);
+          const whale = isWhaleTier(t.crmTier);
+          return (
           <button
             key={t.userId}
             type="button"
             onClick={() => onSelect(t.userId)}
-            className="rounded-lg border border-slate-800 bg-slate-900/55 px-2.5 py-2 text-left transition hover:border-cyan-300/35"
+            className={`rounded-lg border border-l-[3px] border-slate-800 ${tv.border} bg-slate-900/55 px-2.5 py-2 text-left transition hover:border-cyan-300/35`}
           >
             <div className="flex items-center gap-2">
+              <span className={`h-2 w-2 shrink-0 rounded-full ${tv.dot}`} title={t.crmTemp || "non recensé"} />
               <span className="min-w-0 flex-1">
-                <span className="block truncate text-xs font-black text-white">{t.vip ? "⭐ " : ""}{t.name}</span>
+                <span className="block truncate text-xs font-black text-white">{t.vip ? "⭐ " : ""}{whale ? "💎 " : ""}{t.name}</span>
                 <span className="block truncate text-[10px] text-slate-400">{t.lastPreview || `${t.totalMessages} msg`}</span>
               </span>
+              {t.crmFound && t.crmTemp ? (
+                <span className={`shrink-0 rounded-full border px-1.5 py-0.5 text-[9px] font-black ${tv.chip}`}>{tv.emoji} {t.crmScore ?? "?"}</span>
+              ) : null}
               {t.unread > 0 ? <span className="shrink-0 rounded-full border border-cyan-300/40 bg-cyan-400/20 px-1.5 py-0.5 text-[9px] font-black text-cyan-100">{t.unread}</span> : null}
             </div>
             <div className="mt-1 flex items-center gap-1.5">
               {t.agent ? <span className={`rounded-full border px-1.5 py-0.5 text-[8px] font-black uppercase ${AGENT_ACCENT[t.agent.toLowerCase()] ?? "border-slate-600 text-slate-300"}`}>{t.agent}</span> : null}
-              {t.stage ? <span className="truncate text-[9px] uppercase tracking-[0.05em] text-slate-500">{t.stage}</span> : null}
+              {t.crmStripe ? <span className="flex items-center gap-1 text-[9px] text-slate-400"><span className={`h-1.5 w-1.5 rounded-full ${stripeDot(t.crmStripe)}`} />{t.crmStripe}</span> : null}
+              {t.crmIsClient ? <span className="text-[8px] font-black uppercase tracking-[0.04em] text-emerald-300/85">client</span> : t.crmFound ? <span className="text-[8px] uppercase tracking-[0.04em] text-slate-500">prospect</span> : null}
+              {whale && t.crmTier ? <span className="truncate text-[9px] font-black uppercase tracking-[0.05em] text-amber-300/70">{t.crmTier}</span> : null}
               <span className="ml-auto shrink-0 text-[9px] text-slate-600">{t.lastTs}</span>
             </div>
           </button>
-        ))}
+        );})}
       </div>
     </div>
   );
