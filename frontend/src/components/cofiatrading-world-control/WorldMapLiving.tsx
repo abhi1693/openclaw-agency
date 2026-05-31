@@ -372,8 +372,9 @@ export function WorldMapLiving({ snapshot, angelRoster, onSelectHouse }: { snaps
   }, [agentsByHome, houseActivity, effHouses]);
 
   const project = (wx: number, wy: number) => {
-    const { sx, sy } = isoProject(wx, wy); const scale = uiScale || 0; const rW = scene.vbW * scale, rH = scene.vbH * scale;
-    const ox = (size.cw - rW) / 2, oy = (size.ch - rH) / 2; return { x: (sx - scene.vbMinX) * scale + ox, y: (sy - scene.vbMinY) * scale + oy };
+    const { sx, sy } = isoProject(wx, wy); const cx = sx * cam.z + cam.tx, cy = sy * cam.z + cam.ty; // caméra (zoom/pan) en espace SVG
+    const scale = uiScale || 0; const rW = scene.vbW * scale, rH = scene.vbH * scale;
+    const ox = (size.cw - rW) / 2, oy = (size.ch - rH) / 2; return { x: (cx - scene.vbMinX) * scale + ox, y: (cy - scene.vbMinY) * scale + oy };
   };
   const agentSize = Math.max(26, Math.min(44, uiScale * 38));
 
