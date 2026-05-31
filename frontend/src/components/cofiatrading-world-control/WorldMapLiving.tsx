@@ -589,7 +589,7 @@ export function WorldMapLiving({ snapshot, angelRoster, onSelectHouse }: { snaps
         </div>
       </div>
 
-      <div ref={sceneRef} onPointerDown={onScenePointerDown} onPointerMove={onScenePointerMove} onPointerUp={onScenePointerUp} onPointerCancel={onScenePointerUp} style={{ cursor: editMode ? "grab" : "default", touchAction: "none" }} className="relative h-[640px] min-h-[560px] w-full max-w-full overflow-hidden rounded-xl border border-cyan-300/15 bg-[#071622] sm:h-[calc(100vh-176px)]">
+      <div ref={sceneRef} onPointerDown={onScenePointerDown} onPointerMove={onScenePointerMove} onPointerUp={onScenePointerUp} onPointerCancel={onScenePointerUp} style={{ cursor: editMode ? "grab" : "default", touchAction: "none" }} className="relative h-[640px] min-h-[560px] w-full max-w-full overflow-hidden rounded-xl border border-cyan-300/15 bg-[#0a2228] sm:h-[calc(100vh-176px)]">
         <style>{KEYFRAMES}</style>
         <svg viewBox={scene.viewBox} className="h-full w-full" preserveAspectRatio="xMidYMid meet" onClick={() => { if (movedRef.current) { movedRef.current = false; return; } clearSel(); }}>
           <defs>
