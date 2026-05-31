@@ -2281,8 +2281,16 @@ export async function GET(request: Request) {
       by: asString(m.by),
       text: sanitizeText(asString(m.text), 1200),
     }));
+    // Flux 9 — capture l'email si le client l'a donné (messages entrants). Dernier email = courant.
+    let capturedEmail = (await readCapturedEmails())[conversationUid] || "";
+    for (const m of messages) {
+      if (m.direction.toUpperCase() === "IN") {
+        const found = m.text.match(EMAIL_RE);
+        if (found) { capturedEmail = found[0].toLowerCase(); await captureEmail(conversationUid, capturedEmail, "conversation_in"); }
+      }
+    }
     return NextResponse.json(
-      { ok: true, sourceTag: SOURCE_TAG, userId: conversationUid, agent: conv.agent, messages, takeover: await isTakeoverActive(conversationUid) },
+      { ok: true, sourceTag: SOURCE_TAG, userId: conversationUid, agent: conv.agent, messages, takeover: await isTakeoverActive(conversationUid), capturedEmail },
       { headers: { "Cache-Control": "no-store" } },
     );
   }
