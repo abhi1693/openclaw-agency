@@ -624,14 +624,29 @@ export function WorldMapLiving({ snapshot, angelRoster, onSelectHouse }: { snaps
           {/* districts en dégradé doux (sous les chemins) */}
           {scene.districts.map((z) => (<ellipse key={z.id} cx={z.cx} cy={z.cy} rx={z.rx} ry={z.ry} fill={`url(#dist-${z.id})`} opacity="0.5" />))}
 
-          {/* chemins pavés chauds (highlight si maison sélectionnée) */}
+          {/* place centrale pavée (town square) */}
+          <g>
+            <ellipse cx={scene.plaza.x} cy={scene.plaza.y + 3} rx="50" ry="28" fill="#0e0b07" opacity="0.4" />
+            <ellipse cx={scene.plaza.x} cy={scene.plaza.y} rx="48" ry="27" fill="#4a4031" />
+            <ellipse cx={scene.plaza.x} cy={scene.plaza.y} rx="46" ry="25.5" fill="url(#paving)" />
+            <ellipse cx={scene.plaza.x} cy={scene.plaza.y} rx="46" ry="25.5" fill="none" stroke="#2c2519" strokeWidth="1.4" opacity="0.7" />
+            <ellipse cx={scene.plaza.x} cy={scene.plaza.y} rx="30" ry="16" fill="none" stroke="#9a8c6a" strokeWidth="1" strokeDasharray="1.5 4" opacity="0.35" />
+          </g>
+          {/* rues pavées larges (bordure pierre + pavés texturés ; highlight si maison sélectionnée) */}
           <g>
             {scene.roads.map((r) => {
               const hot = selectedHouse && (r.a === selectedHouse || r.b === selectedHouse);
               const acc = hot ? HOUSE_BY_ID[selectedHouse!]?.accent ?? "#ffe3a0" : null;
-              return (<g key={r.id}><path d={r.d} fill="none" stroke="#15120d" strokeWidth={r.w + 5} strokeLinecap="round" opacity="0.5" /><path d={r.d} fill="none" stroke="url(#path)" strokeWidth={r.w + 1} strokeLinecap="round" /><path d={r.d} fill="none" stroke="#c8ac76" strokeWidth={Math.max(1, r.w - 3)} strokeDasharray="0.6 5" strokeLinecap="round" opacity="0.55" />{hot && acc && <path d={r.d} fill="none" stroke={acc} strokeWidth="2.4" strokeLinecap="round" opacity="0.95" />}</g>);
+              return (<g key={r.id}>
+                <path d={r.d} fill="none" stroke="#0e0b07" strokeWidth={r.w + 8} strokeLinecap="round" strokeLinejoin="round" opacity="0.4" />
+                <path d={r.d} fill="none" stroke="#4a4031" strokeWidth={r.w + 4} strokeLinecap="round" strokeLinejoin="round" />
+                <path d={r.d} fill="none" stroke="url(#paving)" strokeWidth={r.w} strokeLinecap="round" strokeLinejoin="round" />
+                {hot && acc && <path d={r.d} fill="none" stroke={acc} strokeWidth={r.w + 4} strokeLinecap="round" opacity="0.3" />}
+              </g>);
             })}
           </g>
+          {/* placettes pavées devant les portes (jonctions arrondies) */}
+          <g>{scene.junctions.map((j, i) => (<g key={`jx-${i}`}><ellipse cx={j.x} cy={j.y} rx="13" ry="7.5" fill="#4a4031" /><ellipse cx={j.x} cy={j.y} rx="11.5" ry="6.4" fill="url(#paving)" /><ellipse cx={j.x} cy={j.y} rx="11.5" ry="6.4" fill="none" stroke="#2c2519" strokeWidth="0.9" opacity="0.6" /></g>))}</g>
 
           {/* décor Astrub : arbres / buissons / rochers en lisière (statique) */}
           {scene.decor.map((d, i) => (<g key={`dec-${i}`} transform={`translate(${d.x.toFixed(1)} ${d.y.toFixed(1)}) scale(${d.s.toFixed(2)})`}>
