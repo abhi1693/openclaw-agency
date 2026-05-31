@@ -1,6 +1,6 @@
 import { execFileSync } from "child_process";
 import { createHash } from "crypto";
-import { mkdir, open, readFile, stat as statFile, writeFile } from "fs/promises";
+import { mkdir, open, readFile, stat as statFile, unlink, writeFile } from "fs/promises";
 import { appendFileSync } from "fs";
 import os from "os";
 import path from "path";
