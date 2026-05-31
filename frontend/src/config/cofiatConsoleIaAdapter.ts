@@ -167,6 +167,10 @@ export function getConsoleIaAdapterState(): ConsoleIaAdapterState {
       statusSource: "config",
       proof: "PERPLEXITY_API_KEY présent (env)",
       fallbackChain,
+      primaryProvider: "perplexity-api",
+      activeProvider: "perplexity-api",
+      globalStatus: "LIVE",
+      providers: buildProviders(),
     };
   }
 
