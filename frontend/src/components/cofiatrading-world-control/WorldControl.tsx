@@ -26,6 +26,7 @@ import { ConsoleIAOverlay } from "./ConsoleIAOverlay";
 import { WorldMapLiving, resolveHouseIds, type InvItem } from "./WorldMapLiving";
 import { AuthProviderStatusPanel } from "./AuthProviderStatusPanel";
 import { InventoryStatusMatrix } from "./InventoryStatusMatrix";
+import { ProofLedgerPanel } from "./ProofLedgerPanel";
 
 import type {
   AssetsWarehouseSnapshot,
