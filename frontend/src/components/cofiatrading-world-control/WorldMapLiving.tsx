@@ -553,7 +553,7 @@ export function WorldMapLiving({ snapshot, angelRoster, onSelectHouse }: { snaps
         </div>
 
         {/* légende sobre */}
-        <div className="absolute bottom-2 left-2 right-2 z-10 flex flex-wrap items-center justify-center gap-x-3 gap-y-1 rounded-lg border border-cyan-300/20 bg-slate-950/85 px-3 py-1.5 text-[9px] text-slate-300 backdrop-blur sm:left-1/2 sm:right-auto sm:max-w-[88%] sm:-translate-x-1/2">
+        <div onPointerDown={(e) => e.stopPropagation()} className="absolute bottom-2 left-2 right-2 z-10 flex flex-wrap items-center justify-center gap-x-3 gap-y-1 rounded-lg border border-cyan-300/20 bg-slate-950/85 px-3 py-1.5 text-[9px] text-slate-300 backdrop-blur sm:left-1/2 sm:right-auto sm:max-w-[88%] sm:-translate-x-1/2">
           {([["LIVE", "#34d399"], ["EN VEILLE", "#64748b"], ["DEGRADED", "#f59e0b"], ["SOURCE DOWN", "#ef4444"]] as Array<[string, string]>).map(([l, c]) => (<span key={l} className="flex items-center gap-1.5"><svg width="9" height="12" viewBox="0 0 9 12"><rect x="0.5" y="0.5" width="1.6" height="11" fill="#64748b" /><path d="M2 1 L8 2.4 L2 4.2 Z" fill={c} /></svg>{l}</span>))}
           <span className="text-slate-600">|</span>
           <span>agents animés <b className="text-cyan-200">par mission réelle</b> (statut/feed) — sinon idle</span>
