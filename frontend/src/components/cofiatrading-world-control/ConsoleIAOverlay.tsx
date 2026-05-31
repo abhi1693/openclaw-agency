@@ -2123,6 +2123,8 @@ export function ConsoleIAOverlay() {
                   sendingVoice={convVoiceSending}
                   onSendPhoto={sendConversationPhoto}
                   sendingPhoto={convPhotoSending}
+                  takeover={convTakeover}
+                  onToggleTakeover={toggleTakeover}
                 />
               ) : (
                 <ChannelColumn
