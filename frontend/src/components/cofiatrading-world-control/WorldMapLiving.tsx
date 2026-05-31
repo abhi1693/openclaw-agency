@@ -256,11 +256,27 @@ export function WorldMapLiving({ snapshot, angelRoster, onSelectHouse }: { snaps
   const [posOverride, setPosOverride] = useState<Record<string, { x: number; y: number }>>({});
   const dragRef = useRef<{ mode: "pan" | "house" | null; id?: string; sx: number; sy: number; camTx: number; camTy: number; hx: number; hy: number; moved: boolean }>({ mode: null, sx: 0, sy: 0, camTx: 0, camTy: 0, hx: 0, hy: 0, moved: false });
   const movedRef = useRef(false); // supprime le clic-sélection juste après un drag
+  const layoutReady = useRef(false); // évite d'écraser le serveur avant le 1er chargement
+  const saveTimer = useRef<number | null>(null);
+  // chargement : cache local instantané, PUIS source durable serveur (filesystem = vérité)
   useEffect(() => {
-    try { const raw = window.localStorage.getItem("cofiat-world-layout-v1"); if (raw) { const o = JSON.parse(raw); if (o && typeof o === "object") { if (o.pos) setPosOverride(o.pos); if (o.cam) setCam(o.cam); } } } catch { /* ignore */ }
+    try { const raw = window.localStorage.getItem("cofiat-world-layout-v1"); if (raw) { const o = JSON.parse(raw); if (o?.pos) setPosOverride(o.pos); if (o?.cam) setCam(o.cam); } } catch { /* ignore */ }
+    let cancelled = false;
+    fetch("/api/cofiatrading-world-control/layout", { cache: "no-store" })
+      .then((r) => (r.ok ? r.json() : null))
+      .then((d) => { if (!cancelled && d?.layout) { if (d.layout.pos) setPosOverride(d.layout.pos); if (d.layout.cam) setCam(d.layout.cam); } })
+      .catch(() => {})
+      .finally(() => { if (!cancelled) layoutReady.current = true; });
+    return () => { cancelled = true; };
   }, []);
+  // sauvegarde DURABLE : localStorage immédiat + POST serveur (debounce 600ms)
   useEffect(() => {
+    if (!layoutReady.current) return; // pas avant d'avoir chargé (sinon on écrase avec les défauts)
     try { window.localStorage.setItem("cofiat-world-layout-v1", JSON.stringify({ pos: posOverride, cam })); } catch { /* ignore */ }
+    if (saveTimer.current) window.clearTimeout(saveTimer.current);
+    saveTimer.current = window.setTimeout(() => {
+      fetch("/api/cofiatrading-world-control/layout", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ pos: posOverride, cam }) }).catch(() => {});
+    }, 600);
   }, [posOverride, cam]);
   // maisons effectives (positions overridées par l'édition Erwin)
   const effHouses = useMemo(() => HOUSES.map((h) => (posOverride[h.id] ? { ...h, x: posOverride[h.id].x, y: posOverride[h.id].y } : h)), [posOverride]);
