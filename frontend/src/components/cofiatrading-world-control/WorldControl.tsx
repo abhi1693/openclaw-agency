@@ -2188,14 +2188,24 @@ export function WorldControl() {
            *  2026-05-29 : "tout intégré dans la map, rien fixe figé, world living animé".) */}
           <div
             data-world-control-ready="living-world-hero"
-            className="grid gap-3"
+            className="grid gap-3 xl:grid-cols-[minmax(0,1fr)_minmax(340px,420px)] xl:items-start"
           >
-            <WorldMapLiving
-              snapshot={snapshot}
-              angelRoster={angelRoster}
-              onSelectHouse={(id) => openHouseDrawer(id as HouseId)}
-            />
-            <ConsoleIAOverlay />
+            <div className="grid min-w-0 gap-3">
+              <WorldMapLiving
+                snapshot={snapshot}
+                angelRoster={angelRoster}
+                onSelectHouse={(id) => openHouseDrawer(id as HouseId)}
+              />
+              <ConsoleIAOverlay />
+            </div>
+            {/* HAUT À DROITE — missions en cours / ce qui manque / pas implémenté.
+                Remonté hors du « Cockpit opérationnel » qui était replié en bas
+                (Erwin 2026-05-31 : « je veux plus aucun truc caché »). */}
+            <aside data-mission-control-panel="top-right" className="grid content-start gap-3">
+              <Panel title="🎯 Mission Control — missions & manques" tone="gold">
+                <ProofLedgerPanel />
+              </Panel>
+            </aside>
           </div>
 
           {/* Cockpit opérationnel — sous le monde, replié par défaut (pas un poster) */}
