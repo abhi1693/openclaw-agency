@@ -1322,6 +1322,30 @@ export function ConsoleIAOverlay() {
     }
   };
 
+  // Flux 2 — envoi photo client (gated : appelé seulement après preview + confirm UI).
+  const sendConversationPhoto = async (uid: string, fileB64: string, via: string): Promise<boolean> => {
+    if (!uid || !fileB64) return false;
+    setConvPhotoSending(true);
+    try {
+      const r = await fetch("/api/cofiatrading-world-control/console-ia", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ action: "conversation_send_photo", uid, fileB64, via }),
+      });
+      const d = (await r.json()) as { ok: boolean };
+      if (d.ok) {
+        const rr = await fetch(`/api/cofiatrading-world-control/console-ia?conversation=${encodeURIComponent(uid)}`, { cache: "no-store" });
+        const dd = (await rr.json()) as { ok: boolean; messages?: ConvMessage[] };
+        if (dd.ok && Array.isArray(dd.messages)) setConvMessages(dd.messages);
+      }
+      return d.ok;
+    } catch {
+      return false;
+    } finally {
+      setConvPhotoSending(false);
+    }
+  };
+
   const sendConversationReply = async (uid: string, text: string, via: string): Promise<boolean> => {
     if (!uid || !text) return false;
     setConvSending(true);
