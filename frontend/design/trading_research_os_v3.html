@@ -514,6 +514,11 @@
   <section class="page" id="pg-q-ofresearch">
     <h1 class="pt">Order-Flow Research — workbench live <span class="pill research" id="ofVerdict">—</span></h1>
     <div class="sub">Moteur de recherche LIVE (vectorbt + IC daily, 255 jours NQ). Configure, clique Run, le moteur calcule derrière. <span class="badge b-np" id="ofApi">API ?</span> <span class="badge b-model">MODEL</span> <span class="badge b-np">NOT PROVEN</span> · <span id="ofGen">—</span></div>
+    <div class="warnrow" style="margin-bottom:11px">
+      <span class="warn">⚠ <b>IC élevé ≠ edge tradeable.</b> vwap_dist IC −0.44 / t−24 = réversion VWAP en partie <b>mécanique</b> (le VWAP dérive du close), <b>NON tradeable net</b> : testé fade OOS −5%, continuation = faux-vert (IS négatif opposé + fat-tail keep&lt;0 + meurt aux coûts).</span>
+      <span class="warn">⚠ <b>OR-30 = KILL</b> : skip trend-day dégrade l'OOS (−3.3%→−4.9%, Sharpe −6.3) = overfit IS, pas un sauveur.</span>
+      <span class="warn ok">✓ La microstructure réelle (volume profile / VWAP / Δ-flow) est un <b>outil d'audit honnête</b>, pas un générateur d'edge. NQ retail : aucun edge directionnel prouvé à ce jour.</span>
+    </div>
     <div class="card mb"><h3>Research console — configure &amp; run <span class="r">moteur :8799</span></h3>
       <div style="display:flex;gap:12px;flex-wrap:wrap;align-items:flex-end">
         <div><div style="font-size:9.5px;color:var(--dim);text-transform:uppercase">Feature</div><select class="mini" id="wFeat" style="font-size:12px;padding:5px 8px"><option>delta_z</option><option>cvd_dz</option><option>divg</option><option>vwap_dist</option></select></div>
