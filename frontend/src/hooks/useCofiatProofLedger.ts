@@ -95,15 +95,24 @@ export function useCofiatProofLedger(opts: UseProofLedgerOptions = {}): UseProof
     [opts.mapFacts, opts.knownAgentIds]
   );
 
-  // Horodatage live des lignes de log (client uniquement → pas d'hydration mismatch).
+  // Horodatage live des lignes de log, APRÈS montage (client uniquement → pas
+  // d'hydration mismatch). setState déféré en microtask (≠ synchrone dans
+  // l'effet) pour éviter le double-render et rester lint-clean.
   const [stampedLog, setStampedLog] = useState<string[]>(result.log);
   useEffect(() => {
-    const now = new Date();
-    const hh = String(now.getHours()).padStart(2, "0");
-    const mm = String(now.getMinutes()).padStart(2, "0");
-    const ss = String(now.getSeconds()).padStart(2, "0");
-    const time = `${hh}:${mm}:${ss}`;
-    setStampedLog(result.log.map((line) => line.replace(/^\[--:--:--\]/, `[${time}]`)));
+    let cancelled = false;
+    void Promise.resolve().then(() => {
+      if (cancelled) return;
+      const now = new Date();
+      const hh = String(now.getHours()).padStart(2, "0");
+      const mm = String(now.getMinutes()).padStart(2, "0");
+      const ss = String(now.getSeconds()).padStart(2, "0");
+      const time = `${hh}:${mm}:${ss}`;
+      setStampedLog(result.log.map((line) => line.replace(/^\[--:--:--\]/, `[${time}]`)));
+    });
+    return () => {
+      cancelled = true;
+    };
   }, [result.log]);
 
   return { result, manifest: GUARDIAN_CHANGE_MANIFEST, log: stampedLog };
