@@ -1092,8 +1092,25 @@ function ConversationsInbox({
                 )}
               </>
             ) : null}
+            {!photoB64 ? (
+              <button type="button" onClick={capturePhoto} disabled={sendingPhoto || capturing} className="rounded-lg border border-slate-700 px-2.5 py-1 text-[11px] font-black text-slate-200 transition hover:border-cyan-300/50 disabled:opacity-40">{capturing ? "📷 …" : "📷 Photo"}</button>
+            ) : (
+              <>
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                <img src={`data:image/jpeg;base64,${photoB64}`} alt="aperçu photo" className="h-9 w-9 rounded border border-slate-700 object-cover" />
+                {!photoConfirm ? (
+                  <button type="button" onClick={() => setPhotoConfirm(true)} className="rounded-lg border border-emerald-300/50 bg-emerald-400/10 px-2.5 py-1 text-[11px] font-black text-emerald-100">Envoyer photo →</button>
+                ) : (
+                  <>
+                    <span className="text-[10px] font-black text-amber-200">Confirmer photo → {active?.name} ?</span>
+                    <button type="button" disabled={sendingPhoto} onClick={async () => { const ok = await onSendPhoto(selectedId, photoB64, active?.agent || "iron"); if (ok) setPhotoB64(null); setPhotoConfirm(false); }} className="rounded-lg border border-emerald-300/55 bg-emerald-400/15 px-2 py-1 text-[11px] font-black text-emerald-100 disabled:opacity-40">{sendingPhoto ? "Envoi…" : "Confirmer"}</button>
+                    <button type="button" onClick={() => { setPhotoConfirm(false); setPhotoB64(null); }} className="rounded-lg border border-slate-700 px-2 py-1 text-[11px] text-slate-300">✕</button>
+                  </>
+                )}
+              </>
+            )}
           </div>
-          <span className="text-[9px] leading-3 text-slate-500">Envoi réel gated · clic + confirmation · via le bot {active?.agent || "iron"}. Texte + 🎤 vocale (note vocale Telegram). Le reste = lecture seule.</span>
+          <span className="text-[9px] leading-3 text-slate-500">Envoi réel gated · clic + confirmation · via le bot {active?.agent || "iron"}. Texte + 🎤 vocale + 📷 photo (note vocale / photo Telegram). Le reste = lecture seule.</span>
         </div>
       </div>
     );
