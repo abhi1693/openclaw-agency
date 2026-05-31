@@ -918,6 +918,9 @@ type ConvThread = {
   crmIsClient?: boolean;
   depositUsd?: number | null;
   commissionUsd?: number | null;
+  brokerOnly?: boolean;
+  broker?: string;
+  churnRisk?: string;
 };
 
 // Flux 7 — totaux CRM réels (en-tête console).
