@@ -44,7 +44,6 @@ export const cofiatCanonicalPaths: Record<CofiatPathScope, string[]> = {
   // Configs globales du monde (identité, statut, ledgers, paths, contrats…).
   config: [
     "src/config/cofiatWorldIdentity.ts",
-    "src/config/cofiatWorldStatus.ts",
     "src/config/cofiatAuthProofLedger.ts",
     "src/config/cofiatConsoleIaAdapter.ts",
     "src/config/cofiatCanonicalPaths.ts",
@@ -125,7 +124,7 @@ export const SCOPE_TO_PATH_SCOPES: Record<CofiatWorkScope, CofiatPathScope[]> = 
   service: ["api", "config"],
   "auth-provider": ["config"],
   "console-ia": ["hub", "api", "config"],
-  "notebook-alm": ["hub", "api"],
+  "notebooklm": ["hub", "api"],
   "proof-ledger": ["utils", "config", "types", "hub", "scripts"],
   layout: ["hub", "api"],
   "visual-identity": ["config"],
@@ -189,7 +188,7 @@ export function allCanonicalGlobs(): string[] {
 
 /**
  * Politique de travail opposable à TOUS les workers (Claude, Console IA,
- * Notebook ALM, map-designer, backend…). Affichée dans le Proof Ledger.
+ * NotebookLM, map-designer, backend…). Affichée dans le Proof Ledger.
  */
 export const COFIAT_WORKER_POLICY: CofiatWorkerPolicy = {
   noNewHub: true,
@@ -204,7 +203,7 @@ export const COFIAT_WORKER_POLICY: CofiatWorkerPolicy = {
   requireChangeManifest: true,
   requireSyncTargets: true,
   requireProofForGreen: true,
-  requireNotebookAlmSync: true,
+  requireNotebookLmSync: true,
   requireConsoleIaLog: true,
 };
 
@@ -222,6 +221,6 @@ export const COFIAT_WORKER_POLICY_LABELS: Record<keyof CofiatWorkerPolicy, strin
   requireChangeManifest: "Change Manifest obligatoire",
   requireSyncTargets: "Cibles de synchro obligatoires",
   requireProofForGreen: "Preuve obligatoire pour GREEN",
-  requireNotebookAlmSync: "Synchro Notebook ALM requise",
+  requireNotebookLmSync: "Synchro NotebookLM requise",
   requireConsoleIaLog: "Log console.IA requis",
 };
