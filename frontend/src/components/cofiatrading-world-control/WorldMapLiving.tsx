@@ -560,7 +560,7 @@ export function WorldMapLiving({ snapshot, angelRoster, onSelectHouse }: { snaps
         </div>
 
         {/* ════════ INSPECTOR ════════ */}
-        <div className="absolute left-2 right-2 top-2 z-20 flex max-h-[52%] w-auto flex-col overflow-auto rounded-xl border border-cyan-300/25 bg-slate-950/95 p-3 backdrop-blur sm:left-auto sm:right-2 sm:max-h-[94%] sm:w-[266px]">
+        <div onPointerDown={(e) => e.stopPropagation()} className="absolute left-2 right-2 top-2 z-20 flex max-h-[52%] w-auto flex-col overflow-auto rounded-xl border border-cyan-300/25 bg-slate-950/95 p-3 backdrop-blur sm:left-auto sm:right-2 sm:max-h-[94%] sm:w-[266px]">
           {selectedAgent ? (
             <AgentInspector agent={selectedAgent} state={(visibleAgents.find((v) => v.agent.id === selectedAgent.id)?.state) ?? (houseActivity[selectedAgent.house]?.state ?? "idle")} activityLabel={houseActivity[selectedAgent.house]?.label} houseName={HOUSE_BY_ID[selectedAgent.house]?.name ?? selectedAgent.house} houseStatus={houseStatusStyle(statusFor(selectedAgent.house))} onClose={() => setSelectedAgent(null)} onGotoHouse={() => { const id = selectedAgent.house; clearSel(); setSelectedHouse(id); setHouseTab("anges"); onSelectHouse(id); }} />
           ) : selectedRuntimeAgent ? (
