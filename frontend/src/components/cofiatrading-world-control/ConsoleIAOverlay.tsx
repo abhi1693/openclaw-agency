@@ -1279,9 +1279,9 @@ function ConversationsInbox({
         <span className="h-2 w-2 rounded-full bg-rose-400" />chaud
         <span className="h-2 w-2 rounded-full bg-amber-400" />tiède
         <span className="h-2 w-2 rounded-full bg-sky-400" />froid
-        <span className="ml-auto normal-case text-slate-600">{allClientsMode ? "DB CRM live · classé chaud + dépôt" : "convs récentes"}</span>
+        <span className="ml-auto normal-case text-slate-600">{mode === "clients" ? "CRM ∪ déposants · chaud+argent" : mode === "dm" ? "Pool DM Telethon · récents" : "convs récentes"}</span>
       </div>
-      {!threads.length ? <p className="text-[11px] text-slate-500">{allClientsMode ? "Chargement clients…" : "Aucune conversation chargée."}</p> : null}
+      {!threads.length ? <p className="text-[11px] text-slate-500">{mode === "convs" ? "Aucune conversation chargée." : "Chargement…"}</p> : null}
       <div className="grid max-h-[52vh] gap-1.5 overflow-auto pr-1">
         {heatSorted.map((t) => {
           const tv = tempViz(t.crmTemp);
