@@ -228,7 +228,8 @@ function verdict(
  * sans donnée sont `active:false` (jamais un faux pass vert).
  */
 export function runProofLedgerAudit(input: ProofLedgerAuditInput = {}): CofiatProofLedgerResult {
-  const authLedger = enforceNoFalseGreenAll(input.authLedger ?? cofiatAuthProofLedger);
+  const rawLedger = input.authLedger ?? cofiatAuthProofLedger;
+  const authLedger = enforceNoFalseGreenAll(rawLedger);
   const contracts = input.contracts ?? [];
   const manifests = input.manifests ?? [];
   const adapter = getConsoleIaAdapterState();
