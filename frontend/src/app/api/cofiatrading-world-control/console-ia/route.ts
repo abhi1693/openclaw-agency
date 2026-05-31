@@ -1359,6 +1359,20 @@ async function markTakeover(uid: string, on: boolean) {
   }
 }
 
+// Flux 5 — statut takeover d'une conv (même logique TTL que le daemon Iron) pour l'afficher dans l'UI.
+async function isTakeoverActive(uid: string): Promise<boolean> {
+  try {
+    if (!uid) return false;
+    const data = await readJsonFile<Record<string, unknown>>(TAKEOVER_FILE);
+    const entry = data && isRecord(data[uid]) ? data[uid] as Record<string, unknown> : null;
+    if (!entry) return false;
+    const since = Number(entry.since) || 0;
+    return since > 0 && (Math.floor(Date.now() / 1000) - since) < TAKEOVER_TTL_SEC;
+  } catch {
+    return false;
+  }
+}
+
 // Envoi d'une note VOCALE à un client depuis la dashboard — proxy vers la brique média
 // EXISTANTE du hub (/api/agent-oversight/send-media-b64, kind=voice → sendVoice).
 // Transcode webm→ogg/opus avant envoi (vraie note vocale) + journalise le transcript.
