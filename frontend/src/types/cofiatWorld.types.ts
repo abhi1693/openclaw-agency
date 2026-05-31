@@ -95,6 +95,19 @@ export type AuthLedgerCriticality =
  * Un item = un provider (clé/API/abonnement/broker) avec son statut réel,
  * sa source, sa criticité, et (no-false-green) sa preuve / blocker / fallback.
  */
+/** Type de preuve (taxonomie canonique no-false-green). */
+export type ProofKind =
+  | "heartbeat"
+  | "api_probe"
+  | "auth_probe"
+  | "manual_verification"
+  | "billing_check"
+  | "filesystem_check"
+  | "deployment_check";
+
+/** Confiance de la preuve : hard (probe live), soft (dérivé), manual (audit humain). */
+export type ProofConfidence = "hard" | "soft" | "manual";
+
 export type AuthLedgerItem = {
   id: string;
   name: string;
