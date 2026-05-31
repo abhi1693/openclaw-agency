@@ -25,6 +25,7 @@ import { DashboardShell } from "@/components/templates/DashboardShell";
 import { ConsoleIAOverlay } from "./ConsoleIAOverlay";
 import { WorldMapLiving } from "./WorldMapLiving";
 import { AuthProviderStatusPanel } from "./AuthProviderStatusPanel";
+import { InventoryStatusMatrix } from "./InventoryStatusMatrix";
 
 import type {
   AssetsWarehouseSnapshot,
