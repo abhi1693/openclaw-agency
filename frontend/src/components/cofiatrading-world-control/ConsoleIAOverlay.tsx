@@ -1961,6 +1961,8 @@ export function ConsoleIAOverlay() {
                   loadingMessages={convLoading}
                   onSend={sendConversationReply}
                   sending={convSending}
+                  onSendVoice={sendConversationVoice}
+                  sendingVoice={convVoiceSending}
                 />
               ) : (
                 <ChannelColumn
