@@ -792,7 +792,7 @@ function Building({ b, status, selected, hover, dim, machines, agentCount, onSel
       {rightWin.map((w, i) => <polygon key={`rw${i}`} points={w.pts} fill={w.lit ? h.accent : "#070b14"} opacity={w.lit ? 0.34 : 0.55} />)}
       <polygon points={body.leftStr} fill="none" stroke={shade(h.accent, -30)} strokeWidth="0.8" opacity="0.6" />
       {/* porte + marche */}
-      <polygon points={`${P(doorBL)} ${P(doorBR)} ${P(doorTR)} ${P(doorTL)}`} fill="#05media".replace("media", "0a14") } />
+      <polygon points={`${P(doorBL)} ${P(doorBR)} ${P(doorTR)} ${P(doorTL)}`} fill="#050a14" stroke={h.accent} strokeWidth="0.5" strokeOpacity="0.5" />
       <polygon points={body.roofPoly} fill={h.roofColor} /><polygon points={body.roofPoly} fill="url(#roofSheen)" />
       <polygon points={body.roofPoly} fill="none" stroke={h.accent} strokeWidth={focus ? 1.6 : 1} opacity="0.9" />
 
