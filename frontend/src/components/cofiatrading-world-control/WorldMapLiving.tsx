@@ -647,7 +647,7 @@ export function WorldMapLiving({ snapshot, angelRoster, onSelectHouse }: { snaps
               {(() => {
                 const houseAgents = agentsByHome[selZone.id] ?? []; const houseAngels = angelsByHome[selZone.id] ?? []; const houseRuntimeAgents = runtimeAgentsByHome[selZone.id] ?? []; const houseMachines = machinesByHome[selZone.id] ?? []; const houseInv = inventoryByHouse[selZone.id] ?? [];
                 const hk = houseKpis(selZone.id); const kpis = hk.kpis;
-                const tabs: Array<[typeof houseTab, string]> = [["vue", "Vue"], ["kpis", "KPIs"], ["anges", `Agents ${houseAgents.length}`], ["machines", `Machines ${houseMachines.length}`]];
+                const tabs: Array<[typeof houseTab, string]> = [["vue", "Vue"], ["kpis", "KPIs"], ["anges", `Agents ${houseAgents.length}`], ["machines", `Machines ${houseMachines.length}`], ["inventaire", `Inventaire ${houseInv.length}`]];
                 return (
                   <>
                     <div className="mt-2 flex gap-1 border-b border-slate-700/50">{tabs.map(([k, label]) => (<button key={k} type="button" onClick={() => setHouseTab(k)} className={`px-1.5 pb-1 text-[9.5px] font-bold uppercase tracking-wide ${houseTab === k ? "border-b-2 border-cyan-300 text-cyan-200" : "text-slate-400 hover:text-slate-200"}`}>{label}</button>))}</div>
