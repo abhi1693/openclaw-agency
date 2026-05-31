@@ -1313,6 +1313,9 @@ export function ConsoleIAOverlay() {
   const destinationFor = (id: string): DestinationState =>
     destinations.find((dest) => dest.destinationId === id) ?? DEFAULT_DESTINATION(id);
   const [conversations, setConversations] = useState<ConvThread[]>([]);
+  const [crmTotals, setCrmTotals] = useState<CrmTotals | null>(null);
+  const [allClients, setAllClients] = useState<ConvThread[]>([]);
+  const [allClientsMode, setAllClientsMode] = useState(false);
   const [inboxSegment, setInboxSegment] = useState<"conversations" | "canaux">("conversations");
   const [selectedConvId, setSelectedConvId] = useState<string | null>(null);
   const [convMessages, setConvMessages] = useState<ConvMessage[]>([]);
