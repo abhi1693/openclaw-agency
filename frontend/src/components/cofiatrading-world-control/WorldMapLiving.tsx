@@ -793,7 +793,10 @@ function Building({ b, status, selected, hover, dim, editMode, machines, agentCo
   const leftWin = faceWindows(ground[3], ground[2], body.top[3], body.top[2], cols, rows, seed);
   const rightWin = faceWindows(ground[1], ground[2], body.top[1], body.top[2], cols, rows, seed + 3);
   const stepped = h.roof === "stepped"; const upper = stepped ? block(insetTowards(body.top, 0.3), bodyH * 0.55) : null;
-  const apex = stepped && upper ? { x: cx, y: upper.top[0].y - (upper.top[2].y - upper.top[0].y) / 2 } : { x: cx, y: roofY };
+  // toit pentu (hip) pour les maisons ; les tours gardent leur sommet plat/à étages
+  const TOWER = h.type === "command_tower" || h.type === "signal_tower" || h.type === "brain" || h.type === "observatory";
+  const peaked = !stepped && !TOWER; const roofH = peaked ? Math.min(38, h.w * 4 + 16) : 0; const peak = { x: cx, y: roofY - roofH };
+  const apex = stepped && upper ? { x: cx, y: upper.top[0].y - (upper.top[2].y - upper.top[0].y) / 2 } : peaked ? peak : { x: cx, y: roofY };
   const doorBL = lerpPt(ground[1], ground[2], 0.58), doorBR = lerpPt(ground[1], ground[2], 0.82);
   const doorTL = { x: doorBL.x, y: doorBL.y - bodyH * 0.2 }, doorTR = { x: doorBR.x, y: doorBR.y - bodyH * 0.2 };
   const signY = apex.y - (h.roof === "dome" ? 30 : 20);
