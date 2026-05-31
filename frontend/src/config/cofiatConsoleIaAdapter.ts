@@ -86,11 +86,12 @@ export type ConsoleIaAdapterState = {
 function buildProviders(): NonNullable<ConsoleIaAdapterState["providers"]> {
   const apiKey = perplexityApiKeyPresent();
   const desktop = perplexityDesktopBridgePresent();
+  const orKey = openRouterKeyPresent();
   const gemKey = geminiKeyPresent();
   return [
     { id: "perplexity-api", status: apiKey ? "LIVE" : "ADAPTER_MISSING", reason: apiKey ? "PERPLEXITY_API_KEY présent" : "PERPLEXITY_API_KEY absent — pas un blocker auth global", proof: apiKey ? "PERPLEXITY_API_KEY présent (env)" : undefined },
     { id: "perplexity-desktop", status: desktop ? "AMBER_SESSION" : "UNKNOWN", reason: desktop ? "bridge desktop/abonnement actif (session, pas durci)" : "bridge desktop non prouvé (flag runtime absent)" },
-    { id: "openrouter", status: "AMBER", reason: "fallback LLM routing actif — AMBER, jamais GREEN sans preuve hard (paid-hold)" },
+    { id: "openrouter", status: "AMBER", reason: orKey ? "clé OpenRouter présente — fallback exécutable, AMBER (jamais GREEN sans preuve hard, paid-hold)" : "routing local rtk-llm-proxy — fallback AMBER (jamais GREEN sans preuve hard)" },
     { id: "gemini", status: gemKey ? "AMBER" : "UNKNOWN", reason: gemKey ? "clé Gemini présente — fallback AMBER" : "clé Gemini absente → UNKNOWN" },
     { id: "local-memory", status: "AMBER", reason: "réponse mémoire/contexte local — jamais GREEN par défaut" },
     { id: "manual", status: "AMBER", reason: "brouillon opérateur — AMBER, jamais GREEN" },
