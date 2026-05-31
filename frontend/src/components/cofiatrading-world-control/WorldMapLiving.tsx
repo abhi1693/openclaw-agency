@@ -147,6 +147,29 @@ type WorldMachine = { id: string; label: string; homeHouse: string; ok: boolean;
 /* item d'inventaire (matrice 742) — déjà rattaché à sa maison (houseId) + agent (ownerAgentId) */
 type InvItem = { id: string; name: string; category: string; houseId: string; ownerAgentId?: string; cost?: string; status: string; statusSource?: string; proof?: string; blocker?: string; nextAction?: string; house?: string; ownerHouse?: string };
 const invColor = (s: string) => s === "GREEN" || s === "LIVE" ? "#34d399" : s === "AMBER" || s === "AMBER_REVERIFY" || s === "STALE" || s === "DEGRADED" ? "#f59e0b" : s === "RED" ? "#ef4444" : s === "QUARANTINE" ? "#fb7185" : "#64748b";
+/* mapping catégorie → maison — FALLBACK uniquement (si l'item n'a ni houseId/house/ownerHouse).
+ * Basé sur les 26 catégories réelles des 742 items (les 57 sans houseId = tous "subscription"). */
+const CATEGORY_TO_HOUSE: Record<string, string> = {
+  "1. Mission Control / OpenClaw": "mission_control_tower", "2. Repos GitHub": "site_seo_lab", "3. Frontends / backends / hubs": "mission_control_tower",
+  "4. Services locaux / ports": "openclaw_agent_barracks", "5. Outils IA": "central_brain", "6. Outils dev / code": "site_seo_lab",
+  "7. Outils trading": "mt4_signal_tower", "8. Brokers / affiliation": "vip_gate", "9. Outils revenue / paiement": "iron_office",
+  "12. Réseaux sociaux": "vip_gate", "13. Production vidéo / IA vidéo": "youtube_studio", "15. Assets médias": "assets_warehouse",
+  "16. MP4": "assets_warehouse", "17. Captions / scripts": "assets_warehouse", "18. Documents / vision / plans": "obsidian_library",
+  "19. Obsidian / Notion / Linear / Drive": "obsidian_library", "20. Automations / n8n / LaunchAgents": "openclaw_agent_barracks", "22. Agents / operators": "openclaw_agent_barracks",
+  "24. Funnels clients": "iron_office", "25. Parcours business": "iron_office", "26. Abonnements payants": "iron_office",
+  "27. Comptes externes": "mission_control_tower", "28. Secrets / credentials": "compliance_port", "29. Archives / doublons": "central_brain",
+  "agent": "openclaw_agent_barracks", "subscription": "iron_office",
+};
+/* alias maison non-canon de l'inventaire → maison visible la plus proche */
+const HOUSE_ALIAS: Record<string, string> = { erwin_perso_ceo: "mission_control_tower" };
+/* resolveHouseId — priorité : houseId → house → ownerHouse → catégorie → "unassigned" (gère le multi-maison "a,b") */
+function resolveHouseIds(item: InvItem): string[] {
+  const raw = (item.houseId || item.house || item.ownerHouse || "").trim();
+  const ids = raw ? raw.split(",").map((s) => s.trim()).filter(Boolean).map((h) => HOUSE_ALIAS[h] ?? h) : [];
+  if (ids.length) return ids;
+  const cat = CATEGORY_TO_HOUSE[item.category];
+  return cat ? [cat] : ["unassigned"];
+}
 
 const runtimeColor = (s: string) => s === "FRESH" || s === "LIVE" || s === "GREEN" ? "#34d399" : s === "SLEEPING" || s === "PAUSED" ? "#64748b" : s === "STALE" || s === "AMBER" || s === "DEGRADED" ? "#f59e0b" : "#ef4444";
 function houseStatusStyle(status: string): { color: string; label: string } {
