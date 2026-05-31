@@ -171,6 +171,15 @@ export function resolveHouseIds(item: InvItem): string[] {
   return cat ? [cat] : ["unassigned"];
 }
 
+/** true si l'item appartient à cet agent (un token de ownerAgentId == nom/id de l'agent). */
+function ownerMatchesAgent(ownerAgentId: string | undefined, agent: CanonAgent): boolean {
+  if (!ownerAgentId) return false;
+  const tokens = ownerAgentId.toLowerCase().split(/[/,]/).map((s) => s.trim()).filter(Boolean);
+  const name = (agent.name || "").toLowerCase();
+  const idd = (agent.id || "").toLowerCase();
+  return tokens.includes(name) || (!!idd && tokens.includes(idd));
+}
+
 const runtimeColor = (s: string) => s === "FRESH" || s === "LIVE" || s === "GREEN" ? "#34d399" : s === "SLEEPING" || s === "PAUSED" ? "#64748b" : s === "STALE" || s === "AMBER" || s === "DEGRADED" ? "#f59e0b" : "#ef4444";
 function houseStatusStyle(status: string): { color: string; label: string } {
   switch (status) {
