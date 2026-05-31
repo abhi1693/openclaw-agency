@@ -948,6 +948,7 @@ function ConversationsInbox({
   sendingPhoto,
   takeover,
   onToggleTakeover,
+  crm,
 }: {
   threads: ConvThread[];
   selectedId: string | null;
@@ -963,6 +964,7 @@ function ConversationsInbox({
   sendingPhoto: boolean;
   takeover: boolean;
   onToggleTakeover: (uid: string, on: boolean) => Promise<boolean>;
+  crm: ClientCrm360 | null;
 }) {
   const active = selectedId ? threads.find((t) => t.userId === selectedId) ?? null : null;
   const [reply, setReply] = useState("");
