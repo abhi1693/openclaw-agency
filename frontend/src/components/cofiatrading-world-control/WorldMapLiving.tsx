@@ -1339,7 +1339,8 @@ function Building({
 
       {/* enseigne emoji = plaque hexagonale (identité instantanée, distincte des avatars ronds) */}
       <g transform={`translate(${cx} ${apex.y - (h.roof === "dome" ? 30 : 22)})`}>
-        <polygon points="-11,0 -6,-7.5 6,-7.5 11,0 6,7.5 -6,7.5" fill="#04media".replace("media","0a14") } />
+        <polygon points="-11,0 -6,-7.5 6,-7.5 11,0 6,7.5 -6,7.5" fill="#040a14" stroke={h.accent} strokeWidth="1.2" opacity="0.96" />
+        <text y="3.6" textAnchor="middle" fontSize="11">{h.sign}</text>
       </g>
 
       {/* crest statut */}
