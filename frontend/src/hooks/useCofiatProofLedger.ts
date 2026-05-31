@@ -52,7 +52,7 @@ export const GUARDIAN_CHANGE_MANIFEST: CofiatChangeManifest = buildChangeManifes
   syncTargets: [
     { target: "proof-ledger", status: "synced" },
     { target: "console-ia", status: "synced", reason: "log émis par buildProofLedgerLog" },
-    { target: "notebook-alm", status: "pending", reason: "Notebook ALM non branché live (AMBER)" },
+    { target: "notebooklm", status: "synced", reason: "Hub lit l'index NotebookLM live (/api/…/notebooklm) ; push décisions→notebooks = Chrome cowork" },
   ],
   validations: [
     { name: "tsc --noEmit", status: "pass", message: "typecheck" },
