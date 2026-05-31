@@ -1171,6 +1171,7 @@ export function ConsoleIAOverlay() {
   const [convLoading, setConvLoading] = useState(false);
   const [convSending, setConvSending] = useState(false);
   const [convVoiceSending, setConvVoiceSending] = useState(false);
+  const [convPhotoSending, setConvPhotoSending] = useState(false);
   const [inboundCommands, setInboundCommands] = useState<Array<{ targetId: string; targetAgent: string; text: string; ts: string; threadId: string }>>([]);
   const [thread, setThread] = useState<ConsoleThread | null>(null);
   const [threadError, setThreadError] = useState<string | null>(null);
