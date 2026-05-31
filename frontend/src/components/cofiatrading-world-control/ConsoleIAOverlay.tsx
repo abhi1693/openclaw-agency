@@ -952,6 +952,9 @@ function ConversationsInbox({
   const [recording, setRecording] = useState(false);
   const [audioB64, setAudioB64] = useState<string | null>(null);
   const [voiceConfirm, setVoiceConfirm] = useState(false);
+  const [photoB64, setPhotoB64] = useState<string | null>(null);
+  const [photoConfirm, setPhotoConfirm] = useState(false);
+  const [capturing, setCapturing] = useState(false);
   const recRef = useRef<MediaRecorder | null>(null);
   const chunksRef = useRef<Blob[]>([]);
   const startRec = async () => {
