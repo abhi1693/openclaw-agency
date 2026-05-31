@@ -51,6 +51,16 @@ export async function GET() {
   const lrManifest = await readJson(LIGHTRAG_MANIFEST);
   const notion = await readJson(NOTION_DBS);
   const cards = await readJsonl(PAPERCLIP_CARDS);
+
+  // ── Linear live : lecture SEULE de la route /linear du hub (zéro write SaaS, zéro doublon) ──
+  let linearTotal: number | null = null;
+  try {
+    const lr = await fetch("http://127.0.0.1:3000/api/cofiatrading-world-control/linear", { cache: "no-store" });
+    if (lr.ok) {
+      const ld = (await lr.json()) as { ok?: boolean; total?: number };
+      if (ld?.ok && typeof ld.total === "number") linearTotal = ld.total;
+    }
+  } catch { /* gap honnête si la route ne répond pas */ }
   const calBusLines = await readJsonl(CALENDAR_BUS);
   let academyModules: string[] = [];
   try {
@@ -159,7 +169,8 @@ export async function GET() {
     const nowSec = Math.floor(Date.parse(new Date().toISOString()) / 1000);
     for (const line of recent) {
       try {
-        const o = rec(JSON.parse(line));
+        const parsed = JSON.parse(line);
+        const o = parsed && typeof parsed === "object" ? parsed as Record<string, unknown> : {};
         const s = typeof o.s === "string" ? o.s : "";
         const jm = s.match(/job=([^\s]+)/);
         if (jm) jobs.add(jm[1]);
