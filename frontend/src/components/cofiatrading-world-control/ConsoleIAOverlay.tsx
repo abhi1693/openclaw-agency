@@ -1340,7 +1340,8 @@ export function ConsoleIAOverlay() {
   const [conversations, setConversations] = useState<ConvThread[]>([]);
   const [crmTotals, setCrmTotals] = useState<CrmTotals | null>(null);
   const [allClients, setAllClients] = useState<ConvThread[]>([]);
-  const [allClientsMode, setAllClientsMode] = useState(false);
+  const [dmPool, setDmPool] = useState<ConvThread[]>([]);
+  const [inboxMode, setInboxMode] = useState<"convs" | "clients" | "dm">("convs");
   const [inboxSegment, setInboxSegment] = useState<"conversations" | "canaux">("conversations");
   const [selectedConvId, setSelectedConvId] = useState<string | null>(null);
   const [convMessages, setConvMessages] = useState<ConvMessage[]>([]);
