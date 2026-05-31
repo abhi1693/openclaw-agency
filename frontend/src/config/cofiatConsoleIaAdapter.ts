@@ -204,6 +204,10 @@ export function getConsoleIaAdapterState(): ConsoleIaAdapterState {
     statusSource: "config",
     blocker,
     fallbackChain,
+    primaryProvider: "perplexity-api",
+    activeProvider: "openrouter",
+    globalStatus: "AMBER",
+    providers: buildProviders(),
   };
 }
 
