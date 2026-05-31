@@ -2208,11 +2208,12 @@ export function WorldControl() {
             </aside>
           </div>
 
-          {/* Cockpit opérationnel — sous le monde, replié par défaut (pas un poster) */}
-          <details className="mt-4">
-            <summary className="cursor-pointer list-none rounded-md border border-cyan-300/20 bg-slate-950/70 px-4 py-3 text-[12px] font-black uppercase tracking-[0.2em] text-cyan-100 transition hover:bg-slate-900/70">
-              ▸ Cockpit opérationnel — actions 7j, routes 100M, services, knowledge
-            </summary>
+          {/* Cockpit opérationnel — VISIBLE, plus de repli caché
+              (Erwin 2026-05-31 : « plus aucun truc caché là en bas »). */}
+          <section className="mt-4" data-operational-cockpit="visible">
+            <div className="mb-3 rounded-md border border-cyan-300/20 bg-slate-950/70 px-4 py-3 text-[12px] font-black uppercase tracking-[0.2em] text-cyan-100">
+              Cockpit opérationnel — actions 7j, routes 100M, services, knowledge
+            </div>
             <div className="mt-3">
               <WorldControlDeck
                 primaryActions={primaryActions}
