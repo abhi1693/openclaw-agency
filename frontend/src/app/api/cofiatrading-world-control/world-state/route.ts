@@ -17,6 +17,7 @@ type SnapshotTruck = {
   lastProof?: string;
   lastRunAt?: string | null;
   writeLock?: boolean;
+  failureMode?: string;
 };
 
 type SnapshotAgent = {
@@ -69,6 +70,7 @@ type SnapshotPayload = {
     agents?: SnapshotAgent[];
     buildings?: SnapshotBuilding[];
   };
+  hasOpenClaw?: boolean;
 };
 
 const SNAPSHOT_URL =
@@ -131,6 +133,7 @@ export async function GET() {
       currentJob: truck.currentJob ?? "UNKNOWN",
       proof: truck.lastProof ?? "UNKNOWN",
       lastRunAt: truck.lastRunAt ?? null,
+      failureMode: truck.failureMode ?? null,
       writeLocked: truck.writeLock ?? true,
       routeLabel: truck.route ?? route.label,
       movement: {
@@ -164,10 +167,19 @@ export async function GET() {
   }));
 
   const now = new Date().toISOString();
+  const hasOpenClawGarageProof =
+    snapshot.hasOpenClaw === true &&
+    trucks.length > 0 &&
+    trucks.every((truck) => !String(truck.failureMode ?? "").includes("OPENCLAW_API_DOWN"));
+  // Attribution maison DÉTERMINISTE par event (pas d'heuristique mots-clés) :
+  // chaque event dérivé a une sémantique connue → maison canonique. Le client
+  // (WorldMapLiving) anime l'agent-lead de la maison ciblée. heartbeat = ping
+  // de refresh, pas une mission → house_id null (n'anime aucun agent).
   const events = [
     {
       id: "snapshot-heartbeat",
       kind: "heartbeat",
+      house_id: null as string | null,
       status: "LIVE",
       label: "World snapshot refreshed",
       source: "snapshot",
@@ -177,6 +189,7 @@ export async function GET() {
     {
       id: "revenue-command",
       kind: "revenue",
+      house_id: "iron_office" as string | null,
       status: snapshot.revenue?.currentMrrEur ? "LIVE" : "UNKNOWN",
       label: `Revenue ${snapshot.revenue?.currentMrrEur ?? "UNKNOWN"} MRR`,
       source: "NY backend Stripe + Iron summary",
@@ -186,6 +199,7 @@ export async function GET() {
     {
       id: "publisher",
       kind: "publisher",
+      house_id: "youtube_studio" as string | null,
       status: snapshot.publisher?.ok ? "LIVE" : "LOCKED",
       label: `CofiaPublisher ${snapshot.publisher?.outputDirCount ?? "UNKNOWN"} renders`,
       source: "CofiaPublisher :8540",
@@ -195,10 +209,15 @@ export async function GET() {
     {
       id: "openclaw-trucks",
       kind: "trucks",
-      status: trucks.length > 0 ? "LIVE" : "UNKNOWN",
-      label: `${trucks.length} trucks rendered from OpenClaw records`,
+      house_id: "openclaw_agent_barracks" as string | null,
+      status: hasOpenClawGarageProof ? "LIVE" : trucks.length > 0 ? "AMBER" : "UNKNOWN",
+      label: hasOpenClawGarageProof
+        ? `${trucks.length} trucks rendered from OpenClaw records`
+        : `${trucks.length} trucks rendered from local fallback`,
       source: "OpenClaw garage-trucks",
-      proof: `${snapshot.openclaw?.garageTrucks?.length ?? 0} total garage truck records in snapshot`,
+      proof: hasOpenClawGarageProof
+        ? `${snapshot.openclaw?.garageTrucks?.length ?? 0} total garage truck records in snapshot`
+        : `fallback local; hasOpenClaw=${String(snapshot.hasOpenClaw ?? false)}; no LIVE claim without gateway board proof`,
       ts: now,
     },
   ];
