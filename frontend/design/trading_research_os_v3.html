@@ -867,8 +867,9 @@ function drawVpFlow(){const o=ctx('vpFlow');if(!o||!VPI)return;const x=o.x,w=o.w
 /* ---- Validation anti-overfit (DSR Bailey-LdP + PBO/CSCV) — crédibilité quant ---- */
 function runValidation(){if(!$('#evValidation'))return;$('#evValidation').innerHTML='<h3>Validation anti-overfit <span class="r"><span class="note">calcul…</span></span></h3>';
   Promise.all([ofGet('/api/pbo?direction=fade&h=15&regime=open-drive&cost_bp=0.6'),
-               ofGet('/api/backtest?feat=delta_z&direction=fade&split=oos&h=15&cost_bp=0.6')]).then(function(a){
-    var p=a[0],b=a[1];var pbo=p.pbo,dsr=b.dsr;
+               ofGet('/api/backtest?feat=delta_z&direction=fade&split=oos&h=15&cost_bp=0.6'),
+               ofGet('/api/verdict?feat=delta_z&direction=fade&regime=open-drive')]).then(function(a){
+    var p=a[0],b=a[1],g=a[2]||{};var pbo=p.pbo,dsr=b.dsr;var gv=g.verdict||'KILL';var gvc={KILL:'reject',RETEST:'insuf','PAPER-CANDIDATE':'promote'}[gv]||'reject';
     var pcol=(pbo==null)?'var(--dim)':(pbo>0.5?'var(--red)':(pbo<0.2?'var(--green2)':'var(--amber)'));
     var dcol=(dsr==null)?'var(--dim)':(dsr>0.95?'var(--green2)':(dsr<0.6?'var(--red)':'var(--amber)'));
     $('#evValidation').innerHTML='<h3>Validation anti-overfit — DSR · PBO/CSCV (López de Prado) <span class="r"><span class="badge b-real">calculé LIVE</span> <span class="badge b-model">MODEL</span></span></h3>'+
