@@ -1555,7 +1555,7 @@ async function buildDmPool(limit = 400) {
   const out: Record<string, unknown>[] = [];
   for (const r of all) {
     const uid = String(r.user_id ?? "");  // user_id = INTEGER en DB → String(), pas asString()
-    if (!uid || uid === "0" || seen.has(uid) || crmTg.has(uid)) continue;
+    if (!uid || uid === "0" || uid === "777000" || uid === "42777" || seen.has(uid) || crmTg.has(uid)) continue;  // exclut comptes service Telegram
     seen.add(uid);
     out.push({
       userId: uid,
