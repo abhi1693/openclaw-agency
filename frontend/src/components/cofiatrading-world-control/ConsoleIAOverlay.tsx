@@ -937,6 +937,7 @@ type ClientCrm360 = {
   telegramId?: string;
   note?: string;
   capturedEmail?: string;
+  resolvedBy?: string;
   identity?: { name?: string; username?: string; country?: string; language?: string; email?: string; phone?: string };
   temperature?: { label?: string; score?: number | null; urgency?: string };
   money?: { valueTier?: string; depositUsd?: number | null; netDepositUsd?: number | null; redepositUsd?: number | null; broker?: string; brokerUid?: string; moneyScore?: number | null };
