@@ -1441,20 +1441,24 @@ export function ConsoleIAOverlay() {
         const d = (await r.json()) as { ok: boolean; threads?: ConvThread[]; totals?: CrmTotals };
         if (!stopped && d.ok && Array.isArray(d.threads)) setConversations(d.threads);
         if (!stopped && d.ok && d.totals) setCrmTotals(d.totals);
-        if (allClientsMode) {
-          const ra = await fetch("/api/cofiatrading-world-control/console-ia?allclients=1", { cache: "no-store" });
+        if (inboxMode !== "convs") {
+          const ep = inboxMode === "dm" ? "dmpool=1" : "allclients=1";
+          const ra = await fetch(`/api/cofiatrading-world-control/console-ia?${ep}`, { cache: "no-store" });
           const da = (await ra.json()) as { ok: boolean; clients?: Array<Record<string, unknown>> };
           if (!stopped && da.ok && Array.isArray(da.clients)) {
-            setAllClients(da.clients.map((c) => ({
+            const mapped: ConvThread[] = da.clients.map((c) => ({
               userId: String(c.userId ?? ""), name: String(c.name ?? ""), username: String(c.username ?? ""),
-              agent: c.brokerOnly ? "" : "iron", stage: "", unread: 0, vip: false, intentScore: null,
-              lastPreview: `${String(c.broker || c.crmTier || "—")}${c.depositUsd ? ` · dépôt $${c.depositUsd}` : ""}${c.commissionUsd ? ` · comm $${c.commissionUsd}` : ""}`,
-              lastDirection: "", lastTs: String(c.country || ""), totalMessages: 0, sourceChannel: "crm", muted: false,
-              crmFound: true, crmTemp: String(c.crmTemp || ""), crmScore: (c.crmScore as number) ?? null,
+              agent: c.brokerOnly || c.dmLead ? "" : "iron", stage: "", unread: 0, vip: false, intentScore: null,
+              lastPreview: c.dmLead
+                ? `DM Telethon${c.username ? ` · @${c.username}` : ""}`
+                : `${String(c.broker || c.crmTier || "—")}${c.depositUsd ? ` · dépôt $${c.depositUsd}` : ""}${c.commissionUsd ? ` · comm $${c.commissionUsd}` : ""}`,
+              lastDirection: "", lastTs: String(c.country || ""), totalMessages: 0, sourceChannel: c.dmLead ? "dm" : "crm", muted: false,
+              crmFound: !c.dmLead, crmTemp: String(c.crmTemp || ""), crmScore: (c.crmScore as number) ?? null,
               crmTier: String(c.crmTier || ""), crmStripe: String(c.crmStripe || ""), crmIsClient: c.isClient === true,
               depositUsd: (c.depositUsd as number) ?? null, commissionUsd: (c.commissionUsd as number) ?? null,
-              brokerOnly: c.brokerOnly === true, broker: String(c.broker || ""), churnRisk: String(c.churnRisk || ""),
-            })));
+              brokerOnly: c.brokerOnly === true, broker: String(c.broker || ""), churnRisk: String(c.churnRisk || ""), dmLead: c.dmLead === true,
+            }));
+            if (!stopped) { if (inboxMode === "dm") setDmPool(mapped); else setAllClients(mapped); }
           }
         }
       } catch {
