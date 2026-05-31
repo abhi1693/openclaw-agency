@@ -1256,15 +1256,29 @@ function ConversationsInbox({
   return (
     <div className="grid gap-1.5">
       <div className="flex items-center justify-between gap-2">
-        <p className="text-[10px] font-black uppercase tracking-[0.16em] text-cyan-100">Clients · {threads.length}{hotCount ? ` · 🔥 ${hotCount}` : ""}</p>
-        <span className="flex items-center gap-1.5 text-[8px] font-black uppercase tracking-[0.05em] text-slate-500">
-          <span className="h-2 w-2 rounded-full bg-rose-400" />chaud
-          <span className="h-2 w-2 rounded-full bg-amber-400" />tiède
-          <span className="h-2 w-2 rounded-full bg-sky-400" />froid
-        </span>
+        <p className="text-[10px] font-black uppercase tracking-[0.16em] text-cyan-100">{allClientsMode ? "Tous les clients" : "Conversations"} · {threads.length}{hotCount ? ` · 🔥 ${hotCount}` : ""}</p>
+        <button type="button" onClick={onToggleAllClients} className={`rounded-md border px-1.5 py-0.5 text-[9px] font-black uppercase tracking-[0.04em] transition ${allClientsMode ? "border-cyan-300/55 bg-cyan-400/15 text-cyan-100" : "border-slate-700 text-slate-300 hover:border-cyan-300/40"}`}>
+          {allClientsMode ? `↩ Récents` : `Tous (${totals?.clientsTg ?? "…"})`}
+        </button>
       </div>
-      {!threads.length ? <p className="text-[11px] text-slate-500">Aucune conversation chargée.</p> : null}
-      <div className="grid max-h-[56vh] gap-1.5 overflow-auto pr-1">
+      {totals ? (
+        <div className="flex flex-wrap items-center gap-x-2 gap-y-0.5 rounded-lg border border-slate-800 bg-slate-950/60 px-2 py-1 text-[9px] text-slate-400">
+          <span className="font-black text-slate-200">{totals.depositors ?? "—"}</span><span>déposants</span>
+          <span className="text-slate-600">·</span>
+          <span className="font-black text-emerald-300">${totals.netDepUsd?.toLocaleString() ?? "—"}</span><span>net</span>
+          <span className="text-slate-600">·</span>
+          <span className="font-black text-amber-300">${totals.commissionUsd?.toLocaleString() ?? "—"}</span><span>commission</span>
+          {totals.sheetUrl ? <a href={totals.sheetUrl} target="_blank" rel="noreferrer" className="ml-auto rounded border border-emerald-300/30 px-1.5 py-0.5 font-black text-emerald-200 hover:bg-emerald-400/10">Google Sheet ↗</a> : null}
+        </div>
+      ) : null}
+      <div className="flex items-center gap-1.5 text-[8px] font-black uppercase tracking-[0.05em] text-slate-500">
+        <span className="h-2 w-2 rounded-full bg-rose-400" />chaud
+        <span className="h-2 w-2 rounded-full bg-amber-400" />tiède
+        <span className="h-2 w-2 rounded-full bg-sky-400" />froid
+        <span className="ml-auto normal-case text-slate-600">{allClientsMode ? "DB CRM live · classé chaud + dépôt" : "convs récentes"}</span>
+      </div>
+      {!threads.length ? <p className="text-[11px] text-slate-500">{allClientsMode ? "Chargement clients…" : "Aucune conversation chargée."}</p> : null}
+      <div className="grid max-h-[52vh] gap-1.5 overflow-auto pr-1">
         {heatSorted.map((t) => {
           const tv = tempViz(t.crmTemp);
           const whale = isWhaleTier(t.crmTier);
