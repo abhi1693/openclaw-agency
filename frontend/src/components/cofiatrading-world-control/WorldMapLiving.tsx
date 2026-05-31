@@ -396,11 +396,28 @@ export function WorldMapLiving({ snapshot, angelRoster, onSelectHouse }: { snaps
       return { id: `${a}__${b}`, a, b, d: `M ${fa.sx.toFixed(1)} ${fa.sy.toFixed(1)} Q ${mx.toFixed(1)} ${my.toFixed(1)} ${fb.sx.toFixed(1)} ${fb.sy.toFixed(1)}`, w: kind === "main" ? 11 : 7 };
     });
 
-    // décor léger statique (lampes seulement, sobre)
+    // lanternes : devant chaque maison
     const lamps: Array<{ x: number; y: number }> = [];
     built.forEach((b) => { const f = isoProject(houseFrontWorld(b.house).wx + b.house.w * 0.7, houseFrontWorld(b.house).wy); lamps.push({ x: f.sx, y: f.sy }); });
 
-    return { built, vbMinX, vbMinY, vbW, vbH, viewBox: `${vbMinX.toFixed(0)} ${vbMinY.toFixed(0)} ${vbW.toFixed(0)} ${vbH.toFixed(0)}`, islandPath, districts, roads, lamps };
+    // ── décor Astrub : anneau côtier (plage) + arbres/buissons/rochers en lisière (hors bâtiments) ──
+    const coastPts = islandPts.map((p) => ({ x: ic.x + (p.x - ic.x) * 1.08, y: ic.y + (p.y - ic.y) * 1.08 + 3 }));
+    const coastPath = smoothClosedPath(coastPts);
+    const bases = built.map((b) => b.base);
+    const decor: Array<{ x: number; y: number; kind: "tree" | "bush" | "rock"; s: number }> = [];
+    islandPts.forEach((p, k) => {
+      const nxt = islandPts[(k + 1) % islandPts.length];
+      for (const t of [0.18, 0.62]) {
+        const q = lerpPt(p, nxt, t);
+        const inn = lerpPt(q, ic, 0.16 + rseed(k * 7.3 + t * 11) * 0.1);
+        if (bases.some((bb) => Math.hypot(bb.x - inn.x, bb.y - inn.y) < 64)) continue;
+        const r = rseed(k * 5.1 + t * 9.7);
+        const kind: "tree" | "bush" | "rock" = r < 0.5 ? "tree" : r < 0.78 ? "bush" : "rock";
+        decor.push({ x: inn.x, y: inn.y, kind, s: 0.82 + rseed(k + t * 3) * 0.55 });
+      }
+    });
+
+    return { built, vbMinX, vbMinY, vbW, vbH, viewBox: `${vbMinX.toFixed(0)} ${vbMinY.toFixed(0)} ${vbW.toFixed(0)} ${vbH.toFixed(0)}`, islandPath, coastPath, districts, roads, lamps, decor };
   }, [effHouses]);
 
   const builtSorted = useMemo(() => [...scene.built].sort((a, b) => a.depth - b.depth), [scene.built]);
