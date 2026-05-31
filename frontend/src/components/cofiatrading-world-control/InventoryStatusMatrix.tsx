@@ -446,7 +446,7 @@ export function InventoryStatusMatrix() {
           Inventory / Status Matrix — No-False-Green
         </p>
         <p className="mt-1 animate-pulse text-[10.5px] text-slate-400">
-          chargement de l'inventaire…
+          {"chargement de l'inventaire…"}
         </p>
       </div>
     );
