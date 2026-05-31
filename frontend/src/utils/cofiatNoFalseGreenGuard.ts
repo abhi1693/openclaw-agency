@@ -117,18 +117,8 @@ export function summarizeStatuses(
  * vers GREEN, JAMAIS de preuve inventée. Idempotent, pur.
  * ════════════════════════════════════════════════════════════════ */
 
-/** Type de preuve (taxonomie canonique, optionnel sur les items). */
-export type ProofKind =
-  | "heartbeat"
-  | "api_probe"
-  | "auth_probe"
-  | "manual_verification"
-  | "billing_check"
-  | "filesystem_check"
-  | "deployment_check";
-
-/** Confiance de la preuve : hard (probe live), soft (dérivé), manual (audit humain). */
-export type ProofConfidence = "hard" | "soft" | "manual";
+/** Taxonomie de preuve — SSOT dans cofiatWorld.types (re-exportée ici par commodité). */
+export type { ProofKind, ProofConfidence } from "@/types/cofiatWorld.types";
 
 /** Sources AUTORISANT un GREEN/LIVE (traçables). mock/config/unknown interdits. */
 const TRUSTED_GREEN_SOURCES: ReadonlySet<StatusSource> = new Set<StatusSource>([
