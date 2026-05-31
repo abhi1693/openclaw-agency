@@ -1905,6 +1905,10 @@ function WorldControlDeck({
           </p>
         </div>
       </Panel>
+
+      <Panel title="Auth / Providers — No-False-Green" tone="cyan">
+        <AuthProviderStatusPanel />
+      </Panel>
     </section>
   );
 }
