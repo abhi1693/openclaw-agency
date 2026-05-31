@@ -1291,7 +1291,6 @@ function Building({
   // setback (toit stepped) : un 2e bloc inset au-dessus
   const stepped = h.roof === "stepped";
   const upper = stepped ? block(insetTowards(body.top, 0.32), bodyH * 0.5) : null;
-  const topPoly = stepped && upper ? upper : body;
   const apex = stepped && upper ? { x: cx, y: upper.top[0].y - (upper.top[2].y - upper.top[0].y) / 2 } : { x: cx, y: roofY };
 
   // porte (façade droite, en bas-centre)
