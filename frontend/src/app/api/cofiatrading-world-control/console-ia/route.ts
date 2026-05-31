@@ -1399,8 +1399,11 @@ async function proxyConversationPhoto(body: Record<string, unknown>) {
       body: JSON.stringify({ agent: via, type: "photo", chat_id: uid, media: fileB64, channel: "direct" }),
       signal: AbortSignal.timeout(15000),
     });
-    const result = await res.json().catch(() => ({}));
-    const ok = res.ok && (result as { success?: boolean }).success === true;
+    const result = await res.json().catch(() => ({})) as { message_id?: number; success?: boolean };
+    const ok = res.ok && result.success === true;
+    if (ok) {
+      await logConversationOutMarker(uid, via, `📷 Photo envoyée${result.message_id ? ` (msg ${result.message_id})` : ""}`);
+    }
     return NextResponse.json(
       { ok, status: res.status, result, target: uid, via, kind: "photo", sourceTag: SOURCE_TAG },
       { status: ok ? 200 : 502 },
