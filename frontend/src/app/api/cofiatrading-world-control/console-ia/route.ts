@@ -1389,15 +1389,16 @@ const crmNum = (v: unknown): number | null => {
 const safeTgId = (v: string) => (/^-?\d{1,20}$/.test(v) ? v : "");
 
 // Requête sqlite lecture seule → lignes JSON. SELECT-only, fail-open=[].
-function crmDbRows(sql: string): Record<string, unknown>[] {
+function sqliteRows(db: string, sql: string): Record<string, unknown>[] {
   try {
-    const out = execFileSync(SQLITE3, ["-json", CRM_DB, sql], { timeout: 8000, maxBuffer: 64 * 1024 * 1024, encoding: "utf8" });
+    const out = execFileSync(SQLITE3, ["-json", db, sql], { timeout: 8000, maxBuffer: 64 * 1024 * 1024, encoding: "utf8" });
     const t = out.trim();
     return t ? (JSON.parse(t) as Record<string, unknown>[]) : [];
   } catch {
     return [];
   }
 }
+const crmDbRows = (sql: string) => sqliteRows(CRM_DB, sql);
 
 type DepRow = { first: number | null; net: number | null; commission: number | null; ltv: number | null; churn: string };
 let _depCache: { mtimeMs: number; byUid: Record<string, DepRow> } | null = null;
