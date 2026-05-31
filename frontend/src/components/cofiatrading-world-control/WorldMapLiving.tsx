@@ -435,7 +435,9 @@ export function WorldMapLiving({ snapshot, angelRoster, onSelectHouse }: { snaps
     } else {
       dragRef.current = { mode: "pan", sx: px, sy: py, camTx: cam.tx, camTy: cam.ty, hx: 0, hy: 0, moved: false };
     }
-    try { el.setPointerCapture(e.pointerId); } catch { /* ignore */ }
+    // PAS de setPointerCapture : sinon le conteneur volerait le clic des bâtiments/avatars/boutons.
+    // Le pan fonctionne via pointermove tant que le curseur reste sur la carte ; un clic sans
+    // déplacement laisse l'onClick de l'enfant (bâtiment/avatar) se déclencher normalement.
   };
   const onScenePointerMove = (e: React.PointerEvent) => {
     const d = dragRef.current; if (!d.mode) return;
