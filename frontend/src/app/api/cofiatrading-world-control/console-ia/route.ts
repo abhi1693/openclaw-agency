@@ -1315,6 +1315,45 @@ async function proxyConversationVoice(body: Record<string, unknown>) {
   }
 }
 
+// Flux 2 — Envoi d'une PHOTO à un client depuis la dashboard. Proxy vers la MÊME brique
+// média EXISTANTE du hub (/api/agent-oversight/send-media-b64, kind=photo → sendPhoto).
+// Zéro hub modifié : le mapping kind=photo→sendPhoto existe déjà (server.py:36097).
+// Gated : déclenché par un clic explicite (preview + double-confirm UI). dryRun=true prouve
+// le câblage sans envoyer (pas de spam client en test).
+async function proxyConversationPhoto(body: Record<string, unknown>) {
+  const uid = sanitizeText(asString(body.uid), 40);
+  const via = sanitizeText(asString(body.via), 20) || "iron";
+  const fileB64 = typeof body.fileB64 === "string" ? body.fileB64 : "";
+  const filename = sanitizeText(asString(body.filename), 60) || "photo.jpg";
+  const caption = sanitizeText(asString(body.caption), 400);
+  const dryRun = body.dryRun === true;
+  if (!uid || !fileB64) {
+    return NextResponse.json({ ok: false, error: "MISSING_UID_OR_PHOTO", sourceTag: SOURCE_TAG }, { status: 400 });
+  }
+  if (dryRun) {
+    return NextResponse.json({
+      ok: true, dryRun: true, target: uid, via, kind: "photo",
+      approxBytes: Math.floor((fileB64.length * 3) / 4),
+      wouldCall: `${HUB_URL}/api/agent-oversight/send-media-b64`, sourceTag: SOURCE_TAG,
+    });
+  }
+  try {
+    const res = await fetch(`${HUB_URL}/api/agent-oversight/send-media-b64`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ agent: via, chat_id: uid, kind: "photo", file_b64: fileB64, filename, caption }),
+      signal: AbortSignal.timeout(15000),
+    });
+    const result = await res.json().catch(() => ({}));
+    return NextResponse.json(
+      { ok: res.ok, status: res.status, result, target: uid, via, kind: "photo", sourceTag: SOURCE_TAG },
+      { status: res.ok ? 200 : 502 },
+    );
+  } catch {
+    return NextResponse.json({ ok: false, error: "PHOTO_PROXY_FAILED", target: uid, sourceTag: SOURCE_TAG }, { status: 502 });
+  }
+}
+
 async function recordAgentReply(body: Record<string, unknown>) {
   const packetId = sanitizeText(asString(body.packetId), 140);
   const agentId = sanitizeText(asString(body.agentId), 80) || "agent";
