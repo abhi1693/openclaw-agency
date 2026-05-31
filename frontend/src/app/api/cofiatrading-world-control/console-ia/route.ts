@@ -1550,11 +1550,11 @@ async function buildDmPool(limit = 400) {
   const crmTg = new Set(Object.keys(await crmLiteByTg()));
   const q = "SELECT user_id, username, first_name, last_msg_ts, last_msg_direction FROM dm_inbox_snapshot WHERE user_id IS NOT NULL AND user_id!='0' ORDER BY last_msg_ts DESC LIMIT 3000";
   const all = [...sqliteRows(REENGAGE_DB, q), ...sqliteRows(REENGAGE_RED_DB, q)]
-    .sort((a, b) => asString(b.last_msg_ts).localeCompare(asString(a.last_msg_ts)));
+    .sort((a, b) => (Number(b.last_msg_ts) || 0) - (Number(a.last_msg_ts) || 0));
   const seen = new Set<string>();
   const out: Record<string, unknown>[] = [];
   for (const r of all) {
-    const uid = asString(r.user_id);
+    const uid = String(r.user_id ?? "");  // user_id = INTEGER en DB → String(), pas asString()
     if (!uid || uid === "0" || seen.has(uid) || crmTg.has(uid)) continue;
     seen.add(uid);
     out.push({
