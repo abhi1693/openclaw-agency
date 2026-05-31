@@ -1471,7 +1471,7 @@ export function ConsoleIAOverlay() {
       stopped = true;
       window.clearInterval(timer);
     };
-  }, [isOpen, allClientsMode]);
+  }, [isOpen, inboxMode]);
 
   // Transcript du client sélectionné (read-only).
   useEffect(() => {
