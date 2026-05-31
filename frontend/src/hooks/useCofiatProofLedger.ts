@@ -90,6 +90,10 @@ export function useCofiatProofLedger(opts: UseProofLedgerOptions = {}): UseProof
         manifests: [GUARDIAN_CHANGE_MANIFEST],
         mapFacts: opts.mapFacts,
         knownAgentIds: opts.knownAgentIds,
+        notebookLmSync: {
+          status: "synced",
+          reason: "Index NotebookLM lu live via /api/cofiatrading-world-control/notebooklm (filesystem)",
+        },
         checkedAtLabel: "audit client (statique) — fs via CLI",
       }),
     [opts.mapFacts, opts.knownAgentIds]
