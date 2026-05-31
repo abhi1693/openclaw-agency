@@ -1488,6 +1488,24 @@ export function ConsoleIAOverlay() {
     };
   }, [isOpen, inboxMode]);
 
+  // Flux 11 — cockpit vue d'ensemble (argent + santé), rafraîchi 30s.
+  useEffect(() => {
+    if (!isOpen) return;
+    let stopped = false;
+    const load = async () => {
+      try {
+        const r = await fetch("/api/cofiatrading-world-control/console-ia?cockpit=1", { cache: "no-store" });
+        const d = (await r.json()) as { ok: boolean; cockpit?: Cockpit };
+        if (!stopped && d.ok && d.cockpit) setCockpit(d.cockpit);
+      } catch {
+        // garde l'état courant
+      }
+    };
+    load();
+    const timer = window.setInterval(load, 30000);
+    return () => { stopped = true; window.clearInterval(timer); };
+  }, [isOpen]);
+
   // Transcript du client sélectionné (read-only).
   useEffect(() => {
     if (!isOpen || !selectedConvId) {
