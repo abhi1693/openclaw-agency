@@ -1260,9 +1260,9 @@ function ConversationsInbox({
   return (
     <div className="grid gap-1.5">
       <div className="flex items-center justify-between gap-2">
-        <p className="text-[10px] font-black uppercase tracking-[0.16em] text-cyan-100">{allClientsMode ? "Tous les clients" : "Conversations"} · {threads.length}{hotCount ? ` · 🔥 ${hotCount}` : ""}</p>
-        <button type="button" onClick={onToggleAllClients} className={`rounded-md border px-1.5 py-0.5 text-[9px] font-black uppercase tracking-[0.04em] transition ${allClientsMode ? "border-cyan-300/55 bg-cyan-400/15 text-cyan-100" : "border-slate-700 text-slate-300 hover:border-cyan-300/40"}`}>
-          {allClientsMode ? `↩ Récents` : `Tous (${totals?.clientsTg ?? "…"})`}
+        <p className="text-[10px] font-black uppercase tracking-[0.16em] text-cyan-100">{mode === "clients" ? "Tous les clients" : mode === "dm" ? "Pool DM" : "Conversations"} · {threads.length}{hotCount ? ` · 🔥 ${hotCount}` : ""}</p>
+        <button type="button" onClick={onCycleMode} className="rounded-md border border-cyan-300/45 bg-cyan-400/10 px-1.5 py-0.5 text-[9px] font-black uppercase tracking-[0.04em] text-cyan-100 transition hover:bg-cyan-400/20">
+          {mode === "convs" ? `→ Clients (${totals?.clientsTg ?? "…"})` : mode === "clients" ? `→ DM (${totals?.dmContacts ?? "…"})` : "→ Récents"}
         </button>
       </div>
       {totals ? (
