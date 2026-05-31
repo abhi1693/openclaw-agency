@@ -302,7 +302,7 @@ export function WorldMapLiving({ snapshot, angelRoster, onSelectHouse }: { snaps
 
     // île douce (hull serré autour des bâtiments)
     const allGround = built.flatMap((b) => b.ground); const ic = centroid(allGround); const N = 26; const islandPts: Pt[] = [];
-    for (let k = 0; k < N; k++) { const a = (k / N) * Math.PI * 2; let mp = -Infinity, far = { x: ic.x, y: ic.y }; for (const p of allGround) { const proj = (p.x - ic.x) * Math.cos(a) + (p.y - ic.y) * Math.sin(a); if (proj > mp) { mp = proj; far = p; } } islandPts.push({ x: far.x + Math.cos(a) * 70, y: far.y + Math.sin(a) * 55 }); }
+    for (let k = 0; k < N; k++) { const a = (k / N) * Math.PI * 2; let mp = -Infinity, far = { x: ic.x, y: ic.y }; for (const p of allGround) { const proj = (p.x - ic.x) * Math.cos(a) + (p.y - ic.y) * Math.sin(a); if (proj > mp) { mp = proj; far = p; } } islandPts.push({ x: far.x + Math.cos(a) * 46, y: far.y + Math.sin(a) * 34 }); }
     const islandPath = smoothClosedPath(islandPts);
 
     // districts (zones douces, dégradé) — centroïde + rayon depuis l'étalement des membres
