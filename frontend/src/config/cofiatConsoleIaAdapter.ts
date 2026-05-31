@@ -157,29 +157,16 @@ export function getConsoleIaAdapterState(): ConsoleIaAdapterState {
 
   // 3) Défaut : Perplexity API absente → fallback LLM routing actif via OpenRouter.
   //    On NE marque PAS GREEN (no-false-green) : statut AMBER, source=config.
-  const ppxLane = findCheck(guard?.checks ?? [], "perplexity_lane_paid_hold_only");
-  const orLane = findCheck(guard?.checks ?? [], "openrouter_lane_paid_hold_only");
-  const ppxHold = laneIsPaidHoldOnly(ppxLane);
-  const orHold = laneIsPaidHoldOnly(orLane);
-
-  // Preuve : on cite l'état réel du guard si lisible, sinon on reste sans preuve
-  // (NoFalseGreenGuard exige une preuve seulement pour GREEN/LIVE — ici AMBER).
-  const guardProofBits: string[] = [];
-  if (ppxHold) guardProofBits.push("paid_api_guard: perplexity_lane=paid_api_hold_packet_only");
-  if (orHold) guardProofBits.push("openrouter_lane=paid_api_hold_packet_only");
-  const proof = guardProofBits.length
-    ? `${guardProofBits.join("; ")}${checkedSuffix}`
-    : undefined;
-
+  //    AMBER n'exige aucune preuve (NoFalseGreenGuard ne l'impose que pour
+  //    GREEN/LIVE) ; on laisse donc `proof` indéfini côté client-safe.
   const blocker =
-    "Perplexity API absent — fallback active via OpenRouter/Gemini LLM routing; not a global auth blocker" +
-    (orHold ? " (OpenRouter en paid-hold : exécution payante gated GO Erwin, routing local non-payant actif)" : "");
+    "Perplexity API absent — fallback active via OpenRouter/Gemini LLM routing; not a global auth blocker " +
+    "(OpenRouter en paid-hold : exécution payante gated GO Erwin, routing local non-payant actif)";
 
   return {
     provider: "openrouter",
     status: "AMBER",
     statusSource: "config",
-    proof,
     blocker,
     fallbackChain,
   };
