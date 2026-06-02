@@ -1685,7 +1685,7 @@ export function WorldMapLiving({ snapshot, angelRoster, initialTruthMap, onSelec
   const houseOrchestratorAgeH = Number.isFinite(houseOrchestratorRunMs) ? (telemetryNow - houseOrchestratorRunMs) / 3_600_000 : null;
   const houseOrchestratorStale = houseOrchestratorAgeH != null && houseOrchestratorAgeH >= 2;
   const orchStaleSuffix = houseOrchestratorStale ? ` ⚠PÉRIMÉ ${Math.floor(houseOrchestratorAgeH)}h` : "";
-  const orchestratedHouseLabel = houseMissions.length ? `${Math.min(activeWorkHouseCount, canonHouseCount)}/${canonHouseCount}${orchStaleSuffix}` : "sync...";
+  const orchestratedHouseLabel = houseMissions.length ? `${activeWorkHouseCount}/${houseMissions.length}${orchStaleSuffix}` : "sync...";
   const localAgentCoverageLabel = localTotalAgentCount ? `${localCoveredAgentCount}/${localTotalAgentCount}` : agentCountLabel;
   const localAssetCoverageLabel = typeof houseOrchestrator?.summary?.assetsAssigned === "number"
     ? fmtNum(houseOrchestrator.summary.assetsAssigned)
