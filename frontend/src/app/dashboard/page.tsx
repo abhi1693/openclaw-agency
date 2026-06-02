@@ -1418,7 +1418,7 @@ export default function DashboardPage() {
                   <div className="mb-2 max-w-[90vw] overflow-x-auto rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 text-xs text-slate-600">
                     <p>{sessionActionMessage}</p>
                     {inspectedSession ? (
-                      <div className="mt-2 min-w-0 max-w-full overflow-x-auto rounded-md border border-slate-200 bg-white p-3 text-[11px] text-slate-700">
+                      <div className="mt-2 min-w-0 max-w-full overflow-hidden rounded-md border border-slate-200 bg-white p-3 text-[11px] text-slate-700">
                         <p className="flex flex-wrap items-center gap-1 font-semibold text-slate-900">
                           <span>Session payload:</span>
                           <span
@@ -1465,7 +1465,7 @@ export default function DashboardPage() {
                           <p className="text-[10px] font-semibold uppercase tracking-wide text-slate-500">
                             Session config
                           </p>
-                          <pre className="mt-1 max-h-40 overflow-auto rounded-md bg-slate-950/95 p-2 font-mono text-xs leading-4 text-slate-100 whitespace-pre-wrap break-words">
+                          <pre className="mt-1 max-h-40 overflow-auto rounded-md bg-slate-950/95 p-2 font-mono text-xs leading-4 text-slate-100 whitespace-pre-wrap break-all">
                             {inspectedSession.sessionConfig ?? DASH}
                           </pre>
                         </div>
