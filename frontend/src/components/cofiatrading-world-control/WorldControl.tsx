@@ -737,7 +737,7 @@ const HOUSE_WORKFORCE: Record<HouseId, HouseWorkforce> = {
     businessName: "Assets Warehouse",
     owner: "Lab / Brand Manager",
     workers: ["Lab", "Brand Manager", "Nova", "Steward", "Sentinel"],
-    mission: "94 MP4, 51 captions, 193 assets utilisables.",
+    mission: "Assets utilisables lus depuis snapshot live.",
     nextAction: "Transformer assets en posts, vidéos, pages.",
     impact: "acquisition",
     blocker: "assets visibles mais pas encore consommés",
@@ -755,7 +755,7 @@ const WORLD_NODES: WorldNode[] = [
   { id: "lightrag_observatory", label: "LightRAG", zone: "research", x: 18, y: 62, icon: "LR", owner: "Lab / Quant", mission: "Research utile", status: "PAUSED", assetKey: "sprite temporaire observatory" },
   { id: "youtube_studio", label: "YouTube Studio", zone: "production", x: 50, y: 38, icon: "YT", owner: "Nova / Isrāfīl", mission: "Publier video-01", status: "AMBER", assetKey: "MP4/captions Remotion listed" },
   { id: "site_seo_lab", label: "Site SEO Lab", zone: "funnel", x: 50, y: 66, icon: "SEO", owner: "Atlas / Paul MKT", mission: "Site + leads", status: "AMBER", assetKey: "sprite temporaire lab" },
-  { id: "assets_warehouse", label: "Assets Warehouse", zone: "factory", x: 42, y: 82, icon: "AW", owner: "Lab / Brand", mission: "193 assets -> posts", status: "LIVE", assetKey: "94 MP4 / 51 captions / 193 assets" },
+  { id: "assets_warehouse", label: "Assets Warehouse", zone: "factory", x: 42, y: 82, icon: "AW", owner: "Lab / Brand", mission: "Assets source live -> posts", status: "LIVE", assetKey: "snapshot assetsWarehouse" },
   { id: "iron_office", label: "Iron Office", zone: "cash", x: 76, y: 36, icon: "IR", owner: "Iron / Jack", mission: "Cash + brokers", status: "AMBER", assetKey: "broker proof listed" },
   { id: "vip_gate", label: "VIP Gate", zone: "clients", x: 76, y: 55, icon: "VIP", owner: "Mikā'īl / Ridwān", mission: "VIP + retention", status: "AMBER", assetKey: "sprite temporaire gate" },
   { id: "trading_academy", label: "Trading Academy", zone: "clients", x: 72, y: 78, icon: "TA", owner: "Quant / Marco", mission: "Upsell + modules", status: "AMBER", assetKey: "sprite temporaire academy" },
@@ -776,7 +776,7 @@ const WORLD_AGENTS: WorldAgent[] = [
   { name: "Marco", from: "mt4_signal_tower", to: "vip_gate", mission: "signal VIP", payload: "signal", color: "#22c55e", duration: 10, delay: -7 },
   { name: "Risk", from: "mt4_signal_tower", to: "compliance_port", mission: "risk gate", payload: "validation", color: "#f43f5e", duration: 18, delay: -9 },
   { name: "Atlas", from: "site_seo_lab", to: "mission_control_tower", mission: "site / Vercel / hub", payload: "deploy status", color: "#38bdf8", duration: 16, delay: -8 },
-  { name: "Reviewer", from: "compliance_port", to: "youtube_studio", mission: "Reviewer GREEN", payload: "compliance", color: "#fde68a", duration: 20, delay: -10 },
+  { name: "Reviewer", from: "compliance_port", to: "youtube_studio", mission: "Reviewer proof gate", payload: "compliance", color: "#fde68a", duration: 20, delay: -10 },
   { name: "Jarod", from: "openclaw_agent_barracks", to: "mission_control_tower", mission: "dispatch OpenClaw", payload: "order", color: "#c084fc", duration: 21, delay: -11 },
 ];
 
@@ -927,11 +927,11 @@ const CITY_DISTRICTS: CityDistrict[] = [
     accent: "#2dd4bf",
     glow: "rgba(45,212,191,.38)",
     workers: ["Lab", "Brand Manager", "Nova", "Steward"],
-    machines: ["94 MP4", "51 captions", "193 assets"],
+    machines: ["MP4 source live", "captions source live", "assets source live"],
     role: "Nourrir la production",
     next: "Assets -> posts / vidéos",
     blocker: "stock pas encore consommé",
-    metric: "193 assets",
+    metric: "snapshot assetsWarehouse",
   },
   {
     id: "paperclip_factory",
@@ -1074,7 +1074,7 @@ const _MOVING_AGENTS: MovingAgent[] = [
   { name: "Nova", from: "assets_warehouse", to: "youtube_studio", mission: "prépare video-01", payload: "MP4", color: "#67e8f9", duration: 12, delay: 0 },
   { name: "Isrāfīl", from: "youtube_studio", to: "site_seo_lab", mission: "publish / cross-post", payload: "vidéo", color: "#fbbf24", duration: 13, delay: -2 },
   { name: "Sonic", from: "youtube_studio", to: "vip_gate", mission: "short / Telegram", payload: "contenu", color: "#60a5fa", duration: 14, delay: -3 },
-  { name: "Reviewer", from: "compliance_port", to: "youtube_studio", mission: "Reviewer GREEN", payload: "legal", color: "#fde68a", duration: 17, delay: -4 },
+  { name: "Reviewer", from: "compliance_port", to: "youtube_studio", mission: "Reviewer proof gate", payload: "legal", color: "#fde68a", duration: 17, delay: -4 },
   { name: "Iron", from: "iron_office", to: "vip_gate", mission: "past_due recovery", payload: "291 EUR", color: "#fb7185", duration: 11, delay: -1 },
   { name: "Mikā'īl", from: "iron_office", to: "vip_gate", mission: "Stripe portal", payload: "pay", color: "#34d399", duration: 16, delay: -6 },
   { name: "Jack", from: "iron_office", to: "site_seo_lab", mission: "brokers reclaim", payload: "CellXpert", color: "#f97316", duration: 18, delay: -5 },
@@ -1095,7 +1095,7 @@ const _MOVING_TRUCKS: MovingTruck[] = [
   { name: "Cash Truck", points: ["iron_office", "vip_gate"], payload: "291 EUR / 3 clients", tone: "amber", duration: 10, delay: -2 },
   { name: "Broker Truck", points: ["iron_office", "site_seo_lab"], payload: "CellXpert / IP / drafts", tone: "rose", duration: 15, delay: -4 },
   { name: "Signal Truck", points: ["mt4_signal_tower", "vip_gate"], payload: "STRAT signal", tone: "emerald", duration: 9, delay: -6 },
-  { name: "Compliance Truck", points: ["compliance_port", "youtube_studio", "site_seo_lab"], payload: "Reviewer GREEN", tone: "rose", duration: 18, delay: -8 },
+  { name: "Compliance Truck", points: ["compliance_port", "youtube_studio", "site_seo_lab"], payload: "Reviewer proof gate", tone: "rose", duration: 18, delay: -8 },
   { name: "Memory Truck", points: ["obsidian_library", "central_brain"], payload: "canon / memory", tone: "cyan", duration: 16, delay: -10 },
   { name: "Dispatch Truck", points: ["openclaw_agent_barracks", "mission_control_tower"], payload: "orders / 38 angels / 59 trucks", tone: "cyan", duration: 13, delay: -12 },
 ];
@@ -1103,9 +1103,9 @@ const _MOVING_TRUCKS: MovingTruck[] = [
 const CLIENT_FUNNEL_STEPS: RailStep[] = [
   { label: "Socials", value: "9 canaux", tone: "cyan" },
   { label: "Site", value: "runtime à connecter", tone: "cyan" },
-  { label: "Telegram FREE", value: "4 891", tone: "emerald" },
-  { label: "Telegram VIP", value: "29", tone: "emerald" },
-  { label: "Stripe VIP", value: "7", tone: "emerald" },
+  { label: "Telegram FREE", value: "à vérifier", tone: "amber" },
+  { label: "Telegram VIP", value: "à vérifier", tone: "amber" },
+  { label: "Stripe VIP", value: "source down", tone: "amber" },
   { label: "Copy Trading", value: "FXcess Mirror", tone: "amber" },
   { label: "Retention", value: "support David", tone: "cyan" },
   { label: "Upsell", value: "Premium / Elite", tone: "amber" },
@@ -1114,9 +1114,9 @@ const CLIENT_FUNNEL_STEPS: RailStep[] = [
 const PRODUCTION_STEPS: RailStep[] = [
   { label: "Ideas", value: "ready", tone: "cyan" },
   { label: "Scripts", value: "drafts", tone: "cyan" },
-  { label: "Captions", value: "51", tone: "emerald" },
-  { label: "MP4", value: "94", tone: "emerald" },
-  { label: "Reviewer", value: "GREEN req.", tone: "amber" },
+  { label: "Captions", value: "source down", tone: "amber" },
+  { label: "MP4", value: "source down", tone: "amber" },
+  { label: "Reviewer", value: "proof req.", tone: "amber" },
   { label: "Publish", value: "0 live", tone: "rose" },
   { label: "Cross-post", value: "locked", tone: "rose" },
   { label: "Metrics", value: "after live", tone: "cyan" },
@@ -1573,14 +1573,14 @@ function _MapSceneWorldControl({
   const rev = snapshot?.revenue;
   const services = snapshot?.services ?? [];
   const kpis: Array<[string, string, boolean]> = [
-    ["MRR", formatVisualEur(rev?.currentMrrEur, "879 €"), rev?.currentMrrEur == null],
-    ["ARR", formatVisualEur(rev?.currentArrEur, "10 548 €"), rev?.currentArrEur == null],
-    ["VIP", rev?.activeVip != null ? String(rev.activeVip) : "7", rev?.activeVip == null],
-    ["ACTIFS", snapshot?.assetsWarehouse?.mp4Count != null ? `${snapshot.assetsWarehouse.mp4Count}` : "94", snapshot?.assetsWarehouse?.mp4Count == null],
-    ["CAPTIONS", snapshot?.assetsWarehouse?.captionsCount != null ? String(snapshot.assetsWarehouse.captionsCount) : "51", snapshot?.assetsWarehouse?.captionsCount == null],
-    ["SERVICES", services.length ? `${services.filter((s) => s.ok).length}/${services.length}` : "5/8", services.length === 0],
-    ["MAISONS", snapshot?.centralBrain?.housesCount != null ? String(snapshot.centralBrain.housesCount) : "15", snapshot?.centralBrain?.housesCount == null],
-    ["PAST_DUE", rev?.pastDueEur != null ? `${formatVisualEur(rev.pastDueEur, "291 €")} / ${rev?.pastDueCount ?? 0}` : "291 € / 3", rev?.pastDueEur == null],
+    ["MRR", formatVisualEur(rev?.currentMrrEur, "source down"), rev?.currentMrrEur == null],
+    ["ARR", formatVisualEur(rev?.currentArrEur, "source down"), rev?.currentArrEur == null],
+    ["VIP", rev?.activeVip != null ? String(rev.activeVip) : "—", rev?.activeVip == null],
+    ["ACTIFS", snapshot?.assetsWarehouse?.mp4Count != null ? `${snapshot.assetsWarehouse.mp4Count}` : "—", snapshot?.assetsWarehouse?.mp4Count == null],
+    ["CAPTIONS", snapshot?.assetsWarehouse?.captionsCount != null ? String(snapshot.assetsWarehouse.captionsCount) : "—", snapshot?.assetsWarehouse?.captionsCount == null],
+    ["SERVICES", services.length ? `${services.filter((s) => s.ok).length}/${services.length}` : "—", services.length === 0],
+    ["MAISONS", snapshot?.centralBrain?.housesCount != null ? String(snapshot.centralBrain.housesCount) : "—", snapshot?.centralBrain?.housesCount == null],
+    ["PAST_DUE", rev?.pastDueEur != null ? `${formatVisualEur(rev.pastDueEur, "291 €")} / ${rev?.pastDueCount ?? 0}` : "—", rev?.pastDueEur == null],
   ];
   const agentChips = (snapshot?.agentsCanon?.agents ?? []).slice(0, 12);
 
@@ -2252,6 +2252,7 @@ export function WorldControl({ initialSnapshot = null, initialAngelRoster = null
       {selectedHouse ? (
         <HouseDrawer
           house={selectedHouse}
+          snapshot={snapshot}
           canonAgents={selectedHouseCanonAgents}
           commerce={selectedHouseCommerce}
           services={selectedHouseServices}
@@ -3755,9 +3756,9 @@ function _LivingWorldEngine({ snapshot, angelRoster }: { snapshot: Snapshot | nu
                 {[
                   ["Socials", "9 canaux"],
                   ["Site", "à connecter"],
-                  ["Telegram FREE", "4 891"],
-                  ["Telegram VIP", "29"],
-                  ["Stripe VIP", "7"],
+                  ["Telegram FREE", "à vérifier"],
+                  ["Telegram VIP", "à vérifier"],
+                  ["Stripe VIP", "source live"],
                   ["Copy Trading", "FXcess"],
                   ["Upsell", "Premium"],
                 ].map(([label, value]) => (
@@ -3782,9 +3783,9 @@ function _LivingWorldEngine({ snapshot, angelRoster }: { snapshot: Snapshot | nu
                 {[
                   ["Ideas", "ready"],
                   ["Scripts", "draft"],
-                  ["Captions", "51"],
-                  ["MP4", "94"],
-                  ["Reviewer", "GREEN req."],
+                  ["Captions", "source down"],
+                  ["MP4", "source down"],
+                  ["Reviewer", "proof req."],
                   ["Publish", "0 live"],
                   ["Cross-post", "locked"],
                   ["Metrics", "after live"],
@@ -3796,7 +3797,7 @@ function _LivingWorldEngine({ snapshot, angelRoster }: { snapshot: Snapshot | nu
                 ))}
               </div>
               <p className="mt-2 text-[11px] text-amber-100/70">
-                193 assets · YouTube OAuth blocked · Reviewer GREEN required.
+                Assets source live · YouTube OAuth blocked · Reviewer proof gate required.
               </p>
             </div>
           </Panel>
@@ -3815,8 +3816,14 @@ type CalendarEventView = {
 };
 type CalendarPayload = {
   ok: boolean;
+  status?: string;
   freshness?: string;
   totalLines?: number | null;
+  eventsReturned?: number | null;
+  runAgeSec?: number | null;
+  proofAgeSec?: number | null;
+  emptyState?: string | null;
+  proof?: { source?: string | null; snapshotPath?: string | null };
   events?: CalendarEventView[];
 };
 type LinearIssueView = {
@@ -3864,8 +3871,22 @@ type ObsidianPayload = {
   reason?: string;
 };
 
+// Couleur par statut de la flotte VPS (panel openclaw_agent_barracks).
+// FAILED en rouge = la vérité n'est plus masquée derrière un "STALE" trompeur.
+function vpsStatusColor(status: string): string {
+  switch (status) {
+    case "LIVE": return "#34d399"; // vert : done <=15min
+    case "ROTATING": return "#38bdf8"; // bleu : attend son tour (normal)
+    case "RUNNING": return "#fbbf24"; // ambre : exécution en cours
+    case "STALE": return "#fb923c"; // orange : vrai retard >35min
+    case "FAILED": return "#fb7185"; // rouge : agent en erreur
+    default: return "#64748b"; // gris : WAITING / inconnu
+  }
+}
+
 function HouseDrawer({
   house,
+  snapshot,
   canonAgents,
   commerce,
   services,
@@ -3873,6 +3894,7 @@ function HouseDrawer({
   onClose,
 }: {
   house: HouseView;
+  snapshot: Snapshot | null;
   canonAgents: CofiaAgent[];
   commerce: NonNullable<Snapshot["commerce_machine"]>;
   services: Snapshot["services"];
@@ -3880,16 +3902,47 @@ function HouseDrawer({
   onClose: () => void;
 }) {
   const workforce = HOUSE_WORKFORCE[house.id];
+  const workerPool = snapshot?.workerPool;
+  const workerPoolSummary = workerPool?.summary;
+  const activeLaneText = workerPool?.activeLaneDistribution
+    ? Object.entries(workerPool.activeLaneDistribution)
+        .map(([lane, count]) => `${lane}:${String(count)}`)
+        .join(" · ")
+    : "SOURCE_MISSING";
   // Santé système LIVE — surfacée dans la maison central_brain (§54, tout dans la map)
-  const [sysHealth, setSysHealth] = useState<{
-    services?: Array<{ id: string; label: string; status: string }>;
-    servicesUp?: number;
-    servicesTotal?: number;
-    coordination?: {
-      overheat_archive?: { total_archived?: number; restored_this_session?: number };
-      restored_coordination_services?: string[];
-    };
-    vpsFleetAgents?: number | null;
+	  const [sysHealth, setSysHealth] = useState<{
+	    services?: Array<{ id: string; label: string; status: string }>;
+	    servicesUp?: number;
+	    servicesTotal?: number;
+	    cofState?: {
+	      ts_utc?: string | null;
+	      freshMin?: number | null;
+	      sections_ok?: number | null;
+	      sections_total?: number | null;
+	      stale_sections?: string[];
+	      mrr_eur?: number | null;
+	      active_vip?: number | null;
+	      cost_month_eur?: number | null;
+	      cost_budget_eur?: number | null;
+	      cost_pct?: number | null;
+	      agents_alive?: number | null;
+	      agents_total?: number | null;
+	      agents_blocked?: number | null;
+	    } | null;
+	    revenueCurrent?: {
+	      mrr_eur?: number | null;
+	      active_vip?: number | null;
+	      cof_state_mrr_eur?: number | null;
+	      cof_state_active_vip?: number | null;
+	      revenue_delta_mrr_eur?: number | null;
+	      revenue_delta_active_vip?: number | null;
+	      revenue_consistency?: string | null;
+	    } | null;
+	    coordination?: {
+	      overheat_archive?: { total_archived?: number; restored_this_session?: number };
+	      restored_coordination_services?: string[];
+	    };
+	    vpsFleetAgents?: number | null;
   } | null>(null);
   useEffect(() => {
     if (house.id !== "central_brain") return;
@@ -4211,14 +4264,55 @@ function HouseDrawer({
                       {(sysHealth.services ?? []).map((s) => (
                         <InspectorRow key={s.id} label={s.label} value={s.status} />
                       ))}
-                    </div>
-                    <div className="grid gap-1.5">
-                      <InspectorRow label="agents VPS (offload Mac)" value={String(sysHealth.vpsFleetAgents ?? "?")} />
-                      <InspectorRow
-                        label="surchauffe 26/05"
-                        value={`${sysHealth.coordination?.overheat_archive?.total_archived ?? "?"} archivés · ${sysHealth.coordination?.overheat_archive?.restored_this_session ?? 0} coordination rebranchés`}
-                      />
-                    </div>
+	                    </div>
+	                    <div className="grid gap-1.5">
+	                      <InspectorRow label="agents VPS (offload Mac)" value={String(sysHealth.vpsFleetAgents ?? "?")} />
+	                      <InspectorRow
+	                        label="cof_state"
+	                        value={
+	                          sysHealth.cofState
+	                            ? `${sysHealth.cofState.sections_ok ?? "?"}/${sysHealth.cofState.sections_total ?? "?"} sections OK · age ${sysHealth.cofState.freshMin ?? "?"} min · stale ${(sysHealth.cofState.stale_sections ?? []).length}`
+	                            : "SOURCE_MISSING"
+	                        }
+	                      />
+	                      <InspectorRow
+	                        label="cash / cout"
+	                        value={
+	                          sysHealth.cofState
+	                            ? `MRR ${sysHealth.cofState.mrr_eur ?? "?"} EUR · VIP ${sysHealth.cofState.active_vip ?? "?"} · cout ${sysHealth.cofState.cost_month_eur ?? "?"}/${sysHealth.cofState.cost_budget_eur ?? "?"} EUR (${sysHealth.cofState.cost_pct ?? "?"}%)`
+	                            : "SOURCE_MISSING"
+	                        }
+	                      />
+	                      <InspectorRow
+	                        label="revenue live overlay"
+	                        value={
+	                          sysHealth.revenueCurrent
+	                            ? `backend ${sysHealth.revenueCurrent.mrr_eur ?? "?"} EUR/${sysHealth.revenueCurrent.active_vip ?? "?"} VIP · cof_state ${sysHealth.revenueCurrent.cof_state_mrr_eur ?? "?"} EUR/${sysHealth.revenueCurrent.cof_state_active_vip ?? "?"} VIP · ${sysHealth.revenueCurrent.revenue_consistency ?? "UNKNOWN"}`
+	                            : "SOURCE_MISSING"
+	                        }
+	                      />
+	                      <InspectorRow
+	                        label="agents globaux"
+	                        value={
+	                          sysHealth.cofState
+	                            ? `${sysHealth.cofState.agents_alive ?? "?"}/${sysHealth.cofState.agents_total ?? "?"} connected · ${sysHealth.cofState.agents_blocked ?? "?"} blocked`
+	                            : "SOURCE_MISSING"
+	                        }
+	                      />
+	                      <InspectorRow
+	                        label="surchauffe 26/05"
+	                        value={`${sysHealth.coordination?.overheat_archive?.total_archived ?? "?"} archivés · ${sysHealth.coordination?.overheat_archive?.restored_this_session ?? 0} coordination rebranchés`}
+	                      />
+	                      <InspectorRow
+	                        label="Claude Keep7"
+	                        value={
+	                          workerPoolSummary
+	                            ? `${workerPoolSummary.running ?? "?"} running · ${workerPoolSummary.completed ?? "?"} done · ${workerPoolSummary.distinctActiveLanes ?? "?"} lanes · queued ${workerPoolSummary.queuedTasks ?? "?"} · ${workerPool?.controlLoop?.verdict ?? workerPool?.status ?? "WATCH"}`
+	                            : "SOURCE_MISSING"
+	                        }
+	                      />
+	                      <InspectorRow label="Claude lanes actives" value={activeLaneText} />
+	                    </div>
                     <p className="mt-2 text-[9px] text-slate-500">
                       Source live : /api/cofiatrading-world-control/system-health (probe ports + cof_state + coordination). Hub UI = :3000 (§54).
                     </p>
@@ -4232,10 +4326,10 @@ function HouseDrawer({
             {house.id === "calendar_tower" && (
               <section className="rounded-md border border-cyan-300/20 bg-cyan-300/8 p-3">
                 <h3 className="mb-3 flex items-center justify-between text-xs font-semibold uppercase tracking-[0.18em] text-cyan-100">
-                  <span>Cadence opérations (live)</span>
-                  <span className="text-[9px] font-normal text-slate-400">
-                    {cadence?.freshness ?? "…"} · {cadence?.totalLines ?? "—"}
-                  </span>
+	                  <span>Cadence opérations</span>
+	                  <span className="text-[9px] font-normal text-slate-400">
+	                    {cadence?.status ?? "…"} · {cadence?.freshness ?? "…"} · {cadence?.totalLines ?? "—"} lignes
+	                  </span>
                 </h3>
                 <div className="space-y-1.5">
                   {(cadence?.events ?? []).slice(0, 10).map((e, i) => (
@@ -4252,12 +4346,16 @@ function HouseDrawer({
                       <span className="truncate text-slate-300">{e.summary}</span>
                     </div>
                   ))}
-                  {(cadence?.events ?? []).length === 0 && (
-                    <p className="text-[11px] text-slate-500">chargement cadence…</p>
-                  )}
-                </div>
-                <p className="mt-2 text-[9px] text-slate-500">Source réelle : hub :8430 /api/calendar/upcoming</p>
-              </section>
+	                  {(cadence?.events ?? []).length === 0 && (
+	                    <p className="text-[11px] text-slate-500">
+	                      {cadence ? `${cadence.emptyState ?? "NO_EVENTS"} · eventsReturned=${cadence.eventsReturned ?? 0}` : "chargement cadence…"}
+	                    </p>
+	                  )}
+	                </div>
+	                <p className="mt-2 text-[9px] text-slate-500">
+	                  Source réelle : {cadence?.proof?.source ?? "Google Workspace 360 local"} · {cadence?.proof?.snapshotPath ?? "/Users/burakokyay/.openclaw/state/company_os/google_360_snapshot.json"} · runAge={cadence?.runAgeSec ?? "?"}s · proofAge={cadence?.proofAgeSec ?? "?"}s
+	                </p>
+	              </section>
             )}
 
             {house.id === "mission_control_tower" && (
@@ -4615,7 +4713,7 @@ function _AngelRosterPanel({ roster }: { roster: AngelRosterPayload | null }) {
         </div>
         <div className="flex gap-2 text-[10px] font-bold uppercase tracking-wide flex-wrap">
           <span className="rounded border border-emerald-400/40 bg-emerald-400/10 px-2 py-1 text-emerald-200">
-            LIVE {roster.counts.live}
+            CANON LIVE {roster.counts.live}
           </span>
           <span className="rounded border border-cyan-400/35 bg-cyan-400/10 px-2 py-1 text-cyan-200">
             OPERATIONAL {roster.counts.operational_partial}
