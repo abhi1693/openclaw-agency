@@ -3741,32 +3741,8 @@ function _LivingWorldEngine({ snapshot, angelRoster }: { snapshot: Snapshot | nu
                 <div className="relative z-10 grid gap-1 text-[11px] text-slate-300">
                   <span>Rithmic · MT4 · MT5</span>
                   <span>FXcess Mirror PM000697 LOCKED</span>
-                  {tradingReadiness ? (
-                    <span
-                      className={
-                        tradingReadiness.green_allowed
-                          ? "font-bold text-emerald-300"
-                          : tradingReadiness.tone === "amber"
-                            ? "font-bold text-amber-200"
-                            : "font-bold text-rose-300"
-                      }
-                    >
-                      Trading OS : {tradingReadiness.readiness ?? "?"}
-                      {tradingReadiness.green_allowed ? "" : " · argent réel BLOQUÉ"}
-                    </span>
-                  ) : (
-                    <span className="text-slate-500">Trading OS : lecture…</span>
-                  )}
-                  {tradingReadiness && (
-                    <span className="text-[10px] text-slate-400">
-                      quant {tradingReadiness.quant?.verdict ?? "?"} ({tradingReadiness.quant?.passed ?? "?"}/{tradingReadiness.quant?.n_criteria ?? "?"}) · paper {tradingReadiness.paper_forward?.label ?? "?"} · broker {tradingReadiness.broker_readonly?.status ?? "?"} · signal {tradingReadiness.signal_board?.mode ?? "?"}
-                    </span>
-                  )}
-                  {tradingReadiness && (
-                    <span className="text-[10px] text-slate-500">
-                      validation_ok={String(tradingReadiness.validation_ok ?? false)} · probe_ok={String(tradingReadiness.probe_ok ?? false)} · /api/cofiatrading-world-control/trading-readiness
-                    </span>
-                  )}
+                  <span>Signal papier en revue vers VIP Gate</span>
+                  <span className="text-amber-200">PnL source à connecter</span>
                 </div>
               </div>
             </Panel>
@@ -3981,7 +3957,7 @@ function HouseDrawer({
       cancelled = true;
     };
   }, [house.id]);
-  // Trading OS — verite fail-closed (probe_ok != green_allowed). Trading Tower (toujours visible).
+  // Trading OS — verite fail-closed (probe_ok != green_allowed). Rendu dans la maison central_brain.
   const [tradingReadiness, setTradingReadiness] = useState<{
     ok?: boolean;
     probe_ok?: boolean;
@@ -3990,13 +3966,13 @@ function HouseDrawer({
     tone?: "green" | "amber" | "red";
     validation_ok?: boolean;
     real_money_gate_ok?: boolean;
-    business_green_allowed?: boolean;
-    quant?: { green_allowed?: boolean; verdict?: string | null; passed?: number | null; n_criteria?: number | null; pbo?: number | null; dsr?: number | null };
-    paper_forward?: { green_allowed?: boolean; closed?: number | null; target?: number; label?: string; readiness?: string | null };
-    broker_readonly?: { green_allowed?: boolean; status?: string | null; connected?: boolean | null; broker_write_allowed?: boolean | null };
-    signal_board?: { mode?: string | null; setups_triggered_recent?: number | null; paper_queue_count?: number | null; trade_signal_allowed?: boolean | null };
+    quant?: { verdict?: string | null; passed?: number | null; n_criteria?: number | null; pbo?: number | null; dsr?: number | null };
+    paper_forward?: { label?: string; closed?: number | null; target?: number };
+    broker_readonly?: { status?: string | null; broker_write_allowed?: boolean | null };
+    signal_board?: { mode?: string | null; trade_signal_allowed?: boolean | null };
   } | null>(null);
   useEffect(() => {
+    if (house.id !== "central_brain") return;
     let aborted = false;
     const load = () => {
       fetch("/api/cofiatrading-world-control/trading-readiness", { cache: "no-store" })
@@ -4012,7 +3988,7 @@ function HouseDrawer({
       aborted = true;
       window.clearInterval(interval);
     };
-  }, []);
+  }, [house.id]);
   // Flotte VPS (offload Mac) — rendue dans la caserne openclaw_agent_barracks.
   const [vpsFleet, setVpsFleet] = useState<{
     status?: string;
@@ -4050,39 +4026,6 @@ function HouseDrawer({
     const interval = window.setInterval(load, 30_000);
     return () => {
       cancelled = true;
-      window.clearInterval(interval);
-    };
-  }, [house.id]);
-  // CofiaPublisher (moteur 100Me) - rendu dans la maison youtube_studio. Read-only proxy :8540.
-  const [cofiaPub, setCofiaPub] = useState<{
-    ok?: boolean;
-    probe_ok?: boolean;
-    green_allowed?: boolean;
-    status?: string;
-    engineState?: string;
-    version?: string | null;
-    rendersCount?: number;
-    activeRenders?: number;
-    scenariosCount?: number | null;
-    latestRender?: { stem: string | null; mtime: string | null; ageHours: number | null; fresh: boolean } | null;
-    notFresh?: string | null;
-    reason?: string;
-  } | null>(null);
-  useEffect(() => {
-    if (house.id !== "youtube_studio") return;
-    let stop = false;
-    const load = () => {
-      fetch("/api/cofiatrading-world-control/cofiapublisher", { cache: "no-store" })
-        .then((r) => r.json())
-        .then((j) => {
-          if (!stop) setCofiaPub(j);
-        })
-        .catch(() => {});
-    };
-    load();
-    const interval = window.setInterval(load, 30_000);
-    return () => {
-      stop = true;
       window.clearInterval(interval);
     };
   }, [house.id]);
@@ -4695,70 +4638,6 @@ function HouseDrawer({
                   </>
                 ) : (
                   <p className="text-[11px] text-slate-500">chargement flotte VPS…</p>
-                )}
-              </section>
-            )}
-
-            {house.id === "youtube_studio" && (
-              <section className="rounded-md border border-amber-300/25 bg-amber-300/5 p-3">
-                <h3 className="mb-3 flex items-center justify-between text-xs font-semibold uppercase tracking-[0.18em] text-amber-100">
-                  <span>CofiaPublisher · moteur 100M€</span>
-                  <span className="text-[9px] font-normal text-slate-400">
-                    {cofiaPub ? `${cofiaPub.status ?? "UNKNOWN"} · ${cofiaPub.rendersCount ?? 0} renders` : "…"}
-                  </span>
-                </h3>
-                {cofiaPub ? (
-                  <>
-                    <div className="mb-2 flex flex-wrap gap-1.5 text-[9px]">
-                      <span
-                        className={`rounded border px-1.5 py-0.5 ${
-                          cofiaPub.green_allowed
-                            ? "text-emerald-200 border-emerald-300/40 bg-emerald-300/10"
-                            : cofiaPub.engineState === "live"
-                              ? "text-amber-200 border-amber-300/40 bg-amber-300/10"
-                              : "text-rose-200 border-rose-300/40 bg-rose-300/10"
-                        }`}
-                      >
-                        {cofiaPub.status ?? "UNKNOWN"}
-                      </span>
-                      <span className="rounded border border-slate-700 bg-slate-800/40 px-1.5 py-0.5 text-slate-200">
-                        renders {cofiaPub.rendersCount ?? 0} (actifs {cofiaPub.activeRenders ?? 0})
-                      </span>
-                      <span className="rounded border border-slate-700 bg-slate-800/40 px-1.5 py-0.5 text-slate-200">
-                        scénarios {cofiaPub.scenariosCount ?? 0}
-                      </span>
-                      <span className="rounded border border-slate-700 bg-slate-800/40 px-1.5 py-0.5 text-slate-200">
-                        moteur {cofiaPub.engineState ?? "?"}
-                        {cofiaPub.version ? ` ${cofiaPub.version}` : ""}
-                      </span>
-                    </div>
-                    {cofiaPub.latestRender && (
-                      <div className="mb-2 rounded border border-slate-800 bg-slate-900/60 px-2 py-1">
-                        <p className="truncate text-[10px] text-slate-200" title={cofiaPub.latestRender.stem ?? ""}>
-                          Dernier render : {cofiaPub.latestRender.stem ?? "—"}
-                        </p>
-                        <p className="text-[9px] text-slate-500">
-                          {cofiaPub.latestRender.ageHours !== null ? `il y a ${cofiaPub.latestRender.ageHours}h` : "âge ?"} ·{" "}
-                          {cofiaPub.latestRender.fresh ? "frais" : "PÉRIMÉ"}
-                        </p>
-                      </div>
-                    )}
-                    {cofiaPub.notFresh && (
-                      <div className="mb-2 rounded border border-amber-400/40 bg-amber-500/10 p-2">
-                        <p className="text-[10px] text-amber-100">{`! ${cofiaPub.notFresh}`}</p>
-                      </div>
-                    )}
-                    {cofiaPub.status === "DOWN" && (
-                      <div className="mb-2 rounded border border-rose-400/40 bg-rose-500/10 p-2">
-                        <p className="text-[10px] text-rose-100">{cofiaPub.reason ?? "CofiaPublisher :8540 hors-ligne."}</p>
-                      </div>
-                    )}
-                    <p className="mt-2 text-[9px] text-slate-500">
-                      {"Source live : /api/cofiatrading-world-control/cofiapublisher (proxy :8540) · LIVE = moteur actif + render frais <26h · sinon AMBER. Hub :3000."}
-                    </p>
-                  </>
-                ) : (
-                  <p className="text-[11px] text-slate-500">chargement CofiaPublisher…</p>
                 )}
               </section>
             )}
