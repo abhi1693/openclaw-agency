@@ -1677,8 +1677,7 @@ export function WorldMapLiving({ snapshot, angelRoster, initialTruthMap, onSelec
   const truthSourceLabel = truthReady ? `${truthLiveCount}/${truthSourceCount || "—"}` : "sync...";
   const activeWorkHouseCount = houseMissions.filter((mission) => isRuntimeMission(mission) || (mission.dispatches ?? []).some((dispatch) => isWorkingDispatchStatus(dispatch.status))).length;
   const workingDispatchCount = houseMissions.reduce((total, mission) => total + (mission.dispatches ?? []).filter((dispatch) => isWorkingDispatchStatus(dispatch.status)).length, 0);
-  // Dénominateur = maisons registry réelles (SSOT :8767 = 15), PAS houseOrchestrator.houseMissions (17 = inclut notebook_alm+proof_ledger hors canon, snapshot périmé). Fix faux "0/17" 2026-06-02.
-  const canonHouseCount = viewSnapshot?.centralBrain?.housesCount ?? houseMissions.length;
+  // Maisons = 17 = DESIGN ERWIN (15 construites/registry + 2 PRÉVUES à construire, dont CofiaPublisher). On GARDE houseMissions.length (17), on ne force PAS 15 — les 2 prévues restent visibles sur la roadmap. 2026-06-02 (le 17 n'était PAS un bug).
   // No-false-green : houseOrchestrator = fichier d'état one-shot (aucun cron ne le rafraîchit). S'il est vieux, ses compteurs (Maisons actives / Travail prouvé / Ordres) sont GELÉS → marquer PÉRIMÉ au lieu de mentir "live". 2026-06-02.
   // Fraîcheur = executedAtUtc (vraie exécution de l'orchestrateur). ⚠ state.generatedAtUtc est re-tamponné "now" par le seed SSR (faux-frais) → on s'appuie sur executedAtUtc puis viewSnapshot, jamais state.generatedAtUtc. 2026-06-02.
   const houseOrchestratorRunUtc = houseOrchestrator?.executedAtUtc ?? viewSnapshot?.houseOrchestrator?.executedAtUtc ?? viewSnapshot?.houseOrchestrator?.generatedAtUtc;
