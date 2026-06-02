@@ -90,7 +90,7 @@ export async function GET() {
       orchestrator: "cof-agent-orchestrator.timer (systemd · 1 agent/cycle · load-gardé ≤4)",
       llm: "OpenRouter deepseek-v4-flash via shim :11435 (§15 non-Anthropic)",
       pullback: "com.coftrading.vps-fleet-pull (300s) → ~/.openclaw/vps-mirror/",
-      total: VPS_AGENTS.length,
+      total: fleetAgents.length,
       liveCount,
       mirrorMtime,
       agents,
