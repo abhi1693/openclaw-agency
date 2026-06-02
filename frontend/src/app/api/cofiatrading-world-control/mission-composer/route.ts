@@ -14,7 +14,7 @@ export const dynamic = "force-dynamic";
 export const runtime = "nodejs";
 
 const OPENCLAW_API =
-  process.env.OPENCLAW_BACKEND_INTERNAL_URL ?? "http://backend:8000";
+  process.env.OPENCLAW_BACKEND_INTERNAL_URL ?? "http://127.0.0.1:8000";
 const LOCAL_AUTH_TOKEN = process.env.LOCAL_AUTH_TOKEN;
 const GARAGE_TRUCKS_BOARD_SLUG = "garage-trucks";
 
