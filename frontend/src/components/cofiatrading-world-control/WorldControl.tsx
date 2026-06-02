@@ -7,17 +7,22 @@ import {
   AlertTriangle,
   Bot,
   Building2,
+  Castle,
   CircleDollarSign,
   Factory,
   FileCheck2,
   Landmark,
+  Lock,
   RadioTower,
+  Settings,
   ShieldCheck,
+  Truck,
   Users,
   X,
 } from "lucide-react";
 
 import { WorldMapLiving, resolveHouseIds, type InvItem, type TruthMapPayload } from "./WorldMapLiving";
+import { AuthProviderStatusPanel } from "./AuthProviderStatusPanel";
 
 import type {
   Snapshot,
@@ -262,10 +267,10 @@ const coreTrucks: TruckRow[] = [
   },
   {
     label: "CofiaPublisher",
-    status: "LIVE",
+    status: "AMBER",
     owner: "Publishing Gate",
-    proof: "Local :8540 status read; publish lock active.",
-    nextAction: "Queue/status only.",
+    proof: "Native :8000 + legacy :8540 respond; publish_lock.allowed=false; external publication not proven.",
+    nextAction: "Show QA counts + READY_OWNED local queue; keep no-publish lock.",
     writeBlocked: true,
   },
   {
@@ -286,10 +291,10 @@ const coreTrucks: TruckRow[] = [
   },
   {
     label: "Brokers FXcess / IronFX / Libertex",
-    status: "LIVE",
+    status: "AMBER",
     owner: "Jack / Iron",
-    proof: "Lifetime broker aggregates in revenue summary.",
-    nextAction: "Show aggregate only.",
+    proof: "Historical broker aggregates only; no fresh broker read-only timestamp, conversion freshness, or dispatch proof.",
+    nextAction: "Expose broker_readiness before any LIVE/GREEN broker claim.",
     writeBlocked: true,
   },
   {
@@ -612,11 +617,11 @@ const HOUSE_WORKFORCE: Record<HouseId, HouseWorkforce> = {
     businessName: "MT4 Signal Tower",
     owner: "Marco / Risk / Quant",
     workers: ["Marco", "Risk", "Quant", "MiroFish", "Quant-TV", "Sonic"],
-    mission: "Trading réel, signaux, copy trading, preuves Rithmic.",
-    nextAction: "Afficher dernier signal + Mirror PM000697 + Rithmic proof.",
+    mission: "Trading research, signaux papier, gates Rithmic/MT4 sans argent reel.",
+    nextAction: "Afficher dernier signal papier + broker read-only redacted + Rithmic proof.",
     impact: "confiance / produit",
     blocker: "PnL runtime non exposé",
-    proof: "Rithmic / MT4 / FXcess Mirror proof attendu.",
+    proof: "Rithmic / MT4 / broker read-only proof attendu; no real-account proof.",
     badge: "ACTION",
     tone: "AMBER",
   },
@@ -1089,7 +1094,7 @@ const _MOVING_TRUCKS: MovingTruck[] = [
   { name: "MP4 Truck", points: ["assets_warehouse", "youtube_studio"], payload: "renders natifs / proof", tone: "cyan", duration: 11, delay: 0 },
   { name: "Cash Truck", points: ["iron_office", "vip_gate"], payload: "291 EUR / 3 clients", tone: "amber", duration: 10, delay: -2 },
   { name: "Broker Truck", points: ["iron_office", "site_seo_lab"], payload: "CellXpert / IP / drafts", tone: "rose", duration: 15, delay: -4 },
-  { name: "Signal Truck", points: ["mt4_signal_tower", "vip_gate"], payload: "STRAT signal", tone: "emerald", duration: 9, delay: -6 },
+  { name: "Signal Truck", points: ["mt4_signal_tower", "vip_gate"], payload: "paper signal locked", tone: "amber", duration: 9, delay: -6 },
   { name: "Compliance Truck", points: ["compliance_port", "youtube_studio", "site_seo_lab"], payload: "Reviewer proof gate", tone: "rose", duration: 18, delay: -8 },
   { name: "Memory Truck", points: ["obsidian_library", "central_brain"], payload: "canon / memory", tone: "cyan", duration: 16, delay: -10 },
   { name: "Dispatch Truck", points: ["openclaw_agent_barracks", "mission_control_tower"], payload: "orders / 38 angels / 59 trucks", tone: "cyan", duration: 13, delay: -12 },
@@ -1101,7 +1106,7 @@ const CLIENT_FUNNEL_STEPS: RailStep[] = [
   { label: "Telegram FREE", value: "à vérifier", tone: "amber" },
   { label: "Telegram VIP", value: "à vérifier", tone: "amber" },
   { label: "Stripe VIP", value: "source down", tone: "amber" },
-  { label: "Copy Trading", value: "FXcess Mirror", tone: "amber" },
+  { label: "Copy Trading", value: "LOCKED - no real-account proof", tone: "amber" },
   { label: "Retention", value: "support David", tone: "cyan" },
   { label: "Upsell", value: "Premium / Elite", tone: "amber" },
 ];
@@ -1129,7 +1134,7 @@ const CITY_MACHINES: CityMachine[] = [
   { label: "WhatsApp WABA", district: "vip_gate", tone: "rose" },
   { label: "Rithmic", district: "mt4_signal_tower", tone: "cyan" },
   { label: "MT4 / MT5", district: "mt4_signal_tower", tone: "cyan" },
-  { label: "FXcess Mirror PM000697", district: "mt4_signal_tower", tone: "emerald" },
+  { label: "FXcess Mirror PM000697 LOCKED", district: "mt4_signal_tower", tone: "amber" },
   { label: "Vercel", district: "site_seo_lab", tone: "cyan" },
   { label: "Supabase", district: "site_seo_lab", tone: "cyan" },
   { label: "Resend", district: "vip_gate", tone: "slate" },
@@ -1225,6 +1230,199 @@ function exactKpiLive(id: string, s: Snapshot | null): string {
 }
 
 // eslint-disable-next-line @typescript-eslint/no-unused-vars -- Legacy exact raster renderer retained as a non-rendered rollback reference.
+function ExactImageWorldControlLegacy({
+  snapshot,
+  onSelectHouse,
+  onOpenRoutes,
+  onOpenInvestor,
+}: {
+  snapshot: Snapshot | null;
+  onSelectHouse: (houseId: HouseId) => void;
+  onOpenRoutes: () => void;
+  onOpenInvestor: () => void;
+}) {
+  const [manifest, setManifest] = useState<ManifestPayload | null>(null);
+  const [card, setCard] = useState<ManifestAsset | null>(null);
+
+  useEffect(() => {
+    let cancelled = false;
+    fetch(`${EXACT_ASSET_BASE}/09_docs_for_claude/assets_manifest.json`, { cache: "force-cache" })
+      .then((r) => r.json())
+      .then((j) => {
+        if (!cancelled) setManifest(j as ManifestPayload);
+      })
+      .catch(() => {});
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  const sourceW = manifest?.source_size?.[0] ?? EXACT_SRC_W;
+  const sourceH = manifest?.source_size?.[1] ?? EXACT_SRC_H;
+  const assets = [...(manifest?.assets ?? [])].sort((a, b) => exactAssetZ(a) - exactAssetZ(b));
+  const categoryCounts = assets.reduce<Record<string, number>>((acc, asset) => {
+    acc[asset.category] = (acc[asset.category] ?? 0) + 1;
+    return acc;
+  }, {});
+
+  const pct = (a: ManifestAsset) => {
+    const [x1, y1, x2, y2] = a.box_xyxy;
+    return {
+      left: `${(x1 / sourceW) * 100}%`,
+      top: `${(y1 / sourceH) * 100}%`,
+      width: `${((x2 - x1) / sourceW) * 100}%`,
+      height: `${((y2 - y1) / sourceH) * 100}%`,
+      zIndex: exactAssetZ(a),
+    };
+  };
+
+  const onAsset = (a: ManifestAsset) => {
+    if (a.click_action === "open_department_inspector") {
+      const h = exactBuildingHouse(a.id);
+      if (h) {
+        onSelectHouse(h);
+        return;
+      }
+    }
+    if (a.click_action === "open_flow_inspector" || a.click_action === "open_truck_mission_card") {
+      setCard(a);
+      onOpenRoutes();
+      return;
+    }
+    if (
+      a.click_action === "open_mission_table" ||
+      a.click_action === "open_mission_detail" ||
+      a.click_action === "open_calendar" ||
+      a.click_action === "open_activity_feed"
+    ) {
+      setCard(a);
+      onOpenInvestor();
+      return;
+    }
+    setCard(a);
+  };
+
+  const isLive = (a: ManifestAsset) =>
+    a.category === "04_trucks_routes_flows" || a.id.startsWith("flow_") || a.id.startsWith("truck_");
+
+  return (
+    <div
+      className="relative w-full overflow-hidden rounded-2xl border border-cyan-300/15 bg-[#02040a] shadow-[0_0_45px_-12px_rgba(34,211,238,0.35)]"
+      data-exact-pack="v2-all-assets"
+      data-manifest-asset-count={assets.length}
+      data-expected-asset-count={EXACT_EXPECTED_ASSET_COUNT}
+      data-all-assets-rendered={assets.length === EXACT_EXPECTED_ASSET_COUNT ? "true" : "false"}
+    >
+      <div className="flex flex-wrap items-center gap-2 border-b border-cyan-300/15 bg-slate-950/85 px-3 py-2">
+        <span className="rounded-md border border-emerald-300/25 bg-emerald-300/10 px-2 py-1 text-[10px] font-black uppercase tracking-[0.18em] text-emerald-100">
+          Pack V2 {assets.length}/{EXACT_EXPECTED_ASSET_COUNT}
+        </span>
+        {Object.entries(categoryCounts).map(([category, count]) => (
+          <span key={category} className="rounded border border-cyan-300/15 bg-slate-900/70 px-2 py-1 text-[9px] text-cyan-100">
+            {category.replace(/^\d+_/, "")}: {count}
+          </span>
+        ))}
+      </div>
+
+      <div className="overflow-auto bg-[#02040a]">
+        <div
+          className="relative min-w-[960px] origin-top-left"
+          style={{ aspectRatio: `${sourceW} / ${sourceH}` }}
+        >
+          {assets.map((a, index) => (
+          <button
+            key={a.id}
+            type="button"
+            onClick={() => onAsset(a)}
+            title={a.name}
+            data-exact-asset={a.id}
+            data-asset-id={a.id}
+            data-asset-category={a.category}
+            data-asset-index={index}
+            className={`group absolute appearance-none overflow-hidden border border-transparent bg-transparent p-0 transition hover:z-[120] hover:border-cyan-300/80 hover:bg-cyan-300/10 ${
+              isLive(a) ? "border-cyan-300/20" : ""
+            }`}
+            style={pct(a)}
+          >
+            <img
+              src={`${EXACT_ASSET_BASE}/${a.image}`}
+              alt={a.name}
+              draggable={false}
+              className="pointer-events-none h-full w-full select-none object-fill"
+            />
+            <span className="pointer-events-none absolute -top-5 left-0 hidden whitespace-nowrap rounded bg-slate-950/95 px-1.5 py-0.5 text-[9px] font-semibold text-cyan-100 group-hover:block">
+              {a.name}
+            </span>
+            {isLive(a) && (
+              <span className="pointer-events-none absolute inset-0 rounded-md border border-cyan-300/30" />
+            )}
+            {a.id.startsWith("kpi_") && (
+              <span className="pointer-events-none absolute bottom-0 right-0 rounded-tl bg-slate-950/85 px-1 py-0.5 text-[8px] font-bold text-emerald-200">
+                {exactKpiLive(a.id, snapshot)}
+              </span>
+            )}
+          </button>
+        ))}
+        </div>
+      </div>
+
+      {assets.length > 0 && (
+        <div className="grid max-h-40 grid-cols-[repeat(auto-fill,minmax(92px,1fr))] gap-1 overflow-y-auto border-t border-cyan-300/15 bg-slate-950/95 p-2" data-exact-asset-contact-strip="visible">
+          {assets.map((a) => (
+            <button
+              key={`thumb-${a.id}`}
+              type="button"
+              onClick={() => onAsset(a)}
+              data-exact-asset-thumb={a.id}
+              className="group min-h-[58px] rounded border border-slate-800 bg-slate-900/75 p-1 text-left transition hover:border-cyan-300/60"
+              title={a.name}
+            >
+              <img
+                src={`${EXACT_ASSET_BASE}/${a.image}`}
+                alt={a.name}
+                draggable={false}
+                className="h-8 w-full rounded-sm object-contain"
+              />
+              <span className="mt-1 block truncate text-[8px] font-semibold text-slate-300 group-hover:text-cyan-100">
+                {a.id}
+              </span>
+            </button>
+          ))}
+        </div>
+      )}
+
+      {card && (
+        <div className="absolute right-3 top-3 z-30 w-[290px] rounded-xl border border-cyan-300/30 bg-slate-950/96 p-4 backdrop-blur">
+          <div className="flex items-start justify-between gap-2">
+            <h3 className="text-[13px] font-black text-cyan-100">{card.name}</h3>
+            <button
+              type="button"
+              onClick={() => setCard(null)}
+              className="rounded border border-slate-700 px-1.5 text-[12px] text-slate-400 hover:text-white"
+            >
+              ✕
+            </button>
+          </div>
+          <p className="mt-1 text-[10px] uppercase tracking-wide text-slate-400">
+            {card.click_action ?? card.category}
+          </p>
+          {card.description && <p className="mt-2 text-[11px] leading-snug text-slate-300">{card.description}</p>}
+          {card.id.startsWith("kpi_") && (
+            <p className="mt-2 text-[12px] font-bold text-emerald-300">Live (snapshot) : {exactKpiLive(card.id, snapshot)}</p>
+          )}
+          <p className="mt-2 text-[10px] text-slate-400">
+            box: {card.box_xyxy.join(", ")} · z {exactAssetZ(card)}
+          </p>
+          <p className="mt-2 break-words text-[9px] text-slate-500">asset : {card.image}</p>
+        </div>
+      )}
+
+      {!manifest && (
+        <div className="absolute inset-x-0 bottom-2 text-center text-[10px] text-slate-500">chargement manifest…</div>
+      )}
+    </div>
+  );
+}
 
 // ── T11 — scène = SECTION map centrale depuis le ZIP V2, pas le full screenshot ──
 const MAP_SECTION_X1 = 170;
@@ -1344,8 +1542,369 @@ const T11_TRUCK_OVERLAYS = [
   { name: "Calendar", route: ["calendar_tower", "mission_control_tower"], color: "#e5e7eb", box: [1075, 525, 1150, 585] },
 ] as Array<{ name: string; route: HouseId[]; color: string; box: [number, number, number, number] }>;
 
+function _MapSceneWorldControl({
+  snapshot,
+  onSelectHouse,
+  onSelectAgentHouse,
+  onSelectRoute,
+}: {
+  snapshot: Snapshot | null;
+  onSelectHouse: (houseId: HouseId) => void;
+  onSelectAgentHouse: (houseId: HouseId) => void;
+  onSelectRoute: (routeName: string) => void;
+}) {
+  const statusByKey = new Map(
+    (snapshot?.centralBrain?.houses ?? []).map((h) => [h.key, (h.status ?? "").toUpperCase()]),
+  );
+  const statusFor = (hid: HouseId): Status => {
+    const live = statusByKey.get(hid);
+    if (live && live !== "UNKNOWN") {
+      const normalized = normalizeStatus(live);
+      return normalized === "UNKNOWN" ? HOUSE_CANON_STATUS[hid] : normalized;
+    }
+    return HOUSE_CANON_STATUS[hid];
+  };
+  const agentsByHouse = new Map<string, CofiaAgent[]>();
+  for (const a of snapshot?.agentsCanon?.agents ?? []) {
+    const l = agentsByHouse.get(a.house) ?? [];
+    l.push(a);
+    agentsByHouse.set(a.house, l);
+  }
+  const rev = snapshot?.revenue;
+  const services = snapshot?.services ?? [];
+  const kpis: Array<[string, string, boolean]> = [
+    ["MRR", formatVisualEur(rev?.currentMrrEur, "source down"), rev?.currentMrrEur == null],
+    ["ARR", formatVisualEur(rev?.currentArrEur, "source down"), rev?.currentArrEur == null],
+    ["VIP", rev?.activeVip != null ? String(rev.activeVip) : "—", rev?.activeVip == null],
+    ["ACTIFS", snapshot?.assetsWarehouse?.mp4Count != null ? `${snapshot.assetsWarehouse.mp4Count}` : "—", snapshot?.assetsWarehouse?.mp4Count == null],
+    ["CAPTIONS", snapshot?.assetsWarehouse?.captionsCount != null ? String(snapshot.assetsWarehouse.captionsCount) : "—", snapshot?.assetsWarehouse?.captionsCount == null],
+    ["SERVICES", services.length ? `${services.filter((s) => s.ok).length}/${services.length}` : "—", services.length === 0],
+    ["MAISONS", snapshot?.centralBrain?.housesCount != null ? String(snapshot.centralBrain.housesCount) : "—", snapshot?.centralBrain?.housesCount == null],
+    ["PAST_DUE", rev?.pastDueEur != null ? `${formatVisualEur(rev.pastDueEur, "291 €")} / ${rev?.pastDueCount ?? 0}` : "—", rev?.pastDueEur == null],
+  ];
+  const agentChips = (snapshot?.agentsCanon?.agents ?? []).slice(0, 12);
 
+  return (
+    <div className="flex w-full flex-col gap-2" data-t11-houses-bound={T11_HOUSE_ASSETS.length} data-t11-unknown-count={0}>
+      {/* KPI HUD live (fallback canon marqué ·ref) */}
+      <div className="flex flex-wrap items-center gap-1.5 rounded-xl border border-cyan-300/15 bg-slate-950/70 px-3 py-2">
+        <span className="mr-1 text-[11px] font-black uppercase tracking-[0.2em] text-cyan-200">COFIATRADING World Control</span>
+        {kpis.map(([k, v, fb]) => (
+          <span key={k} data-t11-hud="kpi" className="rounded-md border border-cyan-300/20 bg-slate-900/70 px-2 py-1 text-[10px]">
+            <span className="text-slate-400">{k} </span>
+            <span className="font-bold text-slate-100">{v}</span>
+            {fb && <span className="ml-1 text-[8px] text-amber-300/80">·ref</span>}
+          </span>
+        ))}
+      </div>
 
+      {/* MAP = section centrale (pas de sidebar/header) + hotspots alignés */}
+      <div
+        className="relative w-full overflow-hidden rounded-2xl border border-cyan-300/15 bg-[#02040a] shadow-[0_0_45px_-12px_rgba(34,211,238,0.35)]"
+        style={{ aspectRatio: `${MAP_SECTION_W} / ${MAP_SECTION_H}` }}
+      >
+        <img
+          src={`${EXACT_ASSET_BASE}/01_layout_sections/layout_world_map__main_living_city_map.png`}
+          alt="COFIATRADING World Control — map"
+          draggable={false}
+          className="pointer-events-none absolute inset-0 h-full w-full select-none object-fill"
+        />
+        {T11_TRUCK_OVERLAYS.map((truck) => (
+          <button
+            key={truck.name}
+            type="button"
+            data-t12-truck-hotspot={truck.name}
+            onClick={() => onSelectRoute(truck.name)}
+            title={`${truck.name}: ${truck.route.join(" -> ")}`}
+            className="group absolute rounded-md border border-transparent transition hover:border-amber-200/70 hover:bg-amber-200/10"
+            style={t11BoxInMap(truck.box)}
+          >
+            <span className="pointer-events-none absolute left-1 top-1 h-2.5 w-2.5 rounded-full border border-white/70" style={{ background: truck.color, boxShadow: `0 0 8px ${truck.color}` }} />
+            <span className="pointer-events-none absolute -top-6 left-0 hidden whitespace-nowrap rounded bg-slate-950/95 px-1.5 py-0.5 text-[9px] font-semibold text-amber-100 shadow-lg group-hover:block">
+              {truck.name} route
+            </span>
+          </button>
+        ))}
+        {T11_AGENT_OVERLAYS.map((agent) => (
+          <button
+            key={agent.name}
+            type="button"
+            data-t12-agent-hotspot={agent.name}
+            onClick={() => onSelectAgentHouse(agent.houseId)}
+            title={`${agent.name}: ${agent.from} -> ${agent.to}`}
+            className="group absolute rounded-full border border-transparent transition hover:border-cyan-200/80 hover:bg-cyan-200/10"
+            style={t11BoxInMap(agent.box)}
+          >
+            <span className="pointer-events-none absolute -right-1 -top-1 h-2.5 w-2.5 rounded-full border border-white/70" style={{ background: agent.color, boxShadow: `0 0 8px ${agent.color}` }} />
+            <span className="pointer-events-none absolute -top-6 left-0 hidden whitespace-nowrap rounded bg-slate-950/95 px-1.5 py-0.5 text-[9px] font-semibold text-cyan-100 shadow-lg group-hover:block">
+              {agent.name} · ouvrir maison
+            </span>
+          </button>
+        ))}
+        {T11_HOUSE_ASSETS.map((a) => {
+          const hid = a.houseId;
+          const st = statusFor(hid);
+          const color = STATUS_DOT_COLOR[st];
+          const n = (agentsByHouse.get(hid) ?? []).length;
+          return (
+            <button
+              key={a.assetId}
+              type="button"
+              onClick={() => onSelectHouse(hid)}
+              title={a.name}
+              data-t11-house={hid}
+              data-t11-status={st}
+              className="group absolute rounded-md border border-transparent transition hover:border-cyan-300/70 hover:bg-cyan-300/10"
+              style={t11BoxInMap(a.box)}
+            >
+              <span className="pointer-events-none absolute right-1 top-1 h-2.5 w-2.5 rounded-full border border-white/60" style={{ background: color, boxShadow: `0 0 8px ${color}` }} />
+              <span className="pointer-events-none absolute -top-6 left-0 hidden whitespace-nowrap rounded bg-slate-950/95 px-1.5 py-0.5 text-[9px] font-semibold text-cyan-100 shadow-lg group-hover:block">
+                {a.name} · <span style={{ color }}>{st}</span>{n ? ` · ${n} agents` : ""}
+              </span>
+            </button>
+          );
+        })}
+      </div>
+
+      {/* agents en ligne — chips premium propres (max 12) */}
+      <div className="flex flex-wrap items-center gap-1.5 rounded-xl border border-cyan-300/15 bg-slate-950/70 px-3 py-2">
+        <span className="mr-1 text-[10px] font-black uppercase tracking-[0.2em] text-cyan-200">Agents en ligne</span>
+        {agentChips.length
+          ? agentChips.map((ag) => (
+              <span
+                key={ag.id}
+                className="flex items-center gap-1 rounded-full border px-2 py-0.5 text-[10px]"
+                style={{ borderColor: `${ag.colorPrimary}55`, color: ag.colorPrimary }}
+                title={`${ag.name} · ${ag.house}`}
+              >
+                <span>{ag.avatarEmoji || "●"}</span>
+                <span className="text-slate-200">{ag.name}</span>
+              </span>
+            ))
+          : T11_AGENT_OVERLAYS.map((ag) => (
+              <span
+                key={ag.name}
+                className="flex items-center gap-1 rounded-full border px-2 py-0.5 text-[10px] text-slate-200"
+                style={{ borderColor: `${ag.color}55` }}
+                title={`${ag.name} · fallback visual`}
+              >
+                <span className="h-1.5 w-1.5 rounded-full" style={{ background: ag.color }} />
+                <span>{ag.name}</span>
+              </span>
+            ))}
+      </div>
+    </div>
+  );
+}
+
+function _WorldControlInspectorPanel({
+  snapshot,
+  error,
+  secondsSinceSync,
+  servicesOk,
+  servicesTotal,
+  routeRecords,
+  primaryActions,
+  mutaqibCounts,
+  onOpenInvestor,
+  onOpenRoutes,
+}: {
+  snapshot: Snapshot | null;
+  error: string | null;
+  secondsSinceSync: number;
+  servicesOk: number;
+  servicesTotal: number;
+  routeRecords: RouteRecord[];
+  primaryActions: InvestorRoomSnapshot["next_7_days_tasks"];
+  mutaqibCounts: { total: number; last_1h: number; by_level: Record<string, number> } | null;
+  onOpenInvestor: () => void;
+  onOpenRoutes: () => void;
+}) {
+  const rev = snapshot?.revenue;
+  const topBlockers = snapshot?.investor_room?.top_blockers ?? [];
+  return (
+    <aside
+      data-t12-right-inspector="live"
+      className="flex min-h-[420px] flex-col rounded-2xl border border-cyan-300/15 bg-slate-950/80 p-3 shadow-[0_0_35px_-18px_rgba(34,211,238,0.55)]"
+    >
+      <div className="flex items-start justify-between gap-3">
+        <div>
+          <p className="text-[10px] font-black uppercase tracking-[0.22em] text-cyan-200">Right Inspector réel</p>
+          <h2 className="mt-1 text-lg font-black text-white">Command state</h2>
+        </div>
+        <span className={`rounded-md border px-2 py-1 text-[10px] font-bold ${error ? "border-red-400/50 bg-red-500/10 text-red-200" : "border-emerald-400/40 bg-emerald-400/10 text-emerald-200"}`}>
+          {error ? `ERR ${error}` : `SYNC ${secondsSinceSync}s`}
+        </span>
+      </div>
+
+      <div className="mt-3 grid grid-cols-2 gap-2">
+        <HudValue label="MRR" value={formatVisualEur(rev?.currentMrrEur, "source down")} />
+        <HudValue label="ARR" value={formatVisualEur(rev?.currentArrEur, "source down")} />
+        <HudValue label="Past due" value={rev?.pastDueEur != null ? `${formatVisualEur(rev.pastDueEur, "291 €")} / ${rev.pastDueCount ?? 0}` : "source down"} />
+        <HudValue label="Services" value={servicesTotal ? `${servicesOk}/${servicesTotal}` : "source down"} />
+      </div>
+
+      <div className="mt-3 rounded-md border border-amber-300/20 bg-amber-300/10 p-3">
+        <p className="text-[10px] font-bold uppercase tracking-[0.18em] text-amber-100">Top blockers</p>
+        <div className="mt-2 space-y-1.5 text-[11px] leading-4 text-slate-300">
+          {(topBlockers.length ? topBlockers : ["Snapshot investor_room non chargé"]).slice(0, 4).map((blocker) => (
+            <p key={blocker}>• {blocker}</p>
+          ))}
+        </div>
+      </div>
+
+      <div className="mt-3 grid gap-2">
+        <button
+          type="button"
+          onClick={onOpenInvestor}
+          className="rounded-md border border-cyan-300/25 bg-cyan-300/10 px-3 py-2 text-left text-xs font-semibold text-cyan-100 transition hover:border-cyan-200/70"
+        >
+          Ouvrir Investor Room · {primaryActions.length} actions 7 jours
+        </button>
+        <button
+          type="button"
+          onClick={onOpenRoutes}
+          className="rounded-md border border-amber-300/25 bg-amber-300/10 px-3 py-2 text-left text-xs font-semibold text-amber-100 transition hover:border-amber-200/70"
+        >
+          Ouvrir routes 100M · {routeRecords.length} routes
+        </button>
+      </div>
+
+      <div className="mt-auto pt-3 text-[10px] leading-4 text-slate-500">
+        <p>source_tag: {snapshot?.sourceTag ?? "PENDING"}</p>
+        <p>Mu&apos;taqib: {mutaqibCounts ? `${mutaqibCounts.last_1h}/${mutaqibCounts.total} last hour/all` : "pending"}</p>
+        <p>Mode: lecture seule, aucune action POST depuis le cockpit principal.</p>
+      </div>
+    </aside>
+  );
+}
+
+function _WorldControlDeck({
+  primaryActions,
+  routeRecords,
+  services,
+  knowledgeRecords,
+  truckRows,
+  offers,
+  agents,
+  commerce,
+  onOpenInvestor,
+  onOpenRoutes,
+  onSelectKnowledge,
+  onSelectOffer,
+  onSelectHouse,
+}: {
+  primaryActions: InvestorRoomSnapshot["next_7_days_tasks"];
+  routeRecords: RouteRecord[];
+  services: ServiceProbe[];
+  knowledgeRecords: KnowledgeRecord[];
+  truckRows: TruckRow[];
+  offers: OfferRecord[];
+  agents?: Snapshot["agents"];
+  commerce: NonNullable<Snapshot["commerce_machine"]>;
+  onOpenInvestor: () => void;
+  onOpenRoutes: () => void;
+  onSelectKnowledge: (id: KnowledgeId) => void;
+  onSelectOffer: (id: string) => void;
+  onSelectHouse: (id: HouseId) => void;
+}) {
+  const commerceCounts = commerce.reduce<Record<string, number>>((acc, shop) => {
+    acc[shop.status] = (acc[shop.status] ?? 0) + 1;
+    return acc;
+  }, {});
+  return (
+    <section
+      data-control-deck="live"
+      data-action-count={primaryActions.length}
+      data-routes-count={routeRecords.length}
+      className="mt-3 grid gap-3 xl:grid-cols-4"
+    >
+      <Panel title="Actions 7 jours" tone="amber">
+        <div className="space-y-2">
+          {(primaryActions.length ? primaryActions : []).slice(0, 4).map((action) => (
+            <button
+              key={`${action.title}-${action.source_tag}`}
+              type="button"
+              onClick={onOpenInvestor}
+              className="block w-full rounded-md border border-slate-800 bg-slate-950/70 p-2 text-left transition hover:border-amber-300/50 hover:bg-amber-300/10"
+            >
+              <div className="flex items-start justify-between gap-2">
+                <p className="line-clamp-2 text-xs font-semibold text-white">{action.title}</p>
+                <span className="shrink-0 rounded border border-amber-300/35 bg-amber-300/10 px-1.5 py-0.5 text-[9px] uppercase text-amber-100">
+                  {action.priority}
+                </span>
+              </div>
+              <p className="mt-1 line-clamp-2 text-[10.5px] text-slate-400">{action.next_action}</p>
+            </button>
+          ))}
+          {primaryActions.length === 0 ? <p className="text-xs text-slate-500">Investor actions pending snapshot.</p> : null}
+        </div>
+      </Panel>
+
+      <Panel title="Routes 100M" tone="gold">
+        <div className="grid gap-2">
+          {routeRecords.slice(0, 6).map((route) => (
+            <button
+              key={route.id}
+              type="button"
+              onClick={onOpenRoutes}
+              className="rounded-md border border-slate-800 bg-slate-950/70 p-2 text-left transition hover:border-cyan-300/50 hover:bg-cyan-300/10"
+            >
+              <div className="flex items-center justify-between gap-2">
+                <p className="truncate text-xs font-semibold text-white">{route.label}</p>
+                <span className={`rounded border px-1.5 py-0.5 text-[9px] ${statusClass[normalizeStatus(route.status)]}`}>
+                  {route.status}
+                </span>
+              </div>
+              <p className="mt-1 truncate text-[10.5px] text-slate-400">{route.next_checkpoint}</p>
+            </button>
+          ))}
+        </div>
+      </Panel>
+
+      <Panel title="Services / agents" tone="cyan">
+        <div className="grid grid-cols-2 gap-2 text-[10.5px]">
+          {services.slice(0, 8).map((svc) => (
+            <div key={svc.id} className={`rounded border p-2 ${svc.ok ? "border-emerald-400/30 bg-emerald-400/10 text-emerald-100" : "border-red-400/35 bg-red-500/10 text-red-200"}`}>
+              <p className="truncate font-semibold text-white">{svc.label}</p>
+              <p className="mt-1 uppercase">{svc.status ?? (svc.ok ? "LIVE" : "DOWN")} · {svc.http_code ?? "—"}</p>
+            </div>
+          ))}
+        </div>
+        <div className="mt-2 rounded-md border border-slate-800 bg-slate-950/70 p-2 text-xs text-slate-300">
+          Agents freshness: {agents ? `${agents.fresh}/${agents.total} fresh` : "source down"}
+        </div>
+      </Panel>
+
+      <Panel title="Knowledge / offers / trucks" tone="locked">
+        <div className="grid gap-2">
+          {knowledgeRecords.slice(0, 3).map((record) => (
+            <button key={record.id} type="button" onClick={() => onSelectKnowledge(record.id)} className="rounded-md border border-slate-800 bg-slate-950/70 p-2 text-left text-xs transition hover:border-cyan-300/50">
+              <span className="font-semibold text-white">{record.truckName}</span>
+              <span className="ml-2 text-slate-500">{record.status}</span>
+            </button>
+          ))}
+          <div className="grid grid-cols-2 gap-2">
+            <button type="button" onClick={() => offers[0] && onSelectOffer(offers[0].offerId)} className="rounded-md border border-slate-800 bg-slate-950/70 p-2 text-left text-xs text-slate-300 transition hover:border-amber-300/50">
+              Offers: {offers.length || "source down"}
+            </button>
+            <button type="button" onClick={() => onSelectHouse("iron_office")} className="rounded-md border border-slate-800 bg-slate-950/70 p-2 text-left text-xs text-slate-300 transition hover:border-amber-300/50">
+              Trucks: {truckRows.length}
+            </button>
+          </div>
+          <p className="text-[10px] text-slate-500">
+            Commerce LIVE {commerceCounts.LIVE ?? 0} · PARTIAL {commerceCounts.PARTIAL ?? 0} · GATE {commerceCounts.CANON_GATE ?? 0}
+          </p>
+        </div>
+      </Panel>
+
+      <Panel title="Auth / Providers — No-False-Green" tone="cyan">
+        <AuthProviderStatusPanel />
+      </Panel>
+      {/* Proof Ledger remonté en haut à droite (Mission Control aside) — Erwin 2026-05-31 */}
+    </section>
+  );
+}
 
 function WorldControlFrame({
   children,
@@ -1727,7 +2286,196 @@ export function WorldControl({ initialSnapshot = null, initialAngelRoster = null
   );
 }
 
+function _HeaderPanel({
+  snapshot,
+  error,
+  arrGap,
+  progressPct,
+  endpointStatus,
+}: {
+  snapshot: Snapshot | null;
+  error: string | null;
+  arrGap: number | null;
+  progressPct: number | null;
+  endpointStatus: string;
+}) {
+  return (
+    <div className="rounded-md border border-cyan-300/20 bg-slate-950/80 p-4 shadow-[0_0_40px_rgba(34,211,238,0.08)]">
+      <div className="flex items-start justify-between gap-3">
+        <div>
+          <p className="text-[11px] font-semibold uppercase tracking-[0.2em] text-cyan-200">
+            COFIATRADING.COM
+          </p>
+          <h1 className="mt-1 font-heading text-2xl font-semibold leading-tight text-white">
+            New York World Control
+          </h1>
+          <p className="mt-1 text-xs text-slate-400">OpenClaw-powered 100M ARR War Room</p>
+        </div>
+        <span className="rounded-md border border-emerald-300/40 bg-emerald-400/10 px-2 py-1 text-xs font-semibold text-emerald-200">
+          READ ONLY
+        </span>
+      </div>
 
+      <div className="mt-4 rounded-md border border-amber-300/25 bg-amber-300/10 p-3">
+        <div className="flex items-center gap-2 text-amber-100">
+          <Castle className="h-5 w-5" />
+          <span className="text-xs font-semibold uppercase tracking-wide">North Star</span>
+        </div>
+        <p className="mt-2 text-3xl font-semibold text-white">100M EUR ARR</p>
+        <p className="mt-1 text-xs text-amber-100/80">
+          Target date {TARGET_DATE}. Run-rate math secondary:{" "}
+          {compactFormatter.format(TARGET_MRR_EQUIVALENT_EUR)} EUR MRR.
+        </p>
+      </div>
+
+      <div className="mt-3 grid grid-cols-2 gap-2 text-xs">
+        <HudValue label="Current ARR" value={formatEur(snapshot?.revenue.currentArrEur)} />
+        <HudValue label="ARR gap" value={formatEur(arrGap)} />
+        <HudValue label="Proof endpoints" value={endpointStatus} />
+        <HudValue label="Progress" value={progressPct === null ? "UNKNOWN" : `${progressPct.toFixed(4)}%`} />
+      </div>
+
+      <div className="mt-3 text-[11px] text-slate-500">
+        Snapshot: {snapshot?.fetchedAt ?? "PENDING"} · {error ? `Error ${error}` : snapshot?.sourceTag ?? "PENDING"}
+      </div>
+    </div>
+  );
+}
+
+function _CityWorld({
+  snapshot,
+  progressPct,
+  arrGap,
+}: {
+  snapshot: Snapshot | null;
+  progressPct: number | null;
+  arrGap: number | null;
+}) {
+  return (
+    <div className="relative h-full min-h-[600px]">
+      <div className="absolute inset-x-0 top-0 h-40 bg-gradient-to-b from-cyan-500/10 to-transparent" />
+      <div className="absolute left-1/2 top-8 z-20 w-[300px] -translate-x-1/2 rounded-md border border-amber-200/30 bg-amber-300/10 p-3 text-center shadow-[0_0_40px_rgba(251,191,36,0.22)]">
+        <div className="mx-auto flex h-14 w-16 items-end justify-center gap-1">
+          {[24, 38, 54, 34, 44].map((height, index) => (
+            <span
+              key={index}
+              className="w-2 rounded-sm bg-gradient-to-t from-amber-600 to-amber-100"
+              style={{ height }}
+            />
+          ))}
+        </div>
+        <p className="mt-2 text-sm font-bold uppercase tracking-[0.18em] text-amber-100">
+          100M ARR Castle
+        </p>
+        <p className="text-xs text-amber-100/75">
+          Current {formatEur(snapshot?.revenue.currentArrEur)} · Gap {formatEur(arrGap)}
+        </p>
+        <div className="mt-2 h-1.5 overflow-hidden rounded bg-amber-950">
+          <span
+            className="block h-full rounded bg-gradient-to-r from-amber-400 to-white"
+            style={{ width: `${Math.max(0.15, progressPct ?? 0.15)}%` }}
+          />
+        </div>
+      </div>
+
+      <div className="absolute bottom-0 left-0 right-0 top-20">
+        <svg className="absolute inset-0 h-full w-full" viewBox="0 0 1000 620" role="img" aria-label="COFIATRADING New York operating world">
+          <defs>
+            <linearGradient id="water" x1="0" x2="1">
+              <stop offset="0" stopColor="#07101f" />
+              <stop offset="1" stopColor="#091a2a" />
+            </linearGradient>
+            <linearGradient id="street" x1="0" x2="1">
+              <stop offset="0" stopColor="#22d3ee" stopOpacity="0.08" />
+              <stop offset="0.5" stopColor="#a78bfa" stopOpacity="0.22" />
+              <stop offset="1" stopColor="#fbbf24" stopOpacity="0.08" />
+            </linearGradient>
+          </defs>
+          <polygon points="70,450 500,170 930,450 500,610" fill="url(#water)" stroke="#164e63" strokeOpacity="0.55" />
+          <polygon points="155,430 500,210 845,430 500,558" fill="#071827" stroke="#22d3ee" strokeOpacity="0.22" />
+          {Array.from({ length: 9 }).map((_, index) => (
+            <path
+              key={`road-a-${index}`}
+              d={`M ${190 + index * 70} 410 L ${500 + index * 14} 245 L ${810 - index * 46} 430`}
+              fill="none"
+              stroke="url(#street)"
+              strokeWidth="4"
+            />
+          ))}
+          {Array.from({ length: 7 }).map((_, index) => (
+            <path
+              key={`road-b-${index}`}
+              d={`M ${250 + index * 58} 520 L ${450 + index * 24} 260 L ${705 - index * 18} 530`}
+              fill="none"
+              stroke="#22d3ee"
+              strokeOpacity="0.16"
+              strokeWidth="3"
+            />
+          ))}
+          {Array.from({ length: 10 }).map((_, index) => (
+            <circle
+              key={`truck-${index}`}
+              cx={240 + index * 58}
+              cy={444 - (index % 3) * 46}
+              r="5"
+              fill={index % 2 ? "#a78bfa" : "#22d3ee"}
+            >
+            </circle>
+          ))}
+        </svg>
+
+        {districts.map((district) => {
+          const Icon = district.icon;
+          // P11 Al-Muharrik · bind district status sur snapshot.routes LIVE (Sourate LXVIII)
+          const liveStatusRaw =
+            district.label === "Revenue Command" ? snapshot?.routes?.revenue_route?.status :
+            district.label === "Acquisition Engine" || district.label === "Asset Factory" ? snapshot?.routes?.acquisition_route?.status :
+            district.label === "Support Ops" ? snapshot?.routes?.support_route?.status :
+            district.label === "Proof Ledger" ? snapshot?.routes?.compliance_route?.status :
+            district.label === "Offer Factory" ? snapshot?.routes?.revenue_route?.status :
+            undefined;
+          const liveStatus = (liveStatusRaw as Status | undefined) ?? district.status;
+          return (
+            <div
+              key={district.label}
+              className="absolute z-30 w-[150px] -translate-x-1/2 -translate-y-1/2"
+              style={{ left: district.x, top: district.y }}
+            >
+              <div className="rounded-md border border-cyan-300/20 bg-slate-950/80 p-2 shadow-[0_10px_30px_rgba(0,0,0,0.35)]">
+                <div className="flex items-center gap-2">
+                  <span className="flex h-8 w-8 items-center justify-center rounded-md border border-cyan-300/20 bg-cyan-300/10 text-cyan-200">
+                    <Icon className="h-4 w-4" />
+                  </span>
+                  <div className="min-w-0">
+                    <p className="truncate text-xs font-semibold text-white">{district.label}</p>
+                    <p className="truncate text-[10px] text-slate-400">{district.metric}</p>
+                  </div>
+                </div>
+                <div className="mt-2 h-10 rounded-sm bg-gradient-to-t from-slate-900 to-slate-700 shadow-[inset_0_8px_0_rgba(255,255,255,0.03)]" />
+                <span className={`mt-2 inline-flex rounded border px-1.5 py-0.5 text-[10px] ${statusClass[liveStatus]}`}>
+                  {liveStatus}
+                </span>
+              </div>
+            </div>
+          );
+        })}
+
+        <div className="absolute bottom-8 right-8 z-40 w-[220px] rounded-md border border-red-400/35 bg-red-950/60 p-3 shadow-[0_0_35px_rgba(239,68,68,0.22)]">
+          <div className="flex items-center gap-2 text-red-100">
+            <Lock className="h-4 w-4" />
+            <p className="text-xs font-bold uppercase tracking-[0.18em]">Old City Abidjan</p>
+          </div>
+          <p className="mt-2 text-xs text-red-100/80">LOCKED · Diamond extraction only · no hub patch</p>
+        </div>
+
+        <div className="absolute bottom-8 left-8 z-40 flex items-center gap-2 rounded-md border border-cyan-300/20 bg-slate-950/80 px-3 py-2 text-xs text-cyan-100">
+          <Truck className="h-4 w-4" />
+          MCP trucks circulate read-only
+        </div>
+      </div>
+    </div>
+  );
+}
 
 function Panel({
   title,
@@ -1769,11 +2517,199 @@ function HudValue({ label, value }: { label: string; value: string }) {
   );
 }
 
+function _TopMetric({ label, value }: { label: string; value: string }) {
+  return (
+    <div className="min-w-[112px] rounded-md border border-slate-600/60 bg-black/55 px-3 py-2">
+      <p className="text-[10px] font-semibold uppercase tracking-[0.16em] text-slate-400">
+        {label}
+      </p>
+      <p className="mt-1 truncate text-sm font-black text-white">{value}</p>
+    </div>
+  );
+}
 
+function _MetricGrid({ metrics }: { metrics: Array<[string, string]> }) {
+  return (
+    <div className="grid grid-cols-2 gap-2">
+      {metrics.map(([label, value]) => (
+        <HudValue key={label} label={label} value={value} />
+      ))}
+    </div>
+  );
+}
 
+function _ProofRow({
+  label,
+  status,
+  proof,
+}: {
+  label: string;
+  status: Status;
+  proof: string;
+}) {
+  return (
+    <div className="mb-2 rounded-md border border-slate-800 bg-slate-950/70 px-3 py-2">
+      <div className="flex items-center justify-between gap-3">
+        <span className="text-sm font-medium text-slate-100">{label}</span>
+        <span className={`rounded border px-2 py-0.5 text-[10px] font-semibold ${statusClass[status]}`}>
+          {status}
+        </span>
+      </div>
+      <p className="mt-1 text-xs text-slate-500">{proof}</p>
+    </div>
+  );
+}
 
+function _TruckCard({
+  truck,
+  selected = false,
+  onSelect,
+}: {
+  truck: TruckRow;
+  selected?: boolean;
+  onSelect?: () => void;
+}) {
+  return (
+    <button
+      type="button"
+      onClick={onSelect}
+      className={`rounded-md border p-3 text-left transition hover:border-cyan-300/50 hover:bg-cyan-300/10 ${
+        selected ? "border-amber-300/60 bg-amber-300/10" : "border-slate-800 bg-slate-950/70"
+      }`}
+    >
+      <div className="flex items-start justify-between gap-2">
+        <div className="min-w-0">
+          <p className="truncate text-sm font-semibold text-white">{truck.label}</p>
+          <p className="mt-0.5 text-xs text-slate-500">{truck.owner}</p>
+        </div>
+        <span className={`rounded border px-2 py-0.5 text-[10px] font-semibold ${statusClass[truck.status]}`}>
+          {truck.status}
+        </span>
+      </div>
+      <p className="mt-2 min-h-10 text-xs leading-5 text-slate-400">{truck.proof}</p>
+      <div className="mt-3 flex items-center justify-between gap-2 border-t border-slate-800 pt-2 text-[11px] text-slate-500">
+        <span className="truncate">{truck.nextAction}</span>
+        <span className="inline-flex shrink-0 items-center gap-1 text-red-200">
+          <Lock className="h-3 w-3" />
+          {truck.writeBlocked ? "write blocked" : "write?"}
+        </span>
+      </div>
+    </button>
+  );
+}
 
+function _OfferFactoryPanel({
+  offers,
+  onSelect,
+}: {
+  offers: OfferRecord[];
+  onSelect: (offerId: string) => void;
+}) {
+  return (
+    <Panel title="Offer Factory — 8 offres canon" tone="gold">
+      {offers.length === 8 ? (
+        <div className="grid gap-2 sm:grid-cols-2 xl:grid-cols-2">
+          {offers.map((offer) => {
+            const href = offerHref(offer);
+            const status = normalizeOfferStatus(offer.statusCanon);
+            return (
+              <article
+                key={offer.offerId}
+                className="rounded-md border border-slate-800 bg-slate-950/75 p-2 text-xs"
+              >
+                <button
+                  type="button"
+                  onClick={() => onSelect(offer.offerId)}
+                  className="block w-full text-left"
+                >
+                  <div className="flex items-start justify-between gap-2">
+                    <span className="min-w-0 truncate font-semibold text-white">
+                      {offer.offerName}
+                    </span>
+                    <span className={`shrink-0 rounded border px-1.5 py-0.5 text-[9px] ${statusClass[status]}`}>
+                      {offer.statusCanon}
+                    </span>
+                  </div>
+                  <p className="mt-1 truncate text-[11px] text-slate-400">
+                    {offer.priceLabel} · {offer.billingPeriod}
+                  </p>
+                  <p className="mt-1 text-[11px] text-cyan-100">
+                    Subs: {offer.subsCount === null ? "UNKNOWN" : offer.subsCount}
+                  </p>
+                </button>
+                {href ? (
+                  <a
+                    href={href}
+                    target="_blank"
+                    rel="noreferrer"
+                    className="mt-2 inline-flex max-w-full truncate rounded border border-cyan-300/25 bg-cyan-300/10 px-2 py-1 text-[10px] font-semibold text-cyan-100 hover:border-cyan-200/60"
+                  >
+                    Stripe link
+                  </a>
+                ) : (
+                  <span className="mt-2 inline-flex rounded border border-slate-700 bg-slate-900/80 px-2 py-1 text-[10px] text-slate-400">
+                    No public Stripe link
+                  </span>
+                )}
+              </article>
+            );
+          })}
+        </div>
+      ) : (
+        <p className="text-sm text-slate-400">
+          UNKNOWN until snapshot.offers returns exactly 8 canon offer records.
+        </p>
+      )}
+    </Panel>
+  );
+}
 
+function _KnowledgeLayerPanel({
+  records,
+  onSelect,
+}: {
+  records: KnowledgeRecord[];
+  onSelect: (id: KnowledgeId) => void;
+}) {
+  return (
+    <Panel title="Knowledge Layer — Cervelle" tone="cyan">
+      {records.length >= 3 ? (
+        <div className="grid gap-2">
+          {records.map((record) => {
+            const status = normalizeStatus(record.status);
+            return (
+              <button
+                key={record.id}
+                type="button"
+                onClick={() => onSelect(record.id)}
+                className="rounded-md border border-slate-800 bg-slate-950/75 p-2 text-left text-xs transition hover:border-cyan-300/50 hover:bg-cyan-300/10"
+              >
+                <div className="flex items-start justify-between gap-2">
+                  <div className="min-w-0">
+                    <p className="truncate font-semibold text-white">{record.truckName}</p>
+                    <p className="mt-0.5 text-[11px] uppercase tracking-wide text-slate-500">
+                      {record.id} · {formatRelativeTime(record.lastRunAt)}
+                    </p>
+                  </div>
+                  <span className={`shrink-0 rounded border px-1.5 py-0.5 text-[9px] ${statusClass[status]}`}>
+                    {record.status}
+                  </span>
+                </div>
+                <p className="mt-2 text-[11px] leading-4 text-slate-400">
+                  {truncateText(record.lastProof, 80)}
+                </p>
+              </button>
+            );
+          })}
+        </div>
+      ) : (
+        <p className="text-sm text-slate-400">
+          UNKNOWN until snapshot.knowledge returns Obsidian / Notion / Drive.
+        </p>
+      )}
+    </Panel>
+  );
+}
 
 function OfferDrawer({ offer, onClose }: { offer: OfferRecord; onClose: () => void }) {
   const status = normalizeOfferStatus(offer.statusCanon);
@@ -2104,18 +3040,772 @@ function InvestorRoomDrawer({
   );
 }
 
+function _CofiaLivingCity({
+  snapshot,
+  angelRoster,
+  onSelectHouse,
+}: {
+  snapshot: Snapshot | null;
+  angelRoster: AngelRosterPayload | null;
+  onSelectHouse: (houseId: HouseId) => void;
+}) {
+  const agentsByHouse = new Map<string, CofiaAgent[]>();
+  for (const agent of snapshot?.agentsCanon?.agents ?? []) {
+    const list = agentsByHouse.get(agent.house) ?? [];
+    list.push(agent);
+    agentsByHouse.set(agent.house, list);
+  }
+  const services = snapshot?.services ?? [];
+  const servicesOk = services.filter((service) => service.ok).length;
+  const servicesTotal = services.length;
 
+  return (
+    <section className="relative min-h-[calc(100vh-180px)] overflow-x-hidden rounded-xl border border-cyan-300/20 bg-[#02040a] px-4 py-4 text-slate-100 shadow-[0_18px_60px_rgba(2,6,23,.55)] lg:px-6">
+      <style>{`
+        .t6-city-scan { opacity: .18; }
+        .t6-city-building { transform: translate(-50%, -50%) perspective(760px) rotateX(7deg) rotateZ(-1.5deg); }
+        .t6-city-building:nth-of-type(2n) { transform: translate(-50%, -50%) perspective(760px) rotateX(7deg) rotateZ(1.5deg); }
+        .t6-city-window { opacity: .58; }
+        .t6-city-client { opacity: .7; }
+        .t6-city-crate { transform: none; }
+        .t6-city-orbit { transform-origin: center; }
+      `}</style>
 
+      <div className="pointer-events-none absolute inset-0 opacity-45 [background-image:radial-gradient(circle_at_22%_26%,rgba(14,165,233,.24),transparent_27%),radial-gradient(circle_at_68%_38%,rgba(16,185,129,.16),transparent_22%),linear-gradient(rgba(45,212,191,.07)_1px,transparent_1px),linear-gradient(90deg,rgba(56,189,248,.06)_1px,transparent_1px)] [background-size:auto,auto,44px_44px,44px_44px]" />
+      <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(ellipse_at_center,transparent_0%,rgba(2,4,10,.1)_46%,rgba(2,4,10,.76)_100%)]" />
+      <img
+        src={northStarImage}
+        alt="Vision Map blueprint"
+        className="pointer-events-none absolute inset-0 h-full w-full object-cover opacity-[0.16] mix-blend-screen"
+      />
+      <div className="pointer-events-none absolute inset-y-0 left-0 w-1/4 bg-cyan-300/10 blur-3xl t6-city-scan" />
 
+      <div className="relative mx-auto grid min-h-[calc(100vh-220px)] max-w-[1780px] grid-rows-[auto_1fr_auto] gap-3">
+        <CityHUD snapshot={snapshot} servicesOk={servicesOk} servicesTotal={servicesTotal} />
 
+        <div className="grid min-h-0 gap-3 xl:grid-cols-[minmax(0,1fr)_390px]">
+          <div className="rounded-lg border border-cyan-300/25 bg-slate-950/55 p-3 shadow-[0_0_80px_rgba(8,145,178,.13)]">
+            <div className="mb-3 flex flex-wrap items-center justify-between gap-2 rounded-md border border-cyan-300/20 bg-slate-950/75 px-3 py-2">
+              <div>
+                <p className="text-[11px] font-black uppercase tracking-[0.22em] text-cyan-100">COFIATRADING Living City · 15 quartiers réels</p>
+                <p className="mt-0.5 text-[11px] text-slate-300">Clique un quartier → ouvre la maison réelle · 38 agents canon en poste (registre live).</p>
+              </div>
+              <span className="shrink-0 rounded border border-emerald-300/25 bg-emerald-300/10 px-2 py-1 text-[10px] font-semibold text-emerald-100">59 camions · runtime à câbler</span>
+            </div>
+            <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 2xl:grid-cols-4">
+              {CITY_DISTRICTS.map((district) => (
+                <CityBuilding
+                  key={district.id}
+                  district={district}
+                  agents={agentsByHouse.get(district.id) ?? []}
+                  onSelect={() => onSelectHouse(district.id)}
+                />
+              ))}
+            </div>
+          </div>
 
+          <aside className="grid min-h-0 gap-3">
+            <OpenClawCommandPanel angelRoster={angelRoster} />
+            <MachineStationsPanel />
+            <TradingTowerPanel />
+            <div className="rounded-lg border border-amber-300/25 bg-slate-950/78 p-3">
+              <p className="text-[11px] font-black uppercase tracking-[0.2em] text-amber-100">Vision Map blueprint</p>
+              <div className="mt-3 grid grid-cols-[104px_1fr] gap-3">
+                <img src={northStarImage} alt="Vision Map blueprint mini" className="h-[74px] w-[104px] rounded-md border border-amber-300/25 object-cover opacity-65" />
+                <p className="text-[11px] leading-5 text-slate-300">
+                  Sous-couche et mini-carte seulement. Le produit visible est la ville canonique COFIATRADING.
+                </p>
+              </div>
+            </div>
+          </aside>
+        </div>
 
+        <div className="grid gap-3 xl:grid-cols-2">
+          <ClientFunnelRail />
+          <ProductionFactoryRail snapshot={snapshot} />
+        </div>
+      </div>
+    </section>
+  );
+}
 
+function CityHUD({
+  snapshot,
+  servicesOk,
+  servicesTotal,
+}: {
+  snapshot: Snapshot | null;
+  servicesOk: number;
+  servicesTotal: number;
+}) {
+  const assets = snapshot?.assetsWarehouse;
+  const hudItems = [
+    ["MRR", formatCityEur(snapshot?.revenue.currentMrrEur), "emerald"],
+    ["ARR", formatCityEur(snapshot?.revenue.currentArrEur), "cyan"],
+    ["VIP", formatCityNumber(snapshot?.revenue.activeVip), "emerald"],
+    ["Past due", `${formatCityEur(snapshot?.revenue.pastDueEur)} / ${formatCityNumber(snapshot?.revenue.pastDueCount)}`, "rose"],
+    ["Houses", formatCityNumber(snapshot?.centralBrain.housesCount), "cyan"],
+    ["Services", servicesTotal ? `${servicesOk}/${servicesTotal}` : "source down", "amber"],
+  ];
+  return (
+    <header className="grid gap-3 rounded-lg border border-cyan-300/25 bg-slate-950/84 p-3 backdrop-blur xl:grid-cols-[minmax(0,1fr)_minmax(720px,0.95fr)]">
+      <div>
+        <p className="text-[11px] font-black uppercase tracking-[0.24em] text-cyan-100">
+          COFIATRADING Living City · Mission Control relié à OpenClaw
+        </p>
+        <h1 className="mt-1 font-heading text-2xl font-black uppercase text-white lg:text-3xl">
+          Mission Control City
+        </h1>
+        <p className="mt-1 text-xs text-slate-300">
+          15 quartiers · 38 anges · 59 camions · 30 outils · agents, missions, clients et économie en mouvement.
+        </p>
+        <p className="mt-2 text-[11px] text-slate-500">Sync {snapshot?.fetchedAt ?? "source down"}</p>
+      </div>
+      <div className="grid gap-2 text-xs sm:grid-cols-3 xl:grid-cols-6">
+        {hudItems.map(([label, value, tone]) => (
+          <div key={label} className={`rounded-md border px-3 py-2 ${tone === "emerald" ? "border-emerald-300/30 bg-emerald-300/10" : tone === "cyan" ? "border-cyan-300/30 bg-cyan-300/10" : tone === "rose" ? "border-rose-300/35 bg-rose-400/10" : "border-amber-300/30 bg-amber-300/10"}`}>
+            <p className="text-[10px] uppercase text-slate-300">{label}</p>
+            <p className="mt-1 text-base font-black text-white">{value}</p>
+          </div>
+        ))}
+        <div className="rounded-md border border-teal-300/30 bg-teal-300/10 px-3 py-2 sm:col-span-3 xl:col-span-6">
+          <p className="text-[10px] uppercase text-teal-100">Assets</p>
+          <p className="mt-1 text-sm font-black text-white">
+            {formatCityNumber(assets?.mp4Count)} MP4 · {formatCityNumber(assets?.captionsCount)} captions · {formatCityNumber(assets?.assetsInventoryCount)} assets
+          </p>
+        </div>
+      </div>
+    </header>
+  );
+}
 
+function _CityRoad({ route, path }: { route: CityRoute; path: string }) {
+  const color = {
+    cyan: "#67e8f9",
+    emerald: "#34d399",
+    amber: "#fbbf24",
+    rose: "#fb7185",
+  }[route.tone];
+  return (
+    <g>
+      <path d={path} fill="none" stroke="rgba(15,23,42,.78)" strokeWidth="1.8" vectorEffect="non-scaling-stroke" />
+      <path
+        d={path}
+        fill="none"
+        stroke={color}
+        strokeWidth="0.72"
+        strokeLinecap="round"
+        strokeOpacity="0.72"
+        strokeDasharray="1.4 1.1"
+        filter="url(#t6-road-glow)"
+        vectorEffect="non-scaling-stroke"
+      />
+      <text fontSize="1.25" fill={color} opacity="0.85">
+        <textPath href={`#${route.id}`} />
+      </text>
+    </g>
+  );
+}
 
+function MovingAgent({ agent, path }: { agent: MovingAgent; path: string }) {
+  return (
+    <g filter="url(#t6-road-glow)">
+      <circle r="1.35" fill={agent.color} stroke="rgba(255,255,255,.9)" strokeWidth="0.26" vectorEffect="non-scaling-stroke" />
+      <circle r="2.05" fill="none" stroke={agent.color} strokeOpacity="0.32" strokeWidth="0.18" vectorEffect="non-scaling-stroke" />
+      <text x="0" y="-2.5" textAnchor="middle" fontSize="2.0" fontWeight="900" fill="#f8fafc" stroke="rgba(2,6,23,.92)" strokeWidth="0.24" vectorEffect="non-scaling-stroke">
+        {agent.name}
+      </text>
+      <text x="0" y="3.6" textAnchor="middle" fontSize="1.2" fill={agent.color} stroke="rgba(2,6,23,.92)" strokeWidth="0.16" vectorEffect="non-scaling-stroke">
+        {agent.payload}
+      </text>
+      <title>{`${agent.name} · ${agent.mission} · route ${path}`}</title>
+    </g>
+  );
+}
 
+function MovingTruck({ truck, path }: { truck: MovingTruck; path: string }) {
+  const color = {
+    cyan: "#67e8f9",
+    emerald: "#34d399",
+    amber: "#f97316",
+    rose: "#fb7185",
+  }[truck.tone];
+  return (
+    <g>
+      <rect x="-3.1" y="-1.25" width="6.2" height="2.5" rx="0.55" fill={color} stroke="rgba(255,255,255,.9)" strokeWidth="0.18" vectorEffect="non-scaling-stroke" />
+      <rect x="-1.1" y="-2.05" width="2.2" height="1" rx="0.28" fill="rgba(255,255,255,.78)" />
+      <circle cx="-1.8" cy="1.45" r="0.42" fill="#020617" />
+      <circle cx="1.8" cy="1.45" r="0.42" fill="#020617" />
+      <text x="0" y="-2.9" textAnchor="middle" fontSize="1.38" fontWeight="900" fill="#f8fafc" stroke="rgba(2,6,23,.92)" strokeWidth="0.18" vectorEffect="non-scaling-stroke">
+        {truck.name}
+      </text>
+      <title>{`${truck.payload} · route ${path}`}</title>
+    </g>
+  );
+}
 
+function CityBuilding({
+  district,
+  agents,
+  onSelect,
+}: {
+  district: CityDistrict;
+  agents: CofiaAgent[];
+  onSelect: () => void;
+}) {
+  const windows = Array.from({ length: district.visual === "castle" ? 8 : 6 });
+  return (
+    <div
+      role="button"
+      tabIndex={0}
+      onClick={onSelect}
+      onKeyDown={(event) => {
+        if (event.key === "Enter" || event.key === " ") {
+          event.preventDefault();
+          onSelect();
+        }
+      }}
+      className="group relative cursor-pointer rounded-lg text-left transition duration-200 hover:-translate-y-1 focus:outline-none focus-visible:ring-2 focus-visible:ring-cyan-300/70"
+      style={{
+        background: `linear-gradient(145deg, rgba(15,23,42,.95), rgba(2,6,23,.84)), radial-gradient(circle at 50% 0%, ${district.glow}, transparent 62%)`,
+        boxShadow: `0 0 22px ${district.glow}, 0 14px 32px rgba(0,0,0,.5)`,
+        ["--t6-glow" as string]: district.glow,
+      }}
+    >
+      <div className={`relative overflow-hidden rounded-lg border bg-slate-950/82 p-2 ${district.visual === "castle" ? "border-cyan-300/35" : district.visual === "port" ? "border-rose-300/35" : "border-white/15"}`}>
+        <div
+          className="absolute -top-5 left-1/2 h-8 w-2/3 -translate-x-1/2 skew-x-[-18deg] rounded-t-lg border border-white/10"
+          style={{ background: `linear-gradient(90deg, ${district.glow}, rgba(15,23,42,.96))` }}
+        />
+        <div className="relative flex items-start justify-between gap-2">
+          <span className="rounded border border-white/15 bg-white/10 px-1.5 py-0.5 text-[9px] font-black uppercase text-white">
+            {district.visual}
+          </span>
+          {district.metric ? <span className="rounded border border-white/10 bg-black/30 px-1.5 py-0.5 text-[9px] font-bold text-slate-200">{district.metric}</span> : null}
+        </div>
+        <p className="relative mt-1 truncate text-[12px] font-black uppercase tracking-[0.02em] text-white">{district.title}</p>
+        <p className="relative truncate text-[10px] text-slate-300">{district.subtitle}</p>
+        <div className="relative mt-2 grid grid-cols-4 gap-1">
+          {windows.map((_, index) => (
+            <span
+              key={index}
+              className="t6-city-window h-2 rounded-[2px]"
+              style={{ backgroundColor: district.accent, opacity: 0.32 + (index % 3) * 0.12 }}
+            />
+          ))}
+        </div>
+        <p className="relative mt-2 line-clamp-2 text-[10px] leading-3 text-slate-200">{district.role}</p>
+        <p className="relative mt-1 truncate text-[9px] text-amber-100">Next: {district.next}</p>
+        <div className="relative mt-1 flex flex-wrap items-center gap-1">
+          {agents.slice(0, 6).map((agent) => (
+            <span
+              key={`${district.id}-${agent.id}`}
+              title={`${agent.name} — ${agent.roleBadge}`}
+              className="inline-flex h-4 items-center gap-0.5 rounded border px-1 text-[8px] font-semibold"
+              style={{ borderColor: `${agent.colorPrimary}55`, backgroundColor: `${agent.colorPrimary}1f`, color: agent.colorPrimary }}
+            >
+              <span>{agent.avatarEmoji || agent.glyph}</span>
+              <span className="max-w-[46px] truncate">{agent.name}</span>
+            </span>
+          ))}
+          {agents.length > 6 ? (
+            <span className="rounded border border-white/15 bg-white/5 px-1 py-0.5 text-[8px] text-slate-300">+{agents.length - 6}</span>
+          ) : null}
+          {agents.length === 0
+            ? district.workers.slice(0, 3).map((worker) => (
+                <span key={`${district.id}-${worker}`} className="rounded border border-cyan-300/25 bg-cyan-300/10 px-1 py-0.5 text-[8px] font-semibold text-cyan-100">
+                  {worker}
+                </span>
+              ))
+            : null}
+        </div>
+        <div className="relative mt-1 flex flex-wrap gap-1">
+          {district.machines.slice(0, 3).map((machine) => (
+            <span key={`${district.id}-${machine}`} className="rounded border border-white/10 bg-white/5 px-1 py-0.5 text-[8px] text-slate-300">
+              {machine}
+            </span>
+          ))}
+        </div>
+      </div>
+    </div>
+  );
+}
 
+function ClientFunnelRail() {
+  return (
+    <section className="rounded-lg border border-cyan-300/20 bg-slate-950/76 p-3">
+      <div className="flex items-center justify-between gap-3">
+        <h2 className="text-[11px] font-black uppercase tracking-[0.22em] text-cyan-100">Client funnel · visual funnel layer · runtime conversion à connecter</h2>
+        <ShieldCheck className="h-4 w-4 text-cyan-200" />
+      </div>
+      <div className="relative mt-3 overflow-hidden rounded-md border border-slate-800 bg-slate-950/72 p-3">
+        <div className="grid grid-cols-4 gap-2 text-[11px] lg:grid-cols-8">
+          {CLIENT_FUNNEL_STEPS.map((step) => (
+            <RailCard key={step.label} step={step} />
+          ))}
+        </div>
+        {Array.from({ length: 7 }).map((_, index) => (
+          <span
+            key={index}
+            className="t6-city-client absolute bottom-2 left-4 h-2 w-2 rounded-full bg-emerald-300 shadow-[0_0_16px_rgba(52,211,153,.78)]"
+          />
+        ))}
+      </div>
+    </section>
+  );
+}
+
+function ProductionFactoryRail({ snapshot }: { snapshot: Snapshot | null }) {
+  const assets = snapshot?.assetsWarehouse;
+  const canon = snapshot?.publisherCanon;
+  const native = snapshot?.publisherNative;
+  const nativeCounts = native?.counts;
+  const canonCounts = canon?.counts;
+  const canonAssets = canonCounts?.assetsWiredOrAvailable != null && canonCounts.assetsTotal != null
+    ? `${canonCounts.assetsWiredOrAvailable}/${canonCounts.assetsTotal}`
+    : "source down";
+  const canonDuplicates = canonCounts?.duplicatePublisherHtml ?? null;
+  const canonBroll = canonCounts?.brollTotal ?? null;
+  const nativeRenders = nativeCounts?.renders ?? assets?.mp4Count ?? null;
+  const nativeArchived = nativeCounts?.archived ?? null;
+  const nativeOrphan = nativeCounts?.orphan ?? null;
+  const nativeGold = nativeCounts?.goldProved ?? null;
+  const lockReason = native?.publishLock?.reason ?? "R8_ERWIN_GATE_EXTERNAL_PUBLISH";
+  return (
+    <section className="rounded-lg border border-amber-300/20 bg-slate-950/76 p-3">
+      <div className="flex items-center justify-between gap-3">
+        <h2 className="text-[11px] font-black uppercase tracking-[0.22em] text-amber-100">Production factory · CofiaPublisher vivant</h2>
+        <div className="flex items-center gap-2">
+          <span className={`rounded border px-2 py-1 text-[10px] font-black uppercase ${canon?.ok ? "border-emerald-300/30 bg-emerald-300/10 text-emerald-100" : "border-amber-300/30 bg-amber-300/10 text-amber-100"}`}>
+            {native?.state ?? canon?.status ?? "canon source down"}
+          </span>
+          <Factory className="h-4 w-4 text-amber-200" />
+        </div>
+      </div>
+      <div className="mt-3 overflow-hidden rounded-md border border-slate-800 bg-slate-950/72 p-3">
+        <div className="grid grid-cols-4 gap-2 text-[11px] lg:grid-cols-8">
+          {PRODUCTION_STEPS.map((step) => (
+            <div key={step.label} className="t6-city-crate">
+              <RailCard step={step} />
+            </div>
+          ))}
+        </div>
+        <p className="mt-2 text-[11px] text-amber-100/75">
+          Publisher natif · renders {formatCityNumber(nativeRenders)} · archives {formatCityNumber(nativeArchived)} · orphelins {formatCityNumber(nativeOrphan)} · gold prouvés {formatCityNumber(nativeGold)} · publish lock {lockReason}.
+        </p>
+        <p className="mt-1 text-[10px] leading-4 text-slate-400">
+          Assets {canonAssets} · doublons HTML {canonDuplicates === null ? "source down" : canonDuplicates} · b-roll {canonBroll === null ? "source down" : canonBroll} · {formatCityNumber(assets?.captionsCount)} captions · {formatCityNumber(assets?.assetsInventoryCount)} assets · source {native?.sourceTag ?? canon?.sourceTag ?? "source down"}.
+        </p>
+      </div>
+    </section>
+  );
+}
+
+function RailCard({ step }: { step: RailStep }) {
+  const toneClass = step.tone === "emerald"
+    ? "border-emerald-300/25 bg-emerald-300/10 text-emerald-100"
+    : step.tone === "amber"
+      ? "border-amber-300/25 bg-amber-300/10 text-amber-100"
+      : step.tone === "rose"
+        ? "border-rose-300/25 bg-rose-400/10 text-rose-100"
+        : "border-cyan-300/25 bg-cyan-300/10 text-cyan-100";
+  return (
+    <div className={`rounded-md border px-2 py-2 ${toneClass}`}>
+      <p className="truncate font-black text-white">{step.label}</p>
+      <p className="mt-1 truncate">{step.value}</p>
+    </div>
+  );
+}
+
+function MachineStationsPanel() {
+  return (
+    <section className="rounded-lg border border-cyan-300/20 bg-slate-950/78 p-3">
+      <div className="flex items-center justify-between gap-3">
+        <h2 className="text-[11px] font-black uppercase tracking-[0.22em] text-cyan-100">CITY_MACHINES · tools stations</h2>
+        <Settings className="h-4 w-4 text-cyan-200" />
+      </div>
+      <div className="mt-3 grid max-h-[132px] grid-cols-2 gap-2 overflow-auto pr-1 text-[10px]">
+        {CITY_MACHINES.map((machine) => {
+          const toneClass = machine.tone === "emerald"
+            ? "border-emerald-300/25 bg-emerald-300/10 text-emerald-100"
+            : machine.tone === "amber"
+              ? "border-amber-300/25 bg-amber-300/10 text-amber-100"
+              : machine.tone === "rose"
+                ? "border-rose-300/25 bg-rose-400/10 text-rose-100"
+                : machine.tone === "cyan"
+                  ? "border-cyan-300/25 bg-cyan-300/10 text-cyan-100"
+                  : "border-slate-600/40 bg-slate-800/50 text-slate-200";
+          return (
+            <span key={`${machine.district}-${machine.label}`} className={`rounded border px-2 py-1 font-semibold ${toneClass}`}>
+              {machine.label}
+            </span>
+          );
+        })}
+      </div>
+    </section>
+  );
+}
+
+function TradingTowerPanel() {
+  return (
+    <section className="rounded-lg border border-cyan-300/20 bg-slate-950/78 p-3">
+      <div className="flex items-center justify-between gap-3">
+        <h2 className="text-[11px] font-black uppercase tracking-[0.22em] text-cyan-100">Trading Tower</h2>
+        <RadioTower className="h-4 w-4 text-cyan-200" />
+      </div>
+      <div className="relative mt-3 min-h-[142px] rounded-md border border-emerald-300/20 bg-slate-950/70 p-3">
+        <div className="absolute left-1/2 top-1/2 h-20 w-20 -translate-x-1/2 -translate-y-1/2 rounded-full border border-emerald-300/35 bg-emerald-300/10" />
+        {["Marco", "Risk", "Quant"].map((name) => (
+          <span
+            key={name}
+            className="t6-city-orbit absolute left-1/2 top-1/2 -ml-6 -mt-3 rounded border border-emerald-300/25 bg-emerald-300/10 px-2 py-1 text-[10px] font-bold text-emerald-100"
+            >
+            {name}
+          </span>
+        ))}
+        <div className="relative z-10 grid gap-1 text-[11px] text-slate-300">
+          <span>Rithmic · MT4 · MT5</span>
+          <span>FXcess Mirror PM000697 LOCKED</span>
+          <span>Signal papier vers VIP Gate</span>
+          <span className="text-amber-200">PnL source à connecter</span>
+        </div>
+      </div>
+    </section>
+  );
+}
+
+function OpenClawCommandPanel({ angelRoster }: { angelRoster: AngelRosterPayload | null }) {
+  const mappedWorkers = Array.from(new Set(Object.values(HOUSE_WORKFORCE).flatMap((house) => house.workers)));
+  return (
+    <section className="rounded-lg border border-cyan-300/20 bg-slate-950/78 p-3">
+      <div className="flex items-center justify-between gap-3">
+        <h2 className="text-[11px] font-black uppercase tracking-[0.22em] text-cyan-100">OpenClaw / Mission Control</h2>
+        <Bot className="h-4 w-4 text-cyan-200" />
+      </div>
+      <div className="mt-3 grid gap-2 text-xs text-slate-200">
+        <div className="rounded-md border border-emerald-300/25 bg-emerald-300/10 p-3">
+          <p className="font-black uppercase text-emerald-100">38 anges canon · workforce visible</p>
+          <p className="mt-1 text-emerald-100/70">
+            {mappedWorkers.length} ouvriers affectés · runtime roster {angelRoster ? `LIVE ${angelRoster.counts.live} / awaiting ${angelRoster.counts.awaiting_setup}` : "à connecter"}
+          </p>
+        </div>
+        <div className="rounded-md border border-amber-300/25 bg-amber-300/10 p-3">
+          <p className="font-black uppercase text-amber-100">59 camions canon · 7 routes statiques</p>
+          <p className="mt-1 text-amber-100/70">Jarod dispatch · Codex architecte · Claude worker borné · GPT reviewer externe.</p>
+        </div>
+      </div>
+    </section>
+  );
+}
+
+function _LivingWorldEngine({ snapshot, angelRoster }: { snapshot: Snapshot | null; angelRoster: AngelRosterPayload | null }) {
+  const nodeById = new Map(WORLD_NODES.map((node) => [node.id, node]));
+  const routePath = (route: HouseId[]) =>
+    route
+      .map((id, index) => {
+        const node = nodeById.get(id);
+        if (!node) return "";
+        return `${index === 0 ? "M" : "L"} ${node.x} ${node.y}`;
+      })
+      .filter(Boolean)
+      .join(" ");
+  const directRoutes = [
+    ["mission_control_tower", "central_brain"],
+    ["mission_control_tower", "compliance_port"],
+    ["mission_control_tower", "youtube_studio"],
+    ["mission_control_tower", "iron_office"],
+    ["mission_control_tower", "openclaw_agent_barracks"],
+    ["youtube_studio", "assets_warehouse"],
+    ["youtube_studio", "site_seo_lab"],
+    ["youtube_studio", "vip_gate"],
+    ["iron_office", "vip_gate"],
+    ["iron_office", "site_seo_lab"],
+    ["mt4_signal_tower", "vip_gate"],
+    ["mt4_signal_tower", "compliance_port"],
+    ["site_seo_lab", "vip_gate"],
+    ["site_seo_lab", "assets_warehouse"],
+    ["obsidian_library", "central_brain"],
+    ["paperclip_factory", "openclaw_agent_barracks"],
+    ["calendar_tower", "mission_control_tower"],
+  ] as Array<[HouseId, HouseId]>;
+  const mappedWorkers = Array.from(new Set(Object.values(HOUSE_WORKFORCE).flatMap((house) => house.workers)));
+  const services = snapshot?.services ?? [];
+  const servicesOk = services.filter((service) => service.ok).length;
+  const servicesTotal = services.length;
+  const truckTone: Record<WorldTruck["status"], string> = {
+    urgent: "#f97316",
+    blocked: "#fb7185",
+    live: "#34d399",
+    build: "#67e8f9",
+  };
+
+  return (
+    <section className="relative min-h-screen overflow-x-hidden border-b border-emerald-300/15 bg-[#03060a] px-4 py-4 lg:px-6">
+      <style>{`
+        .t5b-scan { opacity: .22; }
+        .t5b-client-dot { opacity: .75; }
+        .t5b-conveyor { transform: none; }
+        .t5b-orbit { transform-origin: center; }
+        .t5b-priority { box-shadow: 0 0 18px rgba(52,211,153,.18); }
+      `}</style>
+
+      <div className="pointer-events-none absolute inset-0 bg-[linear-gradient(rgba(34,211,238,0.07)_1px,transparent_1px),linear-gradient(90deg,rgba(34,211,238,0.06)_1px,transparent_1px)] bg-[size:48px_48px]" />
+      <div className="pointer-events-none absolute inset-y-0 left-0 w-1/5 bg-cyan-300/10 blur-3xl t5b-scan" />
+
+      <div className="relative mx-auto grid min-h-[calc(100vh-32px)] max-w-[1760px] grid-rows-[auto_1fr_auto] gap-3">
+        <header className="grid gap-3 rounded-md border border-emerald-300/20 bg-slate-950/85 p-3 shadow-[0_0_50px_rgba(16,185,129,0.08)] xl:grid-cols-[1fr_auto]">
+          <div>
+            <p className="text-[11px] font-black uppercase tracking-[0.22em] text-emerald-200">
+              Living World Engine · Mission Control relié à OpenClaw
+            </p>
+            <h1 className="mt-1 font-heading text-2xl font-black uppercase text-white lg:text-3xl">
+              COFIATRADING World Control
+            </h1>
+            <p className="mt-1 text-xs text-slate-300">
+              Couche visuelle canonique statique · agents/camions affichés seulement comme inventaire si runtime non câblé · 15 maisons · 38 anges · 59 camions canon.
+            </p>
+          </div>
+          <div className="grid gap-2 text-xs sm:grid-cols-4 xl:min-w-[720px]">
+            <div className="rounded-md border border-emerald-300/30 bg-emerald-300/10 px-3 py-2">
+              <p className="text-[10px] uppercase text-emerald-200">MRR</p>
+              <p className="text-lg font-black text-white">{formatEur(snapshot?.revenue.currentMrrEur)}</p>
+            </div>
+            <div className="rounded-md border border-cyan-300/30 bg-cyan-300/10 px-3 py-2">
+              <p className="text-[10px] uppercase text-cyan-200">ARR</p>
+              <p className="text-lg font-black text-white">{formatEur(snapshot?.revenue.currentArrEur)}</p>
+            </div>
+            <div className="rounded-md border border-rose-300/35 bg-rose-400/10 px-3 py-2">
+              <p className="text-[10px] uppercase text-rose-200">Past due</p>
+              <p className="text-lg font-black text-white">{formatEur(snapshot?.revenue.pastDueEur)} / {formatNumber(snapshot?.revenue.pastDueCount)}</p>
+            </div>
+            <div className="rounded-md border border-amber-300/30 bg-amber-300/10 px-3 py-2">
+              <p className="text-[10px] uppercase text-amber-200">OpenClaw</p>
+              <p className="text-lg font-black text-white">{servicesTotal ? `${servicesOk}/${servicesTotal}` : "source"}</p>
+            </div>
+          </div>
+        </header>
+
+        <div className="grid min-h-0 gap-3 xl:grid-cols-[minmax(0,1.35fr)_400px]">
+          <div className="relative min-h-[620px] overflow-hidden rounded-md border border-cyan-300/20 bg-slate-950/72">
+            <div className="absolute left-4 top-4 z-20 rounded-md border border-cyan-300/25 bg-slate-950/85 px-3 py-2">
+              <p className="text-[11px] font-black uppercase tracking-[0.18em] text-cyan-100">Mission Control map</p>
+              <p className="mt-1 text-[11px] text-slate-400">
+                Codex architecte · Jarod dispatcher · Claude worker borné · GPT reviewer externe · Erwin commandant.
+              </p>
+            </div>
+
+            <svg className="absolute inset-0 h-full w-full" viewBox="0 0 100 100" preserveAspectRatio="none" aria-label="Routes between COFIATRADING houses">
+              <defs>
+                <filter id="t5b-glow">
+                  <feGaussianBlur stdDeviation="1.2" result="coloredBlur" />
+                  <feMerge>
+                    <feMergeNode in="coloredBlur" />
+                    <feMergeNode in="SourceGraphic" />
+                  </feMerge>
+                </filter>
+              </defs>
+              {directRoutes.map((route) => (
+                <path
+                  key={route.join("-")}
+                  d={routePath(route)}
+                  fill="none"
+                  stroke="rgba(125, 211, 252, 0.24)"
+                  strokeWidth="0.28"
+                  strokeDasharray="1.1 1.1"
+                  vectorEffect="non-scaling-stroke"
+                />
+              ))}
+              {WORLD_TRUCKS.map((truck, index) => (
+                <path
+                  key={`truck-route-${truck.label}`}
+                  d={routePath(truck.route)}
+                  fill="none"
+                  stroke={truckTone[truck.status]}
+                  strokeWidth="0.42"
+                  strokeOpacity="0.52"
+                  vectorEffect="non-scaling-stroke"
+                  filter="url(#t5b-glow)"
+                  strokeDasharray={index % 2 === 0 ? "1.4 1.1" : "0.7 1.2"}
+                />
+              ))}
+              {WORLD_AGENTS.map((agent) => {
+                const from = nodeById.get(agent.from);
+                const to = nodeById.get(agent.to);
+                const x = from && to ? (from.x + to.x) / 2 : 50;
+                const y = from && to ? (from.y + to.y) / 2 : 50;
+                return (
+                <g key={agent.name} filter="url(#t5b-glow)" transform={`translate(${x} ${y})`}>
+                  <circle r="1.15" fill={agent.color} stroke="rgba(255,255,255,.9)" strokeWidth="0.24" vectorEffect="non-scaling-stroke" />
+                  <text x="0" y="-2.1" textAnchor="middle" fontSize="2.2" fontWeight="800" fill="#f8fafc" stroke="rgba(2,6,23,.9)" strokeWidth="0.24" vectorEffect="non-scaling-stroke">
+                    {agent.name}
+                  </text>
+                  <text x="0" y="3.3" textAnchor="middle" fontSize="1.35" fill={agent.color} stroke="rgba(2,6,23,.92)" strokeWidth="0.18" vectorEffect="non-scaling-stroke">
+                    {agent.payload}
+                  </text>
+                </g>
+                );
+              })}
+              {WORLD_TRUCKS.map((truck) => {
+                const routeNodes = truck.route.map((id) => nodeById.get(id)).filter(Boolean) as WorldNode[];
+                const x = routeNodes.length ? routeNodes.reduce((sum, node) => sum + node.x, 0) / routeNodes.length : 50;
+                const y = routeNodes.length ? routeNodes.reduce((sum, node) => sum + node.y, 0) / routeNodes.length : 50;
+                return (
+                <g key={truck.label} transform={`translate(${x} ${y})`}>
+                  <rect x="-2.4" y="-1" width="4.8" height="2" rx="0.7" fill={truckTone[truck.status]} stroke="rgba(255,255,255,.85)" strokeWidth="0.18" vectorEffect="non-scaling-stroke" />
+                  <circle cx="-1.35" cy="1.15" r="0.38" fill="#020617" />
+                  <circle cx="1.35" cy="1.15" r="0.38" fill="#020617" />
+                  <text x="0" y="-2.1" textAnchor="middle" fontSize="1.45" fontWeight="800" fill="#f8fafc" stroke="rgba(2,6,23,.88)" strokeWidth="0.18" vectorEffect="non-scaling-stroke">
+                    {truck.label.split("·")[0].trim()}
+                  </text>
+                </g>
+                );
+              })}
+            </svg>
+
+            {WORLD_NODES.map((node) => {
+              const workforce = HOUSE_WORKFORCE[node.id];
+              const urgent = node.id === "iron_office" || node.id === "youtube_studio" || node.id === "mt4_signal_tower";
+              return (
+                <button
+                  key={node.id}
+                  type="button"
+                  className={`absolute z-10 w-[132px] -translate-x-1/2 -translate-y-1/2 rounded-md border bg-slate-950/88 px-2 py-2 text-left shadow-[0_10px_28px_rgba(0,0,0,.36)] transition hover:z-30 hover:scale-[1.04] ${statusClass[node.status]} ${urgent ? "t5b-priority" : ""}`}
+                  style={{ left: `${node.x}%`, top: `${node.y}%` }}
+                  title={`${node.label} · ${node.mission} · ${node.assetKey}`}
+                >
+                  <div className="flex items-start justify-between gap-2">
+                    <span className="rounded border border-white/15 bg-white/10 px-1.5 py-0.5 text-[10px] font-black text-white">
+                      {node.icon}
+                    </span>
+                    <span className="rounded border border-white/10 bg-black/20 px-1.5 py-0.5 text-[8px] font-bold uppercase">
+                      {node.status}
+                    </span>
+                  </div>
+                  <p className="mt-1 truncate text-[11px] font-black text-white">{node.label}</p>
+                  <p className="truncate text-[9px] text-slate-300">{node.owner}</p>
+                  <p className="mt-1 line-clamp-2 text-[9px] leading-3 text-slate-200">{node.mission}</p>
+                  <div className="mt-1 flex flex-wrap gap-1">
+                    {workforce.workers.slice(0, 3).map((worker) => (
+                      <span key={`${node.id}-${worker}`} className="rounded border border-cyan-300/25 bg-cyan-300/10 px-1 py-0.5 text-[8px] font-semibold text-cyan-100">
+                        {worker}
+                      </span>
+                    ))}
+                  </div>
+                </button>
+              );
+            })}
+          </div>
+
+          <aside className="grid min-h-0 gap-3">
+            <Panel title="OpenClaw / Mission Control" tone="cyan">
+              <div className="grid gap-2 text-xs text-slate-200">
+                <div className="rounded-md border border-emerald-300/25 bg-emerald-300/10 p-3">
+                  <p className="font-black uppercase text-emerald-100">38 anges visibles en workforce</p>
+                  <p className="mt-1 text-emerald-100/70">{mappedWorkers.length} ouvriers affectés · runtime roster {angelRoster ? `LIVE ${angelRoster.counts.live} / awaiting ${angelRoster.counts.awaiting_setup}` : "à connecter"}</p>
+                </div>
+                <div className="rounded-md border border-amber-300/25 bg-amber-300/10 p-3">
+                  <p className="font-black uppercase text-amber-100">59 camions canon · runtime source à connecter</p>
+                  <p className="mt-1 text-amber-100/70">7 camions visuels statiques, sans prétendre au runtime camion final.</p>
+                </div>
+                <div className="grid grid-cols-2 gap-2">
+                  {["Codex architecte", "Jarod dispatch", "Claude worker", "GPT reviewer"].map((label) => (
+                    <span key={label} className="rounded border border-slate-700 bg-slate-950/70 px-2 py-1 text-[11px] font-semibold text-slate-200">
+                      {label}
+                    </span>
+                  ))}
+                </div>
+              </div>
+            </Panel>
+
+            <Panel title="Vision Map secondaire" tone="gold">
+              <div className="grid grid-cols-[120px_1fr] gap-3">
+                <img src={northStarImage} alt="Vision Map secondaire" className="h-[82px] w-[120px] rounded border border-slate-700 object-cover opacity-70" />
+                <div>
+                  <p className="text-xs font-bold text-slate-100">Poster Manhattan réduit à une mini-carte.</p>
+                  <p className="mt-1 text-[11px] text-slate-500">Le produit visible est le monde Mission Control canonique.</p>
+                </div>
+              </div>
+            </Panel>
+
+            <Panel title="Trading Tower" tone="cyan">
+              <div className="relative min-h-[128px] rounded-md border border-emerald-300/20 bg-slate-950/70 p-3">
+                <div className="absolute left-1/2 top-1/2 h-16 w-16 -translate-x-1/2 -translate-y-1/2 rounded-full border border-emerald-300/35 bg-emerald-300/10" />
+                {["Marco", "Risk", "Quant"].map((name) => (
+                  <span
+                    key={name}
+                    className="t5b-orbit absolute left-1/2 top-1/2 -ml-5 -mt-3 rounded border border-emerald-300/25 bg-emerald-300/10 px-2 py-1 text-[10px] font-bold text-emerald-100"
+                  >
+                    {name}
+                  </span>
+                ))}
+                <div className="relative z-10 grid gap-1 text-[11px] text-slate-300">
+                  <span>Rithmic · MT4 · MT5</span>
+                  <span>FXcess Mirror PM000697 LOCKED</span>
+                  <span>Signal papier en revue vers VIP Gate</span>
+                  <span className="text-amber-200">PnL source à connecter</span>
+                </div>
+              </div>
+            </Panel>
+          </aside>
+        </div>
+
+        <div className="grid gap-3 xl:grid-cols-2">
+          <Panel title="Client funnel · visual funnel layer · runtime conversion à connecter" tone="cyan">
+            <div className="relative overflow-hidden rounded-md border border-slate-800 bg-slate-950/72 p-3">
+              <div className="grid grid-cols-7 gap-2 text-[11px]">
+                {[
+                  ["Socials", "9 canaux"],
+                  ["Site", "à connecter"],
+                  ["Telegram FREE", "à vérifier"],
+                  ["Telegram VIP", "à vérifier"],
+                  ["Stripe VIP", "source live"],
+                  ["Copy Trading", "FXcess"],
+                  ["Upsell", "Premium"],
+                ].map(([label, value]) => (
+                  <div key={label} className="rounded border border-slate-700 bg-slate-900/70 px-2 py-2">
+                    <p className="font-bold text-white">{label}</p>
+                    <p className="mt-1 text-emerald-300">{value}</p>
+                  </div>
+                ))}
+              </div>
+              {[0, 1, 2, 3, 4].map((dot) => (
+                <span
+                  key={dot}
+                  className="t5b-client-dot absolute bottom-2 left-4 h-2 w-2 rounded-full bg-emerald-300 shadow-[0_0_14px_rgba(52,211,153,.7)]"
+                />
+              ))}
+            </div>
+          </Panel>
+
+          <Panel title="Factory strip · Production factory" tone="gold">
+            <div className="overflow-hidden rounded-md border border-slate-800 bg-slate-950/72 p-3">
+              <div className="grid grid-cols-8 gap-2 text-[11px]">
+                {[
+                  ["Ideas", "ready"],
+                  ["Scripts", "draft"],
+                  ["Captions", "source down"],
+                  ["MP4", "source down"],
+                  ["Reviewer", "proof req."],
+                  ["Publish", "0 live"],
+                  ["Cross-post", "locked"],
+                  ["Metrics", "after live"],
+                ].map(([label, value]) => (
+                  <div key={label} className="t5b-conveyor rounded border border-amber-300/25 bg-amber-300/10 px-2 py-2">
+                    <p className="font-bold text-white">{label}</p>
+                    <p className="mt-1 text-amber-200">{value}</p>
+                  </div>
+                ))}
+              </div>
+              <p className="mt-2 text-[11px] text-amber-100/70">
+                Assets source live · YouTube OAuth blocked · Reviewer proof gate required.
+              </p>
+            </div>
+          </Panel>
+        </div>
+      </div>
+    </section>
+  );
+}
 
 type CalendarEventView = {
   ts: string | null;
@@ -2267,13 +3957,46 @@ function HouseDrawer({
       cancelled = true;
     };
   }, [house.id]);
+  // Trading OS — verite fail-closed (probe_ok != green_allowed). Trading Tower (toujours visible).
+  const [tradingReadiness, setTradingReadiness] = useState<{
+    ok?: boolean;
+    probe_ok?: boolean;
+    green_allowed?: boolean;
+    readiness?: string;
+    tone?: "green" | "amber" | "red";
+    validation_ok?: boolean;
+    real_money_gate_ok?: boolean;
+    business_green_allowed?: boolean;
+    quant?: { green_allowed?: boolean; verdict?: string | null; passed?: number | null; n_criteria?: number | null; pbo?: number | null; dsr?: number | null };
+    paper_forward?: { green_allowed?: boolean; closed?: number | null; target?: number; label?: string; readiness?: string | null };
+    broker_readonly?: { green_allowed?: boolean; status?: string | null; connected?: boolean | null; broker_write_allowed?: boolean | null };
+    signal_board?: { mode?: string | null; setups_triggered_recent?: number | null; paper_queue_count?: number | null; trade_signal_allowed?: boolean | null };
+  } | null>(null);
+  useEffect(() => {
+    let aborted = false;
+    const load = () => {
+      fetch("/api/cofiatrading-world-control/trading-readiness", { cache: "no-store" })
+        .then((r) => r.json())
+        .then((j) => {
+          if (!aborted) setTradingReadiness(j);
+        })
+        .catch(() => {});
+    };
+    load();
+    const interval = window.setInterval(load, 30_000);
+    return () => {
+      aborted = true;
+      window.clearInterval(interval);
+    };
+  }, []);
   // Flotte VPS (offload Mac) — rendue dans la caserne openclaw_agent_barracks.
   const [vpsFleet, setVpsFleet] = useState<{
     status?: string;
     host?: string;
-    total?: number;
-    liveCount?: number;
-    rotatingCount?: number;
+	    total?: number;
+	    liveCount?: number;
+	    allLive?: boolean;
+	    rotatingCount?: number;
     runningCount?: number;
     staleCount?: number;
     failedCount?: number;
@@ -2858,9 +4581,9 @@ function HouseDrawer({
               <section className="rounded-md border border-amber-300/25 bg-amber-300/5 p-3">
                 <h3 className="mb-3 flex items-center justify-between text-xs font-semibold uppercase tracking-[0.18em] text-amber-100">
                   <span>Flotte VPS · offload Mac</span>
-                  <span className="text-[9px] font-normal text-slate-400">
-                    {vpsFleet ? `${vpsFleet.liveCount ?? 0}/${vpsFleet.total ?? 0} LIVE` : "…"}
-                  </span>
+	                  <span className="text-[9px] font-normal text-slate-400">
+	                    {vpsFleet ? `${vpsFleet.allLive ? "GREEN_PROVED_24_24" : vpsFleet.status ?? "UNKNOWN"} - ${vpsFleet.liveCount ?? 0}/${vpsFleet.total ?? 0} fresh <=15m` : "…"}
+	                  </span>
                 </h3>
                 {vpsFleet ? (
                   <>
@@ -3050,6 +4773,17 @@ function InspectorRow({ label, value }: { label: string; value: string }) {
   );
 }
 
+function _Guardian({ name, role }: { name: string; role: string }) {
+  return (
+    <div className="rounded-md border border-cyan-300/20 bg-cyan-300/10 p-3 text-center">
+      <div className="mx-auto mb-2 flex h-10 w-10 items-center justify-center rounded-md border border-cyan-200/30 bg-slate-950 text-cyan-100">
+        <ShieldCheck className="h-5 w-5" />
+      </div>
+      <p className="font-semibold text-white">{name}</p>
+      <p className="text-[11px] text-slate-400">{role}</p>
+    </div>
+  );
+}
 
 // ============================================================
 // CORAN V8 Sourate LVI · Angel Roster Manāzil al-Malā'ikah
@@ -3082,6 +4816,96 @@ export type AngelRosterPayload = {
 
 // CORAN V9 Sourate LXI · Sidq al-Mutlaq honest-by-design 6 statuts
 // "Dieu ne ment jamais" : green LIVE, cyan OPERATIONAL/CANON_GATE, slate AWAITING, amber DEGRADED, red BROKEN (refus de cacher)
+function _AngelRosterPanel({ roster }: { roster: AngelRosterPayload | null }) {
+  if (!roster) return null;
+  const statusStyle: Record<Angel["status"], string> = {
+    LIVE: "border-emerald-400/40 bg-emerald-400/10 text-emerald-200",
+    OPERATIONAL_PARTIAL: "border-cyan-400/35 bg-cyan-400/10 text-cyan-200",
+    CANON_GATE: "border-cyan-300/30 bg-cyan-300/5 text-cyan-100",
+    AWAITING_SETUP: "border-slate-400/30 bg-slate-400/5 text-slate-300",
+    DEGRADED: "border-amber-400/50 bg-amber-400/10 text-amber-200",
+    BROKEN: "border-red-500/60 bg-red-500/10 text-red-200",
+  };
+  const statusLabel: Record<Angel["status"], string> = {
+    LIVE: "LIVE",
+    OPERATIONAL_PARTIAL: "OPERATIONAL",
+    CANON_GATE: "CANON GATE",
+    AWAITING_SETUP: "AWAITING",
+    DEGRADED: "DEGRADED",
+    BROKEN: "BROKEN",
+  };
+  return (
+    <section className="mt-6 rounded-md border border-amber-300/30 bg-slate-950/80 p-5 shadow-[0_0_40px_rgba(245,158,11,0.05)]">
+      <div className="mb-4 flex items-center justify-between gap-4 flex-wrap">
+        <div>
+          <p className="text-[11px] font-semibold uppercase tracking-[0.2em] text-amber-300">
+            🕌 ANGEL ROSTER · Manāzil al-Malā&apos;ikah · Honest-by-design Sidq
+          </p>
+          <h2 className="mt-1 font-heading text-xl font-semibold leading-tight text-white">
+            38 Anges canon — chaque ange à sa place sur sa plateforme
+          </h2>
+          <p className="mt-1 text-[11px] text-slate-400">
+            Sync runtime ↔ CORAN V9 Sourate LVI + LXI · cap §45 strict · {roster.runtime_ts.slice(11, 19)}Z
+          </p>
+        </div>
+        <div className="flex gap-2 text-[10px] font-bold uppercase tracking-wide flex-wrap">
+          <span className="rounded border border-emerald-400/40 bg-emerald-400/10 px-2 py-1 text-emerald-200">
+            CANON LIVE {roster.counts.live}
+          </span>
+          <span className="rounded border border-cyan-400/35 bg-cyan-400/10 px-2 py-1 text-cyan-200">
+            OPERATIONAL {roster.counts.operational_partial}
+          </span>
+          <span className="rounded border border-cyan-300/30 bg-cyan-300/5 px-2 py-1 text-cyan-100">
+            CANON GATE {roster.counts.canon_gate}
+          </span>
+          <span className="rounded border border-slate-400/30 bg-slate-400/5 px-2 py-1 text-slate-300">
+            AWAITING {roster.counts.awaiting_setup}
+          </span>
+          <span className="rounded border border-amber-400/50 bg-amber-400/10 px-2 py-1 text-amber-200">
+            DEGRADED {roster.counts.degraded}
+          </span>
+          <span className="rounded border border-red-500/60 bg-red-500/10 px-2 py-1 text-red-200">
+            BROKEN {roster.counts.broken}
+          </span>
+          {roster.arr_impact_total_eur_year !== 0 && (
+            <span className="rounded border border-red-500/60 bg-red-500/15 px-2 py-1 text-red-200">
+              ARR loss: {roster.arr_impact_total_eur_year.toLocaleString("fr-FR")} €/an
+            </span>
+          )}
+        </div>
+      </div>
+      <div className="grid grid-cols-1 gap-2 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+        {roster.anges.map((angel) => (
+          <div
+            key={angel.id}
+            className={`rounded-md border p-3 ${statusStyle[angel.status]}`}
+            title={`${angel.manzilah} · ${angel.mission}${angel.stack ? ` · ${angel.stack}` : ""}`}
+          >
+            <div className="flex items-center justify-between gap-2">
+              <div className="min-w-0">
+                <p className="truncate font-semibold text-white">
+                  <span className="text-amber-300">#{angel.id.toString().padStart(2, "0")}</span>{" "}
+                  {angel.name}{" "}
+                  <span className="text-amber-200/70 text-[10px] italic">{angel.name_ar}</span>
+                </p>
+                <p className="mt-1 truncate text-[11px] text-cyan-300">→ {angel.platform}</p>
+              </div>
+              <span className="rounded border border-current/40 bg-slate-950/60 px-1.5 py-0.5 text-[9px] font-bold uppercase tracking-wide">
+                {statusLabel[angel.status]}
+              </span>
+            </div>
+            <p className="mt-2 line-clamp-2 text-[10.5px] text-slate-300 leading-snug">
+              {angel.mission}
+            </p>
+          </div>
+        ))}
+      </div>
+      <p className="mt-4 text-[10px] text-slate-500">
+        source_tag: <code className="text-cyan-300">{roster.source_tag}</code>
+      </p>
+    </section>
+  );
+}
 
 // P11 Sourate LXVIII Al-Muharrik · Commerce Machine Grid — 21 boutiques canon machine 100M€
 type CommerceShop = {
@@ -3100,6 +4924,66 @@ const commerceStatusTone: Record<CommerceShop["status"], string> = {
   AWAITING_SETUP: "border-slate-400/40 bg-slate-400/10 text-slate-300",
   BROKEN: "border-red-500/60 bg-red-500/15 text-red-200",
 };
+function _CommerceMachineGrid({ shops }: { shops: CommerceShop[] }) {
+  if (!shops || shops.length === 0) return null;
+  const counts = shops.reduce<Record<string, number>>((acc, s) => {
+    acc[s.status] = (acc[s.status] ?? 0) + 1;
+    return acc;
+  }, {});
+  return (
+    <section className="mx-4 my-6 rounded-md border border-amber-400/35 bg-slate-950/85 p-5 shadow-[0_0_40px_rgba(245,158,11,0.18)] lg:mx-6">
+      <div className="mb-4 flex items-center justify-between gap-3 flex-wrap">
+        <div>
+          <p className="text-[11px] font-semibold uppercase tracking-[0.2em] text-amber-300">
+            COMMERCE MACHINE · {shops.length} boutiques canon Hub Vivant
+          </p>
+          <h2 className="mt-1 font-heading text-xl font-semibold text-white">
+            Sourate LXV Adwāt · machine 100M€ Déc 2026
+          </h2>
+        </div>
+        <div className="flex flex-wrap gap-2 text-[10px] font-bold uppercase tracking-wide">
+          {(["LIVE", "PARTIAL", "CANON_GATE", "AWAITING_SETUP", "BROKEN"] as const).map((s) => (
+            <span key={s} className={`rounded border px-2 py-1 ${commerceStatusTone[s]}`}>
+              {s} {counts[s] ?? 0}
+            </span>
+          ))}
+        </div>
+      </div>
+      <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+        {shops.map((shop) => (
+          <div
+            key={shop.id}
+            className={`rounded-md border p-3 transition hover:border-white/30 ${commerceStatusTone[shop.status]}`}
+          >
+            <div className="flex items-center justify-between gap-2">
+              <p className="truncate font-semibold text-white text-sm">{shop.name}</p>
+              <span className="rounded border border-current/40 bg-slate-950/60 px-1.5 py-0.5 text-[9px] font-bold uppercase">
+                {shop.status}
+              </span>
+            </div>
+            <p className="mt-2 text-[10.5px] text-slate-300 leading-snug line-clamp-3">
+              <span className="text-red-300 font-semibold">⚠ </span>
+              {shop.problem}
+            </p>
+            <p className="mt-2 text-[10.5px] text-emerald-200 leading-snug line-clamp-3">
+              <span className="text-emerald-300 font-semibold">→ </span>
+              {shop.next_action}
+            </p>
+            <div className="mt-2 flex items-center justify-between text-[9.5px] text-slate-400">
+              <span>👤 {shop.owner_agent}</span>
+              <span className="truncate max-w-[55%] text-right" title={shop.proof_source}>
+                {shop.proof_source.slice(0, 30)}{shop.proof_source.length > 30 ? "…" : ""}
+              </span>
+            </div>
+          </div>
+        ))}
+      </div>
+      <p className="mt-4 text-[10px] text-slate-500">
+        source_tag: <code className="text-amber-300">COMMERCE_MACHINE_CANON_20260527</code> · 21 boutiques outbound vers 100M€
+      </p>
+    </section>
+  );
+}
 
 // P11 Sourate LXVIII · Services Status Bar — 8 services canon LIVE probes
 type ServiceProbe = { id: string; label: string; ok: boolean; status?: string | number | null; http_code?: number | null; url?: string; role?: string };
@@ -3111,5 +4995,73 @@ const serviceStatusTone: Record<string, string> = {
   DEGRADED: "border-orange-500/50 bg-orange-500/15 text-orange-200",
   DOWN: "border-red-500/60 bg-red-500/15 text-red-200",
 };
+function _ServicesStatusBar({ services }: { services: ServiceProbe[] }) {
+  if (!services || services.length === 0) return null;
+  return (
+    <section className="mx-4 mt-4 rounded-md border border-cyan-400/30 bg-slate-950/80 p-4 lg:mx-6">
+      <div className="mb-3 flex items-center justify-between gap-3 flex-wrap">
+        <p className="text-[11px] font-semibold uppercase tracking-[0.2em] text-cyan-300">
+          SERVICES LIVE · {services.length} endpoints canon Hub Vivant
+        </p>
+        <span className="text-[10px] text-slate-400">
+          probe HTTP every snapshot poll · Sidq §35
+        </span>
+      </div>
+      <div className="grid grid-cols-2 gap-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-8">
+        {services.map((svc) => {
+          const statusKey = typeof svc.status === "string" ? svc.status : svc.ok ? "LIVE" : "DOWN";
+          const tone = serviceStatusTone[statusKey] ?? serviceStatusTone.DOWN;
+          return (
+            <div key={svc.id} className={`rounded border p-2 ${tone}`} title={`${svc.role ?? ""} · ${svc.url ?? ""}`}>
+              <div className="flex items-center justify-between gap-1">
+                <p className="truncate text-[10px] font-semibold text-white">{svc.label}</p>
+                <span className="text-[9px] font-mono">{svc.http_code ?? "—"}</span>
+              </div>
+              <p className="mt-1 text-[9px] uppercase tracking-wide">{statusKey}</p>
+            </div>
+          );
+        })}
+      </div>
+    </section>
+  );
+}
 
 // P11 Sourate LVI · Agents Freshness Bar — fresh/stale ratio compact widget
+function _AgentsFreshnessBar({ agents }: { agents?: Snapshot["agents"] }) {
+  if (!agents) return null;
+  const pct = Math.round(agents.freshness_ratio * 100);
+  const tone = pct >= 50 ? "text-emerald-300" : pct >= 20 ? "text-amber-300" : "text-red-300";
+  return (
+    <section className="mx-4 mt-4 rounded-md border border-purple-400/30 bg-slate-950/80 p-4 lg:mx-6">
+      <div className="flex items-center justify-between gap-3 flex-wrap mb-3">
+        <p className="text-[11px] font-semibold uppercase tracking-[0.2em] text-purple-300">
+          AGENTS FRESHNESS · {agents.total} anges canon
+        </p>
+        <span className={`text-lg font-bold ${tone}`}>
+          {agents.fresh}/{agents.total} fresh · {pct}%
+        </span>
+      </div>
+      <div className="h-2 w-full rounded-full bg-slate-800 overflow-hidden">
+        <div
+          className={`h-full ${pct >= 50 ? "bg-emerald-400" : pct >= 20 ? "bg-amber-400" : "bg-red-500"} transition-all`}
+          style={{ width: `${pct}%` }}
+        />
+      </div>
+      <div className="mt-3 grid grid-cols-1 gap-2 sm:grid-cols-2 text-[10.5px]">
+        <div>
+          <p className="text-emerald-300 font-semibold mb-1">FRESH ({agents.fresh}):</p>
+          <p className="text-slate-300 leading-snug">
+            {agents.fresh_names.length > 0 ? agents.fresh_names.slice(0, 10).join(" · ") : "—"}
+          </p>
+        </div>
+        <div>
+          <p className="text-red-300 font-semibold mb-1">STALE ({agents.stale}):</p>
+          <p className="text-slate-400 leading-snug">
+            {agents.stale_names_top.slice(0, 10).join(" · ")}
+            {agents.stale > 10 ? ` · +${agents.stale - 10} more` : ""}
+          </p>
+        </div>
+      </div>
+    </section>
+  );
+}
