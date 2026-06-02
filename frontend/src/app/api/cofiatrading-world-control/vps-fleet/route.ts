@@ -65,7 +65,8 @@ async function readAgent(id: string): Promise<FleetAgent> {
 
 export async function GET() {
   try {
-    const agents = await Promise.all(VPS_AGENTS.map((a) => readAgent(a)));
+    const fleetAgents = await loadAgents();
+    const agents = await Promise.all(fleetAgents.map((a) => readAgent(a)));
     const liveCount = agents.filter((a) => a.live).length;
 
     let mirrorMtime: string | null = null;
