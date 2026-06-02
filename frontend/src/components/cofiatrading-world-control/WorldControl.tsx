@@ -2244,6 +2244,9 @@ export function WorldControl({ initialSnapshot = null, initialAngelRoster = null
             </div>
           </div>
 
+      {/* Flotte VPS — overlay coin bas-droite (offload Mac → VPS Hostinger). Ne touche pas la map. */}
+      <VpsFleetOverlay />
+
       {drawerTruck ? (
         <TruckDrawer
           truck={drawerTruck}
