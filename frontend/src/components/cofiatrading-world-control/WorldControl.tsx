@@ -2,7 +2,7 @@
 
 /* eslint-disable @next/next/no-img-element -- This screen uses exact raster slices from the V2 asset pack; Next/Image optimization can change sizing/crop. */
 
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useState, type ReactNode } from "react";
 import {
   AlertTriangle,
   Bot,
@@ -21,15 +21,11 @@ import {
   X,
 } from "lucide-react";
 
-import { DashboardShell } from "@/components/templates/DashboardShell";
-import { ConsoleIAOverlay } from "./ConsoleIAOverlay";
-import { WorldMapLiving, resolveHouseIds, type InvItem } from "./WorldMapLiving";
+import { WorldMapLiving, resolveHouseIds, type InvItem, type TruthMapPayload } from "./WorldMapLiving";
 import { AuthProviderStatusPanel } from "./AuthProviderStatusPanel";
-import { InventoryStatusMatrix } from "./InventoryStatusMatrix";
-import { ProofLedgerPanel } from "./ProofLedgerPanel";
+import { VpsFleetPanel } from "./VpsFleetPanel";
 
 import type {
-  AssetsWarehouseSnapshot,
   Snapshot,
   CofiaAgent,
   OpenClawTruck,
@@ -37,17 +33,12 @@ import type {
   KnowledgeId,
   KnowledgeRecord,
   RouteRecord,
-  RoutesSnapshot,
   InvestorRoomSnapshot,
   Status,
   TruckRow,
-  OpenClawBoard,
-  OpenClawAgent,
-  OpenClawBuilding,
   HouseId,
   HouseDefinition,
   HouseView,
-  HouseWorkforceStatus,
   HouseWorkforce,
   WorldNode,
   WorldAgent,
@@ -1238,7 +1229,8 @@ function exactKpiLive(id: string, s: Snapshot | null): string {
   }
 }
 
-function ExactImageWorldControl({
+// eslint-disable-next-line @typescript-eslint/no-unused-vars -- Legacy exact raster renderer retained as a non-rendered rollback reference.
+function ExactImageWorldControlLegacy({
   snapshot,
   onSelectHouse,
   onOpenRoutes,
@@ -1362,7 +1354,7 @@ function ExactImageWorldControl({
               {a.name}
             </span>
             {isLive(a) && (
-              <span className="pointer-events-none absolute inset-0 animate-pulse rounded-md border border-cyan-300/30" />
+              <span className="pointer-events-none absolute inset-0 rounded-md border border-cyan-300/30" />
             )}
             {a.id.startsWith("kpi_") && (
               <span className="pointer-events-none absolute bottom-0 right-0 rounded-tl bg-slate-950/85 px-1 py-0.5 text-[8px] font-bold text-emerald-200">
@@ -1709,7 +1701,6 @@ function _WorldControlInspectorPanel({
   snapshot,
   error,
   secondsSinceSync,
-  fetchPulse,
   servicesOk,
   servicesTotal,
   routeRecords,
@@ -1721,7 +1712,6 @@ function _WorldControlInspectorPanel({
   snapshot: Snapshot | null;
   error: string | null;
   secondsSinceSync: number;
-  fetchPulse: boolean;
   servicesOk: number;
   servicesTotal: number;
   routeRecords: RouteRecord[];
@@ -1742,7 +1732,7 @@ function _WorldControlInspectorPanel({
           <p className="text-[10px] font-black uppercase tracking-[0.22em] text-cyan-200">Right Inspector réel</p>
           <h2 className="mt-1 text-lg font-black text-white">Command state</h2>
         </div>
-        <span className={`rounded-md border px-2 py-1 text-[10px] font-bold ${error ? "border-red-400/50 bg-red-500/10 text-red-200" : "border-emerald-400/40 bg-emerald-400/10 text-emerald-200"} ${fetchPulse ? "animate-pulse" : ""}`}>
+        <span className={`rounded-md border px-2 py-1 text-[10px] font-bold ${error ? "border-red-400/50 bg-red-500/10 text-red-200" : "border-emerald-400/40 bg-emerald-400/10 text-emerald-200"}`}>
           {error ? `ERR ${error}` : `SYNC ${secondsSinceSync}s`}
         </span>
       </div>
@@ -1789,7 +1779,7 @@ function _WorldControlInspectorPanel({
   );
 }
 
-function WorldControlDeck({
+function _WorldControlDeck({
   primaryActions,
   routeRecords,
   services,
@@ -1916,8 +1906,82 @@ function WorldControlDeck({
   );
 }
 
-export function WorldControl() {
-  const [snapshot, setSnapshot] = useState<Snapshot | null>(null);
+function WorldControlFrame({
+  children,
+  snapshot,
+  error,
+  secondsSinceSync,
+}: {
+  children: ReactNode;
+  snapshot: Snapshot | null;
+  error: string | null;
+  secondsSinceSync: number;
+}) {
+  const serviceOk = (snapshot?.services ?? []).filter((service) => service.ok).length;
+  const serviceTotal = snapshot?.services?.length ?? 0;
+  const runtimeServiceOk = snapshot?.openclawRuntime?.counts?.servicesOk ?? null;
+  const runtimeServiceTotal = snapshot?.openclawRuntime?.counts?.servicesTotal ?? null;
+  const localControlReady = Boolean(snapshot?.openclawRepo?.ok && snapshot?.consoleIa?.ok);
+  const controlLabel = serviceTotal
+    ? `${serviceOk}/${serviceTotal}`
+    : runtimeServiceTotal
+      ? `${runtimeServiceOk ?? 0}/${runtimeServiceTotal}`
+      : localControlReady
+        ? "local ready"
+        : "source down";
+  const controlTone = controlLabel === "source down"
+    ? "border-slate-600/40 bg-slate-950/70 text-slate-200"
+    : runtimeServiceTotal && runtimeServiceOk === runtimeServiceTotal
+      ? "border-emerald-400/35 bg-emerald-400/10 text-emerald-100"
+      : localControlReady
+        ? "border-cyan-300/35 bg-cyan-300/10 text-cyan-100"
+      : "border-amber-300/30 bg-amber-300/10 text-amber-100";
+  const fetched = snapshot?.fetchedAt ? formatRelativeTime(snapshot.fetchedAt) : "sync...";
+  return (
+    <div className="min-h-screen overflow-hidden bg-[#02040a] text-slate-100">
+      <header className="sticky top-0 z-50 border-b border-cyan-300/15 bg-[#030712]/95 shadow-[0_12px_45px_rgba(2,6,23,0.55)] backdrop-blur-xl">
+        <div className="flex min-h-[64px] flex-wrap items-center gap-3 px-4 py-2">
+          <div className="flex min-w-0 flex-1 items-center gap-3">
+            <div className="grid h-11 w-11 shrink-0 place-items-center rounded-md border border-cyan-300/35 bg-cyan-300/10 text-[10px] font-black tracking-[0.18em] text-cyan-100 shadow-[0_0_22px_rgba(34,211,238,0.16)]">
+              COF
+            </div>
+            <div className="min-w-0">
+              <p className="text-[10px] font-black uppercase tracking-[0.22em] text-cyan-300/90">COFIATRADING WORLD CONTROL</p>
+              <h1 className="truncate text-lg font-black uppercase tracking-[0.08em] text-white">Living World Map · canon preuves</h1>
+            </div>
+          </div>
+          <div className="grid min-w-0 grid-cols-2 gap-1.5 text-[10px] sm:flex sm:flex-wrap sm:justify-end">
+            <span className={`rounded-md border px-2 py-1 font-black uppercase ${error ? "border-red-400/50 bg-red-500/10 text-red-200" : "border-emerald-400/35 bg-emerald-400/10 text-emerald-200"}`}>
+              {error ? `ERR ${error}` : `SYNC ${secondsSinceSync}s`}
+            </span>
+            <span className="rounded-md border border-cyan-300/25 bg-cyan-300/8 px-2 py-1 font-bold text-cyan-100">
+              snapshot {fetched}
+            </span>
+            <span className={`rounded-md border px-2 py-1 font-bold ${controlTone}`}>
+              contrôle {controlLabel}
+            </span>
+            <span className="rounded-md border border-amber-300/30 bg-amber-300/10 px-2 py-1 font-bold text-amber-100">
+              no-false-green
+            </span>
+          </div>
+        </div>
+        <div className="h-px bg-gradient-to-r from-cyan-400/0 via-cyan-300/45 to-amber-300/0" />
+      </header>
+      <main className="min-h-[calc(100vh-65px)] overflow-y-auto bg-[radial-gradient(circle_at_22%_0%,rgba(34,211,238,0.12),transparent_34%),radial-gradient(circle_at_76%_0%,rgba(251,191,36,0.08),transparent_28%),#02040a]">
+        {children}
+      </main>
+    </div>
+  );
+}
+
+type WorldControlProps = {
+  initialSnapshot?: Snapshot | null;
+  initialAngelRoster?: AngelRosterPayload | null;
+  initialTruthMap?: TruthMapPayload | null;
+};
+
+export function WorldControl({ initialSnapshot = null, initialAngelRoster = null, initialTruthMap = null }: WorldControlProps = {}) {
+  const [snapshot, setSnapshot] = useState<Snapshot | null>(initialSnapshot);
   const [error, setError] = useState<string | null>(null);
   const [drawerTruckName, setDrawerTruckName] = useState<string | null>(null);
   const [selectedHouseId, setSelectedHouseId] = useState<HouseId | null>(null);
@@ -1925,15 +1989,14 @@ export function WorldControl() {
   const [selectedKnowledgeId, setSelectedKnowledgeId] = useState<KnowledgeId | null>(null);
   const [showCastleDrawer, setShowCastleDrawer] = useState(false);
   const [showInvestorDrawer, setShowInvestorDrawer] = useState(false);
-  // P10 Al-Khāliq · Qudrah pulse : détecter changements valeurs revenue → animation 1.2s
-  const [, setPulsingFields] = useState<Set<string>>(new Set());
-  const previousSnapshotRef = useRef<Snapshot | null>(null);
   // P10b · LIVE indicator visible (Al-Hayy + Al-Qarīb Sourate III)
-  const [lastFetchTs, setLastFetchTs] = useState<number>(Date.now());
+  const [lastFetchTs, setLastFetchTs] = useState<number>(() => {
+    const parsed = initialSnapshot?.fetchedAt ? Date.parse(initialSnapshot.fetchedAt) : NaN;
+    return Number.isFinite(parsed) ? parsed : Date.now();
+  });
   const [secondsSinceSync, setSecondsSinceSync] = useState<number>(0);
-  const [fetchPulse, setFetchPulse] = useState<boolean>(false);
   // CORAN V8 Sourate LVI · Angel Roster Manāzil al-Malā'ikah runtime sync
-  const [angelRoster, setAngelRoster] = useState<AngelRosterPayload | null>(null);
+  const [angelRoster, setAngelRoster] = useState<AngelRosterPayload | null>(initialAngelRoster);
 
   useEffect(() => {
     let cancelled = false;
@@ -1946,27 +2009,9 @@ export function WorldControl() {
         if (!response.ok) throw new Error(`HTTP_${response.status}`);
         const data = (await response.json()) as Snapshot;
         if (!cancelled) {
-          // P10 · Détecter changements vs précédent snapshot (jugulaire Sourate XXXII)
-          const prev = previousSnapshotRef.current;
-          if (prev) {
-            const changes = new Set<string>();
-            if (prev.revenue?.currentArrEur !== data.revenue?.currentArrEur) changes.add("arr");
-            if (prev.revenue?.currentMrrEur !== data.revenue?.currentMrrEur) changes.add("mrr");
-            if (prev.revenue?.activeVip !== data.revenue?.activeVip) changes.add("vip");
-            if (prev.revenue?.pastDueCount !== data.revenue?.pastDueCount) changes.add("pastDue");
-            if (prev.revenue?.pastDueEur !== data.revenue?.pastDueEur) changes.add("pastDueEur");
-            if (changes.size > 0) {
-              setPulsingFields(changes);
-              window.setTimeout(() => setPulsingFields(new Set()), 1200);
-            }
-          }
-          previousSnapshotRef.current = data;
           setSnapshot(data);
           setError(null);
-          // P10b · LIVE indicator pulse à chaque fetch successful
           setLastFetchTs(Date.now());
-          setFetchPulse(true);
-          window.setTimeout(() => setFetchPulse(false), 600);
         }
       } catch (loadError) {
         if (!cancelled) {
@@ -2011,7 +2056,7 @@ export function WorldControl() {
 
   // Mu'taqib doctrine drift warnings — advisor non-blocking (Guardian agent operates)
   // source_tag: MUTAQIB_COCKPIT_WIDGET_V1_20260526T1248Z
-  const [mutaqibCounts, setMutaqibCounts] = useState<{ total: number; last_1h: number; by_level: Record<string, number> } | null>(null);
+  const [_mutaqibCounts, setMutaqibCounts] = useState<{ total: number; last_1h: number; by_level: Record<string, number> } | null>(null);
   useEffect(() => {
     let cancelled = false;
     const loadMutaqib = async () => {
@@ -2033,7 +2078,7 @@ export function WorldControl() {
   const routeRecords = routes ? (Object.values(routes) as RouteRecord[]) : [];
   const investorRoom = snapshot?.investor_room ?? null;
   const knowledgeRecords = Object.values(snapshot?.knowledge ?? {}) as KnowledgeRecord[];
-  const truckRows: TruckRow[] =
+  const _truckRows: TruckRow[] =
     openclawTrucks.length > 0
       ? openclawTrucks.map((truck) => ({
           label: truck.truckName ?? truck.title,
@@ -2123,8 +2168,8 @@ export function WorldControl() {
     setShowInvestorDrawer(false);
   };
 
-  const openHouseDrawer = (houseId: HouseId) => {
-    setSelectedHouseId(houseId);
+  const keepHouseInspectionInsideMap = (_houseId: HouseId) => {
+    setSelectedHouseId(null);
     setDrawerTruckName(null);
     setSelectedOfferId(null);
     setSelectedKnowledgeId(null);
@@ -2132,7 +2177,7 @@ export function WorldControl() {
     setShowInvestorDrawer(false);
   };
 
-  const openOfferDrawer = (offerId: string) => {
+  const _openOfferDrawer = (offerId: string) => {
     setSelectedOfferId(offerId);
     setSelectedHouseId(null);
     setDrawerTruckName(null);
@@ -2141,7 +2186,7 @@ export function WorldControl() {
     setShowInvestorDrawer(false);
   };
 
-  const openKnowledgeDrawer = (knowledgeId: KnowledgeId) => {
+  const _openKnowledgeDrawer = (knowledgeId: KnowledgeId) => {
     setSelectedKnowledgeId(knowledgeId);
     setSelectedOfferId(null);
     setSelectedHouseId(null);
@@ -2150,7 +2195,7 @@ export function WorldControl() {
     setShowInvestorDrawer(false);
   };
 
-  const openCastleDrawer = () => {
+  const _openCastleDrawer = () => {
     setShowCastleDrawer(true);
     setShowInvestorDrawer(false);
     setSelectedKnowledgeId(null);
@@ -2159,7 +2204,7 @@ export function WorldControl() {
     setDrawerTruckName(null);
   };
 
-  const openInvestorDrawer = () => {
+  const _openInvestorDrawer = () => {
     setShowInvestorDrawer(true);
     setShowCastleDrawer(false);
     setSelectedKnowledgeId(null);
@@ -2168,71 +2213,36 @@ export function WorldControl() {
     setDrawerTruckName(null);
   };
 
-  const services = snapshot?.services ?? [];
-  const primaryActions = snapshot?.investor_room?.next_7_days_tasks ?? [];
   const rosterStatusByName = new Map(
     (angelRoster?.anges ?? []).map((angel) => [angel.name.toLowerCase(), angel.status]),
   );
 
   return (
-    <DashboardShell>
-      <main className="col-span-1 flex-1 overflow-y-auto bg-slate-950 md:col-span-2">
-        <div className="bg-[#02040a] p-3 text-slate-100">
-          {/* ── HERO : LE MONDE VIVANT ANIMÉ EST LE RENDU PRINCIPAL ──
-           * rien de figé, pas de poster d'images : ville iso SVG, routes/flux
-           * qui circulent, maisons + anges cliquables, KPIs live registry :8767.
+    <WorldControlFrame
+      snapshot={snapshot}
+      error={error}
+      secondsSinceSync={secondsSinceSync}
+    >
+        <div className="p-3 text-slate-100">
+          {/* ── HERO : Living World Map est le rendu principal ──
+           * ville iso SVG, maisons + agents cliquables, KPIs lus depuis les sources.
+           * Les inspections maison restent dans WorldMapLiving; aucun drawer externe
+           * n'est ouvert depuis la carte.
            * (Le poster ExactImageWorldControl est retiré du rendu — Erwin verbatim
-           *  2026-05-29 : "tout intégré dans la map, rien fixe figé, world living animé".) */}
+           *  2026-05-29 : "tout intégré dans la map".) */}
           <div
             data-world-control-ready="living-world-hero"
-            className="grid gap-3 xl:grid-cols-[minmax(0,1fr)_minmax(340px,420px)] xl:items-start"
+            className="grid gap-3"
           >
             <div className="grid min-w-0 gap-3">
               <WorldMapLiving
                 snapshot={snapshot}
                 angelRoster={angelRoster}
-                onSelectHouse={(id) => openHouseDrawer(id as HouseId)}
+                initialTruthMap={initialTruthMap}
+                onSelectHouse={(id) => keepHouseInspectionInsideMap(id as HouseId)}
               />
-              <ConsoleIAOverlay />
             </div>
-            {/* HAUT À DROITE — missions en cours / ce qui manque / pas implémenté.
-                Remonté hors du « Cockpit opérationnel » qui était replié en bas
-                (Erwin 2026-05-31 : « je veux plus aucun truc caché »). */}
-            <aside data-mission-control-panel="top-right" className="grid content-start gap-3">
-              <Panel title="🎯 Mission Control — missions & manques" tone="gold">
-                <ProofLedgerPanel />
-              </Panel>
-            </aside>
           </div>
-
-          {/* Cockpit opérationnel — VISIBLE, plus de repli caché
-              (Erwin 2026-05-31 : « plus aucun truc caché là en bas »). */}
-          <section className="mt-4" data-operational-cockpit="visible">
-            <div className="mb-3 rounded-md border border-cyan-300/20 bg-slate-950/70 px-4 py-3 text-[12px] font-black uppercase tracking-[0.2em] text-cyan-100">
-              Cockpit opérationnel — actions 7j, routes 100M, services, knowledge
-            </div>
-            <div className="mt-3">
-              <WorldControlDeck
-                primaryActions={primaryActions}
-                routeRecords={routeRecords}
-                services={services}
-                knowledgeRecords={knowledgeRecords}
-                truckRows={truckRows}
-                offers={offers}
-                agents={snapshot?.agents}
-                commerce={snapshot?.commerce_machine ?? []}
-                onOpenInvestor={openInvestorDrawer}
-                onOpenRoutes={openCastleDrawer}
-                onSelectKnowledge={openKnowledgeDrawer}
-                onSelectOffer={openOfferDrawer}
-                onSelectHouse={openHouseDrawer}
-              />
-            </div>
-            <div className="mt-3">
-              <InventoryStatusMatrix />
-            </div>
-          </section>
-
 
       {drawerTruck ? (
         <TruckDrawer
@@ -2272,8 +2282,7 @@ export function WorldControl() {
         />
       ) : null}
         </div>
-      </main>
-    </DashboardShell>
+    </WorldControlFrame>
   );
 }
 
@@ -2411,7 +2420,6 @@ function _CityWorld({
               r="5"
               fill={index % 2 ? "#a78bfa" : "#22d3ee"}
             >
-              <animate attributeName="opacity" values="0.35;1;0.35" dur={`${2.2 + index * 0.18}s`} repeatCount="indefinite" />
             </circle>
           ))}
         </svg>
@@ -2509,9 +2517,9 @@ function HudValue({ label, value }: { label: string; value: string }) {
   );
 }
 
-function _TopMetric({ label, value, isPulsing }: { label: string; value: string; isPulsing?: boolean }) {
+function _TopMetric({ label, value }: { label: string; value: string }) {
   return (
-    <div className={`min-w-[112px] rounded-md border border-slate-600/60 bg-black/55 px-3 py-2 ${isPulsing ? "qudrah-pulse" : ""}`}>
+    <div className="min-w-[112px] rounded-md border border-slate-600/60 bg-black/55 px-3 py-2">
       <p className="text-[10px] font-semibold uppercase tracking-[0.16em] text-slate-400">
         {label}
       </p>
@@ -3054,19 +3062,13 @@ function _CofiaLivingCity({
   return (
     <section className="relative min-h-[calc(100vh-180px)] overflow-hidden rounded-xl border border-cyan-300/20 bg-[#02040a] px-4 py-4 text-slate-100 shadow-[0_18px_60px_rgba(2,6,23,.55)] lg:px-6">
       <style>{`
-        @keyframes t6-city-scan { 0% { transform: translateX(-20%); opacity: .14; } 50% { opacity: .55; } 100% { transform: translateX(118%); opacity: .14; } }
-        @keyframes t6-city-pulse { 0%, 100% { box-shadow: 0 0 12px rgba(34,211,238,.12), 0 22px 44px rgba(0,0,0,.52); } 50% { box-shadow: 0 0 34px var(--t6-glow), 0 28px 58px rgba(0,0,0,.62); } }
-        @keyframes t6-window-flow { 0% { opacity: .25; } 45% { opacity: .9; } 100% { opacity: .35; } }
-        @keyframes t6-client-flow { 0% { transform: translateX(0); opacity: .18; } 12% { opacity: 1; } 100% { transform: translateX(calc(100vw - 300px)); opacity: .25; } }
-        @keyframes t6-crate-flow { 0% { transform: translateX(-10px) translateY(0); } 50% { transform: translateX(12px) translateY(-3px); } 100% { transform: translateX(-10px) translateY(0); } }
-        @keyframes t6-orbit { from { transform: rotate(0deg) translateX(38px) rotate(0deg); } to { transform: rotate(360deg) translateX(38px) rotate(-360deg); } }
-        .t6-city-scan { animation: t6-city-scan 9s linear infinite; }
-        .t6-city-building { animation: t6-city-pulse 4.8s ease-in-out infinite; transform: translate(-50%, -50%) perspective(760px) rotateX(7deg) rotateZ(-1.5deg); }
+        .t6-city-scan { opacity: .18; }
+        .t6-city-building { transform: translate(-50%, -50%) perspective(760px) rotateX(7deg) rotateZ(-1.5deg); }
         .t6-city-building:nth-of-type(2n) { transform: translate(-50%, -50%) perspective(760px) rotateX(7deg) rotateZ(1.5deg); }
-        .t6-city-window { animation: t6-window-flow 2.8s ease-in-out infinite; }
-        .t6-city-client { animation: t6-client-flow 9.5s linear infinite; }
-        .t6-city-crate { animation: t6-crate-flow 4.2s ease-in-out infinite; }
-        .t6-city-orbit { animation: t6-orbit 8.5s linear infinite; transform-origin: center; }
+        .t6-city-window { opacity: .58; }
+        .t6-city-client { opacity: .7; }
+        .t6-city-crate { transform: none; }
+        .t6-city-orbit { transform-origin: center; }
       `}</style>
 
       <div className="pointer-events-none absolute inset-0 opacity-45 [background-image:radial-gradient(circle_at_22%_26%,rgba(14,165,233,.24),transparent_27%),radial-gradient(circle_at_68%_38%,rgba(16,185,129,.16),transparent_22%),linear-gradient(rgba(45,212,191,.07)_1px,transparent_1px),linear-gradient(90deg,rgba(56,189,248,.06)_1px,transparent_1px)] [background-size:auto,auto,44px_44px,44px_44px]" />
@@ -3111,7 +3113,7 @@ function _CofiaLivingCity({
               <div className="mt-3 grid grid-cols-[104px_1fr] gap-3">
                 <img src={northStarImage} alt="Vision Map blueprint mini" className="h-[74px] w-[104px] rounded-md border border-amber-300/25 object-cover opacity-65" />
                 <p className="text-[11px] leading-5 text-slate-300">
-                  Sous-couche et mini-carte seulement. Le produit visible est la ville animée COFIATRADING.
+                  Sous-couche et mini-carte seulement. Le produit visible est la ville canonique COFIATRADING.
                 </p>
               </div>
             </div>
@@ -3208,7 +3210,6 @@ function _CityRoad({ route, path }: { route: CityRoute; path: string }) {
 function MovingAgent({ agent, path }: { agent: MovingAgent; path: string }) {
   return (
     <g filter="url(#t6-road-glow)">
-      <animateMotion dur={`${agent.duration}s`} begin={`${agent.delay}s`} repeatCount="indefinite" path={path} />
       <circle r="1.35" fill={agent.color} stroke="rgba(255,255,255,.9)" strokeWidth="0.26" vectorEffect="non-scaling-stroke" />
       <circle r="2.05" fill="none" stroke={agent.color} strokeOpacity="0.32" strokeWidth="0.18" vectorEffect="non-scaling-stroke" />
       <text x="0" y="-2.5" textAnchor="middle" fontSize="2.0" fontWeight="900" fill="#f8fafc" stroke="rgba(2,6,23,.92)" strokeWidth="0.24" vectorEffect="non-scaling-stroke">
@@ -3217,7 +3218,7 @@ function MovingAgent({ agent, path }: { agent: MovingAgent; path: string }) {
       <text x="0" y="3.6" textAnchor="middle" fontSize="1.2" fill={agent.color} stroke="rgba(2,6,23,.92)" strokeWidth="0.16" vectorEffect="non-scaling-stroke">
         {agent.payload}
       </text>
-      <title>{`${agent.name} · ${agent.mission}`}</title>
+      <title>{`${agent.name} · ${agent.mission} · route ${path}`}</title>
     </g>
   );
 }
@@ -3231,7 +3232,6 @@ function MovingTruck({ truck, path }: { truck: MovingTruck; path: string }) {
   }[truck.tone];
   return (
     <g>
-      <animateMotion dur={`${truck.duration}s`} begin={`${truck.delay}s`} repeatCount="indefinite" path={path} />
       <rect x="-3.1" y="-1.25" width="6.2" height="2.5" rx="0.55" fill={color} stroke="rgba(255,255,255,.9)" strokeWidth="0.18" vectorEffect="non-scaling-stroke" />
       <rect x="-1.1" y="-2.05" width="2.2" height="1" rx="0.28" fill="rgba(255,255,255,.78)" />
       <circle cx="-1.8" cy="1.45" r="0.42" fill="#020617" />
@@ -3239,7 +3239,7 @@ function MovingTruck({ truck, path }: { truck: MovingTruck; path: string }) {
       <text x="0" y="-2.9" textAnchor="middle" fontSize="1.38" fontWeight="900" fill="#f8fafc" stroke="rgba(2,6,23,.92)" strokeWidth="0.18" vectorEffect="non-scaling-stroke">
         {truck.name}
       </text>
-      <title>{truck.payload}</title>
+      <title>{`${truck.payload} · route ${path}`}</title>
     </g>
   );
 }
@@ -3290,7 +3290,7 @@ function CityBuilding({
             <span
               key={index}
               className="t6-city-window h-2 rounded-[2px]"
-              style={{ backgroundColor: district.accent, opacity: 0.32 + (index % 3) * 0.12, animationDelay: `${index * -0.28}s` }}
+              style={{ backgroundColor: district.accent, opacity: 0.32 + (index % 3) * 0.12 }}
             />
           ))}
         </div>
@@ -3348,7 +3348,6 @@ function ClientFunnelRail() {
           <span
             key={index}
             className="t6-city-client absolute bottom-2 left-4 h-2 w-2 rounded-full bg-emerald-300 shadow-[0_0_16px_rgba(52,211,153,.78)]"
-            style={{ animationDelay: `${index * -1.25}s` }}
           />
         ))}
       </div>
@@ -3358,22 +3357,37 @@ function ClientFunnelRail() {
 
 function ProductionFactoryRail({ snapshot }: { snapshot: Snapshot | null }) {
   const assets = snapshot?.assetsWarehouse;
+  const canon = snapshot?.publisherCanon;
+  const canonCounts = canon?.counts;
+  const canonAssets = canonCounts?.assetsWiredOrAvailable != null && canonCounts.assetsTotal != null
+    ? `${canonCounts.assetsWiredOrAvailable}/${canonCounts.assetsTotal}`
+    : "source down";
+  const canonDuplicates = canonCounts?.duplicatePublisherHtml ?? null;
+  const canonBroll = canonCounts?.brollTotal ?? null;
   return (
     <section className="rounded-lg border border-amber-300/20 bg-slate-950/76 p-3">
       <div className="flex items-center justify-between gap-3">
         <h2 className="text-[11px] font-black uppercase tracking-[0.22em] text-amber-100">Production factory · CofiaPublisher vivant</h2>
-        <Factory className="h-4 w-4 text-amber-200" />
+        <div className="flex items-center gap-2">
+          <span className={`rounded border px-2 py-1 text-[10px] font-black uppercase ${canon?.ok ? "border-emerald-300/30 bg-emerald-300/10 text-emerald-100" : "border-amber-300/30 bg-amber-300/10 text-amber-100"}`}>
+            {canon?.status ?? "canon source down"}
+          </span>
+          <Factory className="h-4 w-4 text-amber-200" />
+        </div>
       </div>
       <div className="mt-3 overflow-hidden rounded-md border border-slate-800 bg-slate-950/72 p-3">
         <div className="grid grid-cols-4 gap-2 text-[11px] lg:grid-cols-8">
-          {PRODUCTION_STEPS.map((step, index) => (
-            <div key={step.label} className="t6-city-crate" style={{ animationDelay: `${index * -0.32}s` }}>
+          {PRODUCTION_STEPS.map((step) => (
+            <div key={step.label} className="t6-city-crate">
               <RailCard step={step} />
             </div>
           ))}
         </div>
         <p className="mt-2 text-[11px] text-amber-100/75">
-          video-01 visible · YouTube OAuth blocked · Reviewer gate pulse · {formatCityNumber(assets?.mp4Count)} MP4 / {formatCityNumber(assets?.captionsCount)} captions / {formatCityNumber(assets?.assetsInventoryCount)} assets.
+          Publisher unique · assets {canonAssets} · doublons HTML {canonDuplicates === null ? "source down" : canonDuplicates} · b-roll {canonBroll === null ? "source down" : canonBroll} · {formatCityNumber(assets?.mp4Count)} MP4 / {formatCityNumber(assets?.captionsCount)} captions / {formatCityNumber(assets?.assetsInventoryCount)} assets.
+        </p>
+        <p className="mt-1 text-[10px] leading-4 text-slate-400">
+          Surfaces liées: {canon?.surfaces?.map((surface) => surface.label).slice(0, 4).join(" · ") || "Publisher :8540"} · aucune publication externe depuis Mission Control.
         </p>
       </div>
     </section>
@@ -3434,12 +3448,11 @@ function TradingTowerPanel() {
       </div>
       <div className="relative mt-3 min-h-[142px] rounded-md border border-emerald-300/20 bg-slate-950/70 p-3">
         <div className="absolute left-1/2 top-1/2 h-20 w-20 -translate-x-1/2 -translate-y-1/2 rounded-full border border-emerald-300/35 bg-emerald-300/10" />
-        {["Marco", "Risk", "Quant"].map((name, index) => (
+        {["Marco", "Risk", "Quant"].map((name) => (
           <span
             key={name}
             className="t6-city-orbit absolute left-1/2 top-1/2 -ml-6 -mt-3 rounded border border-emerald-300/25 bg-emerald-300/10 px-2 py-1 text-[10px] font-bold text-emerald-100"
-            style={{ animationDelay: `${index * -2}s` }}
-          >
+            >
             {name}
           </span>
         ))}
@@ -3470,7 +3483,7 @@ function OpenClawCommandPanel({ angelRoster }: { angelRoster: AngelRosterPayload
           </p>
         </div>
         <div className="rounded-md border border-amber-300/25 bg-amber-300/10 p-3">
-          <p className="font-black uppercase text-amber-100">59 camions canon · 7 camions visuels animés</p>
+          <p className="font-black uppercase text-amber-100">59 camions canon · 7 routes statiques</p>
           <p className="mt-1 text-amber-100/70">Jarod dispatch · Codex architecte · Claude worker borné · GPT reviewer externe.</p>
         </div>
       </div>
@@ -3522,16 +3535,11 @@ function _LivingWorldEngine({ snapshot, angelRoster }: { snapshot: Snapshot | nu
   return (
     <section className="relative min-h-screen overflow-hidden border-b border-emerald-300/15 bg-[#03060a] px-4 py-4 lg:px-6">
       <style>{`
-        @keyframes t5b-world-scan { 0% { transform: translateX(-16%); opacity: .25; } 50% { opacity: .75; } 100% { transform: translateX(116%); opacity: .25; } }
-        @keyframes t5b-client-flow { 0% { transform: translateX(0); opacity: .25; } 12% { opacity: 1; } 100% { transform: translateX(calc(100vw - 260px)); opacity: .25; } }
-        @keyframes t5b-conveyor { 0% { transform: translateX(-12px); } 50% { transform: translateX(12px); } 100% { transform: translateX(-12px); } }
-        @keyframes t5b-orbit { from { transform: rotate(0deg) translateX(34px) rotate(0deg); } to { transform: rotate(360deg) translateX(34px) rotate(-360deg); } }
-        @keyframes t5b-pulse { 0%, 100% { box-shadow: 0 0 0 rgba(52,211,153,0); } 50% { box-shadow: 0 0 22px rgba(52,211,153,.34); } }
-        .t5b-scan { animation: t5b-world-scan 8s linear infinite; }
-        .t5b-client-dot { animation: t5b-client-flow 9s linear infinite; }
-        .t5b-conveyor { animation: t5b-conveyor 4s ease-in-out infinite; }
-        .t5b-orbit { animation: t5b-orbit 9s linear infinite; transform-origin: center; }
-        .t5b-pulse { animation: t5b-pulse 2.5s ease-in-out infinite; }
+        .t5b-scan { opacity: .22; }
+        .t5b-client-dot { opacity: .75; }
+        .t5b-conveyor { transform: none; }
+        .t5b-orbit { transform-origin: center; }
+        .t5b-priority { box-shadow: 0 0 18px rgba(52,211,153,.18); }
       `}</style>
 
       <div className="pointer-events-none absolute inset-0 bg-[linear-gradient(rgba(34,211,238,0.07)_1px,transparent_1px),linear-gradient(90deg,rgba(34,211,238,0.06)_1px,transparent_1px)] bg-[size:48px_48px]" />
@@ -3547,7 +3555,7 @@ function _LivingWorldEngine({ snapshot, angelRoster }: { snapshot: Snapshot | nu
               COFIATRADING World Control
             </h1>
             <p className="mt-1 text-xs text-slate-300">
-              Couche visuelle canonique animée · agents/camions = animation organisationnelle si runtime non câblé · 15 maisons · 38 anges · 59 camions canon.
+              Couche visuelle canonique statique · agents/camions affichés seulement comme inventaire si runtime non câblé · 15 maisons · 38 anges · 59 camions canon.
             </p>
           </div>
           <div className="grid gap-2 text-xs sm:grid-cols-4 xl:min-w-[720px]">
@@ -3579,7 +3587,7 @@ function _LivingWorldEngine({ snapshot, angelRoster }: { snapshot: Snapshot | nu
               </p>
             </div>
 
-            <svg className="absolute inset-0 h-full w-full" viewBox="0 0 100 100" preserveAspectRatio="none" aria-label="Animated routes between COFIATRADING houses">
+            <svg className="absolute inset-0 h-full w-full" viewBox="0 0 100 100" preserveAspectRatio="none" aria-label="Routes between COFIATRADING houses">
               <defs>
                 <filter id="t5b-glow">
                   <feGaussianBlur stdDeviation="1.2" result="coloredBlur" />
@@ -3613,14 +3621,13 @@ function _LivingWorldEngine({ snapshot, angelRoster }: { snapshot: Snapshot | nu
                   strokeDasharray={index % 2 === 0 ? "1.4 1.1" : "0.7 1.2"}
                 />
               ))}
-              {WORLD_AGENTS.map((agent) => (
-                <g key={agent.name} filter="url(#t5b-glow)">
-                  <animateMotion
-                    dur={`${agent.duration}s`}
-                    begin={`${agent.delay}s`}
-                    repeatCount="indefinite"
-                    path={routePath([agent.from, agent.to])}
-                  />
+              {WORLD_AGENTS.map((agent) => {
+                const from = nodeById.get(agent.from);
+                const to = nodeById.get(agent.to);
+                const x = from && to ? (from.x + to.x) / 2 : 50;
+                const y = from && to ? (from.y + to.y) / 2 : 50;
+                return (
+                <g key={agent.name} filter="url(#t5b-glow)" transform={`translate(${x} ${y})`}>
                   <circle r="1.15" fill={agent.color} stroke="rgba(255,255,255,.9)" strokeWidth="0.24" vectorEffect="non-scaling-stroke" />
                   <text x="0" y="-2.1" textAnchor="middle" fontSize="2.2" fontWeight="800" fill="#f8fafc" stroke="rgba(2,6,23,.9)" strokeWidth="0.24" vectorEffect="non-scaling-stroke">
                     {agent.name}
@@ -3629,15 +3636,14 @@ function _LivingWorldEngine({ snapshot, angelRoster }: { snapshot: Snapshot | nu
                     {agent.payload}
                   </text>
                 </g>
-              ))}
-              {WORLD_TRUCKS.map((truck) => (
-                <g key={truck.label}>
-                  <animateMotion
-                    dur={`${truck.duration}s`}
-                    begin={`${truck.delay}s`}
-                    repeatCount="indefinite"
-                    path={routePath(truck.route)}
-                  />
+                );
+              })}
+              {WORLD_TRUCKS.map((truck) => {
+                const routeNodes = truck.route.map((id) => nodeById.get(id)).filter(Boolean) as WorldNode[];
+                const x = routeNodes.length ? routeNodes.reduce((sum, node) => sum + node.x, 0) / routeNodes.length : 50;
+                const y = routeNodes.length ? routeNodes.reduce((sum, node) => sum + node.y, 0) / routeNodes.length : 50;
+                return (
+                <g key={truck.label} transform={`translate(${x} ${y})`}>
                   <rect x="-2.4" y="-1" width="4.8" height="2" rx="0.7" fill={truckTone[truck.status]} stroke="rgba(255,255,255,.85)" strokeWidth="0.18" vectorEffect="non-scaling-stroke" />
                   <circle cx="-1.35" cy="1.15" r="0.38" fill="#020617" />
                   <circle cx="1.35" cy="1.15" r="0.38" fill="#020617" />
@@ -3645,7 +3651,8 @@ function _LivingWorldEngine({ snapshot, angelRoster }: { snapshot: Snapshot | nu
                     {truck.label.split("·")[0].trim()}
                   </text>
                 </g>
-              ))}
+                );
+              })}
             </svg>
 
             {WORLD_NODES.map((node) => {
@@ -3655,7 +3662,7 @@ function _LivingWorldEngine({ snapshot, angelRoster }: { snapshot: Snapshot | nu
                 <button
                   key={node.id}
                   type="button"
-                  className={`absolute z-10 w-[132px] -translate-x-1/2 -translate-y-1/2 rounded-md border bg-slate-950/88 px-2 py-2 text-left shadow-[0_10px_28px_rgba(0,0,0,.36)] transition hover:z-30 hover:scale-[1.04] ${statusClass[node.status]} ${urgent ? "t5b-pulse" : ""}`}
+                  className={`absolute z-10 w-[132px] -translate-x-1/2 -translate-y-1/2 rounded-md border bg-slate-950/88 px-2 py-2 text-left shadow-[0_10px_28px_rgba(0,0,0,.36)] transition hover:z-30 hover:scale-[1.04] ${statusClass[node.status]} ${urgent ? "t5b-priority" : ""}`}
                   style={{ left: `${node.x}%`, top: `${node.y}%` }}
                   title={`${node.label} · ${node.mission} · ${node.assetKey}`}
                 >
@@ -3691,7 +3698,7 @@ function _LivingWorldEngine({ snapshot, angelRoster }: { snapshot: Snapshot | nu
                 </div>
                 <div className="rounded-md border border-amber-300/25 bg-amber-300/10 p-3">
                   <p className="font-black uppercase text-amber-100">59 camions canon · runtime source à connecter</p>
-                  <p className="mt-1 text-amber-100/70">7 camions visuels animés maintenant, sans prétendre au runtime camion final.</p>
+                  <p className="mt-1 text-amber-100/70">7 camions visuels statiques, sans prétendre au runtime camion final.</p>
                 </div>
                 <div className="grid grid-cols-2 gap-2">
                   {["Codex architecte", "Jarod dispatch", "Claude worker", "GPT reviewer"].map((label) => (
@@ -3708,7 +3715,7 @@ function _LivingWorldEngine({ snapshot, angelRoster }: { snapshot: Snapshot | nu
                 <img src={northStarImage} alt="Vision Map secondaire" className="h-[82px] w-[120px] rounded border border-slate-700 object-cover opacity-70" />
                 <div>
                   <p className="text-xs font-bold text-slate-100">Poster Manhattan réduit à une mini-carte.</p>
-                  <p className="mt-1 text-[11px] text-slate-500">Le produit visible est le monde animé Mission Control.</p>
+                  <p className="mt-1 text-[11px] text-slate-500">Le produit visible est le monde Mission Control canonique.</p>
                 </div>
               </div>
             </Panel>
@@ -3716,11 +3723,10 @@ function _LivingWorldEngine({ snapshot, angelRoster }: { snapshot: Snapshot | nu
             <Panel title="Trading Tower" tone="cyan">
               <div className="relative min-h-[128px] rounded-md border border-emerald-300/20 bg-slate-950/70 p-3">
                 <div className="absolute left-1/2 top-1/2 h-16 w-16 -translate-x-1/2 -translate-y-1/2 rounded-full border border-emerald-300/35 bg-emerald-300/10" />
-                {["Marco", "Risk", "Quant"].map((name, index) => (
+                {["Marco", "Risk", "Quant"].map((name) => (
                   <span
                     key={name}
                     className="t5b-orbit absolute left-1/2 top-1/2 -ml-5 -mt-3 rounded border border-emerald-300/25 bg-emerald-300/10 px-2 py-1 text-[10px] font-bold text-emerald-100"
-                    style={{ animationDelay: `${index * -2}s` }}
                   >
                     {name}
                   </span>
@@ -3759,13 +3765,12 @@ function _LivingWorldEngine({ snapshot, angelRoster }: { snapshot: Snapshot | nu
                 <span
                   key={dot}
                   className="t5b-client-dot absolute bottom-2 left-4 h-2 w-2 rounded-full bg-emerald-300 shadow-[0_0_14px_rgba(52,211,153,.7)]"
-                  style={{ animationDelay: `${dot * -1.7}s` }}
                 />
               ))}
             </div>
           </Panel>
 
-          <Panel title="Factory strip · Production factory animée" tone="gold">
+          <Panel title="Factory strip · Production factory" tone="gold">
             <div className="overflow-hidden rounded-md border border-slate-800 bg-slate-950/72 p-3">
               <div className="grid grid-cols-8 gap-2 text-[11px]">
                 {[
@@ -3777,8 +3782,8 @@ function _LivingWorldEngine({ snapshot, angelRoster }: { snapshot: Snapshot | nu
                   ["Publish", "0 live"],
                   ["Cross-post", "locked"],
                   ["Metrics", "after live"],
-                ].map(([label, value], index) => (
-                  <div key={label} className="t5b-conveyor rounded border border-amber-300/25 bg-amber-300/10 px-2 py-2" style={{ animationDelay: `${index * -0.35}s` }}>
+                ].map(([label, value]) => (
+                  <div key={label} className="t5b-conveyor rounded border border-amber-300/25 bg-amber-300/10 px-2 py-2">
                     <p className="font-bold text-white">{label}</p>
                     <p className="mt-1 text-amber-200">{value}</p>
                   </div>
@@ -3818,10 +3823,28 @@ type LinearIssueView = {
   url: string | null;
   updatedAt: string | null;
 };
-type LinearPayload = { ok: boolean; total?: number; issues?: LinearIssueView[]; reason?: string };
+type LinearPayload = { ok: boolean; total?: number; issues?: LinearIssueView[]; reason?: string; status?: string; apiUsed?: boolean; cache?: { cachedAtUtc?: string | null; ageSec?: number | null; lastError?: string | null } };
 type NotionDbView = { key: string; title: string; id: string | null };
 type NotionPayload = {
   ok: boolean;
+  status?: string;
+  accessMode?: string;
+  local?: {
+    ok?: boolean;
+    desktopRunning?: boolean;
+    notionDbMtimeUtc?: string | null;
+    cachedAliveBlocks?: number | null;
+    proof?: string;
+  };
+  sync?: {
+    ok?: boolean;
+    errorCount?: number;
+    newestPushUtc?: string | null;
+    queuedLocalWrites?: number;
+    proof?: string;
+    errors?: { src: string; errorCount: number; lastError: string | null; lastPushedUtc: string | null }[];
+  };
+  writePath?: { mode?: string; queuePath?: string; consumer?: string; directSqliteWrite?: boolean };
   bootstrapAt?: string | null;
   databases?: NotionDbView[];
   sections?: string[];
@@ -3922,6 +3945,30 @@ function HouseDrawer({
   const trucksLabel = house.trucks.length > 0
     ? `${house.trucks.length} trucks runtime`
     : "camions: source non câblée";
+  const ownerNames = workforce.owner.split("/").map((name) => name.trim().toLowerCase()).filter(Boolean);
+  const chiefAgents = canonAgents.filter((agent) => {
+    const rank = (agent.rankLayer ?? "").toLowerCase();
+    const name = agent.name.toLowerCase();
+    const orgRole = (agent.orgRole ?? "").toLowerCase();
+    const rankWeight = typeof agent.rankLayerWeight === "number" ? agent.rankLayerWeight : 0;
+    return (
+      ownerNames.some((owner) => owner.includes(name) || name.includes(owner))
+      || ["owner", "co_ceo", "manager", "chief", "voice"].includes(orgRole)
+      || rankWeight >= 66
+      || rank.startsWith("l0")
+      || rank.startsWith("l1")
+      || rank.startsWith("l2")
+      || rank.startsWith("l3")
+    );
+  });
+  const workerAgents = canonAgents.filter((agent) => !chiefAgents.some((chief) => chief.id === agent.id));
+  const missionRows = [
+    { label: "Mission creee par la maison", value: workforce.mission, tone: "text-emerald-100" },
+    { label: "Ordre donne aux agents", value: workforce.nextAction, tone: "text-cyan-100" },
+    { label: "Impact attendu", value: workforce.impact, tone: "text-amber-100" },
+    { label: "Blocage a lever", value: workforce.blocker, tone: "text-rose-100" },
+    { label: "Preuve de cloture", value: workforce.proof, tone: "text-slate-200" },
+  ];
 
   return (
     <div className="fixed inset-0 z-50 bg-black/68 backdrop-blur-sm" role="dialog" aria-modal="true">
@@ -3929,7 +3976,7 @@ function HouseDrawer({
         <div className="flex items-start justify-between gap-4 border-b border-slate-800 px-5 py-4">
           <div>
             <p className="text-[11px] font-semibold uppercase tracking-[0.2em] text-amber-200">
-              SSOT house living record
+              Maison mission factory · organigramme vivant
             </p>
             <h2 className="mt-1 text-2xl font-black text-white">{workforce.businessName}</h2>
             <p className="mt-1 text-xs text-slate-400">{house.id}</p>
@@ -3938,13 +3985,13 @@ function HouseDrawer({
                 {runtimeBadge}
               </span>
               <span className="rounded border border-cyan-300/30 bg-cyan-300/10 px-2 py-0.5 text-[10px] font-semibold text-cyan-100">
-                {canonAgents.length} anges canon
+                {chiefAgents.length} chefs · {workerAgents.length} ouvriers
               </span>
               <span className="rounded border border-cyan-300/30 bg-cyan-300/10 px-2 py-0.5 text-[10px] font-semibold text-cyan-100">
                 {trucksLabel}
               </span>
               <span className="rounded border border-amber-300/30 bg-amber-300/10 px-2 py-0.5 text-[10px] font-semibold text-amber-100">
-                {house.activeTasks} tasks
+                mission active
               </span>
             </div>
           </div>
@@ -3960,40 +4007,84 @@ function HouseDrawer({
 
         <div className="flex-1 overflow-auto px-5 py-4">
           <div className="grid gap-2 sm:grid-cols-2">
-            <InspectorRow label="owner principal" value={workforce.owner} />
+            <InspectorRow label="chef principal" value={workforce.owner} />
             <InspectorRow label="nom business" value={workforce.businessName} />
-            <InspectorRow label="primary_board" value={house.primaryBoardSlug} />
-            <InspectorRow label="boards" value={house.boards.map((board) => board.slug).join(", ") || "UNKNOWN"} />
-            <InspectorRow label="active_tasks" value={String(house.activeTasks)} />
+            <InspectorRow label="board mission" value={house.primaryBoardSlug} />
+            <InspectorRow label="boards relies" value={house.boards.map((board) => board.slug).join(", ") || "UNKNOWN"} />
+            <InspectorRow label="tasks source" value={`${house.activeTasks} board tasks · mission runtime ci-dessous`} />
+          </div>
+
+          <div className="mt-4 grid grid-cols-4 gap-1 rounded-md border border-cyan-300/20 bg-slate-950/70 p-1 text-[9px] font-black uppercase tracking-[0.14em] text-slate-300">
+            {["Mission", "Chefs", "Agents", "Preuves"].map((label, i) => (
+              <span key={label} className={`rounded px-2 py-1 text-center ${i === 0 ? "bg-cyan-300/12 text-cyan-100" : "bg-slate-900/70"}`}>{label}</span>
+            ))}
           </div>
 
           <div className="mt-4 grid gap-4">
-            <section className="rounded-md border border-emerald-300/20 bg-emerald-300/10 p-3">
+            <section className="rounded-md border border-emerald-300/20 bg-emerald-300/8 p-3 shadow-[inset_0_1px_0_rgba(255,255,255,0.05)]">
               <h3 className="mb-3 text-xs font-semibold uppercase tracking-[0.18em] text-emerald-100">
-                Mission maison
+                Maison createur de mission
               </h3>
-              <div className="grid gap-2 text-xs text-slate-200">
-                <p><span className="text-slate-400">Mission:</span> {workforce.mission}</p>
-                <p><span className="text-slate-400">Next:</span> {workforce.nextAction}</p>
-                <p><span className="text-slate-400">Impact:</span> {workforce.impact}</p>
-                <p><span className="text-slate-400">Blocage:</span> {workforce.blocker}</p>
-                <p><span className="text-slate-400">Preuve attendue:</span> {workforce.proof}</p>
+              <div className="grid gap-2 text-xs">
+                {missionRows.map((row) => (
+                  <div key={row.label} className="rounded-md border border-slate-700/60 bg-slate-950/72 px-3 py-2">
+                    <p className="text-[9px] font-black uppercase tracking-[0.16em] text-slate-500">{row.label}</p>
+                    <p className={`mt-1 leading-snug ${row.tone}`}>{row.value}</p>
+                  </div>
+                ))}
               </div>
             </section>
 
             <section className="rounded-md border border-slate-800 bg-slate-950/70 p-3">
               <h3 className="mb-3 text-xs font-semibold uppercase tracking-[0.18em] text-slate-300">
-                Anges canon en poste ({canonAgents.length}) · attribution canonique
+                Organigramme maison · chefs grands, ouvriers relies
               </h3>
               {canonAgents.length === 0 ? (
                 <p className="text-xs text-slate-500">Aucun ange canon attribué à cette maison.</p>
               ) : (
-                <div className="grid gap-2 sm:grid-cols-2">
-                  {canonAgents.map((agent) => {
+                <div className="grid gap-3">
+                  {chiefAgents.length > 0 && (
+                    <div className="grid gap-2 sm:grid-cols-2">
+                      {chiefAgents.map((agent) => {
+                        const liveStatus = rosterStatusByName.get(agent.name.toLowerCase());
+                        return (
+                          <div
+                            key={`${house.id}-${agent.id}-chief`}
+                            className="flex items-center gap-3 rounded-md border px-3 py-3 text-xs shadow-[inset_0_1px_0_rgba(255,255,255,0.05)]"
+                            style={{ borderColor: `${agent.colorPrimary}88`, background: `${agent.colorPrimary}18` }}
+                          >
+                            <span
+                              className="flex h-10 w-10 shrink-0 items-center justify-center rounded-md text-base font-black"
+                              style={{
+                                background: `${agent.colorPrimary}26`,
+                                color: agent.colorPrimary,
+                                border: `1px solid ${agent.colorPrimary}88`,
+                                boxShadow: `0 0 18px ${agent.colorAccent}33`,
+                              }}
+                            >
+                              {agent.avatarEmoji || agent.no || "·"}
+                            </span>
+                            <div className="min-w-0 flex-1">
+                              <div className="flex items-center justify-between gap-2">
+                                <span className="truncate text-sm font-black text-slate-50">{agent.name}</span>
+                                <span className="shrink-0 rounded border border-amber-300/40 bg-amber-300/10 px-1.5 py-0.5 text-[8.5px] font-black uppercase text-amber-100">
+                                  chef
+                                </span>
+                              </div>
+                              <p className="truncate text-[10px] text-slate-300">{agent.roleBadge || "—"} · {liveStatus ?? "org"}</p>
+                              <p className="mt-1 line-clamp-2 text-[9.5px] text-slate-400">{agent.responsibilities?.[0] ?? workforce.nextAction}</p>
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  )}
+                  <div className="grid gap-2 sm:grid-cols-2">
+                  {workerAgents.map((agent) => {
                     const liveStatus = rosterStatusByName.get(agent.name.toLowerCase());
                     return (
                       <div
-                        key={`${house.id}-${agent.id}`}
+                        key={`${house.id}-${agent.id}-worker`}
                         className="flex items-center gap-2 rounded border border-slate-800 bg-slate-900/70 px-3 py-2 text-xs"
                       >
                         <span
@@ -4018,6 +4109,7 @@ function HouseDrawer({
                       </div>
                     );
                   })}
+                  </div>
                 </div>
               )}
             </section>
@@ -4139,14 +4231,17 @@ function HouseDrawer({
                   )}
                   {!linear && <p className="text-[11px] text-slate-500">chargement Linear…</p>}
                 </div>
-                <p className="mt-2 text-[9px] text-slate-500">Source réelle : api.linear.app (clé locale, jamais exposée)</p>
+                <p className="mt-2 text-[9px] text-slate-500">
+                  Source locale-first : cache ~/.openclaw/state/linear_latest_issues_cache.json · API Linear seulement pour refresh contrôlé.
+                  {linear?.cache?.cachedAtUtc ? ` Cache ${linear.cache.cachedAtUtc} · apiUsed=${String(linear.apiUsed ?? false)}` : ""}
+                </p>
               </section>
             )}
 
             {house.id === "obsidian_library" && (
               <section className="rounded-md border border-slate-300/15 bg-slate-300/5 p-3">
                 <h3 className="mb-3 flex items-center justify-between text-xs font-semibold uppercase tracking-[0.18em] text-slate-200">
-                  <span>Notion · workspace (cache local)</span>
+                  <span>Notion Desktop · local-first</span>
                   <span className="text-[9px] font-normal text-slate-400">
                     {notion
                       ? notion.ok
@@ -4155,6 +4250,14 @@ function HouseDrawer({
                       : "…"}
                   </span>
                 </h3>
+                {notion && (
+                  <div className="mb-3 grid gap-1.5 sm:grid-cols-2">
+                    <InspectorRow label="mode" value={notion.accessMode ?? "LOCAL_FIRST"} />
+                    <InspectorRow label="desktop" value={notion.local?.desktopRunning ? "Notion.app ouvert" : "cache local seulement"} />
+                    <InspectorRow label="cache" value={`${notion.local?.cachedAliveBlocks ?? "?"} blocks · ${notion.local?.notionDbMtimeUtc ?? "mtime ?"}`} />
+                    <InspectorRow label="sync" value={`${notion.status ?? "UNKNOWN"} · errors=${notion.sync?.errorCount ?? "?"} · queue=${notion.sync?.queuedLocalWrites ?? 0}`} />
+                  </div>
+                )}
                 <div className="grid gap-1.5 sm:grid-cols-2">
                   {(notion?.databases ?? []).map((db) => (
                     <div
@@ -4170,8 +4273,17 @@ function HouseDrawer({
                 )}
                 {!notion && <p className="text-[11px] text-slate-500">chargement Notion…</p>}
                 <p className="mt-2 text-[9px] text-slate-500">
-                  Source réelle locale : ~/.openclaw/state/notion_dbs.json
+                  Source locale : Notion Desktop cache + ~/.openclaw/state/notion_dbs.json + notion_sync_state.json. API ignorée sauf probe explicite.
                 </p>
+                {notion?.sync?.errors && notion.sync.errors.length > 0 && (
+                  <div className="mt-2 rounded border border-amber-300/20 bg-amber-300/8 p-2 text-[10px] text-amber-100">
+                    {notion.sync.errors.slice(0, 3).map((err) => (
+                      <p key={err.src} className="truncate">
+                        {err.src}: {err.lastError ?? `${err.errorCount} erreurs`}
+                      </p>
+                    ))}
+                  </div>
+                )}
               </section>
             )}
 
@@ -4395,7 +4507,7 @@ type Angel = {
   arr_impact_eur_year?: number;
 };
 
-type AngelRosterPayload = {
+export type AngelRosterPayload = {
   source_tag: string;
   total_anges: number;
   counts: { live: number; operational_partial: number; canon_gate: number; awaiting_setup: number; degraded: number; broken: number };
