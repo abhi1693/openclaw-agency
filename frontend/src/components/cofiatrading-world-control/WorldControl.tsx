@@ -3957,6 +3957,45 @@ function HouseDrawer({
       cancelled = true;
     };
   }, [house.id]);
+  // Flotte VPS (offload Mac) — rendue dans la caserne openclaw_agent_barracks.
+  const [vpsFleet, setVpsFleet] = useState<{
+    status?: string;
+    host?: string;
+    total?: number;
+    liveCount?: number;
+    rotatingCount?: number;
+    runningCount?: number;
+    staleCount?: number;
+    failedCount?: number;
+    mirrorFresh?: boolean;
+    mirrorAgeSec?: number | null;
+    agents?: Array<{
+      id: string;
+      status: string;
+      live: boolean;
+      lastResult: string | null;
+      lastError: string | null;
+      ageSec: number | null;
+    }>;
+  } | null>(null);
+  useEffect(() => {
+    if (house.id !== "openclaw_agent_barracks") return;
+    let cancelled = false;
+    const load = () => {
+      fetch("/api/cofiatrading-world-control/vps-fleet", { cache: "no-store" })
+        .then((r) => r.json())
+        .then((j) => {
+          if (!cancelled) setVpsFleet(j);
+        })
+        .catch(() => {});
+    };
+    load();
+    const interval = window.setInterval(load, 30_000);
+    return () => {
+      cancelled = true;
+      window.clearInterval(interval);
+    };
+  }, [house.id]);
   const [cadence, setCadence] = useState<CalendarPayload | null>(null);
   useEffect(() => {
     if (house.id !== "calendar_tower") return;
