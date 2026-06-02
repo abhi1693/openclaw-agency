@@ -166,6 +166,12 @@ export async function GET() {
     const fleetAgents = await loadAgents();
     const agents = await Promise.all(fleetAgents.map((a) => readAgent(a)));
     const liveCount = agents.filter((a) => a.live).length;
+    const countBy = (s: FleetStatus) => agents.filter((a) => a.status === s).length;
+    const failedCount = countBy("FAILED");
+    const rotatingCount = countBy("ROTATING");
+    const runningCount = countBy("RUNNING");
+    const staleCount = countBy("STALE");
+    const failedAgents = agents.filter((a) => a.status === "FAILED").map((a) => ({ id: a.id, lastError: a.lastError }));
 
     let mirrorMtime: string | null = null;
     try {
