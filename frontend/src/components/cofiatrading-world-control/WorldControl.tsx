@@ -4544,6 +4544,71 @@ function HouseDrawer({
               );
             })()}
 
+            {house.id === "openclaw_agent_barracks" && (
+              <section className="rounded-md border border-amber-300/25 bg-amber-300/5 p-3">
+                <h3 className="mb-3 flex items-center justify-between text-xs font-semibold uppercase tracking-[0.18em] text-amber-100">
+                  <span>Flotte VPS · offload Mac</span>
+                  <span className="text-[9px] font-normal text-slate-400">
+                    {vpsFleet ? `${vpsFleet.liveCount ?? 0}/${vpsFleet.total ?? 0} LIVE` : "…"}
+                  </span>
+                </h3>
+                {vpsFleet ? (
+                  <>
+                    <p className="mb-2 text-[9px] text-slate-400">{vpsFleet.host ?? "VPS Hostinger"}</p>
+                    <div className="mb-2 flex flex-wrap gap-1.5 text-[9px]">
+                      {([
+                        ["LIVE", vpsFleet.liveCount, "text-emerald-200 border-emerald-300/40 bg-emerald-300/10"],
+                        ["ROTATING", vpsFleet.rotatingCount, "text-sky-200 border-sky-300/40 bg-sky-300/10"],
+                        ["RUNNING", vpsFleet.runningCount, "text-amber-200 border-amber-300/40 bg-amber-300/10"],
+                        ["STALE", vpsFleet.staleCount, "text-orange-200 border-orange-300/40 bg-orange-300/10"],
+                        ["FAILED", vpsFleet.failedCount, "text-rose-200 border-rose-300/40 bg-rose-300/10"],
+                      ] as Array<[string, number | undefined, string]>).map(([label, n, cls]) => (
+                        <span key={label} className={`rounded border px-1.5 py-0.5 ${cls}`}>
+                          {label} {n ?? 0}
+                        </span>
+                      ))}
+                    </div>
+                    {(vpsFleet.failedCount ?? 0) > 0 && (
+                      <div className="mb-2 rounded border border-rose-400/40 bg-rose-500/10 p-2">
+                        <p className="text-[10px] font-semibold text-rose-200">{"⚠ Agents en échec (vérité non masquée) :"}</p>
+                        {(vpsFleet.agents ?? [])
+                          .filter((a) => a.status === "FAILED")
+                          .map((a) => (
+                            <p key={a.id} className="truncate text-[9px] text-rose-100/90" title={a.lastError ?? ""}>
+                              {a.id} — {a.lastError ?? "erreur"}
+                            </p>
+                          ))}
+                      </div>
+                    )}
+                    <div className="grid gap-1 sm:grid-cols-2">
+                      {(vpsFleet.agents ?? []).map((a) => (
+                        <div
+                          key={a.id}
+                          className="flex items-start gap-1.5 rounded border border-slate-800 bg-slate-900/60 px-2 py-1"
+                          title={a.lastError || a.lastResult || ""}
+                        >
+                          <span className="mt-1 h-1.5 w-1.5 shrink-0 rounded-full" style={{ background: vpsStatusColor(a.status) }} />
+                          <span className="min-w-0 flex-1">
+                            <span className="block truncate text-[10.5px] text-slate-200">{a.id}</span>
+                            <span className="block truncate text-[8.5px] text-slate-500">{a.lastResult ?? a.lastError ?? "—"}</span>
+                          </span>
+                          <span className="shrink-0 text-[8px] font-bold" style={{ color: vpsStatusColor(a.status) }}>
+                            {a.status}
+                            {typeof a.ageSec === "number" ? ` ${Math.round(a.ageSec / 60)}m` : ""}
+                          </span>
+                        </div>
+                      ))}
+                    </div>
+                    <p className="mt-2 text-[9px] text-slate-500">
+                      {`Source live : /api/cofiatrading-world-control/vps-fleet · mirror ${vpsFleet.mirrorFresh ? "frais" : "périmé"} (${vpsFleet.mirrorAgeSec ?? "?"}s) · LIVE<=15min · ROTATING=attend son tour · FAILED jamais masqué. Hub :3000 (§54).`}
+                    </p>
+                  </>
+                ) : (
+                  <p className="text-[11px] text-slate-500">chargement flotte VPS…</p>
+                )}
+              </section>
+            )}
+
             <section className="rounded-md border border-slate-800 bg-slate-950/70 p-3">
               <h3 className="mb-3 text-xs font-semibold uppercase tracking-[0.18em] text-slate-300">
                 Camions garés
