@@ -99,7 +99,7 @@ export async function GET() {
     return NextResponse.json({
       ok: false,
       error: error instanceof Error ? error.message : "UNKNOWN_ERROR",
-      total: VPS_AGENTS.length,
+      total: FALLBACK_AGENTS.length,
       liveCount: 0,
       agents: [] as FleetAgent[],
     });
