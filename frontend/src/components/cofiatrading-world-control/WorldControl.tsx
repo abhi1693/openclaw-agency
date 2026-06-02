@@ -4029,6 +4029,39 @@ function HouseDrawer({
       window.clearInterval(interval);
     };
   }, [house.id]);
+  // CofiaPublisher (moteur 100Me) - rendu dans la maison youtube_studio. Read-only proxy :8540.
+  const [cofiaPub, setCofiaPub] = useState<{
+    ok?: boolean;
+    probe_ok?: boolean;
+    green_allowed?: boolean;
+    status?: string;
+    engineState?: string;
+    version?: string | null;
+    rendersCount?: number;
+    activeRenders?: number;
+    scenariosCount?: number | null;
+    latestRender?: { stem: string | null; mtime: string | null; ageHours: number | null; fresh: boolean } | null;
+    notFresh?: string | null;
+    reason?: string;
+  } | null>(null);
+  useEffect(() => {
+    if (house.id !== "youtube_studio") return;
+    let stop = false;
+    const load = () => {
+      fetch("/api/cofiatrading-world-control/cofiapublisher", { cache: "no-store" })
+        .then((r) => r.json())
+        .then((j) => {
+          if (!stop) setCofiaPub(j);
+        })
+        .catch(() => {});
+    };
+    load();
+    const interval = window.setInterval(load, 30_000);
+    return () => {
+      stop = true;
+      window.clearInterval(interval);
+    };
+  }, [house.id]);
   const [cadence, setCadence] = useState<CalendarPayload | null>(null);
   useEffect(() => {
     if (house.id !== "calendar_tower") return;
