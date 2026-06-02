@@ -3741,8 +3741,32 @@ function _LivingWorldEngine({ snapshot, angelRoster }: { snapshot: Snapshot | nu
                 <div className="relative z-10 grid gap-1 text-[11px] text-slate-300">
                   <span>Rithmic · MT4 · MT5</span>
                   <span>FXcess Mirror PM000697 LOCKED</span>
-                  <span>Signal papier en revue vers VIP Gate</span>
-                  <span className="text-amber-200">PnL source à connecter</span>
+                  {tradingReadiness ? (
+                    <span
+                      className={
+                        tradingReadiness.green_allowed
+                          ? "font-bold text-emerald-300"
+                          : tradingReadiness.tone === "amber"
+                            ? "font-bold text-amber-200"
+                            : "font-bold text-rose-300"
+                      }
+                    >
+                      Trading OS : {tradingReadiness.readiness ?? "?"}
+                      {tradingReadiness.green_allowed ? "" : " · argent réel BLOQUÉ"}
+                    </span>
+                  ) : (
+                    <span className="text-slate-500">Trading OS : lecture…</span>
+                  )}
+                  {tradingReadiness && (
+                    <span className="text-[10px] text-slate-400">
+                      quant {tradingReadiness.quant?.verdict ?? "?"} ({tradingReadiness.quant?.passed ?? "?"}/{tradingReadiness.quant?.n_criteria ?? "?"}) · paper {tradingReadiness.paper_forward?.label ?? "?"} · broker {tradingReadiness.broker_readonly?.status ?? "?"} · signal {tradingReadiness.signal_board?.mode ?? "?"}
+                    </span>
+                  )}
+                  {tradingReadiness && (
+                    <span className="text-[10px] text-slate-500">
+                      validation_ok={String(tradingReadiness.validation_ok ?? false)} · probe_ok={String(tradingReadiness.probe_ok ?? false)} · /api/cofiatrading-world-control/trading-readiness
+                    </span>
+                  )}
                 </div>
               </div>
             </Panel>
