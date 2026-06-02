@@ -493,6 +493,7 @@ function houseStatusStyle(status: string): { color: string; label: string } {
     case "LOADING": return { color: "#64748b", label: "…" };
     case "ERR": return { color: "#fb7185", label: "ERR" };
     case "MODULE": return { color: "#a78bfa", label: "MODULE" };
+    case "PLANNED": return { color: "#fbbf24", label: "🚧 PRÉVUE" };
     case "AMBER": return { color: "#f59e0b", label: "AMBER" };
     default: return { color: "#fb7185", label: status || "ERR" };
   }
