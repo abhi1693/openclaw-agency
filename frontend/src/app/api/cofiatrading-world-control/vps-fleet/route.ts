@@ -39,11 +39,22 @@ async function loadAgents(): Promise<string[]> {
   return FALLBACK_AGENTS;
 }
 
+type FleetStatus =
+  | "LIVE" // done frais <=15min
+  | "ROTATING" // done 15-35min : attend son tour dans la rotation, normal
+  | "STALE" // done >35min : vrai retard
+  | "RUNNING" // dernière ligne pending/started : exécution en cours
+  | "FAILED" // dernière ligne failed : agent en erreur (budget, LLM, etc.)
+  | "WAITING" // aucun order encore
+  | "AMBER_REVERIFY"; // done mais timestamp absent
+
 type FleetAgent = {
   id: string;
   live: boolean;
-  status: "LIVE" | "STALE" | "WAITING" | "AMBER_REVERIFY";
+  status: FleetStatus;
   lastResult: string | null;
+  lastError: string | null; // message d'erreur si la dernière ligne est failed — NE PLUS masquer
+  rawStatus: string | null; // statut brut de la toute dernière ligne (done/failed/pending)
   ts: string | null;
   ageSec: number | null;
   proof: string;
