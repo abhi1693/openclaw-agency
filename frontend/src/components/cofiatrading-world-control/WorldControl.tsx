@@ -23,7 +23,7 @@ import {
 
 import { WorldMapLiving, resolveHouseIds, type InvItem, type TruthMapPayload } from "./WorldMapLiving";
 import { AuthProviderStatusPanel } from "./AuthProviderStatusPanel";
-import { VpsFleetPanel } from "./VpsFleetPanel";
+import { VpsFleetOverlay } from "./VpsFleetOverlay";
 
 import type {
   Snapshot,
