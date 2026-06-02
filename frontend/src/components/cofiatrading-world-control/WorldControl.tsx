@@ -4699,6 +4699,70 @@ function HouseDrawer({
               </section>
             )}
 
+            {house.id === "youtube_studio" && (
+              <section className="rounded-md border border-amber-300/25 bg-amber-300/5 p-3">
+                <h3 className="mb-3 flex items-center justify-between text-xs font-semibold uppercase tracking-[0.18em] text-amber-100">
+                  <span>CofiaPublisher · moteur 100M€</span>
+                  <span className="text-[9px] font-normal text-slate-400">
+                    {cofiaPub ? `${cofiaPub.status ?? "UNKNOWN"} · ${cofiaPub.rendersCount ?? 0} renders` : "…"}
+                  </span>
+                </h3>
+                {cofiaPub ? (
+                  <>
+                    <div className="mb-2 flex flex-wrap gap-1.5 text-[9px]">
+                      <span
+                        className={`rounded border px-1.5 py-0.5 ${
+                          cofiaPub.green_allowed
+                            ? "text-emerald-200 border-emerald-300/40 bg-emerald-300/10"
+                            : cofiaPub.engineState === "live"
+                              ? "text-amber-200 border-amber-300/40 bg-amber-300/10"
+                              : "text-rose-200 border-rose-300/40 bg-rose-300/10"
+                        }`}
+                      >
+                        {cofiaPub.status ?? "UNKNOWN"}
+                      </span>
+                      <span className="rounded border border-slate-700 bg-slate-800/40 px-1.5 py-0.5 text-slate-200">
+                        renders {cofiaPub.rendersCount ?? 0} (actifs {cofiaPub.activeRenders ?? 0})
+                      </span>
+                      <span className="rounded border border-slate-700 bg-slate-800/40 px-1.5 py-0.5 text-slate-200">
+                        scénarios {cofiaPub.scenariosCount ?? 0}
+                      </span>
+                      <span className="rounded border border-slate-700 bg-slate-800/40 px-1.5 py-0.5 text-slate-200">
+                        moteur {cofiaPub.engineState ?? "?"}
+                        {cofiaPub.version ? ` ${cofiaPub.version}` : ""}
+                      </span>
+                    </div>
+                    {cofiaPub.latestRender && (
+                      <div className="mb-2 rounded border border-slate-800 bg-slate-900/60 px-2 py-1">
+                        <p className="truncate text-[10px] text-slate-200" title={cofiaPub.latestRender.stem ?? ""}>
+                          Dernier render : {cofiaPub.latestRender.stem ?? "—"}
+                        </p>
+                        <p className="text-[9px] text-slate-500">
+                          {cofiaPub.latestRender.ageHours !== null ? `il y a ${cofiaPub.latestRender.ageHours}h` : "âge ?"} ·{" "}
+                          {cofiaPub.latestRender.fresh ? "frais" : "PÉRIMÉ"}
+                        </p>
+                      </div>
+                    )}
+                    {cofiaPub.notFresh && (
+                      <div className="mb-2 rounded border border-amber-400/40 bg-amber-500/10 p-2">
+                        <p className="text-[10px] text-amber-100">{`! ${cofiaPub.notFresh}`}</p>
+                      </div>
+                    )}
+                    {cofiaPub.status === "DOWN" && (
+                      <div className="mb-2 rounded border border-rose-400/40 bg-rose-500/10 p-2">
+                        <p className="text-[10px] text-rose-100">{cofiaPub.reason ?? "CofiaPublisher :8540 hors-ligne."}</p>
+                      </div>
+                    )}
+                    <p className="mt-2 text-[9px] text-slate-500">
+                      {"Source live : /api/cofiatrading-world-control/cofiapublisher (proxy :8540) · LIVE = moteur actif + render frais <26h · sinon AMBER. Hub :3000."}
+                    </p>
+                  </>
+                ) : (
+                  <p className="text-[11px] text-slate-500">chargement CofiaPublisher…</p>
+                )}
+              </section>
+            )}
+
             <section className="rounded-md border border-slate-800 bg-slate-950/70 p-3">
               <h3 className="mb-3 text-xs font-semibold uppercase tracking-[0.18em] text-slate-300">
                 Camions garés
