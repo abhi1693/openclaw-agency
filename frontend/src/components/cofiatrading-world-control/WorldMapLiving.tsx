@@ -1488,6 +1488,7 @@ export function WorldMapLiving({ snapshot, angelRoster, initialTruthMap, onSelec
       && service.http_code !== null
     );
     const toolLiveFallback = !truthReady && toolMachines.some((machine) => machine.homeHouse === id && isMachineLiveWithProof(machine));
+    if (PLANNED_IDS.has(id)) return "PLANNED"; // maisons à construire (CofiaPublisher) : jamais LIVE, statut roadmap honnête
     if (truthLive || localServiceLive || runtimeServiceLive || toolLiveFallback) return "LIVE";
     if (localDispatchReady) return "LOCAL_DISPATCH";
     if (MODULE_IDS.has(id)) return id === "notebook_alm"
