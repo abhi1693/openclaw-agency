@@ -1724,6 +1724,7 @@ export function WorldMapLiving({ snapshot, angelRoster, initialTruthMap, onSelec
     ["Hub câblé", hubLedgerConnectionLabel],
     ["Preuves Hub", hubLedgerProofLabel],
     ["Spine", hubWiringLabel],
+    ["🚧 Prévues", `${PLANNED_HOUSES.length} CofiaPublisher`],
   ];
   if (openclawRuntime) topChips.push(["Runtime", runtimeLabel]);
   if (runtimeGateway) topChips.push(["Gateway", gatewayLabel]);
