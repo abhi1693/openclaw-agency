@@ -731,5 +731,10 @@ export default async function CofiatradingWorldControlPage() {
     650,
   );
 
-  return <WorldControl initialSnapshot={initialSnapshot} initialAngelRoster={initialAngelRoster} initialTruthMap={initialTruthMap} />;
+  return (
+    <>
+      <WorldControl initialSnapshot={initialSnapshot} initialAngelRoster={initialAngelRoster} initialTruthMap={initialTruthMap} />
+      <PatrimoinePanel />
+    </>
+  );
 }
