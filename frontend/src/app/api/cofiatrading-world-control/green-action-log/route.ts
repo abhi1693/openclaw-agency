@@ -160,6 +160,11 @@ export async function GET() {
     readNumber(revenueData, ["mrr_eur", "mrr_active_eur"]) !== null &&
     readNumber(revenueData, ["arr_eur"]) !== null;
   const snapshotData = toRecord(nySnapshot.data);
+  const publisherNative = toRecord(snapshotData.publisherNative);
+  const publisherPublishLock = toRecord(publisherNative.publishLock);
+  const publisherNativeState = typeof publisherNative.state === "string" ? publisherNative.state : "UNKNOWN";
+  const publisherLockAllowsExternal = publisherPublishLock.allowed === true && publisherNativeState !== "DISTRIBUTION_LOCKED";
+  const publisherLockProof = `publisherNative.state=${publisherNativeState}; publishLock.allowed=${String(publisherPublishLock.allowed ?? "UNKNOWN")}`;
   const oldCityContained = false;
   const oldCityProof =
     typeof snapshotData.sourceTag === "string"
@@ -195,13 +200,13 @@ export async function GET() {
       id: "cofia_publisher",
       label: "CofiaPublisher source",
       building: "Product New York",
-      status: publisher.ok ? "GREEN" : "LOCKED",
+      status: publisher.ok ? "AMBER" : "LOCKED",
       owner: "Nova + Reviewer + Codex",
       source: "CofiaPublisher :8540",
       target: "NY publish queue + Reviewer gate",
-      proof: publisher.proof,
-      nextAction: "Brancher queue publish GREEN, pas de fan-out robotique.",
-      killCondition: "Ne pas tuer; service conservable si source propre.",
+      proof: `${publisher.proof}; ${publisherLockProof}`,
+      nextAction: "Service up seulement; garder READY_BUT_LOCKED/no-publish jusqu'a preuve reviewer + publish gate.",
+      killCondition: "Ne pas convertir uptime service en publication GREEN.",
     }),
     gate({
       id: "central_brain",
@@ -217,14 +222,16 @@ export async function GET() {
     }),
     gate({
       id: "full_publish_green",
-      label: "Full Publish GREEN",
+      label: "Publish Readiness",
       building: "Acquisition Engine",
-      status: publisher.ok && nySnapshot.ok && revenueOk && pastDueOk ? "GREEN" : "LOCKED",
+      status: publisher.ok && nySnapshot.ok && revenueOk && pastDueOk && publisherLockAllowsExternal ? "GREEN" : "LOCKED",
       owner: "Reviewer + Copywriter + Codex",
       source: "Captions W22 + CofiaPublisher + Meta/Telegram/YouTube connectors",
       target: "NY publish control room",
-      proof: `Control plane GREEN: ${nySnapshot.proof}; ${publisher.proof}; revenue=${nyRevenue.proof}; ${pastDueProof}. ${YOUTUBE_GREEN_PROOF}.`,
-      nextAction: "Executer les publishes via queue NY: channel, asset, reviewer_status, cadence_slot, rollback_url, proof_after_publish. Premier asset YouTube est GREEN_READY local.",
+      proof: `Control plane readiness: ${nySnapshot.proof}; ${publisher.proof}; ${publisherLockProof}; revenue=${nyRevenue.proof}; ${pastDueProof}. Local audit proof only: ${YOUTUBE_GREEN_PROOF}.`,
+      nextAction: publisherLockAllowsExternal
+        ? "Publier uniquement via queue avec reviewer_status, cadence_slot, rollback_url et proof_after_publish."
+        : "Publication verrouillee: afficher READY_BUT_LOCKED/local-only, aucun fan-out.",
       killCondition: "Ne jamais fan-out robotique; chaque publish sort par la queue et revient avec preuve.",
     }),
     gate({
@@ -308,6 +315,8 @@ export async function GET() {
       ok: true,
       source_tag: "NY_FULL_PUBLISH_GREEN_ACTION_LOG_20260527T1200Z",
       runtime_ts: new Date().toISOString(),
+      review_as_of_utc: "2026-05-27T12:00:00Z",
+      review_is_static: true,
       doctrine: "ONLY GREEN: no LIVE/GREEN claim without proof; publish is allowed only after gate proof.",
       summary: {
         total: gates.length,
