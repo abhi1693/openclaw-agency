@@ -169,7 +169,15 @@ const MODULES: House[] = [
   { id: "notebook_alm", name: "NotebookLM", sub: "Google NotebookLM · grounding · 8 notebooks", x: 50, y: 44, w: 6, h: 5, type: "notebook_alm", zone: "core", roof: "flat", levels: 4, wall: "#2d2440", roofColor: "#161226", accent: "#f3e2b3", role: "Google NotebookLM (knowledge grounding). État live (notebooks/fraîcheur) lu via /api/cofiatrading-world-control/notebooklm — voir Proof Ledger › NotebookLM. 0 API publique → push via Chrome cowork." },
   { id: "proof_ledger", name: "Proof Ledger", sub: "Preuve · Audit · No-False-Green", x: 63, y: 48, w: 7.2, h: 5.8, type: "proof_ledger", zone: "core", roof: "stepped", levels: 6, wall: "#1b2230", roofColor: "#0b1018", accent: "#cbd5e1", role: "Registre de preuves : tout GREEN/LIVE porte sa preuve sourçable (no-false-green). Source config — vert seulement si preuve réelle." },
 ];
-const ALL_HOUSES: House[] = [...HOUSES, ...MODULES];
+/* ════════ Maisons PRÉVUES (à construire) — expansion CofiaPublisher (moteur 100M€ déc 2026). ════════
+ * Statut honnête "PLANNED" (🚧 PRÉVUE, ambre), PAS branchées au registry :8767 (n'existent pas encore).
+ * Erwin GO 2026-06-02 « invente-le, prends des initiatives ». Les 2 maisons que la roadmap prévoit. */
+const PLANNED_HOUSES: House[] = [
+  { id: "cofiapublisher_render_farm", name: "CofiaPublisher · Render Farm", sub: "🚧 PRÉVUE · scale render 1 vidéo/jour → flotte", x: 80, y: 14, w: 7, h: 5, type: "factory", zone: "publishing", roof: "saw", levels: 5, wall: "#3a1228", roofColor: "#140309", accent: "#ff7ab0", role: "PRÉVUE / à construire : ferme de rendu pour scaler la production vidéo CofiaPublisher (moteur 100M€)." },
+  { id: "cofiapublisher_diffusion", name: "CofiaPublisher · Diffusion", sub: "🚧 PRÉVUE · multi-plateforme · scheduling viral", x: 84, y: 49, w: 7, h: 5, type: "studio", zone: "publishing", roof: "stepped", levels: 5, wall: "#3a1228", roofColor: "#140309", accent: "#ff7ab0", role: "PRÉVUE / à construire : diffusion multi-plateforme (YouTube/IG/TikTok), scheduling viral CofiaPublisher." },
+];
+const PLANNED_IDS = new Set<string>(["cofiapublisher_render_farm", "cofiapublisher_diffusion"]);
+const ALL_HOUSES: House[] = [...HOUSES, ...MODULES, ...PLANNED_HOUSES];
 const MODULE_IDS = new Set<string>(["notebook_alm", "proof_ledger"]);
 const HOUSE_BY_ID: Record<string, House> = Object.fromEntries(ALL_HOUSES.map((h) => [h.id, h]));
 
