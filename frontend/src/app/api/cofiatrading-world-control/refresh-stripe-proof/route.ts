@@ -13,7 +13,7 @@ type FetchResult = {
 };
 
 const OPENCLAW_API =
-  process.env.OPENCLAW_BACKEND_INTERNAL_URL ?? "http://backend:8000";
+  process.env.OPENCLAW_BACKEND_INTERNAL_URL ?? "http://127.0.0.1:8000";
 const LOCAL_AUTH_TOKEN = process.env.LOCAL_AUTH_TOKEN;
 // REVENUE_URL Abidjan :8430 COUPÉ 20260529 → revenue lu en local via readLocalRevenue (cof_state.json).
 
