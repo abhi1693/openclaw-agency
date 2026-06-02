@@ -2046,7 +2046,7 @@ export function WorldMapLiving({ snapshot, angelRoster, initialTruthMap, onSelec
 			  const runtimeActiveAgentCount = visibleAgents.filter((v) => isAgentWorkingState(v.state)).length;
 			  const provedAgentDenominator = runtimeActiveAgentCount > 0 ? runtimeActiveAgentCount : visibleAgentTotal;
 			  const paperclipLivingOrgActive = houseOrchestrator?.summary?.paperclipLivingOrgActive ?? 0;
-			  topChips.push(["Runtime actif", `${fmtNum(runtimeActiveAgentCount)}/${fmtNum(visibleAgentTotal)} agents`], ["Travail prouvé", `${fmtNum(workingDispatchCount)} / ${fmtNum(provedAgentDenominator)} agents`], ["Agents au repos", `${idleLeisureCount}/${visibleAgentTotal}`], ["Ordres non exécutés", fmtNum(localDispatchCount)]);
+			  topChips.push(["Runtime actif", `${fmtNum(runtimeActiveAgentCount)}/${fmtNum(visibleAgentTotal)} agents`], ["Travail prouvé", `${fmtNum(workingDispatchCount)} / ${fmtNum(provedAgentDenominator)} agents${orchStaleSuffix}`], ["Agents au repos", `${idleLeisureCount}/${visibleAgentTotal}`], ["Ordres non exécutés", `${fmtNum(localDispatchCount)}${orchStaleSuffix}`]);
 			  if (paperclipLivingOrgActive > 0) topChips.push(["Living Org", `${fmtNum(paperclipLivingOrgActive)} missions`]);
 		  useEffect(() => {
 		    const iv = window.setInterval(() => setTelemetryNow(Date.now()), 1000);
