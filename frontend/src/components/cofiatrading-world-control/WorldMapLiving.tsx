@@ -2118,7 +2118,7 @@ export function WorldMapLiving({ snapshot, angelRoster, initialTruthMap, onSelec
     const svgY = (py - oy) / scale + scene.vbMinY;
     const worldX = (svgX - current.tx) / current.z;
     const worldY = (svgY - WORLD_Y_OFFSET - current.ty) / current.z;
-    const nextZ = clampNumber(current.z * factor, 0.45, 2.8);
+    const nextZ = clampNumber(current.z * factor, 0.45, 2.0); // cap aligné sur normalizeCam (fix carte vide au zoom max)
     return normalizeCam({
       z: nextZ,
       tx: svgX - worldX * nextZ,
