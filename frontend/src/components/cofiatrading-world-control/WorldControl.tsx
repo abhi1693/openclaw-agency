@@ -23,7 +23,6 @@ import {
 
 import { WorldMapLiving, resolveHouseIds, type InvItem, type TruthMapPayload } from "./WorldMapLiving";
 import { AuthProviderStatusPanel } from "./AuthProviderStatusPanel";
-import { VpsFleetOverlay } from "./VpsFleetOverlay";
 
 import type {
   Snapshot,
@@ -449,6 +448,7 @@ const SERVICE_HOUSE: Partial<Record<string, HouseId>> = {
   mission_control_3000: "mission_control_tower",
   central_brain_8767: "central_brain",
   llm_proxy_11435: "central_brain",
+  cofiapublisher_native_8000: "youtube_studio",
   cofiapublisher_8540: "youtube_studio",
   openclaw_gateway_18789: "openclaw_agent_barracks",
   inventory_8433: "assets_warehouse",
@@ -581,11 +581,11 @@ const HOUSE_WORKFORCE: Record<HouseId, HouseWorkforce> = {
     businessName: "YouTube Studio",
     owner: "Nova / Isrāfīl",
     workers: ["Nova", "Isrāfīl", "Sonic", "Sonic-X", "Malik al-Insta", "Luna", "Brand Manager", "Reviewer"],
-    mission: "Publier video-01 puis cadence YouTube / IG / TikTok / X.",
-    nextAction: "OAuth YouTube + Reviewer GREEN + publish video-01.",
+    mission: "Produire, certifier et preparer les renders COF IA Publisher.",
+    nextAction: "Prouver les renders orphelins puis preparer le publish pack local.",
     impact: "acquisition",
-    blocker: "OAuth expiré + 0 vidéo publiée",
-    proof: "assetsWarehouse + publisher + reviewer proof attendu.",
+    blocker: "Publication externe verrouillee; renders non prouves a certifier",
+    proof: "publisherNative :8000 + assetsWarehouse + publisher legacy :8540.",
     badge: "ACTION",
     tone: "AMBER",
   },
@@ -893,10 +893,10 @@ const CITY_DISTRICTS: CityDistrict[] = [
     glow: "rgba(251,191,36,.38)",
     workers: ["Nova", "Isrāfīl", "Sonic", "Reviewer", "Brand"],
     machines: ["CofiaPublisher", "YouTube OAuth", "n8n", "Hedra"],
-    role: "Publier video-01",
-    next: "MP4 -> Reviewer -> publish",
-    blocker: "OAuth YouTube blocked",
-    metric: "94 MP4",
+    role: "Certifier renders puis publish pack local",
+    next: "renders -> proof -> R8 publish lock",
+    blocker: "publish externe verrouille",
+    metric: "99 renders",
   },
   {
     id: "site_seo_lab",
@@ -1091,7 +1091,7 @@ const _MOVING_AGENTS: MovingAgent[] = [
 ];
 
 const _MOVING_TRUCKS: MovingTruck[] = [
-  { name: "MP4 Truck", points: ["assets_warehouse", "youtube_studio"], payload: "video-01 / 94 MP4", tone: "cyan", duration: 11, delay: 0 },
+  { name: "MP4 Truck", points: ["assets_warehouse", "youtube_studio"], payload: "renders natifs / proof", tone: "cyan", duration: 11, delay: 0 },
   { name: "Cash Truck", points: ["iron_office", "vip_gate"], payload: "291 EUR / 3 clients", tone: "amber", duration: 10, delay: -2 },
   { name: "Broker Truck", points: ["iron_office", "site_seo_lab"], payload: "CellXpert / IP / drafts", tone: "rose", duration: 15, delay: -4 },
   { name: "Signal Truck", points: ["mt4_signal_tower", "vip_gate"], payload: "STRAT signal", tone: "emerald", duration: 9, delay: -6 },
@@ -1938,7 +1938,7 @@ function WorldControlFrame({
       : "border-amber-300/30 bg-amber-300/10 text-amber-100";
   const fetched = snapshot?.fetchedAt ? formatRelativeTime(snapshot.fetchedAt) : "sync...";
   return (
-    <div className="min-h-screen overflow-hidden bg-[#02040a] text-slate-100">
+    <div className="min-h-screen overflow-x-hidden bg-[#02040a] text-slate-100">
       <header className="sticky top-0 z-50 border-b border-cyan-300/15 bg-[#030712]/95 shadow-[0_12px_45px_rgba(2,6,23,0.55)] backdrop-blur-xl">
         <div className="flex min-h-[64px] flex-wrap items-center gap-3 px-4 py-2">
           <div className="flex min-w-0 flex-1 items-center gap-3">
@@ -1967,7 +1967,7 @@ function WorldControlFrame({
         </div>
         <div className="h-px bg-gradient-to-r from-cyan-400/0 via-cyan-300/45 to-amber-300/0" />
       </header>
-      <main className="min-h-[calc(100vh-65px)] overflow-y-auto bg-[radial-gradient(circle_at_22%_0%,rgba(34,211,238,0.12),transparent_34%),radial-gradient(circle_at_76%_0%,rgba(251,191,36,0.08),transparent_28%),#02040a]">
+      <main className="min-h-[calc(100vh+220px)] overflow-visible bg-[radial-gradient(circle_at_22%_0%,rgba(34,211,238,0.12),transparent_34%),radial-gradient(circle_at_76%_0%,rgba(251,191,36,0.08),transparent_28%),#02040a] pb-24">
         {children}
       </main>
     </div>
@@ -2243,10 +2243,6 @@ export function WorldControl({ initialSnapshot = null, initialAngelRoster = null
               />
             </div>
           </div>
-
-      {/* Flotte VPS — overlay coin bas-droite (offload Mac → VPS Hostinger). Ne touche pas la map. */}
-      <VpsFleetOverlay />
-
       {drawerTruck ? (
         <TruckDrawer
           truck={drawerTruck}
@@ -3063,7 +3059,7 @@ function _CofiaLivingCity({
   const servicesTotal = services.length;
 
   return (
-    <section className="relative min-h-[calc(100vh-180px)] overflow-hidden rounded-xl border border-cyan-300/20 bg-[#02040a] px-4 py-4 text-slate-100 shadow-[0_18px_60px_rgba(2,6,23,.55)] lg:px-6">
+    <section className="relative min-h-[calc(100vh-180px)] overflow-x-hidden rounded-xl border border-cyan-300/20 bg-[#02040a] px-4 py-4 text-slate-100 shadow-[0_18px_60px_rgba(2,6,23,.55)] lg:px-6">
       <style>{`
         .t6-city-scan { opacity: .18; }
         .t6-city-building { transform: translate(-50%, -50%) perspective(760px) rotateX(7deg) rotateZ(-1.5deg); }
@@ -3361,19 +3357,26 @@ function ClientFunnelRail() {
 function ProductionFactoryRail({ snapshot }: { snapshot: Snapshot | null }) {
   const assets = snapshot?.assetsWarehouse;
   const canon = snapshot?.publisherCanon;
+  const native = snapshot?.publisherNative;
+  const nativeCounts = native?.counts;
   const canonCounts = canon?.counts;
   const canonAssets = canonCounts?.assetsWiredOrAvailable != null && canonCounts.assetsTotal != null
     ? `${canonCounts.assetsWiredOrAvailable}/${canonCounts.assetsTotal}`
     : "source down";
   const canonDuplicates = canonCounts?.duplicatePublisherHtml ?? null;
   const canonBroll = canonCounts?.brollTotal ?? null;
+  const nativeRenders = nativeCounts?.renders ?? assets?.mp4Count ?? null;
+  const nativeArchived = nativeCounts?.archived ?? null;
+  const nativeOrphan = nativeCounts?.orphan ?? null;
+  const nativeGold = nativeCounts?.goldProved ?? null;
+  const lockReason = native?.publishLock?.reason ?? "R8_ERWIN_GATE_EXTERNAL_PUBLISH";
   return (
     <section className="rounded-lg border border-amber-300/20 bg-slate-950/76 p-3">
       <div className="flex items-center justify-between gap-3">
         <h2 className="text-[11px] font-black uppercase tracking-[0.22em] text-amber-100">Production factory · CofiaPublisher vivant</h2>
         <div className="flex items-center gap-2">
           <span className={`rounded border px-2 py-1 text-[10px] font-black uppercase ${canon?.ok ? "border-emerald-300/30 bg-emerald-300/10 text-emerald-100" : "border-amber-300/30 bg-amber-300/10 text-amber-100"}`}>
-            {canon?.status ?? "canon source down"}
+            {native?.state ?? canon?.status ?? "canon source down"}
           </span>
           <Factory className="h-4 w-4 text-amber-200" />
         </div>
@@ -3387,10 +3390,10 @@ function ProductionFactoryRail({ snapshot }: { snapshot: Snapshot | null }) {
           ))}
         </div>
         <p className="mt-2 text-[11px] text-amber-100/75">
-          Publisher unique · assets {canonAssets} · doublons HTML {canonDuplicates === null ? "source down" : canonDuplicates} · b-roll {canonBroll === null ? "source down" : canonBroll} · {formatCityNumber(assets?.mp4Count)} MP4 / {formatCityNumber(assets?.captionsCount)} captions / {formatCityNumber(assets?.assetsInventoryCount)} assets.
+          Publisher natif · renders {formatCityNumber(nativeRenders)} · archives {formatCityNumber(nativeArchived)} · orphelins {formatCityNumber(nativeOrphan)} · gold prouvés {formatCityNumber(nativeGold)} · publish lock {lockReason}.
         </p>
         <p className="mt-1 text-[10px] leading-4 text-slate-400">
-          Surfaces liées: {canon?.surfaces?.map((surface) => surface.label).slice(0, 4).join(" · ") || "Publisher :8540"} · aucune publication externe depuis Mission Control.
+          Assets {canonAssets} · doublons HTML {canonDuplicates === null ? "source down" : canonDuplicates} · b-roll {canonBroll === null ? "source down" : canonBroll} · {formatCityNumber(assets?.captionsCount)} captions · {formatCityNumber(assets?.assetsInventoryCount)} assets · source {native?.sourceTag ?? canon?.sourceTag ?? "source down"}.
         </p>
       </div>
     </section>
@@ -3536,7 +3539,7 @@ function _LivingWorldEngine({ snapshot, angelRoster }: { snapshot: Snapshot | nu
   };
 
   return (
-    <section className="relative min-h-screen overflow-hidden border-b border-emerald-300/15 bg-[#03060a] px-4 py-4 lg:px-6">
+    <section className="relative min-h-screen overflow-x-hidden border-b border-emerald-300/15 bg-[#03060a] px-4 py-4 lg:px-6">
       <style>{`
         .t5b-scan { opacity: .22; }
         .t5b-client-dot { opacity: .75; }
@@ -3877,6 +3880,30 @@ function HouseDrawer({
   onClose: () => void;
 }) {
   const workforce = HOUSE_WORKFORCE[house.id];
+  // Santé système LIVE — surfacée dans la maison central_brain (§54, tout dans la map)
+  const [sysHealth, setSysHealth] = useState<{
+    services?: Array<{ id: string; label: string; status: string }>;
+    servicesUp?: number;
+    servicesTotal?: number;
+    coordination?: {
+      overheat_archive?: { total_archived?: number; restored_this_session?: number };
+      restored_coordination_services?: string[];
+    };
+    vpsFleetAgents?: number | null;
+  } | null>(null);
+  useEffect(() => {
+    if (house.id !== "central_brain") return;
+    let cancelled = false;
+    fetch("/api/cofiatrading-world-control/system-health", { cache: "no-store" })
+      .then((r) => r.json())
+      .then((j) => {
+        if (!cancelled) setSysHealth(j);
+      })
+      .catch(() => {});
+    return () => {
+      cancelled = true;
+    };
+  }, [house.id]);
   const [cadence, setCadence] = useState<CalendarPayload | null>(null);
   useEffect(() => {
     if (house.id !== "calendar_tower") return;
