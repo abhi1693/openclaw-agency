@@ -1679,7 +1679,12 @@ export function WorldMapLiving({ snapshot, angelRoster, initialTruthMap, onSelec
   const workingDispatchCount = houseMissions.reduce((total, mission) => total + (mission.dispatches ?? []).filter((dispatch) => isWorkingDispatchStatus(dispatch.status)).length, 0);
   // Dénominateur = maisons registry réelles (SSOT :8767 = 15), PAS houseOrchestrator.houseMissions (17 = inclut notebook_alm+proof_ledger hors canon, snapshot périmé). Fix faux "0/17" 2026-06-02.
   const canonHouseCount = viewSnapshot?.centralBrain?.housesCount ?? houseMissions.length;
-  const orchestratedHouseLabel = houseMissions.length ? `${Math.min(activeWorkHouseCount, canonHouseCount)}/${canonHouseCount}` : "sync...";
+  // No-false-green : houseOrchestrator = fichier d'état one-shot (aucun cron ne le rafraîchit). S'il est vieux, ses compteurs (Maisons actives / Travail prouvé / Ordres) sont GELÉS → marquer PÉRIMÉ au lieu de mentir "live". 2026-06-02.
+  const houseOrchestratorGeneratedMs = houseOrchestrator?.generatedAtUtc ? Date.parse(houseOrchestrator.generatedAtUtc) : NaN;
+  const houseOrchestratorAgeH = Number.isFinite(houseOrchestratorGeneratedMs) ? (telemetryNow - houseOrchestratorGeneratedMs) / 3_600_000 : null;
+  const houseOrchestratorStale = houseOrchestratorAgeH != null && houseOrchestratorAgeH >= 2;
+  const orchStaleSuffix = houseOrchestratorStale ? ` ⚠PÉRIMÉ ${Math.floor(houseOrchestratorAgeH)}h` : "";
+  const orchestratedHouseLabel = houseMissions.length ? `${Math.min(activeWorkHouseCount, canonHouseCount)}/${canonHouseCount}${orchStaleSuffix}` : "sync...";
   const localAgentCoverageLabel = localTotalAgentCount ? `${localCoveredAgentCount}/${localTotalAgentCount}` : agentCountLabel;
   const localAssetCoverageLabel = typeof houseOrchestrator?.summary?.assetsAssigned === "number"
     ? fmtNum(houseOrchestrator.summary.assetsAssigned)
