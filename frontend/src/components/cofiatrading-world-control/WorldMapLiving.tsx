@@ -1321,7 +1321,7 @@ export function WorldMapLiving({ snapshot, angelRoster, initialTruthMap, onSelec
     const tx = typeof value.tx === "number" && Number.isFinite(value.tx) ? value.tx : 0;
     const ty = typeof value.ty === "number" && Number.isFinite(value.ty) ? value.ty : 0;
     return {
-      z: clampNumber(z, 0.45, 2.0), // max 2.0 : île centrée à x≈-3685 ; au-delà, tx centré > clamp ±4200 → carte vide (fix caméra 2026-06-02)
+      z: clampNumber(z, 0.45, 2.8),
 	      tx: clampNumber(tx, -4200, 4200),
 	      ty: clampNumber(ty, -5200, 5200),
     };
@@ -1677,7 +1677,9 @@ export function WorldMapLiving({ snapshot, angelRoster, initialTruthMap, onSelec
   const truthSourceLabel = truthReady ? `${truthLiveCount}/${truthSourceCount || "—"}` : "sync...";
   const activeWorkHouseCount = houseMissions.filter((mission) => isRuntimeMission(mission) || (mission.dispatches ?? []).some((dispatch) => isWorkingDispatchStatus(dispatch.status))).length;
   const workingDispatchCount = houseMissions.reduce((total, mission) => total + (mission.dispatches ?? []).filter((dispatch) => isWorkingDispatchStatus(dispatch.status)).length, 0);
-  const orchestratedHouseLabel = houseMissions.length ? `${activeWorkHouseCount}/${houseMissions.length}` : "sync...";
+  // Dénominateur = maisons registry réelles (SSOT :8767 = 15), PAS houseOrchestrator.houseMissions (17 = inclut notebook_alm+proof_ledger hors canon, snapshot périmé). Fix faux "0/17" 2026-06-02.
+  const canonHouseCount = viewSnapshot?.centralBrain?.housesCount ?? houseMissions.length;
+  const orchestratedHouseLabel = houseMissions.length ? `${Math.min(activeWorkHouseCount, canonHouseCount)}/${canonHouseCount}` : "sync...";
   const localAgentCoverageLabel = localTotalAgentCount ? `${localCoveredAgentCount}/${localTotalAgentCount}` : agentCountLabel;
   const localAssetCoverageLabel = typeof houseOrchestrator?.summary?.assetsAssigned === "number"
     ? fmtNum(houseOrchestrator.summary.assetsAssigned)
@@ -2118,7 +2120,7 @@ export function WorldMapLiving({ snapshot, angelRoster, initialTruthMap, onSelec
     const svgY = (py - oy) / scale + scene.vbMinY;
     const worldX = (svgX - current.tx) / current.z;
     const worldY = (svgY - WORLD_Y_OFFSET - current.ty) / current.z;
-    const nextZ = clampNumber(current.z * factor, 0.45, 2.0); // cap aligné sur normalizeCam (fix carte vide au zoom max)
+    const nextZ = clampNumber(current.z * factor, 0.45, 2.8);
     return normalizeCam({
       z: nextZ,
       tx: svgX - worldX * nextZ,
