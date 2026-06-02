@@ -1680,12 +1680,12 @@ export function WorldMapLiving({ snapshot, angelRoster, initialTruthMap, onSelec
   // Dénominateur = maisons registry réelles (SSOT :8767 = 15), PAS houseOrchestrator.houseMissions (17 = inclut notebook_alm+proof_ledger hors canon, snapshot périmé). Fix faux "0/17" 2026-06-02.
   const canonHouseCount = viewSnapshot?.centralBrain?.housesCount ?? houseMissions.length;
   // No-false-green : houseOrchestrator = fichier d'état one-shot (aucun cron ne le rafraîchit). S'il est vieux, ses compteurs (Maisons actives / Travail prouvé / Ordres) sont GELÉS → marquer PÉRIMÉ au lieu de mentir "live". 2026-06-02.
-  const houseOrchestratorGen = houseOrchestrator?.generatedAtUtc ?? viewSnapshot?.houseOrchestrator?.generatedAtUtc;
-  const houseOrchestratorGeneratedMs = houseOrchestratorGen ? Date.parse(houseOrchestratorGen) : NaN;
-  const houseOrchestratorAgeH = Number.isFinite(houseOrchestratorGeneratedMs) ? (telemetryNow - houseOrchestratorGeneratedMs) / 3_600_000 : null;
+  // Fraîcheur = executedAtUtc (vraie exécution de l'orchestrateur). ⚠ state.generatedAtUtc est re-tamponné "now" par le seed SSR (faux-frais) → on s'appuie sur executedAtUtc puis viewSnapshot, jamais state.generatedAtUtc. 2026-06-02.
+  const houseOrchestratorRunUtc = houseOrchestrator?.executedAtUtc ?? viewSnapshot?.houseOrchestrator?.executedAtUtc ?? viewSnapshot?.houseOrchestrator?.generatedAtUtc;
+  const houseOrchestratorRunMs = houseOrchestratorRunUtc ? Date.parse(houseOrchestratorRunUtc) : NaN;
+  const houseOrchestratorAgeH = Number.isFinite(houseOrchestratorRunMs) ? (telemetryNow - houseOrchestratorRunMs) / 3_600_000 : null;
   const houseOrchestratorStale = houseOrchestratorAgeH != null && houseOrchestratorAgeH >= 2;
-  const _dbgSt = houseOrchestrator?.generatedAtUtc; const _dbgVs = viewSnapshot?.houseOrchestrator?.generatedAtUtc; const _dbgExec = houseOrchestrator?.executedAtUtc ?? viewSnapshot?.houseOrchestrator?.executedAtUtc;
-  const orchStaleSuffix = ` [DBG st=${_dbgSt ? String(_dbgSt).slice(5, 16) : "X"} vs=${_dbgVs ? String(_dbgVs).slice(5, 16) : "X"} exec=${_dbgExec ? String(_dbgExec).slice(5, 16) : "X"} src=${(houseOrchestrator?.sourceTag ?? viewSnapshot?.houseOrchestrator?.sourceTag ?? "X").slice(0, 14)}]`;
+  const orchStaleSuffix = houseOrchestratorStale ? ` ⚠PÉRIMÉ ${Math.floor(houseOrchestratorAgeH)}h` : "";
   const orchestratedHouseLabel = houseMissions.length ? `${Math.min(activeWorkHouseCount, canonHouseCount)}/${canonHouseCount}${orchStaleSuffix}` : "sync...";
   const localAgentCoverageLabel = localTotalAgentCount ? `${localCoveredAgentCount}/${localTotalAgentCount}` : agentCountLabel;
   const localAssetCoverageLabel = typeof houseOrchestrator?.summary?.assetsAssigned === "number"
