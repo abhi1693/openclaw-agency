@@ -12,11 +12,26 @@ import os from "node:os";
 export const dynamic = "force-dynamic";
 export const runtime = "nodejs";
 
-const VPS_AGENTS = [
+const FALLBACK_AGENTS = [
   "analyste", "quant", "lab", "stratege", "oracle", "fiscal",
   "juriste", "reviewer", "copywriter", "risk", "mirofish",
-] as const;
+];
+const AGENTS_CONFIG = path.join(os.homedir(), ".openclaw/config/vps_fleet_agents.json");
 const MIRROR_DIR = path.join(os.homedir(), ".openclaw/vps-mirror/orders");
+
+// SOURCE UNIQUE des agents VPS — même JSON que l'orchestrateur + le puller (zéro drift).
+// Lue par requête (force-dynamic) → ajouter un agent au JSON ne nécessite PAS de rebuild.
+async function loadAgents(): Promise<string[]> {
+  try {
+    const raw = await fs.readFile(AGENTS_CONFIG, "utf-8");
+    const data = JSON.parse(raw) as { agents?: unknown } | unknown[];
+    const lst = Array.isArray(data) ? data : (data as { agents?: unknown }).agents;
+    if (Array.isArray(lst) && lst.length) return lst.map(String);
+  } catch {
+    // config absente → fallback
+  }
+  return FALLBACK_AGENTS;
+}
 
 type FleetAgent = { id: string; live: boolean; lastResult: string | null; ts: string | null };
 
