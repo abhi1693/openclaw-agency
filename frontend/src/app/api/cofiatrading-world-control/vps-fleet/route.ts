@@ -75,53 +75,89 @@ async function readAgent(id: string): Promise<FleetAgent> {
     const st = await fs.stat(p);
     const raw = await fs.readFile(p, "utf-8");
     const lines = raw.split("\n").filter((l) => l.trim());
-    for (let i = lines.length - 1; i >= 0; i--) {
-      let d: Record<string, unknown>;
+
+    // Parse toutes les lignes JSON valides une seule fois.
+    const parsed: Record<string, unknown>[] = [];
+    for (const line of lines) {
       try {
-        d = JSON.parse(lines[i]) as Record<string, unknown>;
+        parsed.push(JSON.parse(line) as Record<string, unknown>);
       } catch {
-        continue;
-      }
-      const result = (d.result ?? d.output) as string | undefined;
-      if (d.status === "done" && result) {
-        const doneMs = parseTimeMs(d.updated ?? d.ts ?? d.created);
-        if (!doneMs) {
-          return {
-            id,
-            live: false,
-            status: "AMBER_REVERIFY",
-            lastResult: String(result).slice(0, 260),
-            ts: null,
-            ageSec: null,
-            proof: `${p} · status=done mais timestamp absent; mtime=${st.mtime.toISOString()}`,
-          };
-        }
-        const ageMs = Date.now() - doneMs;
-        const live = ageMs >= 0 && ageMs <= LIVE_TTL_MS;
-        return {
-          id,
-          live,
-          status: live ? "LIVE" : "STALE",
-          lastResult: String(result).slice(0, 260),
-          ts: new Date(doneMs).toISOString(),
-          ageSec: Math.max(0, Math.round(ageMs / 1000)),
-          proof: `${p} · status=done · ts=${new Date(doneMs).toISOString()} · ageSec=${Math.max(0, Math.round(ageMs / 1000))} · ttlSec=${LIVE_TTL_MS / 1000}`,
-        };
+        // ligne corrompue ignorée
       }
     }
+    if (!parsed.length) {
+      return {
+        id, live: false, status: "WAITING", lastResult: null, lastError: null, rawStatus: null,
+        ts: null, ageSec: null, proof: `${p} · mirror=${st.mtime.toISOString()} · aucun order parsable`,
+      };
+    }
+
+    const last = parsed[parsed.length - 1];
+    const rawStatus = typeof last.status === "string" ? last.status : null;
+    // Dernier order RÉUSSI (pour le contexte/insight), même si la dernière ligne est failed/pending.
+    const lastDone = [...parsed].reverse().find(
+      (d) => d.status === "done" && (d.result ?? d.output),
+    );
+    const doneResult = lastDone ? String(lastDone.result ?? lastDone.output).slice(0, 260) : null;
+
+    // CAS 1 — la dernière ligne est une ERREUR : ne JAMAIS la masquer derrière un vieux "done".
+    if (rawStatus === "failed") {
+      const failMs = parseTimeMs(last.done_ts ?? last.updated ?? last.ts ?? last.created);
+      const ageSec = failMs ? Math.max(0, Math.round((Date.now() - failMs) / 1000)) : null;
+      return {
+        id, live: false, status: "FAILED",
+        lastResult: doneResult,
+        lastError: String(last.result ?? last.error ?? "erreur non détaillée").slice(0, 200),
+        rawStatus,
+        ts: failMs ? new Date(failMs).toISOString() : null,
+        ageSec,
+        proof: `${p} · DERNIÈRE ligne status=failed · err=${String(last.result ?? "").slice(0, 80)} · ageSec=${ageSec ?? "?"}`,
+      };
+    }
+
+    // CAS 2 — exécution en cours (pending/started/running).
+    if (rawStatus && ["pending", "started", "running"].includes(rawStatus)) {
+      const startMs = parseTimeMs(last.started_ts ?? last.ts ?? last.created);
+      const ageSec = startMs ? Math.max(0, Math.round((Date.now() - startMs) / 1000)) : null;
+      return {
+        id, live: false, status: "RUNNING",
+        lastResult: doneResult,
+        lastError: null, rawStatus,
+        ts: startMs ? new Date(startMs).toISOString() : null,
+        ageSec,
+        proof: `${p} · DERNIÈRE ligne status=${rawStatus} (exécution en cours) · ageSec=${ageSec ?? "?"}`,
+      };
+    }
+
+    // CAS 3 — dernier état = done : taxonomie LIVE / ROTATING / STALE selon la fraîcheur.
+    if (lastDone) {
+      const doneMs = parseTimeMs(lastDone.done_ts ?? lastDone.updated ?? lastDone.ts ?? lastDone.created);
+      if (!doneMs) {
+        return {
+          id, live: false, status: "AMBER_REVERIFY", lastResult: doneResult, lastError: null, rawStatus,
+          ts: null, ageSec: null,
+          proof: `${p} · status=done mais timestamp absent; mtime=${st.mtime.toISOString()}`,
+        };
+      }
+      const ageMs = Date.now() - doneMs;
+      const ageSec = Math.max(0, Math.round(ageMs / 1000));
+      const live = ageMs >= 0 && ageMs <= LIVE_TTL_MS;
+      const status: FleetStatus = live ? "LIVE" : ageMs <= ROTATION_TTL_MS ? "ROTATING" : "STALE";
+      return {
+        id, live, status, lastResult: doneResult, lastError: null, rawStatus,
+        ts: new Date(doneMs).toISOString(), ageSec,
+        proof: `${p} · status=done · ts=${new Date(doneMs).toISOString()} · ageSec=${ageSec} · liveTtl=${LIVE_TTL_MS / 1000}s · rotTtl=${ROTATION_TTL_MS / 1000}s`,
+      };
+    }
+
     return {
-      id,
-      live: false,
-      status: "WAITING",
-      lastResult: null,
-      ts: null,
-      ageSec: null,
-      proof: `${p} · mirror=${st.mtime.toISOString()} · aucun order done prouvé`,
+      id, live: false, status: "WAITING", lastResult: null, lastError: null, rawStatus,
+      ts: null, ageSec: null, proof: `${p} · mirror=${st.mtime.toISOString()} · aucun order done prouvé`,
     };
   } catch {
     // pas de mirror pour cet agent (rotation pas encore passée) → en attente
   }
-  return { id, live: false, status: "WAITING", lastResult: null, ts: null, ageSec: null, proof: `${p} absent` };
+  return { id, live: false, status: "WAITING", lastResult: null, lastError: null, rawStatus: null, ts: null, ageSec: null, proof: `${p} absent` };
 }
 
 export async function GET() {
