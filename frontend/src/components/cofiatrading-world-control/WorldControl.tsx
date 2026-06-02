@@ -4197,6 +4197,38 @@ function HouseDrawer({
               </section>
             )}
 
+            {house.id === "central_brain" && (
+              <section className="rounded-md border border-violet-300/25 bg-violet-300/5 p-3">
+                <h3 className="mb-3 flex items-center justify-between text-xs font-semibold uppercase tracking-[0.18em] text-violet-200">
+                  <span>Santé système · coordination</span>
+                  <span className="text-[9px] font-normal text-slate-400">
+                    {sysHealth ? `${sysHealth.servicesUp ?? 0}/${sysHealth.servicesTotal ?? 0} services UP` : "…"}
+                  </span>
+                </h3>
+                {sysHealth ? (
+                  <>
+                    <div className="mb-3 grid gap-1.5 sm:grid-cols-2">
+                      {(sysHealth.services ?? []).map((s) => (
+                        <InspectorRow key={s.id} label={s.label} value={s.status} />
+                      ))}
+                    </div>
+                    <div className="grid gap-1.5">
+                      <InspectorRow label="agents VPS (offload Mac)" value={String(sysHealth.vpsFleetAgents ?? "?")} />
+                      <InspectorRow
+                        label="surchauffe 26/05"
+                        value={`${sysHealth.coordination?.overheat_archive?.total_archived ?? "?"} archivés · ${sysHealth.coordination?.overheat_archive?.restored_this_session ?? 0} coordination rebranchés`}
+                      />
+                    </div>
+                    <p className="mt-2 text-[9px] text-slate-500">
+                      Source live : /api/cofiatrading-world-control/system-health (probe ports + cof_state + coordination). Hub UI = :3000 (§54).
+                    </p>
+                  </>
+                ) : (
+                  <p className="text-[11px] text-slate-500">chargement santé système…</p>
+                )}
+              </section>
+            )}
+
             {house.id === "calendar_tower" && (
               <section className="rounded-md border border-cyan-300/20 bg-cyan-300/8 p-3">
                 <h3 className="mb-3 flex items-center justify-between text-xs font-semibold uppercase tracking-[0.18em] text-cyan-100">
