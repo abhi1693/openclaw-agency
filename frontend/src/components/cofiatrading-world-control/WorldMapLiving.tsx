@@ -1684,7 +1684,8 @@ export function WorldMapLiving({ snapshot, angelRoster, initialTruthMap, onSelec
   const houseOrchestratorGeneratedMs = houseOrchestratorGen ? Date.parse(houseOrchestratorGen) : NaN;
   const houseOrchestratorAgeH = Number.isFinite(houseOrchestratorGeneratedMs) ? (telemetryNow - houseOrchestratorGeneratedMs) / 3_600_000 : null;
   const houseOrchestratorStale = houseOrchestratorAgeH != null && houseOrchestratorAgeH >= 2;
-  const orchStaleSuffix = houseOrchestratorStale ? ` ⚠PÉRIMÉ ${Math.floor(houseOrchestratorAgeH)}h` : ` [DBG gen=${houseOrchestratorGen ? String(houseOrchestratorGen).slice(0, 16) : "NONE"} age=${houseOrchestratorAgeH == null ? "null" : houseOrchestratorAgeH.toFixed(1)} tn=${telemetryNow ? "ok" : "0"}]`;
+  const _dbgSt = houseOrchestrator?.generatedAtUtc; const _dbgVs = viewSnapshot?.houseOrchestrator?.generatedAtUtc; const _dbgExec = houseOrchestrator?.executedAtUtc ?? viewSnapshot?.houseOrchestrator?.executedAtUtc;
+  const orchStaleSuffix = ` [DBG st=${_dbgSt ? String(_dbgSt).slice(5, 16) : "X"} vs=${_dbgVs ? String(_dbgVs).slice(5, 16) : "X"} exec=${_dbgExec ? String(_dbgExec).slice(5, 16) : "X"} src=${(houseOrchestrator?.sourceTag ?? viewSnapshot?.houseOrchestrator?.sourceTag ?? "X").slice(0, 14)}]`;
   const orchestratedHouseLabel = houseMissions.length ? `${Math.min(activeWorkHouseCount, canonHouseCount)}/${canonHouseCount}${orchStaleSuffix}` : "sync...";
   const localAgentCoverageLabel = localTotalAgentCount ? `${localCoveredAgentCount}/${localTotalAgentCount}` : agentCountLabel;
   const localAssetCoverageLabel = typeof houseOrchestrator?.summary?.assetsAssigned === "number"
