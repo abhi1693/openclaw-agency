@@ -1901,10 +1901,6 @@ function _WorldControlDeck({
       <Panel title="Auth / Providers — No-False-Green" tone="cyan">
         <AuthProviderStatusPanel />
       </Panel>
-
-      <Panel title="🛰️ Flotte VPS — offload Mac (11 agents)" tone="cyan">
-        <VpsFleetPanel />
-      </Panel>
       {/* Proof Ledger remonté en haut à droite (Mission Control aside) — Erwin 2026-05-31 */}
     </section>
   );
