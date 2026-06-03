@@ -8,6 +8,7 @@
 
 import { WorldConsole } from "./WorldConsole";
 import { WorldLegend } from "./WorldLegend";
+import { MMrDashboardCard } from "./MMrDashboardCard";
 import { WorldMapCanvas } from "./WorldMapCanvas";
 import { WorldMapProvider } from "./WorldMapProvider";
 import { WorldTelemetryPanel } from "./WorldTelemetryPanel";
