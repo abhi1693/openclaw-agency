@@ -228,23 +228,9 @@ const CANONICAL_EMBEDS_BY_HOUSE: Partial<Record<string, CanonicalEmbed>> = {
     url: TRADING_RESEARCH_OS_URL,
     canonicalUrl: TRADING_RESEARCH_OS_URL,
   },
-  iron_office: {
-    accent: "#ffd400",
-    label: "Trading Research OS :8799",
-    title: "Trading Research OS - Data & Finances",
-    url: TRADING_RESEARCH_OS_URL,
-    canonicalUrl: TRADING_RESEARCH_OS_URL,
-  },
-  // Harmonisation DT : site_seo_lab ouvre le MÊME embed Trading OS :8799 qu'iron_office.
-  // NB sémantique : site_seo_lab est nativement la maison de l'API search :8799 ; si le patron veut
-  // l'onglet SEO/search plutôt que tab=vip&page=v-compliance, changer le param `tab` de TRADING_RESEARCH_OS_URL.
-  site_seo_lab: {
-    accent: "#7dd3fc",
-    label: "Trading Research OS :8799",
-    title: "Trading Research OS - Data & Finances",
-    url: TRADING_RESEARCH_OS_URL,
-    canonicalUrl: TRADING_RESEARCH_OS_URL,
-  },
+  // De-dup (bug patron) : iron_office (Revenue/CRM) + site_seo_lab (Site/SEO) NE partagent PLUS
+  // l'iframe Trading :8799 ; chacun affiche SA donnée dans son volet (MRR réel / Vercel).
+  // Seul mt4_signal_tower (Trading) reste mappé sur Trading Research OS :8799.
 };
 const defaultHouseTab = (houseId: string): HouseTab => CANONICAL_EMBEDS_BY_HOUSE[houseId] ? "live" : "vue";
 
