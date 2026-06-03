@@ -4,6 +4,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { resolveAgentType, avatarSeed, skinHex, hairHex, type AgentAvatarType } from "@/config/cofiatWorldIdentity";
 import { ConsoleIAOverlay, type ConsoleIAInitialInbox } from "./ConsoleIAOverlay";
 import { MrrKpiChip } from "./MrrKpiChip";
+import { SupervisionDrawer } from "./SupervisionDrawer";
 
 /* ══════════════════════════════════════════════════════════════════
  * COFIATRADING WORLD CONTROL — CARTE ISO TACTIQUE (Cof-Island)
