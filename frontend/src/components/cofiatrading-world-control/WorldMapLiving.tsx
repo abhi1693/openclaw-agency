@@ -2280,7 +2280,7 @@ export function WorldMapLiving({ snapshot, angelRoster, initialTruthMap, onSelec
         </div>
       </div>
 
-	      <div ref={sceneRef} data-shared-layout-scene="world-map" onPointerDown={onScenePointerDown} onPointerMove={onScenePointerMove} onPointerUp={onScenePointerUp} onPointerCancel={onScenePointerUp} style={{ cursor: editMode ? "grab" : "default", touchAction: editMode ? "none" : "pan-y", background: "radial-gradient(90% 80% at 50% 38%, #155f66 0%, #0b343d 52%, #050b14 100%)" }} className="relative h-[640px] min-h-[560px] w-full max-w-full overflow-hidden rounded-md border border-cyan-300/20 bg-[#07111b] shadow-[0_20px_80px_rgba(2,6,23,0.55),inset_0_1px_0_rgba(255,255,255,0.06)] lg:h-[calc(100vh-205px)] xl:h-[calc(100vh-190px)]">
+	      <div ref={sceneRef} data-shared-layout-scene="world-map" onPointerDown={onScenePointerDown} onPointerMove={onScenePointerMove} onPointerUp={onScenePointerUp} onPointerCancel={onScenePointerUp} style={{ cursor: editMode ? "grab" : "default", touchAction: editMode ? "none" : "pan-y", background: "radial-gradient(90% 80% at 50% 38%, #155f66 0%, #0b343d 52%, #0c2230 100%)" }} className="relative h-[640px] min-h-[560px] w-full max-w-full overflow-hidden rounded-md border border-cyan-300/20 bg-[#07111b] shadow-[0_20px_80px_rgba(2,6,23,0.55),inset_0_1px_0_rgba(255,255,255,0.06)] lg:h-[calc(100vh-205px)] xl:h-[calc(100vh-190px)]">
         <svg
           viewBox={scene.viewBox}
           className="h-full w-full"
@@ -2292,7 +2292,7 @@ export function WorldMapLiving({ snapshot, angelRoster, initialTruthMap, onSelec
           }}
         >
           <defs>
-            <radialGradient id="sea" cx="48%" cy="38%" r="84%"><stop offset="0%" stopColor="#155f66" /><stop offset="48%" stopColor="#0b343d" /><stop offset="100%" stopColor="#050b14" /></radialGradient>
+            <radialGradient id="sea" cx="48%" cy="38%" r="84%"><stop offset="0%" stopColor="#155f66" /><stop offset="48%" stopColor="#0b343d" /><stop offset="100%" stopColor="#0c2230" /></radialGradient>
             <radialGradient id="land" cx="50%" cy="42%" r="80%"><stop offset="0%" stopColor="#26343e" /><stop offset="55%" stopColor="#182a31" /><stop offset="100%" stopColor="#101821" /></radialGradient>
             <radialGradient id="coast" cx="50%" cy="42%" r="77%"><stop offset="0%" stopColor="#5f7f82" /><stop offset="58%" stopColor="#31464c" /><stop offset="100%" stopColor="#16232b" /></radialGradient>
             <radialGradient id="beach" cx="50%" cy="45%" r="78%"><stop offset="0%" stopColor="#7f8768" stopOpacity="0.82" /><stop offset="58%" stopColor="#4d6358" stopOpacity="0.9" /><stop offset="100%" stopColor="#1e3440" /></radialGradient>
