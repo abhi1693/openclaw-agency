@@ -5,6 +5,7 @@ import { resolveAgentType, avatarSeed, skinHex, hairHex, type AgentAvatarType } 
 import { ConsoleIAOverlay, type ConsoleIAInitialInbox } from "./ConsoleIAOverlay";
 import { MrrKpiChip } from "./MrrKpiChip";
 import { SupervisionDrawer } from "./SupervisionDrawer";
+import { SiteVercelPanel } from "./SiteVercelPanel";
 
 /* ══════════════════════════════════════════════════════════════════
  * COFIATRADING WORLD CONTROL — CARTE ISO TACTIQUE (Cof-Island)
