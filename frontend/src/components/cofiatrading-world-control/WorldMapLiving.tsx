@@ -87,6 +87,33 @@ export type CofiaSnapshot = {
     counts?: { renders?: number | null; archived?: number | null; orphan?: number | null; goldProved?: number | null; unproven?: number | null };
     publishLock?: { allowed?: boolean | null; reason?: string | null };
   };
+  publisherBridge?: {
+    ok?: boolean;
+    status?: string;
+    sourceTag?: string | null;
+    endpoint?: string | null;
+    clientScriptUrl?: string | null;
+    exportedAssetCount?: number | null;
+    fullAssetCount?: number | null;
+    rawFileCandidates?: number | null;
+    sha256IndexCount?: number | null;
+    physicalDuplicateCount?: number | null;
+    rootCount?: number | null;
+    accessErrorCount?: number | null;
+    bridgeContract?: string | null;
+    sampleAssets?: Array<Record<string, unknown>>;
+  };
+  videoAvailability?: {
+    ok?: boolean;
+    status?: string;
+    sourceTag?: string | null;
+    outputDir?: string | null;
+    scannedCount?: number | null;
+    motionProofCount?: number | null;
+    latest?: Record<string, unknown> | null;
+    latestMotionProof?: Record<string, unknown> | null;
+    items?: Array<Record<string, unknown>>;
+  };
   services?: Array<{ id?: string; label?: string; ok?: boolean; status?: string; role?: string; url?: string; http_code?: number | null }>;
   fetchedAt?: string;
   agentsCanon?: { ok?: boolean; count?: number; sourceTag?: string; agents?: CanonAgent[] };
@@ -502,7 +529,6 @@ const ANGEL_STATUS: Record<AngelStatus, { color: string; label: string }> = {
   LIVE: { color: "#10b981", label: "LIVE" }, OPERATIONAL_PARTIAL: { color: "#22d3ee", label: "PARTIEL" }, CANON_GATE: { color: "#38bdf8", label: "CANON GATE" },
   AWAITING_SETUP: { color: "#64748b", label: "À ACTIVER" }, DEGRADED: { color: "#f59e0b", label: "DEGRADED" }, BROKEN: { color: "#ef4444", label: "CASSÉ" },
 };
-const fmtEur = (v: number | null | undefined) => typeof v === "number" && Number.isFinite(v) ? `${new Intl.NumberFormat("fr-FR").format(v)} €` : "source down";
 const fmtNum = (v: number | null | undefined) => typeof v === "number" && Number.isFinite(v) ? new Intl.NumberFormat("fr-FR").format(v) : "source down";
 
 /* ════════ géométrie ════════ */
@@ -928,7 +954,7 @@ export function WorldMapLiving({ snapshot, angelRoster, initialTruthMap, onSelec
       }
     };
     void load();
-    const iv = window.setInterval(load, 10_000);
+    const iv = window.setInterval(load, 30_000);
     return () => { cancelled = true; window.clearInterval(iv); };
   }, [parentAgentCount]);
 
@@ -943,7 +969,7 @@ export function WorldMapLiving({ snapshot, angelRoster, initialTruthMap, onSelec
         if (!cancelled) { setHouseStatuses(map); setOnDemandSet(onDemand); setRegistryError(false); }
       } catch { if (!cancelled) setRegistryError(true); }
     };
-    void load(); const iv = window.setInterval(load, 30_000); return () => { cancelled = true; window.clearInterval(iv); };
+    void load(); const iv = window.setInterval(load, 90_000); return () => { cancelled = true; window.clearInterval(iv); };
   }, []);
   useEffect(() => {
     if (selectedHouse !== "central_brain") return;
@@ -959,13 +985,13 @@ export function WorldMapLiving({ snapshot, angelRoster, initialTruthMap, onSelec
       }
     };
     void load();
-    const iv = window.setInterval(load, 30_000);
+    const iv = window.setInterval(load, 90_000);
     return () => { cancelled = true; window.clearInterval(iv); };
   }, [selectedHouse]);
   useEffect(() => {
     let cancelled = false;
     const load = () => fetch("/api/cofiatrading-world-control/world-state", { cache: "no-store" }).then((r) => (r.ok ? r.json() : null)).then((d) => { if (!cancelled && Array.isArray(d?.events)) setEvents(d.events); }).catch(() => {});
-    void load(); const iv = window.setInterval(load, 30_000); return () => { cancelled = true; window.clearInterval(iv); };
+    void load(); const iv = window.setInterval(load, 90_000); return () => { cancelled = true; window.clearInterval(iv); };
   }, []);
   useEffect(() => {
     let cancelled = false;
@@ -980,7 +1006,7 @@ export function WorldMapLiving({ snapshot, angelRoster, initialTruthMap, onSelec
       .catch(() => { if (!cancelled) setTruthReady(false); });
     const refreshVisible = () => { if (document.visibilityState !== "hidden") void load(); };
     void load();
-    const iv = window.setInterval(load, 15_000);
+    const iv = window.setInterval(load, 45_000);
     window.addEventListener("focus", refreshVisible);
     window.addEventListener("resize", refreshVisible);
     document.addEventListener("visibilitychange", refreshVisible);
@@ -995,7 +1021,7 @@ export function WorldMapLiving({ snapshot, angelRoster, initialTruthMap, onSelec
   useEffect(() => {
     let cancelled = false;
     const load = () => fetch("/api/cofiatrading-world-control/house-kpis", { cache: "no-store" }).then((r) => (r.ok ? r.json() : null)).then((d) => { if (!cancelled && d?.houses) setHouseKpiData(d.houses); }).catch(() => {});
-    void load(); const iv = window.setInterval(load, 60_000); return () => { cancelled = true; window.clearInterval(iv); };
+    void load(); const iv = window.setInterval(load, 180_000); return () => { cancelled = true; window.clearInterval(iv); };
   }, []);
   useEffect(() => {
     let cancelled = false;
@@ -1005,7 +1031,7 @@ export function WorldMapLiving({ snapshot, angelRoster, initialTruthMap, onSelec
         if (!cancelled && d?.ok && Array.isArray(d.houseMissions)) setHouseOrchestrator(d);
       })
       .catch(() => {});
-    void load(); const iv = window.setInterval(load, 60_000); return () => { cancelled = true; window.clearInterval(iv); };
+    void load(); const iv = window.setInterval(load, 180_000); return () => { cancelled = true; window.clearInterval(iv); };
   }, []);
   useEffect(() => {
     let cancelled = false;
@@ -1033,7 +1059,7 @@ export function WorldMapLiving({ snapshot, angelRoster, initialTruthMap, onSelec
   useEffect(() => {
     let cancelled = false;
     const load = () => fetch("/api/cofiatrading-world-control/inventory-matrix", { cache: "no-store" }).then((r) => (r.ok ? r.json() : null)).then((d) => { if (!cancelled && Array.isArray(d?.items)) setInventory(d.items as InvItem[]); }).catch(() => {});
-    void load(); const iv = window.setInterval(load, 120_000); return () => { cancelled = true; window.clearInterval(iv); };
+    void load(); const iv = window.setInterval(load, 360_000); return () => { cancelled = true; window.clearInterval(iv); };
   }, []);
   // Source Ledger global : sources live + patrimoine + canon assets + runtime + Asset Vault, garde no-false-green.
   useEffect(() => {
@@ -1042,7 +1068,7 @@ export function WorldMapLiving({ snapshot, angelRoster, initialTruthMap, onSelec
       .then((r) => (r.ok ? r.json() : null))
       .then((d: HubSourceLedgerPayload | null) => { if (!cancelled && d?.ok) setHubSourceLedger(d); })
       .catch(() => {});
-    void load(); const iv = window.setInterval(load, 120_000); return () => { cancelled = true; window.clearInterval(iv); };
+    void load(); const iv = window.setInterval(load, 360_000); return () => { cancelled = true; window.clearInterval(iv); };
   }, []);
   // Contrats d'usage outils : a quoi sert chaque outil, quand l'agent doit l'utiliser, quelle preuve bloque le faux travail.
   useEffect(() => {
@@ -1051,7 +1077,7 @@ export function WorldMapLiving({ snapshot, angelRoster, initialTruthMap, onSelec
       .then((r) => (r.ok ? r.json() : null))
       .then((d: ToolOperatingContractsPayload | null) => { if (!cancelled && d?.ok) setToolContracts(d); })
       .catch(() => {});
-    void load(); const iv = window.setInterval(load, 120_000); return () => { cancelled = true; window.clearInterval(iv); };
+    void load(); const iv = window.setInterval(load, 360_000); return () => { cancelled = true; window.clearInterval(iv); };
   }, []);
   // Cablage spine reel : Command Tower + Central Brain + Proof Ledger vers chaque contrat d'outil, avec runtime-work comme gate d'animation.
   useEffect(() => {
@@ -1060,7 +1086,7 @@ export function WorldMapLiving({ snapshot, angelRoster, initialTruthMap, onSelec
       .then((r) => (r.ok ? r.json() : null))
       .then((d: HubWiringPayload | null) => { if (!cancelled && d?.ok) setHubWiring(d); })
       .catch(() => {});
-    void load(); const iv = window.setInterval(load, 60_000); return () => { cancelled = true; window.clearInterval(iv); };
+    void load(); const iv = window.setInterval(load, 180_000); return () => { cancelled = true; window.clearInterval(iv); };
   }, []);
   // outils SaaS/subscriptions rattachés à LEUR maison — statut depuis probes live/locales (jamais faux-vert)
   useEffect(() => {
@@ -1286,7 +1312,7 @@ export function WorldMapLiving({ snapshot, angelRoster, initialTruthMap, onSelec
       } catch { /* ignore */ }
       if (!cancelled) setToolMachines(out);
     };
-    void load(); const iv = window.setInterval(load, 60_000); return () => { cancelled = true; window.clearInterval(iv); };
+    void load(); const iv = window.setInterval(load, 180_000); return () => { cancelled = true; window.clearInterval(iv); };
   }, []);
   useEffect(() => {
     const el = sceneRef.current; if (!el) return;
@@ -1330,7 +1356,7 @@ export function WorldMapLiving({ snapshot, angelRoster, initialTruthMap, onSelec
     const tx = typeof value.tx === "number" && Number.isFinite(value.tx) ? value.tx : 0;
     const ty = typeof value.ty === "number" && Number.isFinite(value.ty) ? value.ty : 0;
     return {
-      z: clampNumber(z, 0.45, 2.8),
+      z: clampNumber(z, 0.5, 2),
 	      tx: clampNumber(tx, -4200, 4200),
 	      ty: clampNumber(ty, -5200, 5200),
     };
@@ -1397,7 +1423,7 @@ export function WorldMapLiving({ snapshot, angelRoster, initialTruthMap, onSelec
       .catch(() => {})
       .finally(() => { if (!cancelled) layoutReady.current = true; });
     void load();
-    const iv = window.setInterval(load, 1500);
+    const iv = window.setInterval(load, 5000);
     const refreshVisible = () => { if (document.visibilityState !== "hidden") void load(); };
     window.addEventListener("focus", refreshVisible);
     document.addEventListener("visibilitychange", refreshVisible);
@@ -1434,7 +1460,7 @@ export function WorldMapLiving({ snapshot, angelRoster, initialTruthMap, onSelec
   // maisons effectives (positions overridées par l'édition Erwin)
   const effHouses = useMemo(() => ALL_HOUSES.map((h) => (posOverride[h.id] ? { ...h, x: posOverride[h.id].x, y: posOverride[h.id].y } : h)), [posOverride]);
   const EFF_BY_ID = useMemo(() => Object.fromEntries(effHouses.map((h) => [h.id, h])) as Record<string, House>, [effHouses]);
-  const rev = viewSnapshot?.revenue; const assets = viewSnapshot?.assetsWarehouse;
+  const assets = viewSnapshot?.assetsWarehouse;
   const services = useMemo(() => viewSnapshot?.services ?? [], [viewSnapshot?.services]);
   const servicesOk = services.filter((s) => s.ok).length;
   const openclawRuntime = viewSnapshot?.openclawRuntime ?? null;
@@ -1678,13 +1704,10 @@ export function WorldMapLiving({ snapshot, angelRoster, initialTruthMap, onSelec
     ?? new Set(houseMissions.flatMap((mission) => (mission.dispatches ?? []).map((dispatch) => dispatch.agentId))).size;
   const localTotalAgentCount = houseOrchestrator?.summary?.totalAgents ?? canonAgents.length;
   const houseOrchestratorSource = houseOrchestrator?.sourceTag ?? viewSnapshot?.houseOrchestrator?.sourceTag ?? (houseMissions.length ? viewSnapshot?.sourceTag : "pending");
-  const agentCountLabel = viewSnapshot ? `${canonAgents.length}` : "sync…";
 
   const truthSourcesFlat = useMemo(() => Object.values(truthByHouse).flat(), [truthByHouse]);
   const truthSourceCount = truthSourcesFlat.length;
-  const truthLiveCount = truthSourcesFlat.filter(isTruthLive).length;
   const truthBadLiveCount = truthSourcesFlat.filter((source) => isLiveStatus(source.status) && source.ok !== true).length;
-  const truthSourceLabel = truthReady ? `${truthLiveCount}/${truthSourceCount || "—"}` : "sync...";
   const activeWorkHouseCount = houseMissions.filter((mission) => isRuntimeMission(mission) || (mission.dispatches ?? []).some((dispatch) => isWorkingDispatchStatus(dispatch.status))).length;
   const workingDispatchCount = houseMissions.reduce((total, mission) => total + (mission.dispatches ?? []).filter((dispatch) => isWorkingDispatchStatus(dispatch.status)).length, 0);
   // Maisons = 17 = DESIGN ERWIN (15 construites/registry + 2 PRÉVUES à construire, dont CofiaPublisher). On GARDE houseMissions.length (17), on ne force PAS 15 — les 2 prévues restent visibles sur la roadmap. 2026-06-02 (le 17 n'était PAS un bug).
@@ -1696,38 +1719,12 @@ export function WorldMapLiving({ snapshot, angelRoster, initialTruthMap, onSelec
   const houseOrchestratorStale = houseOrchestratorAgeH != null && houseOrchestratorAgeH >= 2;
   const orchStaleSuffix = houseOrchestratorStale ? ` ⚠PÉRIMÉ ${Math.floor(houseOrchestratorAgeH)}h` : "";
   const orchestratedHouseLabel = houseMissions.length ? `${activeWorkHouseCount}/${houseMissions.length}${orchStaleSuffix}` : "sync...";
-  const localAgentCoverageLabel = localTotalAgentCount ? `${localCoveredAgentCount}/${localTotalAgentCount}` : agentCountLabel;
   const localAssetCoverageLabel = typeof houseOrchestrator?.summary?.assetsAssigned === "number"
     ? fmtNum(houseOrchestrator.summary.assetsAssigned)
     : fmtNum(assets?.assetsInventoryCount);
   const hubLedgerSummary = hubSourceLedger?.summary;
-  const hubLedgerConnectionLabel = hubLedgerSummary?.declaredCoverageTotal
-    ? `${fmtNum(hubLedgerSummary.declaredCoverageConnected)}/${fmtNum(hubLedgerSummary.declaredCoverageTotal)}`
-    : "sync...";
-  const hubLedgerProofLabel = hubLedgerSummary?.declaredCoverageTotal
-    ? `${fmtNum(hubLedgerSummary.declaredCoverageProofed)}/${fmtNum(hubLedgerSummary.declaredCoverageTotal)}`
-    : "sync...";
   const hubWiringSummary = hubWiring?.summary;
-  const hubWiringLabel = hubWiringSummary?.contracts
-    ? `${hubWiringSummary.connectedSpineEdges ?? 0}/${hubWiringSummary.totalSpineEdges ?? 0}`
-    : "sync...";
-  const runtimeLabel = openclawRuntime ? `${openclawRuntime.counts.fresh}/${openclawRuntime.counts.total} fresh` : "AMBER";
-  const gatewayLabel = runtimeGateway ? runtimeGateway.status : "AMBER";
-  const topChips: Array<[string, string]> = [
-    ["MRR", fmtEur(rev?.currentMrrEur)],
-    ["ARR", fmtEur(rev?.currentArrEur)],
-    ["VIP", fmtNum(rev?.activeVip)],
-    ["Sources LIVE", truthSourceLabel],
-    ["Maisons actives", orchestratedHouseLabel],
-    ["Agents câblés", localAgentCoverageLabel],
-    ["Assets rattachés", localAssetCoverageLabel],
-    ["Hub câblé", hubLedgerConnectionLabel],
-    ["Preuves Hub", hubLedgerProofLabel],
-    ["Spine", hubWiringLabel],
-    ["🚧 Prévues", `${PLANNED_HOUSES.length} CofiaPublisher`],
-  ];
-  if (openclawRuntime) topChips.push(["Runtime", runtimeLabel]);
-  if (runtimeGateway) topChips.push(["Gateway", gatewayLabel]);
+  const topChips: Array<[string, string]> = [];
   const ownedAssetMachines = useMemo(() => {
     const buckets: Array<{ id: string; label: string; rx: RegExp; role: string }> = [
       { id: "owned_google_workspace", label: "Google Workspace", rx: /google\s+workspace/i, role: "Calendrier, Drive, Docs, Sheets — owned; usage live seulement avec preuve fraîche." },
@@ -1901,7 +1898,6 @@ export function WorldMapLiving({ snapshot, angelRoster, initialTruthMap, onSelec
   const missionQualityAverage = missionQualityRows.length
     ? Math.round(missionQualityRows.reduce((total, row) => total + row.quality.score, 0) / missionQualityRows.length)
     : 0;
-  if (missionQualityRows.length) topChips.push(["Qualité missions", `${missionQualityAverage}/100`]);
   // inventaire groupé par maison (un item multi-maison "a,b" est rattaché à chaque maison)
 	  const inventoryByHouse = useMemo(() => {
 	    const map: Record<string, InvItem[]> = {};
@@ -2037,29 +2033,57 @@ export function WorldMapLiving({ snapshot, angelRoster, initialTruthMap, onSelec
     return map;
   }, [activityEvents, agentItemsById, canonAgents, houseMissions, houseMissionsById]);
 
-  // agents visibles sur la carte : même sans preuve runtime fraîche, ils restent lisibles devant leur maison.
+  // No-false-green visuel: sans dispatch runtime, un agent ne reste pas devant sa maison. Il part au parc/repos.
   const visibleAgents = useMemo(() => {
     const out: VisibleAgent[] = [];
+    let idleIndex = 0;
+    const idleSlotsPerRow = 10;
+    const idleRows = 5;
+    const idleStepX = (scene.leisure.w * 1.55) / Math.max(1, idleSlotsPerRow - 1);
+    const idleStepY = (scene.leisure.h * 0.88) / Math.max(1, idleRows - 1);
     for (const h of effHouses) {
       const list = agentsByHome[h.id] ?? [];
       const f = houseFrontWorld(h);
       list.forEach((agent, i) => {
         const state: AgentState = agentDispatchStateById[agent.id] ?? "idle";
+        if (state === "idle") {
+          const col = idleIndex % idleSlotsPerRow;
+          const row = Math.floor(idleIndex / idleSlotsPerRow);
+          const cappedRow = Math.min(row, idleRows - 1);
+          const rowOffset = (row % 2) * (idleStepX * 0.28);
+          out.push({
+            agent,
+            wx: scene.leisure.wx - scene.leisure.w * 0.78 + col * idleStepX + rowOffset,
+            wy: scene.leisure.wy - scene.leisure.h * 0.34 + cappedRow * idleStepY + Math.floor(row / idleRows) * 2.2,
+            state,
+          });
+          idleIndex += 1;
+          return;
+        }
         const slot = AGENT_SLOTS[i % AGENT_SLOTS.length];
         const ring = Math.floor(i / AGENT_SLOTS.length);
-        const idleOffset = state === "idle" ? 1.4 : 0;
-        out.push({ agent, wx: f.wx + slot.dx + ring * 2.4, wy: f.wy + slot.dy + idleOffset - ring * 1.4, state });
+        out.push({ agent, wx: f.wx + slot.dx + ring * 2.4, wy: f.wy + slot.dy - ring * 1.4, state });
       });
     }
     return out;
-  }, [agentDispatchStateById, agentsByHome, effHouses]);
+  }, [agentDispatchStateById, agentsByHome, effHouses, scene.leisure.h, scene.leisure.w, scene.leisure.wx, scene.leisure.wy]);
+  const activeVisibleAgents = useMemo(() => visibleAgents.filter((v) => isAgentWorkingState(v.state)), [visibleAgents]);
+  const workingAgentCountByHome = useMemo(() => {
+    const map: Record<string, number> = {};
+    for (const item of activeVisibleAgents) map[item.agent.house] = (map[item.agent.house] ?? 0) + 1;
+    return map;
+  }, [activeVisibleAgents]);
 			  const visibleAgentTotal = visibleAgents.length || canonAgents.length;
 			  const idleLeisureCount = visibleAgents.filter((v) => v.state === "idle").length;
-			  const runtimeActiveAgentCount = visibleAgents.filter((v) => isAgentWorkingState(v.state)).length;
-			  const provedAgentDenominator = runtimeActiveAgentCount > 0 ? runtimeActiveAgentCount : visibleAgentTotal;
+			  const runtimeActiveAgentCount = activeVisibleAgents.length;
 			  const paperclipLivingOrgActive = houseOrchestrator?.summary?.paperclipLivingOrgActive ?? 0;
-			  topChips.push(["Runtime actif", `${fmtNum(runtimeActiveAgentCount)}/${fmtNum(visibleAgentTotal)} agents`], ["Travail prouvé", `${fmtNum(workingDispatchCount)} / ${fmtNum(provedAgentDenominator)} agents${orchStaleSuffix}`], ["Agents au repos", `${idleLeisureCount}/${visibleAgentTotal}`], ["Ordres non exécutés", `${fmtNum(localDispatchCount)}${orchStaleSuffix}`]);
-			  if (paperclipLivingOrgActive > 0) topChips.push(["Living Org", `${fmtNum(paperclipLivingOrgActive)} missions`]);
+			  topChips.push(
+			    ["Actifs", `${fmtNum(runtimeActiveAgentCount)}/${fmtNum(visibleAgentTotal)}`],
+			    ["Assets", localAssetCoverageLabel],
+			    ["Queue", `${fmtNum(localDispatchCount)}${orchStaleSuffix}`],
+			    ["Repos", `${fmtNum(idleLeisureCount)}`],
+			  );
+			  if (paperclipLivingOrgActive > 0) topChips.push(["Paperclip", `${fmtNum(paperclipLivingOrgActive)}`]);
 		  useEffect(() => {
 		    const iv = window.setInterval(() => setTelemetryNow(Date.now()), 1000);
 		    return () => window.clearInterval(iv);
@@ -2106,7 +2130,7 @@ export function WorldMapLiving({ snapshot, angelRoster, initialTruthMap, onSelec
   type HouseKpis = { kpis: Array<{ label: string; value: string; source?: string }>; gap?: string };
   const houseKpis = (id: string): HouseKpis => {
     const fromServer = houseKpiData?.[id]; if (fromServer && (fromServer.kpis.length > 0 || fromServer.gap)) return fromServer;
-    const a = viewSnapshot?.assetsWarehouse; const pn = viewSnapshot?.publisherNative; const pc = pn?.counts; const pubOk = pn?.ok ?? services.find((s) => (s.id ?? "").includes("publisher") || (s.label ?? "").toLowerCase().includes("publisher"))?.ok;
+    const a = viewSnapshot?.assetsWarehouse; const pn = viewSnapshot?.publisherNative; const pc = pn?.counts; const pb = viewSnapshot?.publisherBridge; const va = viewSnapshot?.videoAvailability; const latestMotion = va?.latestMotionProof ?? {}; const pubOk = pb?.ok ?? pn?.ok ?? services.find((s) => (s.id ?? "").includes("publisher") || (s.label ?? "").toLowerCase().includes("publisher"))?.ok;
     switch (id) {
       case "notebook_alm": return { kpis: [{ label: "Type", value: "Google NotebookLM", source: "cofiatWorldIdentity" }, { label: "État live", value: "lu via /api/…/notebooklm — détail dans Proof Ledger › NotebookLM", source: "api" }], gap: "Sources à re-sync (Chrome cowork) + push décisions chantier → notebooks." };
       case "proof_ledger": return { kpis: [{ label: "Type", value: "Module Preuve (config)", source: "cofiatAuthProofLedger" }, { label: "Auth critique", value: "9 GREEN/LIVE prouvés", source: "user_audit ledger" }], gap: "Vert seulement si chaque GREEN/LIVE porte sa preuve sourçable." };
@@ -2117,7 +2141,12 @@ export function WorldMapLiving({ snapshot, angelRoster, initialTruthMap, onSelec
         { label: "Orphelins", value: fmtNum(pc?.orphan), source: "publisher native :8000" },
         { label: "Gold prouvés", value: fmtNum(pc?.goldProved), source: "publisher native :8000" },
         { label: "Publish lock", value: pn?.publishLock?.reason ?? "R8_ERWIN_GATE_EXTERNAL_PUBLISH", source: "read-only" },
-        { label: "CofiaPublisher", value: pubOk === true ? "LIVE" : pubOk === false ? "DOWN" : "UNKNOWN", source: "native :8000 + legacy :8540" },
+        { label: "Bridge Hub :3000", value: pubOk === true ? "LIVE" : pubOk === false ? "DOWN" : "UNKNOWN", source: pb?.sourceTag ?? "CofiaPublisher :8540" },
+        { label: "Assets exportés", value: `${fmtNum(pb?.exportedAssetCount)}/${fmtNum(pb?.fullAssetCount)}`, source: pb?.endpoint ?? "hub bridge assets" },
+        { label: "Index SHA-256", value: fmtNum(pb?.sha256IndexCount), source: "asset vault recursive hash table" },
+        { label: "Doublons SHA", value: fmtNum(pb?.physicalDuplicateCount), source: "asset vault duplicate guard" },
+        { label: "Motion proofs", value: fmtNum(va?.motionProofCount), source: va?.sourceTag ?? "video availability bridge" },
+        { label: "Dernier proof", value: String(latestMotion.filename ?? "UNKNOWN"), source: String(latestMotion.path ?? va?.outputDir ?? "remotion/out") },
       ] };
       case "central_brain": return { kpis: [{ label: "Maisons registry", value: fmtNum(viewSnapshot?.centralBrain?.housesCount), source: "registry :8767" }, { label: "Services OK", value: `${servicesOk}/${services.length}`, source: "probes services locaux" }] };
       case "openclaw_agent_barracks": return { kpis: [{ label: "Agents runtime", value: openclawRuntime ? `${openclawRuntime.counts.fresh}/${openclawRuntime.counts.total} fresh` : "source down", source: "heartbeats" }, { label: "Gateway", value: runtimeGateway ? `${runtimeGateway.status}${runtimeGateway.http_code ? ` ${runtimeGateway.http_code}` : ""}` : "source down", source: "probe :18789" }] };
@@ -2208,7 +2237,7 @@ export function WorldMapLiving({ snapshot, angelRoster, initialTruthMap, onSelec
 	  const resetLayout = () => { markLayoutDirty(); setPosOverride({}); setSharedCam(canonicalCam); };
 	  const camG = `translate(${cam.tx.toFixed(2)} ${(cam.ty + WORLD_Y_OFFSET).toFixed(2)}) scale(${cam.z.toFixed(3)})`;
 	  return (
-    <div className="flex w-full max-w-none min-w-0 flex-col gap-2 overflow-hidden rounded-md border border-slate-500/30 bg-slate-950/88 p-2 text-slate-100 shadow-[0_24px_90px_rgba(2,6,23,0.55),inset_0_1px_0_rgba(255,255,255,0.06)] backdrop-blur" data-agent-count={canonAgents.length} data-agent-links-count={visibleAgents.length} data-mission-orders-count={houseMissions.length} data-mission-quality-average={missionQualityAverage} data-proof-ledger-quality-rows={missionQualityRows.length} data-house-local-dispatches={localDispatchCount} data-house-local-agent-coverage={`${localCoveredAgentCount}/${localTotalAgentCount || canonAgents.length}`} data-live-source-events-count={truthEvents.length} data-source-probe-events-count={sourceEvents.length} data-truth-source-count={truthSourceCount} data-hub-source-ledger-total={hubLedgerSummary?.declaredCoverageTotal ?? 0} data-hub-source-ledger-connected={hubLedgerSummary?.declaredCoverageConnected ?? 0} data-hub-source-ledger-proofed={hubLedgerSummary?.declaredCoverageProofed ?? 0} data-hub-source-ledger-false-green-downgrades={hubLedgerSummary?.falseGreenDowngrades ?? 0} data-hub-wiring-source={hubWiring?.sourceTag ?? "pending"} data-hub-wiring-policy={hubWiring?.policy ?? "pending"} data-hub-wiring-contracts={hubWiringSummary?.contracts ?? 0} data-hub-wiring-command={hubWiringSummary?.commandConnected ?? 0} data-hub-wiring-central={hubWiringSummary?.centralConnected ?? 0} data-hub-wiring-proof={hubWiringSummary?.proofConnected ?? 0} data-hub-wiring-runtime-active={hubWiringSummary?.runtimeActiveContracts ?? 0} data-hub-wiring-sleeping={hubWiringSummary?.sleepingContracts ?? 0} data-hub-wiring-spine-edges={`${hubWiringSummary?.connectedSpineEdges ?? 0}/${hubWiringSummary?.totalSpineEdges ?? 0}`} data-tool-operating-contracts={toolContractList.length} data-tool-contract-machines={machines.filter((machine) => Boolean(machine.contract)).length} data-tool-contract-policy={toolContracts?.policy ?? "pending"} data-shared-layout-camera={`${cam.z.toFixed(3)},${cam.tx.toFixed(1)},${cam.ty.toFixed(1)}`} data-shared-layout-viewport={`${Math.round(size.cw)}x${Math.round(size.ch)}`} data-console-mission-targets="removed" data-v2-world-map="mission-first-no-fake-motion" data-house-orchestrator-source={houseOrchestratorSource ?? "pending"} data-snapshot-source={viewSnapshot?.agentsCanon?.sourceTag ?? "pending"} data-leisure-park="ready" data-idle-leisure-agents={idleLeisureCount} data-queued-local-agents={0} data-runtime-active-agents={runtimeActiveAgentCount} data-structural-buildings={effHouses.length} data-neighborhood-tools-houses={Object.keys(machinesByHome).length} data-neighborhood-tools-total={machines.length}>
+    <div className="flex w-full max-w-none min-w-0 flex-col gap-2 overflow-hidden rounded-md border border-slate-500/30 bg-slate-950/88 p-2 text-slate-100 shadow-[0_24px_90px_rgba(2,6,23,0.55),inset_0_1px_0_rgba(255,255,255,0.06)] backdrop-blur" data-agent-count={canonAgents.length} data-agent-links-count={activeVisibleAgents.length} data-agent-placement-policy="runtime-proof-only-houses-idle-park" data-rest-park-agents={idleLeisureCount} data-mission-orders-count={houseMissions.length} data-mission-quality-average={missionQualityAverage} data-proof-ledger-quality-rows={missionQualityRows.length} data-house-local-dispatches={localDispatchCount} data-house-local-agent-coverage={`${localCoveredAgentCount}/${localTotalAgentCount || canonAgents.length}`} data-live-source-events-count={truthEvents.length} data-source-probe-events-count={sourceEvents.length} data-truth-source-count={truthSourceCount} data-hub-source-ledger-total={hubLedgerSummary?.declaredCoverageTotal ?? 0} data-hub-source-ledger-connected={hubLedgerSummary?.declaredCoverageConnected ?? 0} data-hub-source-ledger-proofed={hubLedgerSummary?.declaredCoverageProofed ?? 0} data-hub-source-ledger-false-green-downgrades={hubLedgerSummary?.falseGreenDowngrades ?? 0} data-hub-wiring-source={hubWiring?.sourceTag ?? "pending"} data-hub-wiring-policy={hubWiring?.policy ?? "pending"} data-hub-wiring-contracts={hubWiringSummary?.contracts ?? 0} data-hub-wiring-command={hubWiringSummary?.commandConnected ?? 0} data-hub-wiring-central={hubWiringSummary?.centralConnected ?? 0} data-hub-wiring-proof={hubWiringSummary?.proofConnected ?? 0} data-hub-wiring-runtime-active={hubWiringSummary?.runtimeActiveContracts ?? 0} data-hub-wiring-sleeping={hubWiringSummary?.sleepingContracts ?? 0} data-hub-wiring-spine-edges={`${hubWiringSummary?.connectedSpineEdges ?? 0}/${hubWiringSummary?.totalSpineEdges ?? 0}`} data-cofiapublisher-bridge-status={viewSnapshot?.publisherBridge?.status ?? "pending"} data-cofiapublisher-bridge-assets={`${viewSnapshot?.publisherBridge?.exportedAssetCount ?? 0}/${viewSnapshot?.publisherBridge?.fullAssetCount ?? 0}`} data-cofiapublisher-motion-proofs={viewSnapshot?.videoAvailability?.motionProofCount ?? 0} data-tool-operating-contracts={toolContractList.length} data-tool-contract-machines={machines.filter((machine) => Boolean(machine.contract)).length} data-tool-contract-policy={toolContracts?.policy ?? "pending"} data-shared-layout-camera={`${cam.z.toFixed(3)},${cam.tx.toFixed(1)},${cam.ty.toFixed(1)}`} data-shared-layout-viewport={`${Math.round(size.cw)}x${Math.round(size.ch)}`} data-console-mission-targets="removed" data-v2-world-map="asset-work-no-fake-motion" data-house-orchestrator-source={houseOrchestratorSource ?? "pending"} data-snapshot-source={viewSnapshot?.agentsCanon?.sourceTag ?? "pending"} data-leisure-park="ready" data-idle-leisure-agents={idleLeisureCount} data-queued-local-agents={0} data-runtime-active-agents={runtimeActiveAgentCount} data-structural-buildings={effHouses.length} data-neighborhood-tools-houses={Object.keys(machinesByHome).length} data-neighborhood-tools-total={machines.length}>
       <style>{`
         @keyframes cof-phone-work { 0%,100% { transform: rotate(-2deg) translateY(0); } 45% { transform: rotate(4deg) translateY(-1.2px); } }
         @keyframes cof-keyboard-work { 0%,100% { transform: translateY(0) scaleX(1); } 50% { transform: translateY(-1.4px) scaleX(1.035); } }
@@ -2241,8 +2270,8 @@ export function WorldMapLiving({ snapshot, angelRoster, initialTruthMap, onSelec
       `}</style>
 	      <div className="flex min-w-0 flex-wrap items-start justify-between gap-2 px-0.5">
 	        <div className="min-w-0 flex-1">
-	          <h2 className="truncate text-sm font-black uppercase tracking-wide text-cyan-100 sm:text-lg">Living World Map</h2>
-	          <p className="max-w-full truncate text-[8.5px] uppercase tracking-[0.13em] text-slate-400 sm:text-[9.5px] sm:tracking-[0.18em]">Maisons · agents · machines · sources canon · source ledger · {agentCountLabel} agents</p>
+	          <h2 className="truncate text-sm font-black uppercase tracking-wide text-cyan-100 sm:text-lg">Agents & Assets</h2>
+	          <p className="max-w-full truncate text-[8.5px] uppercase tracking-[0.13em] text-slate-400 sm:text-[9.5px] sm:tracking-[0.18em]">{runtimeActiveAgentCount ? "travail prouvé récent" : "repos prouvé, aucune exécution runtime"}</p>
 	        </div>
 	        <div className="flex max-w-full min-w-0 flex-wrap items-center justify-end gap-1 whitespace-normal text-[9px] sm:max-w-[76vw] sm:text-[9.5px]">
 	          {topChips.map(([k, v]) => (
@@ -2418,7 +2447,7 @@ export function WorldMapLiving({ snapshot, angelRoster, initialTruthMap, onSelec
 	          <MissionQualityAuditMesh built={scene.built} rows={missionQualityRows} selectedHouse={selectedHouse} />
 
 	          {/* parcelles + bâtiments (tri profondeur) */}
-	          {builtSorted.map((b) => (<Building key={b.house.id} b={b} editMode={editMode} status={statusFor(b.house.id)} activity={houseActivity[b.house.id] ?? { state: "idle" }} mission={houseMissionsById[b.house.id] ?? null} missionQuality={missionQualityByHouse[b.house.id] ?? null} truthSources={truthByHouse[b.house.id] ?? []} selected={selectedHouse === b.house.id} hover={hoverHouse === b.house.id} dim={!!selectedHouse && selectedHouse !== b.house.id} machines={machinesByHome[b.house.id] ?? []} assetCount={(inventoryByHouse[b.house.id] ?? []).length} agentCount={(agentsByHome[b.house.id] ?? []).length} onSelect={() => { if (movedRef.current) { movedRef.current = false; return; } clearSel(); setSelectedHouse(b.house.id); setHouseTab("vue"); onSelectHouse(b.house.id); }} onDirectSelect={() => { movedRef.current = false; clearSel(); setSelectedHouse(b.house.id); setHouseTab("vue"); onSelectHouse(b.house.id); }} onHover={(v) => setHoverHouse(v ? b.house.id : null)} onMachine={(m) => { clearSel(); setSelectedMachine(m); }} />))}
+	          {builtSorted.map((b) => (<Building key={b.house.id} b={b} editMode={editMode} status={statusFor(b.house.id)} activity={houseActivity[b.house.id] ?? { state: "idle" }} mission={houseMissionsById[b.house.id] ?? null} missionQuality={missionQualityByHouse[b.house.id] ?? null} truthSources={truthByHouse[b.house.id] ?? []} selected={selectedHouse === b.house.id} hover={hoverHouse === b.house.id} dim={!!selectedHouse && selectedHouse !== b.house.id} machines={machinesByHome[b.house.id] ?? []} assetCount={(inventoryByHouse[b.house.id] ?? []).length} agentCount={workingAgentCountByHome[b.house.id] ?? 0} onSelect={() => { if (movedRef.current) { movedRef.current = false; return; } clearSel(); setSelectedHouse(b.house.id); setHouseTab("vue"); onSelectHouse(b.house.id); }} onDirectSelect={() => { movedRef.current = false; clearSel(); setSelectedHouse(b.house.id); setHouseTab("vue"); onSelectHouse(b.house.id); }} onHover={(v) => setHoverHouse(v ? b.house.id : null)} onMachine={(m) => { clearSel(); setSelectedMachine(m); }} />))}
           {scene.built.map((b) => b.house.id === "proof_ledger" ? (
             <ProofLedgerCinemaScreen
               key="proof-ledger-cinema-screen"
@@ -2432,8 +2461,8 @@ export function WorldMapLiving({ snapshot, angelRoster, initialTruthMap, onSelec
 	              proofActive={runtimeActiveAgentCount > 0 && workingDispatchCount > 0}
 	            />
 	          ) : null)}
-	          <ProofLedgerOperationsMesh built={scene.built} machines={machines} agentCount={visibleAgents.length} qualityAverage={missionQualityAverage} selectedHouse={selectedHouse} />
-	          <ProofLedgerAgentAuditMesh built={scene.built} agents={visibleAgents} selectedHouse={selectedHouse} />
+	          <ProofLedgerOperationsMesh built={scene.built} machines={machines} agentCount={activeVisibleAgents.length} qualityAverage={missionQualityAverage} selectedHouse={selectedHouse} />
+	          <ProofLedgerAgentAuditMesh built={scene.built} agents={activeVisibleAgents} selectedHouse={selectedHouse} />
 		          {uiScale <= 0 && <g data-svg-agent-layer="proof-state">
 	            {visibleAgents.map(({ agent, wx, wy, state, parkedVehicleOnly }) => parkedVehicleOnly ? null : (<SvgAgentMarker key={`svg-agent-${agent.id}`} agent={agent} wx={wx} wy={wy} state={state} tool={isAgentWorkingState(state) ? agentWorkProfilesById[agent.id]?.tool ?? null : null} />))}
 	          </g>}
@@ -2475,6 +2504,7 @@ export function WorldMapLiving({ snapshot, angelRoster, initialTruthMap, onSelec
         <svg className="pointer-events-none absolute inset-0 z-[9] h-full w-full overflow-hidden">
 	          {uiScale > 0 && visibleAgents.map(({ agent, wx, wy, state, parkedVehicleOnly }) => {
 	            if (parkedVehicleOnly) return null;
+	            if (!isAgentWorkingState(state)) return null;
 	            const house = EFF_BY_ID[agent.house]; if (!house) return null;
 	            const from = project(houseFrontWorld(house).wx, houseFrontWorld(house).wy);
             const to = project(wx, wy);
@@ -2483,7 +2513,7 @@ export function WorldMapLiving({ snapshot, angelRoster, initialTruthMap, onSelec
             if (!hot) return null;
             return (
               <g key={`agent-link-${agent.id}`} opacity={0.82}>
-                <line x1={from.x.toFixed(1)} y1={from.y.toFixed(1)} x2={to.x.toFixed(1)} y2={to.y.toFixed(1)} stroke={agent.colorAccent || agent.colorPrimary || "#67e8f9"} strokeWidth={1.15} strokeLinecap="round" strokeDasharray={!isAgentWorkingState(state) ? "2 5" : undefined} />
+                <line x1={from.x.toFixed(1)} y1={from.y.toFixed(1)} x2={to.x.toFixed(1)} y2={to.y.toFixed(1)} stroke={agent.colorAccent || agent.colorPrimary || "#67e8f9"} strokeWidth={1.15} strokeLinecap="round" />
                 <circle cx={from.x.toFixed(1)} cy={from.y.toFixed(1)} r={2} fill={agent.colorPrimary || "#67e8f9"} />
               </g>
             );
@@ -2528,7 +2558,7 @@ export function WorldMapLiving({ snapshot, angelRoster, initialTruthMap, onSelec
         <div onPointerDown={(e) => e.stopPropagation()} className="absolute bottom-2 left-2 right-2 z-10 flex flex-wrap items-center justify-center gap-x-3 gap-y-1 rounded-md border border-slate-500/35 bg-slate-950/88 px-3 py-1.5 text-[9px] text-slate-300 shadow-[0_10px_28px_rgba(2,6,23,0.4)] backdrop-blur sm:left-1/2 sm:right-auto sm:max-w-[88%] sm:-translate-x-1/2">
           {([["LIVE", "#34d399"], ["ORDRE LOCAL", "#22d3ee"], ["REGISTERED", "#f59e0b"], ["EN VEILLE", "#64748b"], ["SOURCE DOWN", "#ef4444"]] as Array<[string, string]>).map(([l, c]) => (<span key={l} className="flex items-center gap-1.5"><svg width="9" height="12" viewBox="0 0 9 12"><rect x="0.5" y="0.5" width="1.6" height="11" fill="#64748b" /><path d="M2 1 L8 2.4 L2 4.2 Z" fill={c} /></svg>{l}</span>))}
           <span className="text-slate-600">|</span>
-          <span>sources prouvées <b className="text-cyan-200">{truthLiveCount}/{truthSourceCount || "—"}</b> · hub câblé <b className="text-cyan-200">{hubLedgerConnectionLabel}</b> · spine <b className="text-cyan-200">{hubWiringLabel}</b> · runtime outils {hubWiringSummary?.runtimeActiveContracts ?? 0} · ordres locaux {localDispatchCount} · agents {localAgentCoverageLabel}</span>
+          <span>actifs <b className="text-cyan-200">{runtimeActiveAgentCount}/{visibleAgentTotal}</b> · assets <b className="text-cyan-200">{localAssetCoverageLabel}</b> · queue <b className="text-cyan-200">{localDispatchCount}</b> · repos <b className="text-cyan-200">{idleLeisureCount}</b></span>
           {truthBadLiveCount > 0 && <span className="font-bold text-rose-300">LIVE invalide {truthBadLiveCount}</span>}
         </div>
 
