@@ -48,7 +48,7 @@ type HouseMissionRecord = {
 };
 type HouseOrchestratorPayload = {
   ok?: boolean; sourceTag?: string; generatedAtUtc?: string; executedAtUtc?: string | null;
-  summary?: { houses?: number; queuedDispatches?: number; coveredAgents?: number; totalAgents?: number; assetsAssigned?: number; housesWithLocalQueue?: number; runtimeActiveDispatches?: number; paperclipLivingOrgActive?: number; paperclipLivingOrgCheckedAt?: string | null; paperclipLivingOrgProof?: string };
+  summary?: { houses?: number; queuedDispatches?: number; expiredQueuedDispatches?: number; localQueueTtlMinutes?: number; coveredAgents?: number; totalAgents?: number; assetsAssigned?: number; housesWithLocalQueue?: number; runtimeActiveDispatches?: number; paperclipLivingOrgActive?: number; paperclipLivingOrgCheckedAt?: string | null; paperclipLivingOrgProof?: string };
   houseMissions?: HouseMissionRecord[];
 };
 type SystemHealthPayload = {
@@ -209,6 +209,43 @@ const PLANNED_IDS = new Set<string>(["cofiapublisher_render_farm", "cofiapublish
 const ALL_HOUSES: House[] = [...HOUSES, ...MODULES, ...PLANNED_HOUSES];
 const MODULE_IDS = new Set<string>(["notebook_alm", "proof_ledger"]);
 const HOUSE_BY_ID: Record<string, House> = Object.fromEntries(ALL_HOUSES.map((h) => [h.id, h]));
+type HouseTab = "live" | "vue" | "kpis" | "anges" | "machines" | "inventaire" | "hub";
+type CanonicalEmbed = { accent: string; label: string; title: string; url: string; canonicalUrl: string };
+const TRADING_RESEARCH_OS_URL = "http://127.0.0.1:8799/trading_research_os_v3.html?tab=vip&page=v-compliance";
+const CANONICAL_EMBEDS_BY_HOUSE: Partial<Record<string, CanonicalEmbed>> = {
+  youtube_studio: {
+    accent: "#ff2d55",
+    label: "CofiaPublisher :8540",
+    title: "CofiaPublisher - rendu et Asset Vault",
+    url: "/api/cofiatrading-world-control/cofiapublisher?view=html",
+    canonicalUrl: "http://127.0.0.1:8540",
+  },
+  mt4_signal_tower: {
+    accent: "#00e676",
+    label: "Trading Research OS :8799",
+    title: "Trading Research OS - Data & Finances",
+    url: TRADING_RESEARCH_OS_URL,
+    canonicalUrl: TRADING_RESEARCH_OS_URL,
+  },
+  iron_office: {
+    accent: "#ffd400",
+    label: "Trading Research OS :8799",
+    title: "Trading Research OS - Data & Finances",
+    url: TRADING_RESEARCH_OS_URL,
+    canonicalUrl: TRADING_RESEARCH_OS_URL,
+  },
+  // Harmonisation DT : site_seo_lab ouvre le MÊME embed Trading OS :8799 qu'iron_office.
+  // NB sémantique : site_seo_lab est nativement la maison de l'API search :8799 ; si le patron veut
+  // l'onglet SEO/search plutôt que tab=vip&page=v-compliance, changer le param `tab` de TRADING_RESEARCH_OS_URL.
+  site_seo_lab: {
+    accent: "#7dd3fc",
+    label: "Trading Research OS :8799",
+    title: "Trading Research OS - Data & Finances",
+    url: TRADING_RESEARCH_OS_URL,
+    canonicalUrl: TRADING_RESEARCH_OS_URL,
+  },
+};
+const defaultHouseTab = (houseId: string): HouseTab => CANONICAL_EMBEDS_BY_HOUSE[houseId] ? "live" : "vue";
 
 /* ════════ Routes (chemins réels entre maisons) ════════ */
 const ROAD_LINKS: Array<[string, string, "main" | "second"]> = [
@@ -960,7 +997,7 @@ export function WorldMapLiving({ snapshot, angelRoster, initialTruthMap, onSelec
   const [hoverAgent, setHoverAgent] = useState<string | null>(null);
   const [agentTelemetry, setAgentTelemetry] = useState<Record<string, AgentTelemetry>>({});
   const [telemetryNow, setTelemetryNow] = useState(() => Date.now());
-  const [houseTab, setHouseTab] = useState<"vue" | "kpis" | "anges" | "machines" | "inventaire" | "hub">("vue");
+  const [houseTab, setHouseTab] = useState<HouseTab>("vue");
   const [houseKpiData, setHouseKpiData] = useState<Record<string, { kpis: Array<{ label: string; value: string; source?: string }>; gap?: string }> | null>(null);
   const [houseOrchestrator, setHouseOrchestrator] = useState<HouseOrchestratorPayload | null>(() => snapshot?.houseOrchestrator ?? null);
   const [systemHealth, setSystemHealth] = useState<SystemHealthPayload | null>(null);
@@ -1750,7 +1787,7 @@ export function WorldMapLiving({ snapshot, angelRoster, initialTruthMap, onSelec
     [houseOrchestrator?.houseMissions, viewSnapshot?.houseMissions],
   );
   const houseMissionsById = useMemo(() => Object.fromEntries(houseMissions.map((mission) => [mission.houseId, mission])) as Record<string, HouseMissionRecord | undefined>, [houseMissions]);
-  const localDispatchCount = houseOrchestrator?.summary?.queuedDispatches
+  const rawLocalDispatchCount = houseOrchestrator?.summary?.queuedDispatches
     ?? houseMissions.reduce((total, mission) => total + (mission.localQueue?.dispatches ?? mission.counts?.activeTasks ?? 0), 0);
   const localCoveredAgentCount = houseOrchestrator?.summary?.coveredAgents
     ?? new Set(houseMissions.flatMap((mission) => (mission.dispatches ?? []).map((dispatch) => dispatch.agentId))).size;
@@ -1770,6 +1807,8 @@ export function WorldMapLiving({ snapshot, angelRoster, initialTruthMap, onSelec
   const houseOrchestratorAgeH = Number.isFinite(houseOrchestratorRunMs) ? (telemetryNow - houseOrchestratorRunMs) / 3_600_000 : null;
   const houseOrchestratorStale = houseOrchestratorAgeH != null && houseOrchestratorAgeH >= 2;
   const orchStaleSuffix = houseOrchestratorStale ? ` ⚠PÉRIMÉ ${Math.floor(houseOrchestratorAgeH)}h` : "";
+  const expiredLocalDispatchCount = houseOrchestrator?.summary?.expiredQueuedDispatches ?? (houseOrchestratorStale ? rawLocalDispatchCount : 0);
+  const localDispatchCount = houseOrchestratorStale ? 0 : rawLocalDispatchCount;
   const orchestratedHouseLabel = houseMissions.length ? `${activeWorkHouseCount}/${houseMissions.length}${orchStaleSuffix}` : "sync...";
   const localAssetCoverageLabel = typeof houseOrchestrator?.summary?.assetsAssigned === "number"
     ? fmtNum(houseOrchestrator.summary.assetsAssigned)
@@ -1971,6 +2010,7 @@ export function WorldMapLiving({ snapshot, angelRoster, initialTruthMap, onSelec
 	  }, [canonAgents, inventory]);
 	  const runtimeAgentsByHome = useMemo(() => { const map: Record<string, RuntimeAgent[]> = {}; for (const agent of openclawRuntime?.agents ?? []) { const home = HOUSE_BY_ID[agent.homeHouse] ? agent.homeHouse : "openclaw_agent_barracks"; (map[home] ||= []).push(agent); } return map; }, [openclawRuntime]);
   const selZone = HOUSE_BY_ID[selectedHouse ?? ""] ?? null;
+  const canonicalEmbed = selZone ? CANONICAL_EMBEDS_BY_HOUSE[selZone.id] ?? null : null;
 
   const activityEvents = useMemo(() => {
     return [...truthEvents, ...worldStateEvents];
@@ -2132,7 +2172,7 @@ export function WorldMapLiving({ snapshot, angelRoster, initialTruthMap, onSelec
 			  topChips.push(
 			    ["Actifs", `${fmtNum(runtimeActiveAgentCount)}/${fmtNum(visibleAgentTotal)}`],
 			    ["Assets", localAssetCoverageLabel],
-			    ["Queue", `${fmtNum(localDispatchCount)}${orchStaleSuffix}`],
+			    ["Queue", `${fmtNum(localDispatchCount)}`],
 			    ["Repos", `${fmtNum(idleLeisureCount)}`],
 			  );
 			  if (paperclipLivingOrgActive > 0) topChips.push(["Paperclip", `${fmtNum(paperclipLivingOrgActive)}`]);
@@ -2289,7 +2329,7 @@ export function WorldMapLiving({ snapshot, angelRoster, initialTruthMap, onSelec
 	  const resetLayout = () => { markLayoutDirty(); setPosOverride({}); setSharedCam(canonicalCam); };
 	  const camG = `translate(${cam.tx.toFixed(2)} ${(cam.ty + WORLD_Y_OFFSET).toFixed(2)}) scale(${cam.z.toFixed(3)})`;
 	  return (
-    <div className="flex w-full max-w-none min-w-0 flex-col gap-2 overflow-hidden rounded-md border border-slate-500/30 bg-slate-950/88 p-2 text-slate-100 shadow-[0_24px_90px_rgba(2,6,23,0.55),inset_0_1px_0_rgba(255,255,255,0.06)] backdrop-blur" data-agent-count={canonAgents.length} data-agent-links-count={activeVisibleAgents.length} data-agent-placement-policy="runtime-proof-only-houses-idle-park" data-rest-park-agents={idleLeisureCount} data-mission-orders-count={houseMissions.length} data-mission-quality-average={missionQualityAverage} data-proof-ledger-quality-rows={missionQualityRows.length} data-house-local-dispatches={localDispatchCount} data-house-local-agent-coverage={`${localCoveredAgentCount}/${localTotalAgentCount || canonAgents.length}`} data-live-source-events-count={truthEvents.length} data-source-probe-events-count={sourceEvents.length} data-truth-source-count={truthSourceCount} data-hub-source-ledger-total={hubLedgerSummary?.declaredCoverageTotal ?? 0} data-hub-source-ledger-connected={hubLedgerSummary?.declaredCoverageConnected ?? 0} data-hub-source-ledger-proofed={hubLedgerSummary?.declaredCoverageProofed ?? 0} data-hub-source-ledger-false-green-downgrades={hubLedgerSummary?.falseGreenDowngrades ?? 0} data-hub-wiring-source={hubWiring?.sourceTag ?? "pending"} data-hub-wiring-policy={hubWiring?.policy ?? "pending"} data-hub-wiring-contracts={hubWiringSummary?.contracts ?? 0} data-hub-wiring-command={hubWiringSummary?.commandConnected ?? 0} data-hub-wiring-central={hubWiringSummary?.centralConnected ?? 0} data-hub-wiring-proof={hubWiringSummary?.proofConnected ?? 0} data-hub-wiring-runtime-active={hubWiringSummary?.runtimeActiveContracts ?? 0} data-hub-wiring-sleeping={hubWiringSummary?.sleepingContracts ?? 0} data-hub-wiring-spine-edges={`${hubWiringSummary?.connectedSpineEdges ?? 0}/${hubWiringSummary?.totalSpineEdges ?? 0}`} data-cofiapublisher-bridge-status={viewSnapshot?.publisherBridge?.status ?? "pending"} data-cofiapublisher-bridge-assets={`${viewSnapshot?.publisherBridge?.exportedAssetCount ?? 0}/${viewSnapshot?.publisherBridge?.fullAssetCount ?? 0}`} data-cofiapublisher-motion-proofs={viewSnapshot?.videoAvailability?.motionProofCount ?? 0} data-tool-operating-contracts={toolContractList.length} data-tool-contract-machines={machines.filter((machine) => Boolean(machine.contract)).length} data-tool-contract-policy={toolContracts?.policy ?? "pending"} data-shared-layout-camera={`${cam.z.toFixed(3)},${cam.tx.toFixed(1)},${cam.ty.toFixed(1)}`} data-shared-layout-viewport={`${Math.round(size.cw)}x${Math.round(size.ch)}`} data-console-mission-targets="removed" data-v2-world-map="asset-work-no-fake-motion" data-house-orchestrator-source={houseOrchestratorSource ?? "pending"} data-snapshot-source={viewSnapshot?.agentsCanon?.sourceTag ?? "pending"} data-leisure-park="ready" data-idle-leisure-agents={idleLeisureCount} data-queued-local-agents={0} data-runtime-active-agents={runtimeActiveAgentCount} data-structural-buildings={effHouses.length} data-neighborhood-tools-houses={Object.keys(machinesByHome).length} data-neighborhood-tools-total={machines.length}>
+    <div className="flex w-full max-w-none min-w-0 flex-col gap-2 overflow-hidden rounded-md border border-slate-500/30 bg-slate-950/88 p-2 text-slate-100 shadow-[0_24px_90px_rgba(2,6,23,0.55),inset_0_1px_0_rgba(255,255,255,0.06)] backdrop-blur" data-agent-count={canonAgents.length} data-agent-links-count={activeVisibleAgents.length} data-agent-placement-policy="runtime-proof-only-houses-idle-park" data-rest-park-agents={idleLeisureCount} data-mission-orders-count={houseMissions.length} data-mission-quality-average={missionQualityAverage} data-proof-ledger-quality-rows={missionQualityRows.length} data-house-local-dispatches={localDispatchCount} data-house-expired-dispatches={expiredLocalDispatchCount} data-house-local-agent-coverage={`${localCoveredAgentCount}/${localTotalAgentCount || canonAgents.length}`} data-live-source-events-count={truthEvents.length} data-source-probe-events-count={sourceEvents.length} data-truth-source-count={truthSourceCount} data-hub-source-ledger-total={hubLedgerSummary?.declaredCoverageTotal ?? 0} data-hub-source-ledger-connected={hubLedgerSummary?.declaredCoverageConnected ?? 0} data-hub-source-ledger-proofed={hubLedgerSummary?.declaredCoverageProofed ?? 0} data-hub-source-ledger-false-green-downgrades={hubLedgerSummary?.falseGreenDowngrades ?? 0} data-hub-wiring-source={hubWiring?.sourceTag ?? "pending"} data-hub-wiring-policy={hubWiring?.policy ?? "pending"} data-hub-wiring-contracts={hubWiringSummary?.contracts ?? 0} data-hub-wiring-command={hubWiringSummary?.commandConnected ?? 0} data-hub-wiring-central={hubWiringSummary?.centralConnected ?? 0} data-hub-wiring-proof={hubWiringSummary?.proofConnected ?? 0} data-hub-wiring-runtime-active={hubWiringSummary?.runtimeActiveContracts ?? 0} data-hub-wiring-sleeping={hubWiringSummary?.sleepingContracts ?? 0} data-hub-wiring-spine-edges={`${hubWiringSummary?.connectedSpineEdges ?? 0}/${hubWiringSummary?.totalSpineEdges ?? 0}`} data-cofiapublisher-bridge-status={viewSnapshot?.publisherBridge?.status ?? "pending"} data-cofiapublisher-bridge-assets={`${viewSnapshot?.publisherBridge?.exportedAssetCount ?? 0}/${viewSnapshot?.publisherBridge?.fullAssetCount ?? 0}`} data-cofiapublisher-motion-proofs={viewSnapshot?.videoAvailability?.motionProofCount ?? 0} data-tool-operating-contracts={toolContractList.length} data-tool-contract-machines={machines.filter((machine) => Boolean(machine.contract)).length} data-tool-contract-policy={toolContracts?.policy ?? "pending"} data-shared-layout-camera={`${cam.z.toFixed(3)},${cam.tx.toFixed(1)},${cam.ty.toFixed(1)}`} data-shared-layout-viewport={`${Math.round(size.cw)}x${Math.round(size.ch)}`} data-console-mission-targets="removed" data-v2-world-map="asset-work-no-fake-motion" data-house-orchestrator-source={houseOrchestratorSource ?? "pending"} data-snapshot-source={viewSnapshot?.agentsCanon?.sourceTag ?? "pending"} data-leisure-park="ready" data-idle-leisure-agents={idleLeisureCount} data-queued-local-agents={0} data-runtime-active-agents={runtimeActiveAgentCount} data-structural-buildings={effHouses.length} data-neighborhood-tools-houses={Object.keys(machinesByHome).length} data-neighborhood-tools-total={machines.length}>
       <style>{`
         @keyframes cof-phone-work { 0%,100% { transform: rotate(-2deg) translateY(0); } 45% { transform: rotate(4deg) translateY(-1.2px); } }
         @keyframes cof-keyboard-work { 0%,100% { transform: translateY(0) scaleX(1); } 50% { transform: translateY(-1.4px) scaleX(1.035); } }
@@ -2506,7 +2546,7 @@ export function WorldMapLiving({ snapshot, angelRoster, initialTruthMap, onSelec
 	          <MissionQualityAuditMesh built={scene.built} rows={missionQualityRows} selectedHouse={selectedHouse} />
 
 	          {/* parcelles + bâtiments (tri profondeur) */}
-	          {builtSorted.map((b) => (<Building key={b.house.id} b={b} editMode={editMode} status={statusFor(b.house.id)} activity={houseActivity[b.house.id] ?? { state: "idle" }} mission={houseMissionsById[b.house.id] ?? null} missionQuality={missionQualityByHouse[b.house.id] ?? null} truthSources={truthByHouse[b.house.id] ?? []} selected={selectedHouse === b.house.id} hover={hoverHouse === b.house.id} dim={!!selectedHouse && selectedHouse !== b.house.id} machines={machinesByHome[b.house.id] ?? []} assetCount={(inventoryByHouse[b.house.id] ?? []).length} agentCount={workingAgentCountByHome[b.house.id] ?? 0} onSelect={() => { if (movedRef.current) { movedRef.current = false; return; } clearSel(); setSelectedHouse(b.house.id); setHouseTab("vue"); onSelectHouse(b.house.id); }} onDirectSelect={() => { movedRef.current = false; clearSel(); setSelectedHouse(b.house.id); setHouseTab("vue"); onSelectHouse(b.house.id); }} onHover={(v) => setHoverHouse(v ? b.house.id : null)} onMachine={(m) => { clearSel(); setSelectedMachine(m); }} />))}
+	          {builtSorted.map((b) => (<Building key={b.house.id} b={b} editMode={editMode} status={statusFor(b.house.id)} activity={houseActivity[b.house.id] ?? { state: "idle" }} mission={houseMissionsById[b.house.id] ?? null} missionQuality={missionQualityByHouse[b.house.id] ?? null} truthSources={truthByHouse[b.house.id] ?? []} selected={selectedHouse === b.house.id} hover={hoverHouse === b.house.id} dim={!!selectedHouse && selectedHouse !== b.house.id} machines={machinesByHome[b.house.id] ?? []} assetCount={(inventoryByHouse[b.house.id] ?? []).length} agentCount={workingAgentCountByHome[b.house.id] ?? 0} onSelect={() => { if (movedRef.current) { movedRef.current = false; return; } clearSel(); setSelectedHouse(b.house.id); setHouseTab(defaultHouseTab(b.house.id)); onSelectHouse(b.house.id); }} onDirectSelect={() => { movedRef.current = false; clearSel(); setSelectedHouse(b.house.id); setHouseTab(defaultHouseTab(b.house.id)); onSelectHouse(b.house.id); }} onHover={(v) => setHoverHouse(v ? b.house.id : null)} onMachine={(m) => { clearSel(); setSelectedMachine(m); }} />))}
           {scene.built.map((b) => b.house.id === "proof_ledger" ? (
             <ProofLedgerCinemaScreen
               key="proof-ledger-cinema-screen"
@@ -2546,7 +2586,7 @@ export function WorldMapLiving({ snapshot, angelRoster, initialTruthMap, onSelec
 	                    height={height}
 	                    fill="rgba(255,255,255,0.01)"
 	                    style={{ cursor: "pointer" }}
-	                    onPointerDown={(e) => { e.stopPropagation(); movedRef.current = false; clearSel(); setSelectedHouse(house.id); setHouseTab("vue"); onSelectHouse(house.id); }}
+	                    onPointerDown={(e) => { e.stopPropagation(); movedRef.current = false; clearSel(); setSelectedHouse(house.id); setHouseTab(defaultHouseTab(house.id)); onSelectHouse(house.id); }}
 	                    onClick={(e) => { e.stopPropagation(); }}
 	                  />
 	                );
@@ -2684,12 +2724,59 @@ export function WorldMapLiving({ snapshot, angelRoster, initialTruthMap, onSelec
                 const missionChief = houseMission?.chief?.name ?? houseMission?.chiefs?.[0]?.name ?? houseAgents[0]?.name ?? "chef à relier";
                 const missionWorkers = (houseMission?.workers?.map((worker) => worker.name) ?? houseAgents.slice(1).map((agent) => agent.name)).slice(0, 6);
                 const missionProofLabel = houseMissionLive ? "runtime prouvé" : houseMissionLocal ? `dispatch local prouvé: ${missionQueueCount} ordre(s)` : `source seule: ${houseMission?.mission.proofStatus ?? "PENDING"}`;
-                const tabs: Array<[typeof houseTab, string]> = [["vue", "Vue"], ["kpis", "KPIs"], ["anges", `Agents ${houseAgents.length}`], ["machines", `Machines ${houseMachines.length}`], ["inventaire", `Inventaire ${houseInv.length}`], ["hub", `Hub ${houseHubStats?.total ?? houseHubLedger.length}`]];
+                const canonicalEmbed = CANONICAL_EMBEDS_BY_HOUSE[selZone.id] ?? null;
+                const tabs: Array<[HouseTab, string]> = [
+                  ...(canonicalEmbed ? [["live", "Live"] as [HouseTab, string]] : []),
+                  ["vue", "Vue"],
+                  ["kpis", "KPIs"],
+                  ["anges", `Agents ${houseAgents.length}`],
+                  ["machines", `Machines ${houseMachines.length}`],
+                  ["inventaire", `Inventaire ${houseInv.length}`],
+                  ["hub", `Hub ${houseHubStats?.total ?? houseHubLedger.length}`],
+                ];
 	                return (
 	                  <>
 	                    <div className="mt-2 flex gap-1 border-b border-slate-700/50">{tabs.map(([k, label]) => (<button key={k} type="button" onClick={() => setHouseTab(k)} className={`px-1.5 pb-1 text-[9.5px] font-bold uppercase tracking-wide ${houseTab === k ? "border-b-2 border-cyan-300 text-cyan-200" : "text-slate-400 hover:text-slate-200"}`}>{label}</button>))}</div>
+	                    {houseTab === "live" && canonicalEmbed && (
+	                      <div
+	                        className="mt-2 overflow-hidden rounded-md border bg-slate-950"
+	                        style={{ borderColor: `${canonicalEmbed.accent}55` }}
+	                        data-canonical-service-embed={selZone.id}
+	                        data-canonical-url={canonicalEmbed.canonicalUrl}
+	                      >
+	                        <div className="flex min-w-0 items-center justify-between gap-2 border-b border-slate-800 px-2 py-1">
+	                          <span className="min-w-0 truncate text-[10px] font-black uppercase tracking-wide" style={{ color: canonicalEmbed.accent }}>{canonicalEmbed.label}</span>
+	                          <span className="shrink-0 rounded bg-slate-900 px-1.5 py-0.5 text-[8px] font-black text-slate-300">CANON</span>
+	                        </div>
+	                        <iframe
+	                          key={canonicalEmbed.url}
+	                          title={canonicalEmbed.title}
+	                          src={canonicalEmbed.url}
+	                          className="h-[min(64vh,720px)] w-full bg-white"
+	                          loading="lazy"
+	                          referrerPolicy="same-origin"
+	                          sandbox="allow-downloads allow-forms allow-popups allow-same-origin allow-scripts"
+	                        />
+	                      </div>
+	                    )}
 	                    {houseTab === "vue" && (
 	                      <div className="mt-2">
+	                        {canonicalEmbed && (
+	                          <div className="mb-2 overflow-hidden rounded border bg-slate-950/70" style={{ borderColor: `${canonicalEmbed.accent}55` }} data-canonical-embed-house={selZone.id} data-canonical-embed-url={canonicalEmbed.url}>
+	                            <div className="flex items-center justify-between gap-2 border-b border-slate-800 px-2 py-1">
+	                              <span className="truncate text-[10px] font-black uppercase" style={{ color: canonicalEmbed.accent }}>{canonicalEmbed.label}</span>
+	                              <span className="truncate text-[8px] text-slate-500">{canonicalEmbed.url}</span>
+	                            </div>
+	                            <iframe
+	                              src={canonicalEmbed.url}
+	                              title={`${canonicalEmbed.label} intégré`}
+	                              className="h-[220px] w-full border-0 bg-slate-950"
+	                              loading="lazy"
+	                              referrerPolicy="no-referrer"
+	                              sandbox="allow-forms allow-same-origin allow-scripts"
+	                            />
+	                          </div>
+	                        )}
 	                        {selZone.id === "central_brain" && (
 	                          <div className="mb-2 rounded border border-violet-400/25 bg-violet-400/5 p-1.5" data-central-brain-system-health="live-inspector">
 	                            <div className="flex items-center justify-between gap-2">
