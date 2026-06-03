@@ -2329,6 +2329,7 @@ export function WorldMapLiving({ snapshot, angelRoster, initialTruthMap, onSelec
 	          {topChips.map(([k, v]) => (
             <span key={k} className="inline-flex shrink-0 items-baseline gap-1 rounded-md border border-slate-600/40 bg-slate-950/70 px-1.5 py-0.5 shadow-[inset_0_1px_0_rgba(255,255,255,0.05)]"><span className="text-slate-400">{k}</span><span className="font-bold text-slate-50">{v}</span></span>
           ))}
+          <MrrKpiChip />
         </div>
       </div>
 
