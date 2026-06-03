@@ -29,8 +29,12 @@ export async function GET() {
     const generatedAtUtc = typeof parsed.generated_at_utc === "string" ? parsed.generated_at_utc : null;
     const ageSec = generatedAtUtc ? Math.max(0, Math.round((Date.parse(asOf) - Date.parse(generatedAtUtc)) / 1000)) : null;
     const stale = ageSec === null || ageSec > MAX_AGE_SEC;
-    // Tag réconciliation piloté par la DONNÉE réelle, pas forcé : cible MRR non atteinte → TARGET_FALSE_CURRENTLY.
-    const reconcileTag = mrrEur !== null && target !== null && mrrEur < target ? "TARGET_FALSE_CURRENTLY" : "ON_TARGET";
+    // Tag réconciliation piloté par la DONNÉE réelle, jamais forcé :
+    //   mrr < cible → TARGET_FALSE_CURRENTLY (badge ambre warning)
+    //   mrr >= cible → TARGET_CONFIRMED (badge vert production) — n'arrive QUE si Stripe le prouve
+    //   donnée absente → UNKNOWN (jamais "confirmé" par défaut)
+    const reconcileTag =
+      mrrEur === null || target === null ? "UNKNOWN" : mrrEur < target ? "TARGET_FALSE_CURRENTLY" : "TARGET_CONFIRMED";
     return NextResponse.json(
       { ok: mrrEur !== null && !stale, mrrEur, activeVip, pastDue, target, reconcileTag, stale, generatedAtUtc, ageSec, source: "LIVE_STRIPE_API:revenue_loop/latest.json", sourceTag: SOURCE_TAG, asOf },
       { status: 200, headers: { "Cache-Control": "no-store" } },
