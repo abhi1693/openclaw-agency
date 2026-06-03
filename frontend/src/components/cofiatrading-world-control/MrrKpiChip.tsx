@@ -4,8 +4,13 @@
  * MrrKpiChip — KPI Chip financier pour la carte isométrique (/cofiatrading-world-control).
  * Rendu dans la rangée de chips "Agents & Assets" (à côté de "Assets"), style natif.
  * Source = MRR Stripe DIRECT prouvé via /api/world-map/mrr (revenue_loop/latest.json, LIVE_STRIPE_API).
- * AUCUN chiffre en dur (pas de 879 inventé, pas de 782 figé) : "…" tant que pas chargé,
- * "stale" si périmé, "—" si source down. La valeur affichée EST celle lue à la source.
+ * AUCUN chiffre en dur. La valeur affichée EST celle lue à la source.
+ *
+ * État visuel piloté par la DONNÉE (reconcileTag du backend), jamais forcé :
+ *   TARGET_FALSE_CURRENTLY → bordure ambre (warning, MRR sous la cible)
+ *   TARGET_CONFIRMED       → bordure verte flashy + pulse (production, MRR ≥ cible PROUVÉE)
+ *   loading / UNKNOWN / down→ bordure neutre
+ * Rafraîchissement : re-fetch local toutes les 30 s, SANS rechargement de page (setInterval + setState).
  */
 
 import { useEffect, useState } from "react";
@@ -43,6 +48,7 @@ export function MrrKpiChip() {
       }
     };
     void load();
+    // Re-fetch local périodique → bascule warning↔production sans recharger la page.
     const id = setInterval(load, 30_000);
     return () => {
       alive = false;
@@ -58,20 +64,30 @@ export function MrrKpiChip() {
         : data?.stale
           ? "stale"
           : "—";
-  const targetFalse = data?.reconcileTag === "TARGET_FALSE_CURRENTLY";
+
+  const tag = data?.reconcileTag ?? "";
+  const confirmed = tag === "TARGET_CONFIRMED"; // vert production — uniquement si données réelles ≥ cible
+  const warn = tag === "TARGET_FALSE_CURRENTLY"; // ambre warning — MRR sous la cible
+
+  const tone = confirmed
+    ? "border-emerald-400 bg-emerald-500/20 text-slate-50 shadow-[0_0_10px_rgba(16,185,129,0.6)] animate-pulse"
+    : warn
+      ? "border-amber-400/45 bg-amber-950/30 text-slate-50"
+      : "border-slate-600/40 bg-slate-950/70 text-slate-50";
+  const labelTone = confirmed ? "text-emerald-300" : warn ? "text-amber-300/85" : "text-emerald-300/80";
 
   return (
     <span
-      className={`inline-flex shrink-0 items-baseline gap-1 rounded-md border px-1.5 py-0.5 shadow-[inset_0_1px_0_rgba(255,255,255,0.05)] ${targetFalse ? "border-amber-400/40 bg-amber-950/30" : "border-emerald-400/40 bg-slate-950/70"}`}
+      className={`inline-flex shrink-0 items-baseline gap-1 rounded-md border px-1.5 py-0.5 shadow-[inset_0_1px_0_rgba(255,255,255,0.05)] ${tone}`}
       data-widget="mrr-kpi-chip"
       data-mrr-state={phase}
       data-mrr-eur={data?.mrrEur ?? ""}
       data-mrr-vip={data?.activeVip ?? ""}
-      data-mrr-reconcile={data?.reconcileTag ?? ""}
+      data-mrr-reconcile={tag}
       title="MRR Stripe direct — /api/world-map/mrr (revenue_loop/latest.json)"
     >
-      <span className={targetFalse ? "text-amber-300/80" : "text-emerald-300/80"}>MRR réel</span>
-      <span className="font-bold text-slate-50">{value}</span>
+      <span className={labelTone}>MRR réel</span>
+      <span className="font-bold">{value}</span>
     </span>
   );
 }
