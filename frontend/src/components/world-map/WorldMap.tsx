@@ -34,7 +34,10 @@ function WorldMapHeader() {
           </p>
         </div>
       </div>
-      <WorldLegend className="hidden md:flex" />
+      <div className="flex items-center gap-3">
+        <MMrDashboardCard />
+        <WorldLegend className="hidden md:flex" />
+      </div>
     </header>
   );
 }
