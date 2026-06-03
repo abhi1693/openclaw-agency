@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { resolveAgentType, avatarSeed, skinHex, hairHex, type AgentAvatarType } from "@/config/cofiatWorldIdentity";
 import { ConsoleIAOverlay, type ConsoleIAInitialInbox } from "./ConsoleIAOverlay";
+import { MrrKpiChip } from "./MrrKpiChip";
 
 /* ══════════════════════════════════════════════════════════════════
  * COFIATRADING WORLD CONTROL — CARTE ISO TACTIQUE (Cof-Island)
@@ -138,6 +139,7 @@ export type AngelStatus = "LIVE" | "OPERATIONAL_PARTIAL" | "CANON_GATE" | "AWAIT
 export type Angel = { id: number; name: string; name_ar: string; platform: string; manzilah: string; status: AngelStatus; mission: string; stack?: string; proof_url?: string; arr_impact_eur_year?: number };
 export type FeedEvent = { id: string; kind?: string; status?: string; label: string; source?: string; proof?: string; ts?: string; house_id?: string | null };
 type ToolBadge = { key: string; label: string; short: string; color: string; monthlyEur?: number | null; source: string };
+const WORLD_MAP_STRICT_CLIP_ID = "cof-world-map-strict-clip";
 type AgentTelemetry = { idleSec: number; activeSec: number; currentState: AgentState; stateSince: number; lastAction?: string };
 type AgentWorkProfile = {
   currentAction: string;
@@ -232,6 +234,8 @@ const ANGEL_HOME_BY_ID: Record<number, string> = {
 const SERVICE_HOME_BY_ID: Record<string, string> = {
   hub_8430: "mission_control_tower", mission_control_3000: "mission_control_tower", central_brain_8767: "central_brain", llm_proxy_11435: "central_brain",
   cofiapublisher_native_8000: "youtube_studio", cofiapublisher_8540: "youtube_studio", openclaw_gateway_18789: "openclaw_agent_barracks", inventory_8433: "assets_warehouse", lightrag_9621: "lightrag_observatory", paperclip_3100: "paperclip_factory",
+  search_api_8799: "site_seo_lab", api_search_8799: "site_seo_lab", recherche_api_8799: "site_seo_lab",
+  crm_stripe_4242: "iron_office", stripe_crm_4242: "iron_office", iron_crm_4242: "iron_office",
 };
 
 /* mots-clés event → maison (matching feed réel) */
@@ -778,7 +782,7 @@ const detectToolBadge = (text = "", houseId = ""): ToolBadge | null => {
   if (/gmail/.test(hay)) return TOOL_BADGES.find((t) => t.key === "gmail") ?? null;
   if (/drive|docs|sheets|slides/.test(hay)) return TOOL_BADGES.find((t) => t.key === "drive") ?? null;
   if (/ga4|analytics/.test(hay)) return TOOL_BADGES.find((t) => t.key === "ga4") ?? null;
-  if (/search console|seo/.test(hay)) return TOOL_BADGES.find((t) => t.key === "search") ?? null;
+  if (/8799|search api|api recherche|recherche|search console|seo/.test(hay)) return TOOL_BADGES.find((t) => t.key === "search") ?? null;
   if (/admin sdk/.test(hay)) return TOOL_BADGES.find((t) => t.key === "admin") ?? null;
   if (/bigquery/.test(hay)) return TOOL_BADGES.find((t) => t.key === "bigquery") ?? null;
   if (/apps script/.test(hay)) return TOOL_BADGES.find((t) => t.key === "apps-script") ?? null;
@@ -790,7 +794,7 @@ const detectToolBadge = (text = "", houseId = ""): ToolBadge | null => {
   if (/publisher|publish|render|caption|youtube|video|voice|asset/.test(hay)) return TOOL_BADGES.find((t) => t.key === "publisher") ?? null;
   if (/pixel|meta|facebook|ads|tracking/.test(hay)) return TOOL_BADGES.find((t) => t.key === "pixel") ?? null;
   if (/telegram|whatsapp|vip|broadcast|dm/.test(hay)) return TOOL_BADGES.find((t) => t.key === "telegram") ?? null;
-  if (/stripe|checkout|invoice|payment|mrr/.test(hay)) return TOOL_BADGES.find((t) => t.key === "stripe") ?? null;
+  if (/4242|crm|stripe|checkout|invoice|payment|mrr/.test(hay)) return TOOL_BADGES.find((t) => t.key === "stripe") ?? null;
   if (/mt4|trading|signal|broker|copy trading|fxcess|atas/.test(hay)) return TOOL_BADGES.find((t) => t.key === "trading") ?? null;
   return null;
 };
@@ -818,6 +822,54 @@ const badgeForMachine = (machine: WorldMachine, houseId: string): ToolBadge => {
     source: machine.sourceTag ?? "WorldMachine proof surface",
   };
 };
+type ServiceIconKind = "search" | "crm_stripe" | "publisher" | "gateway" | "generic";
+const serviceIconKind = (machine: WorldMachine, badge: ToolBadge): ServiceIconKind => {
+  const hay = `${machine.id} ${machine.label} ${machine.role ?? ""} ${machine.proof ?? ""} ${badge.key} ${badge.label}`.toLowerCase();
+  if (/8799|search api|api recherche|recherche|search console|seo/.test(hay)) return "search";
+  if (/4242|crm|stripe|checkout|invoice|payment|mrr/.test(hay)) return "crm_stripe";
+  if (/publisher|8540|8000|render|video|youtube/.test(hay)) return "publisher";
+  if (/gateway|hub|router|18789|8430|8767/.test(hay)) return "gateway";
+  return "generic";
+};
+function ServiceToolIcon({ machine, badge, color, scale = 1 }: { machine: WorldMachine; badge: ToolBadge; color: string; scale?: number }) {
+  const kind = serviceIconKind(machine, badge);
+  const muted = machine.ok ? 1 : 0.58;
+  return (
+    <g data-service-icon-kind={kind} transform={`scale(${scale})`} opacity={muted}>
+      <circle r="10" fill="#07111f" stroke={color} strokeWidth="1.15" vectorEffect="non-scaling-stroke" />
+      <circle r="7.2" fill={badge.color} opacity="0.12" />
+      {kind === "search" ? (
+        <g fill="none" stroke={badge.color} strokeLinecap="round" strokeLinejoin="round">
+          <circle cx="-2" cy="-2" r="3.7" strokeWidth="1.75" />
+          <path d="M1.1 1.1 L5.7 5.7" strokeWidth="2" />
+        </g>
+      ) : kind === "crm_stripe" ? (
+        <g>
+          <rect x="-6.2" y="-4.7" width="12.4" height="9.4" rx="2" fill="#0f172a" stroke={badge.color} strokeWidth="1.25" />
+          <path d="M-5.5 -1.7 H5.5" stroke={badge.color} strokeWidth="1" opacity="0.72" />
+          <text x="0" y="3.5" textAnchor="middle" fontSize="7.4" fontWeight="950" fill={badge.color}>S</text>
+        </g>
+      ) : kind === "publisher" ? (
+        <g fill="none" stroke={badge.color} strokeLinecap="round" strokeLinejoin="round">
+          <rect x="-5.8" y="-4.6" width="11.6" height="9.2" rx="1.8" strokeWidth="1.2" />
+          <path d="M-1.4 -2.5 L3.3 0 L-1.4 2.5 Z" fill={badge.color} stroke="none" />
+        </g>
+      ) : kind === "gateway" ? (
+        <g fill="none" stroke={badge.color} strokeLinecap="round" strokeLinejoin="round">
+          <circle cx="-4.4" cy="-3.5" r="2" strokeWidth="1.35" />
+          <circle cx="4.4" cy="-3.5" r="2" strokeWidth="1.35" />
+          <circle cx="0" cy="4.4" r="2.1" strokeWidth="1.35" />
+          <path d="M-2.6 -2.2 L-0.9 2.6 M2.6 -2.2 L0.9 2.6 M-2.4 -3.5 H2.4" strokeWidth="1.05" opacity="0.78" />
+        </g>
+      ) : (
+        <g fill="none" stroke={badge.color} strokeLinecap="round" strokeLinejoin="round">
+          <path d="M-5.5 -3.8 H5.5 V3.8 H-5.5 Z" strokeWidth="1.25" />
+          <path d="M-3 0 H3 M0 -3.8 V3.8" strokeWidth="0.85" opacity="0.76" />
+        </g>
+      )}
+    </g>
+  );
+}
 const monthlyCostFromItem = (item: InvItem): number | null => {
   const direct = item.monthlyCostEur ?? item.monthly_cost_eur;
   if (typeof direct === "number" && Number.isFinite(direct)) return direct;
@@ -2280,10 +2332,12 @@ export function WorldMapLiving({ snapshot, angelRoster, initialTruthMap, onSelec
         </div>
       </div>
 
-	      <div ref={sceneRef} data-shared-layout-scene="world-map" onPointerDown={onScenePointerDown} onPointerMove={onScenePointerMove} onPointerUp={onScenePointerUp} onPointerCancel={onScenePointerUp} style={{ cursor: editMode ? "grab" : "default", touchAction: editMode ? "none" : "pan-y", background: "radial-gradient(90% 80% at 50% 38%, #155f66 0%, #0b343d 52%, #0c2230 100%)" }} className="relative h-[640px] min-h-[560px] w-full max-w-full overflow-hidden rounded-md border border-cyan-300/20 bg-[#07111b] shadow-[0_20px_80px_rgba(2,6,23,0.55),inset_0_1px_0_rgba(255,255,255,0.06)] lg:h-[calc(100vh-205px)] xl:h-[calc(100vh-190px)]">
+	      <div ref={sceneRef} data-shared-layout-scene="world-map" data-world-map-bounds="strict-hidden" onPointerDown={onScenePointerDown} onPointerMove={onScenePointerMove} onPointerUp={onScenePointerUp} onPointerCancel={onScenePointerUp} style={{ cursor: editMode ? "grab" : "default", touchAction: editMode ? "none" : "pan-y", overflow: "hidden", contain: "layout paint size", isolation: "isolate", backgroundColor: "#07111b", backgroundImage: "radial-gradient(90% 80% at 50% 38%, #155f66 0%, #0b343d 52%, #0c2230 100%)" }} className="relative h-[640px] min-h-[560px] w-full max-w-full overflow-hidden rounded-md border border-cyan-300/20 bg-[#07111b] shadow-[0_20px_80px_rgba(2,6,23,0.55),inset_0_1px_0_rgba(255,255,255,0.06)] lg:h-[calc(100vh-205px)] xl:h-[calc(100vh-190px)]">
         <svg
+          data-world-map-svg-bounds="strict"
           viewBox={scene.viewBox}
           className="h-full w-full"
+          style={{ overflow: "hidden", display: "block", maxWidth: "100%", maxHeight: "100%", background: "transparent" }}
           preserveAspectRatio="xMidYMid meet"
           onClick={(e) => {
             if (e.target !== e.currentTarget) return;
@@ -2292,6 +2346,9 @@ export function WorldMapLiving({ snapshot, angelRoster, initialTruthMap, onSelec
           }}
         >
           <defs>
+            <clipPath id={WORLD_MAP_STRICT_CLIP_ID} clipPathUnits="userSpaceOnUse">
+              <rect x={scene.vbMinX} y={scene.vbMinY} width={scene.vbW} height={scene.vbH} />
+            </clipPath>
             <radialGradient id="sea" cx="48%" cy="38%" r="84%"><stop offset="0%" stopColor="#155f66" /><stop offset="48%" stopColor="#0b343d" /><stop offset="100%" stopColor="#0c2230" /></radialGradient>
             <radialGradient id="land" cx="50%" cy="42%" r="80%"><stop offset="0%" stopColor="#26343e" /><stop offset="55%" stopColor="#182a31" /><stop offset="100%" stopColor="#101821" /></radialGradient>
             <radialGradient id="coast" cx="50%" cy="42%" r="77%"><stop offset="0%" stopColor="#5f7f82" /><stop offset="58%" stopColor="#31464c" /><stop offset="100%" stopColor="#16232b" /></radialGradient>
@@ -2310,8 +2367,9 @@ export function WorldMapLiving({ snapshot, angelRoster, initialTruthMap, onSelec
             {(Object.keys(ZONES) as ZoneId[]).map((zid) => (<radialGradient key={zid} id={`dist-${zid}`} cx="50%" cy="50%" r="50%"><stop offset="0%" stopColor={ZONES[zid].floor} stopOpacity="0.8" /><stop offset="70%" stopColor={ZONES[zid].floor} stopOpacity="0.3" /><stop offset="100%" stopColor={ZONES[zid].floor} stopOpacity="0" /></radialGradient>))}
           </defs>
 
-          {/* mer teal (Astrub) */}
-          <rect x="-100000" y="-100000" width="200000" height="200000" fill="url(#sea)" />
+          {/* mer teal bornée au viewBox : le zoom ne peut plus révéler un fond noir */}
+          <rect data-world-map-background="viewbox-bound" x={scene.vbMinX} y={scene.vbMinY} width={scene.vbW} height={scene.vbH} fill="url(#sea)" />
+          <g clipPath={`url(#${WORLD_MAP_STRICT_CLIP_ID})`} data-world-map-camera-bounds="strict-clipped">
           {/* ── CAMÉRA (pan/zoom) ── */}
           <g transform={camG}>
           {/* ombre portée de l'île */}
@@ -2495,13 +2553,14 @@ export function WorldMapLiving({ snapshot, angelRoster, initialTruthMap, onSelec
 	            </g>
 	          )}
           </g>
+          </g>
         </svg>
 
         {/* léger assombrissement des bords (n'intercepte pas les clics) */}
         <div className="pointer-events-none absolute inset-0 rounded-md" style={{ background: "linear-gradient(180deg, rgba(2,6,23,0.16), transparent 28%, rgba(2,6,23,0.32)), radial-gradient(120% 120% at 50% 44%, transparent 64%, rgba(0,0,0,0.5))" }} />
 
         {/* liaisons maison -> agents : preuve visuelle du câblage résidentiel canon */}
-        <svg className="pointer-events-none absolute inset-0 z-[9] h-full w-full overflow-hidden">
+        <svg className="pointer-events-none absolute inset-0 z-[9] h-full w-full overflow-hidden" style={{ overflow: "hidden", display: "block", background: "transparent" }}>
 	          {uiScale > 0 && visibleAgents.map(({ agent, wx, wy, state, parkedVehicleOnly }) => {
 	            if (parkedVehicleOnly) return null;
 	            if (!isAgentWorkingState(state)) return null;
@@ -3651,6 +3710,8 @@ function Building({ b, status, activity, mission, missionQuality, truthSources, 
   const dockCols = Math.min(5, Math.max(1, dockSlots));
   const dockStartX = cx - ((dockCols - 1) * 31) / 2;
   const dockBaseY = b.base.y + 22;
+  const dockRowGap = 20;
+  const dockPanelBottomY = dockBaseY + Math.ceil(dockSlots / dockCols) * dockRowGap + 6;
 
   return (
     <g data-house={h.id} data-structural-building={h.type} data-structure-core-inset={structureProfile(h).coreInset} style={{ cursor: editMode ? "grab" : "pointer" }} opacity={dim ? 0.7 : 1} onClick={(e) => { e.stopPropagation(); onSelect(); }} onMouseEnter={() => onHover(true)} onMouseLeave={() => onHover(false)}>
@@ -3819,14 +3880,14 @@ function Building({ b, status, activity, mission, missionQuality, truthSources, 
       {machines.slice(0, 10).map((m, idx) => {
         const colsSlots = Math.min(5, Math.max(1, machines.length));
         const mxp = cx - (colsSlots - 1) * 5.5 + (idx % colsSlots) * 11;
-        const myp = b.base.y - bodyH * 0.32 + Math.floor(idx / colsSlots) * 8;
+        const myp = b.base.y - bodyH * 0.32 + Math.floor(idx / colsSlots) * 9.5;
         const mc = runtimeColor(m.status);
+        const badge = badgeForMachine(m, h.id);
         return (
-          <g key={m.id} style={{ cursor: "pointer" }} onClick={(e) => { e.stopPropagation(); onMachine(m); }}>
+          <g key={m.id} data-house-service-icon={m.id} transform={`translate(${mxp.toFixed(1)} ${myp.toFixed(1)})`} style={{ cursor: "pointer" }} onClick={(e) => { e.stopPropagation(); onMachine(m); }}>
             <title>{`${m.label} — ${m.status}`}</title>
-            <rect x={mxp - 4.2} y={myp - 3.4} width="8.4" height="6.8" rx="1.2" fill="#020617" stroke={mc} strokeWidth="0.75" opacity="0.96" />
-            <rect x={mxp - 2.2} y={myp - 1.6} width="4.4" height="3.2" rx="0.6" fill={mc} opacity={m.ok ? 0.95 : 0.56} />
-            <circle cx={mxp} cy={myp} r="8" fill="transparent" />
+            <ServiceToolIcon machine={m} badge={badge} color={mc} scale={0.54} />
+            <circle r="8" fill="transparent" />
           </g>
         );
       })}
@@ -3834,7 +3895,7 @@ function Building({ b, status, activity, mission, missionQuality, truthSources, 
         <g data-neighborhood-tools={h.id} data-neighborhood-tools-count={machines.length} data-neighborhood-assets-count={assetCount} opacity={focus ? 1 : 0.92}>
           <title>{`${h.name}: ${machines.length} outil(s)/source(s) reliés dans le quartier · ${assetCount} asset(s) rattachés`}</title>
           <path
-            d={`M ${(dockStartX - 19).toFixed(1)} ${(dockBaseY - 10).toFixed(1)} H ${(dockStartX + (dockCols - 1) * 31 + 19).toFixed(1)} Q ${(dockStartX + (dockCols - 1) * 31 + 25).toFixed(1)} ${(dockBaseY - 10).toFixed(1)} ${(dockStartX + (dockCols - 1) * 31 + 25).toFixed(1)} ${(dockBaseY + Math.ceil(dockSlots / dockCols) * 16 + 4).toFixed(1)} H ${(dockStartX - 25).toFixed(1)} Q ${(dockStartX - 31).toFixed(1)} ${(dockBaseY + Math.ceil(dockSlots / dockCols) * 16 + 4).toFixed(1)} ${(dockStartX - 31).toFixed(1)} ${(dockBaseY - 10).toFixed(1)} Z`}
+            d={`M ${(dockStartX - 19).toFixed(1)} ${(dockBaseY - 10).toFixed(1)} H ${(dockStartX + (dockCols - 1) * 31 + 19).toFixed(1)} Q ${(dockStartX + (dockCols - 1) * 31 + 25).toFixed(1)} ${(dockBaseY - 10).toFixed(1)} ${(dockStartX + (dockCols - 1) * 31 + 25).toFixed(1)} ${dockPanelBottomY.toFixed(1)} H ${(dockStartX - 25).toFixed(1)} Q ${(dockStartX - 31).toFixed(1)} ${dockPanelBottomY.toFixed(1)} ${(dockStartX - 31).toFixed(1)} ${(dockBaseY - 10).toFixed(1)} Z`}
             fill="#020617"
             stroke={h.accent}
             strokeWidth="0.75"
@@ -3844,23 +3905,21 @@ function Building({ b, status, activity, mission, missionQuality, truthSources, 
             const col = idx % dockCols;
             const row = Math.floor(idx / dockCols);
             const x = dockStartX + col * 31;
-            const y = dockBaseY + row * 16;
+            const y = dockBaseY + row * dockRowGap;
             const color = runtimeColor(machine.status);
             return (
               <g key={`dock-${machine.id}`} data-neighborhood-tool={machine.id} data-neighborhood-tool-status={machine.status} transform={`translate(${x.toFixed(1)} ${y.toFixed(1)})`} style={{ cursor: "pointer" }} onClick={(e) => { e.stopPropagation(); onMachine(machine); }}>
                 <title>{`${machine.label} · ${machine.status} · ${machine.proof ?? "preuve non fournie"}`}</title>
-                <rect x="-14" y="-6.5" width="28" height="13" rx="3" fill="#07111f" stroke={color} strokeWidth="0.85" opacity="0.96" />
-                <circle cx="-9.6" cy="-0.2" r="2" fill={color} opacity={machine.ok ? 0.95 : 0.52} />
-                <text x="2.6" y="2.1" textAnchor="middle" fontSize="5.8" fontWeight="900" fill={badge.color}>{badge.short}</text>
-                <text x="0" y="9.2" textAnchor="middle" fontSize="4.2" fontWeight="850" fill={color} opacity="0.9">{compactStatus(machine.status)}</text>
-                <rect x="-15.5" y="-8" width="31" height="19" rx="4" fill="transparent" />
+                <ServiceToolIcon machine={machine} badge={badge} color={color} scale={0.82} />
+                <text x="0" y="13.2" textAnchor="middle" fontSize="4.2" fontWeight="850" fill={color} opacity="0.9">{compactStatus(machine.status)}</text>
+                <rect x="-15.5" y="-10" width="31" height="25" rx="4" fill="transparent" />
               </g>
             );
           })}
           {assetCount > 0 && (() => {
             const idx = visibleNeighborhoodMachines.length;
             const x = dockStartX + (idx % dockCols) * 31;
-            const y = dockBaseY + Math.floor(idx / dockCols) * 16;
+            const y = dockBaseY + Math.floor(idx / dockCols) * dockRowGap;
             return (
               <g data-neighborhood-assets={h.id} transform={`translate(${x.toFixed(1)} ${y.toFixed(1)})`} pointerEvents="none">
                 <title>{`${assetCount} asset(s) rattachés à ${h.name}`}</title>
@@ -3873,7 +3932,7 @@ function Building({ b, status, activity, mission, missionQuality, truthSources, 
           {extraMachineCount > 0 && (() => {
             const idx = visibleNeighborhoodMachines.length + (assetCount > 0 ? 1 : 0);
             const x = dockStartX + (idx % dockCols) * 31;
-            const y = dockBaseY + Math.floor(idx / dockCols) * 16;
+            const y = dockBaseY + Math.floor(idx / dockCols) * dockRowGap;
             return (
               <g data-neighborhood-extra-tools={h.id} transform={`translate(${x.toFixed(1)} ${y.toFixed(1)})`} pointerEvents="none">
                 <title>{`${extraMachineCount} outil(s)/source(s) supplémentaires dans le panneau maison`}</title>
