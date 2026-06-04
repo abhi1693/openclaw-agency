@@ -1938,8 +1938,8 @@ function WorldControlFrame({
       : "border-amber-300/30 bg-amber-300/10 text-amber-100";
   const fetched = snapshot?.fetchedAt ? formatRelativeTime(snapshot.fetchedAt) : "sync...";
   return (
-    <div className="min-h-screen overflow-x-hidden bg-[#02040a] text-slate-100">
-      <header className="sticky top-0 z-50 border-b border-cyan-300/15 bg-[#030712]/95 shadow-[0_12px_45px_rgba(2,6,23,0.55)] backdrop-blur-xl">
+    <div className="flex h-screen flex-col overflow-hidden bg-[#02040a] text-slate-100">
+      <header className="z-50 shrink-0 border-b border-cyan-300/15 bg-[#030712]/95 shadow-[0_12px_45px_rgba(2,6,23,0.55)] backdrop-blur-xl">
         <div className="flex min-h-[64px] flex-wrap items-center gap-3 px-4 py-2">
           <div className="flex min-w-0 flex-1 items-center gap-3">
             <div className="grid h-11 w-11 shrink-0 place-items-center rounded-md border border-cyan-300/35 bg-cyan-300/10 text-[10px] font-black tracking-[0.18em] text-cyan-100 shadow-[0_0_22px_rgba(34,211,238,0.16)]">
@@ -1967,7 +1967,7 @@ function WorldControlFrame({
         </div>
         <div className="h-px bg-gradient-to-r from-cyan-400/0 via-cyan-300/45 to-amber-300/0" />
       </header>
-      <main className="min-h-[calc(100vh+220px)] overflow-visible bg-[radial-gradient(circle_at_22%_0%,rgba(34,211,238,0.12),transparent_34%),radial-gradient(circle_at_76%_0%,rgba(251,191,36,0.08),transparent_28%),#02040a] pb-24">
+      <main className="min-h-0 flex-1 overflow-hidden bg-[radial-gradient(circle_at_22%_0%,rgba(34,211,238,0.12),transparent_34%),radial-gradient(circle_at_76%_0%,rgba(251,191,36,0.08),transparent_28%),#02040a]">
         {children}
       </main>
     </div>

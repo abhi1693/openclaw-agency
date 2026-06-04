@@ -243,7 +243,14 @@ export async function GET() {
   const [google, googleWorkspace, lobster, notionDbs, notionSync, notionDesktopDb, notebookRaw, notebookResync, perplexity, revenueResult, linear, telegramBridge, telegramRegistryStamp, adminLogStamp, adminLastLine, obsidian, n8n] = await Promise.all([
     readJsonFile<{
       run_utc?: string;
-      components?: Array<{ tool?: string; status?: string; summary?: string; data_volume?: Record<string, unknown> }>;
+      components?: Array<{
+        tool?: string;
+        status?: string;
+        summary?: string;
+        data_volume?: Record<string, unknown>;
+        proof_ref?: { age_sec?: number } | null;
+        last_success_utc?: string | null;
+      }>;
     }>(GOOGLE_360),
     readGoogleWorkspaceProof(),
     readLobsterProof(),

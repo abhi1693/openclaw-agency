@@ -9,6 +9,7 @@ const eslintConfig = defineConfig([
   globalIgnores([
     // Default ignores of eslint-config-next:
     ".next/**",
+    ".r5-backups/**",
     "out/**",
     "build/**",
     "coverage/**",

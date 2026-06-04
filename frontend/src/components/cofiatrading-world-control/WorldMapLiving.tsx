@@ -2844,7 +2844,7 @@ export function WorldMapLiving({ snapshot, angelRoster, initialTruthMap, onSelec
 		            triggerSubtitle="Central Brain local"
 		            initialInbox={viewSnapshot?.consoleIaInbox ?? null}
 		            triggerClassName="grid h-11 min-w-[174px] grid-cols-[36px_1fr] items-center gap-2 rounded-md border border-cyan-300/60 bg-slate-950/90 p-1.5 text-left text-cyan-50 shadow-[0_0_28px_rgba(34,211,238,.22)] backdrop-blur transition hover:border-cyan-200"
-		            panelClassName="absolute bottom-14 left-0 z-[80] grid max-h-[min(78vh,560px)] w-[min(1160px,calc(100vw-72px))] grid-rows-[auto_1fr] overflow-hidden rounded-md border border-cyan-300/50 bg-slate-950/96 text-slate-100 shadow-[0_28px_100px_rgba(0,0,0,.72)] backdrop-blur"
+		            panelClassName="absolute bottom-14 left-0 z-[80] grid max-h-[min(58vh,560px)] w-[min(1120px,calc(100vw-96px))] grid-rows-[auto_auto_1fr] overflow-hidden rounded-md border border-cyan-300/50 bg-slate-950/96 text-slate-100 shadow-[0_28px_100px_rgba(0,0,0,.72)] backdrop-blur"
 		          />
 		        </div>
 		        {/* ════════ PERSONNAGES (overlay, ancrés, taille scalée ≤ maison) ════════ */}

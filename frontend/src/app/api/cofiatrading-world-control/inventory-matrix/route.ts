@@ -42,14 +42,57 @@ type InventoryMatrixItem = {
   greenCondition?: string;
 };
 
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-async function readJson(path: string): Promise<any | null> {
+type JsonRecord = Record<string, unknown>;
+type SubscriptionRecord = {
+  name?: unknown;
+  amount?: unknown;
+  currency?: unknown;
+  status?: unknown;
+};
+
+const isRecord = (value: unknown): value is JsonRecord =>
+  Boolean(value) && typeof value === "object" && !Array.isArray(value);
+
+async function readJson(path: string): Promise<unknown | null> {
   try {
     return JSON.parse(await readFile(path, "utf8"));
   } catch {
     return null;
   }
 }
+
+const parseYamlScalar = (value: string): string | number | boolean | null => {
+  const trimmed = value.trim().replace(/^['"]|['"]$/g, "");
+  if (!trimmed || trimmed === "null") return null;
+  if (trimmed === "true") return true;
+  if (trimmed === "false") return false;
+  const numeric = Number(trimmed);
+  return Number.isFinite(numeric) && /^-?\d+(\.\d+)?$/.test(trimmed) ? numeric : trimmed;
+};
+
+const assignYamlField = (record: JsonRecord, line: string) => {
+  const match = line.match(/^([A-Za-z0-9_-]+):\s*(.*)$/);
+  if (!match) return;
+  record[match[1]] = parseYamlScalar(match[2]);
+};
+
+const parseSubscriptionYaml = (yamlText: string): SubscriptionRecord[] => {
+  const subscriptions: JsonRecord[] = [];
+  let current: JsonRecord | null = null;
+  for (const rawLine of yamlText.split("\n")) {
+    const line = rawLine.trim();
+    if (!line || line.startsWith("#")) continue;
+    if (line.startsWith("- ")) {
+      if (current) subscriptions.push(current);
+      current = {};
+      assignYamlField(current, line.slice(2).trim());
+      continue;
+    }
+    if (current) assignYamlField(current, line);
+  }
+  if (current) subscriptions.push(current);
+  return subscriptions;
+};
 
 const str = (v: unknown): string | undefined => {
   if (v == null) return undefined;
@@ -91,8 +134,7 @@ export async function GET() {
 
   // ── 1) Inventaire 647 assets/tools (verdict RÉEL du fichier) ────────────────
   const inv = await readJson(INVENTORY_JSON);
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const entries: any[] = Array.isArray(inv?.entries) ? inv.entries : [];
+  const entries = isRecord(inv) && Array.isArray(inv.entries) ? inv.entries.filter(isRecord) : [];
   if (entries.length > 0) {
     sourcesRead.inventory = true;
     for (const e of entries) {
@@ -122,72 +164,39 @@ export async function GET() {
   // present-but-not-retested ⇒ AMBER_REVERIFY (jamais GREEN automatique).
   try {
     const yamlText = await readFile(SUBSCRIPTIONS_YAML, "utf8");
-    // Parser YAML réel si installé dans le repo ; sinon note honnête (jamais fake).
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    let YAML: any = null;
-    try {
-      // "yaml" (preferred) puis "js-yaml" en fallback.
-      YAML = require("yaml");
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    } catch {
-      try {
-        // js-yaml expose load()
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        const jsy: any = require("js-yaml");
-        YAML = { parse: (t: string) => jsy.load(t) };
-      } catch {
-        YAML = null;
-      }
+    const subscriptions = parseSubscriptionYaml(yamlText);
+    let count = 0;
+    for (const sub of subscriptions) {
+      // Abonnement PAYÉ = porte un montant numérique réel.
+      if (typeof sub.amount !== "number") continue;
+      const name = str(sub.name) ?? "(abonnement)";
+      const subStatus = String(sub.status ?? "").trim();
+      const currency = str(sub.currency) ?? "";
+      const costLabel = `${sub.amount}${currency ? " " + currency : ""}`;
+      items.push({
+        id: id("sub", name),
+        name,
+        category: "subscription",
+        // dispatch fin : chaque abonnement → SA vraie maison (plus de bloc iron_office).
+        houseId: classifySubscriptionHouse(name),
+        cost: costLabel,
+        // actif présent mais non re-testé ⇒ AMBER_REVERIFY, PAS vert.
+        status: subStatus === "active" ? "AMBER_REVERIFY" : "UNKNOWN",
+        statusSource: "config",
+        nextAction: "re-probe abonnement (preuve périmée)",
+        greenCondition: "probe live OK ce mois-ci (clé/usage vérifié)",
+      });
+      count += 1;
     }
-
-    if (YAML) {
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const doc: any = YAML.parse(yamlText);
-      const SKIP = new Set(["meta"]);
-      let count = 0;
-      if (doc && typeof doc === "object") {
-        for (const section of Object.keys(doc)) {
-          if (SKIP.has(section)) continue;
-          const list = doc[section];
-          if (!Array.isArray(list)) continue;
-          for (const sub of list) {
-            if (!sub || typeof sub !== "object" || !("name" in sub)) continue;
-            // Abonnement PAYÉ = porte un montant numérique réel.
-            if (typeof sub.amount !== "number") continue;
-            const name = str(sub.name) ?? "(abonnement)";
-            const subStatus = String(sub.status ?? "").trim();
-            const currency = str(sub.currency) ?? "";
-            const costLabel = `${sub.amount}${currency ? " " + currency : ""}`;
-            items.push({
-              id: id("sub", name),
-              name,
-              category: "subscription",
-              // dispatch fin : chaque abonnement → SA vraie maison (plus de bloc iron_office).
-              houseId: classifySubscriptionHouse(name),
-              cost: costLabel,
-              // actif présent mais non re-testé ⇒ AMBER_REVERIFY, PAS vert.
-              status: subStatus === "active" ? "AMBER_REVERIFY" : "UNKNOWN",
-              statusSource: "config",
-              nextAction: "re-probe abonnement (preuve périmée)",
-              greenCondition: "probe live OK ce mois-ci (clé/usage vérifié)",
-            });
-            count += 1;
-          }
-        }
-      }
-      if (count > 0) sourcesRead.subscriptions = true;
-      else notes.push("subscriptions_skipped: aucun abonnement payé (amount numérique) trouvé dans le YAML");
-    } else {
-      notes.push("subscriptions_skipped: no yaml parser");
-    }
+    if (count > 0) sourcesRead.subscriptions = true;
+    else notes.push("subscriptions_skipped: aucun abonnement payé (amount numérique) trouvé dans le YAML");
   } catch {
     notes.push("subscriptions_skipped: subscriptions.yaml absent ou illisible");
   }
 
   // ── 3) Agents canon (38) — heartbeat freshness non encore lié ⇒ UNKNOWN ─────
   const agentsDoc = await readJson(AGENTS_CANON_JSON);
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const agents: any[] = Array.isArray(agentsDoc?.agents) ? agentsDoc.agents : [];
+  const agents = isRecord(agentsDoc) && Array.isArray(agentsDoc.agents) ? agentsDoc.agents.filter(isRecord) : [];
   if (agents.length > 0) {
     sourcesRead.agents = true;
     for (const a of agents) {

@@ -7,7 +7,6 @@ import { readLobsterProof } from "../api/cofiatrading-world-control/_lib/lobster
 import { buildHubWiringSnapshot } from "../api/cofiatrading-world-control/_lib/hubWiring";
 import { buildSourceLedgerPayload } from "../api/cofiatrading-world-control/source-ledger/route";
 import { WorldControl, type AngelRosterPayload } from "@/components/cofiatrading-world-control/WorldControl";
-import { PatrimoinePanel } from "@/components/cofiatrading-world-control/PatrimoinePanel";
 import type { ConsoleIAInitialInbox } from "@/components/cofiatrading-world-control/ConsoleIAOverlay";
 import type { TruthMapPayload, TruthSource } from "@/components/cofiatrading-world-control/WorldMapLiving";
 import type { Snapshot } from "@/components/cofiatrading-world-control/world-control.types";
@@ -731,10 +730,5 @@ export default async function CofiatradingWorldControlPage() {
     650,
   );
 
-  return (
-    <>
-      <WorldControl initialSnapshot={initialSnapshot} initialAngelRoster={initialAngelRoster} initialTruthMap={initialTruthMap} />
-      <PatrimoinePanel />
-    </>
-  );
+  return <WorldControl initialSnapshot={initialSnapshot} initialAngelRoster={initialAngelRoster} initialTruthMap={initialTruthMap} />;
 }

@@ -43,6 +43,7 @@ export type CofiatWorkScope =
   | "auth-provider"
   | "console-ia"
   | "notebook-alm"
+  | "notebooklm"
   | "proof-ledger"
   | "layout"
   | "visual-identity"
@@ -84,6 +85,7 @@ export type CofiatSyncTarget =
   | "mission-engine"
   | "console-ia"
   | "notebook-alm"
+  | "notebooklm"
   | "proof-ledger"
   | "map-layout";
 
@@ -200,6 +202,7 @@ export type CofiatGuardId =
   | "no-false-green"
   | "inventory-sync"
   | "notebook-alm-sync"
+  | "notebooklm-sync"
   | "console-ia-log"
   | "map-safety"
   | "mission-animation"
@@ -266,7 +269,8 @@ export type CofiatWorkerPolicy = {
   requireChangeManifest: boolean;
   requireSyncTargets: boolean;
   requireProofForGreen: boolean;
-  requireNotebookAlmSync: boolean;
+  requireNotebookAlmSync?: boolean;
+  requireNotebookLmSync: boolean;
   requireConsoleIaLog: boolean;
 };
 

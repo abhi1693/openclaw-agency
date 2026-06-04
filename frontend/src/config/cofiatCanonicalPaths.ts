@@ -125,6 +125,7 @@ export const SCOPE_TO_PATH_SCOPES: Record<CofiatWorkScope, CofiatPathScope[]> = 
   "auth-provider": ["config"],
   "console-ia": ["hub", "api", "config"],
   "notebooklm": ["hub", "api"],
+  "notebook-alm": ["hub", "api"],
   "proof-ledger": ["utils", "config", "types", "hub", "scripts"],
   layout: ["hub", "api"],
   "visual-identity": ["config"],
@@ -221,6 +222,7 @@ export const COFIAT_WORKER_POLICY_LABELS: Record<keyof CofiatWorkerPolicy, strin
   requireChangeManifest: "Change Manifest obligatoire",
   requireSyncTargets: "Cibles de synchro obligatoires",
   requireProofForGreen: "Preuve obligatoire pour GREEN",
+  requireNotebookAlmSync: "Synchro NotebookLM legacy requise",
   requireNotebookLmSync: "Synchro NotebookLM requise",
   requireConsoleIaLog: "Log console.IA requis",
 };

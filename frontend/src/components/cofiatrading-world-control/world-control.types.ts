@@ -1,6 +1,8 @@
 // Types extraits de WorldControl.tsx (refactor 2026-05-29) — pure types, zéro runtime.
 // MovingAgent / MovingTruck restent dans WorldControl.tsx (collision avec composants homonymes).
 
+import type { ConsoleIAInitialInbox } from "./ConsoleIAOverlay";
+
 export type AssetsWarehouseSnapshot = {
   ok?: boolean;
   sourceTag?: string;
@@ -13,6 +15,406 @@ export type AssetsWarehouseSnapshot = {
     assetsInventoryPath?: string;
   };
   errors?: string[];
+};
+
+export type PublisherNativeProgressBucket = {
+  current?: number | string | null;
+  total?: number | string | null;
+  done?: number | string | null;
+  completed?: number | string | null;
+  rendered?: number | string | null;
+  renders?: number | string | null;
+  frames?: number | string | null;
+  keyframes?: number | string | null;
+  counts?: PublisherNativeProgressBucket | null;
+  batch?: PublisherNativeProgressBucket | null;
+  sourceTag?: string | null;
+  source_tag?: string | null;
+};
+
+export type PublisherNativeWorkorder = {
+  id?: string | null;
+  label?: string | null;
+  name?: string | null;
+  title?: string | null;
+  status?: string | null;
+  state?: string | null;
+  phase?: string | null;
+  current?: number | string | null;
+  total?: number | string | null;
+  done?: number | string | null;
+  completed?: number | string | null;
+  rendered?: number | string | null;
+  renders?: number | string | null;
+  frames?: number | string | null;
+  keyframes?: PublisherNativeProgressBucket | number | string | null;
+  counts?: PublisherNativeProgressBucket | null;
+  batch?: PublisherNativeProgressBucket | null;
+  sourceTag?: string | null;
+  source_tag?: string | null;
+};
+
+export type PublisherNativeSnapshot = {
+  ok?: boolean;
+  sourceTag?: string | null;
+  mode?: string | null;
+  state?: string | null;
+  global_alert?: boolean | null;
+  globalAlert?: boolean | null;
+  outputDir?: string | null;
+  counts?: {
+    renders?: number | null;
+    archived?: number | null;
+    orphan?: number | null;
+    nonArchived?: number | null;
+    goldProved?: number | null;
+    unproven?: number | null;
+  };
+  batch?: PublisherNativeProgressBucket | null;
+  workorders?: PublisherNativeWorkorder[] | Record<string, PublisherNativeWorkorder | null> | null;
+  qualityTruth?: { falseGreenPatched?: boolean | null; goldenCandidateScore?: number | null; goldenCandidateStatus?: string | null };
+  publishLock?: { allowed?: boolean | null; reason?: string | null };
+  tiers?: {
+    ok?: boolean;
+    sourceTag?: string | null;
+    localFirst?: boolean | null;
+    secretValuesRead?: boolean | null;
+    plans?: Record<string, unknown>;
+  };
+};
+
+export type PublisherBridgeSnapshot = {
+  ok?: boolean;
+  status?: string;
+  sourceTag?: string | null;
+  endpoint?: string | null;
+  clientScriptUrl?: string | null;
+  exportedAssetCount?: number | null;
+  fullAssetCount?: number | null;
+  rawFileCandidates?: number | null;
+  sha256IndexCount?: number | null;
+  physicalDuplicateCount?: number | null;
+  rootCount?: number | null;
+  accessErrorCount?: number | null;
+  bridgeContract?: string | null;
+  sampleAssets?: Array<Record<string, unknown>>;
+};
+
+export type VideoAvailabilitySnapshot = {
+  ok?: boolean;
+  status?: string;
+  sourceTag?: string | null;
+  outputDir?: string | null;
+  scannedCount?: number | null;
+  motionProofCount?: number | null;
+  latest?: Record<string, unknown> | null;
+  latestMotionProof?: Record<string, unknown> | null;
+  items?: Array<Record<string, unknown>>;
+};
+
+export type PublisherCanonSnapshot = {
+  ok?: boolean;
+  status?: string;
+  sourceTag?: string | null;
+  canonical?: { path?: string | null; url?: string | null; exists?: boolean | null };
+  counts?: {
+    assetsTotal?: number | null;
+    assetsWiredOrAvailable?: number | null;
+    assetsToWire?: number | null;
+    duplicatePublisherHtml?: number | null;
+    activeRenders?: number | null;
+    brollTotal?: number | null;
+    pexelsBroll?: number | null;
+    pixabayBroll?: number | null;
+    unsplashBroll?: number | null;
+    producedProven?: number | null;
+    producedProvenConditional?: number | null;
+    goldenProven?: number | null;
+    failedGate?: number | null;
+    unprovenPartial?: number | null;
+    provenTotalPublishableLocked?: number | null;
+  };
+  surfaces?: Array<{ id: string; label: string; status: string; url?: string | null; path?: string | null }>;
+  stations?: Array<{ id: string; label: string; owner: string; status: string; endpoint?: string | null }>;
+  assets?: Array<{ id: string; label: string; state: string; role: string; count?: number | null; path?: string | null }>;
+  blockers?: Array<{ id: string; status: string; impact: string; patch: string }>;
+  officialDocs?: Array<{ id: string; label: string; url: string }>;
+};
+
+export type WorkerPoolSnapshot = {
+  ok?: boolean;
+  status?: string;
+  sourceTag?: string | null;
+  snapshotId?: string | null;
+  sourcePath?: string;
+  fileMtimeUtc?: string | null;
+  fileAgeSec?: number | null;
+  freshnessStatus?: string;
+  summary?: {
+    workers?: number | null;
+    active?: number | null;
+    running?: number | null;
+    runningRealPool?: number | null;
+    completed?: number | null;
+    failed?: number | null;
+    queuedTasks?: number | null;
+    queuedTasksTotal?: number | null;
+    queuedTasksDeferred?: number | null;
+    queuedTasksResolvedByHandoff?: number | null;
+    withProof?: number | null;
+    blockedSessionLimit?: number | null;
+    sessionLimitParkedDuplicate?: number | null;
+    staleProcessReaped?: number | null;
+    runningProcessUnverified?: number | null;
+    distinctActiveLanes?: number | null;
+    duplicateRunning?: number | null;
+    laneSkew?: boolean | null;
+  } | null;
+  laneDistribution?: Record<string, unknown>;
+  activeLaneDistribution?: Record<string, unknown>;
+  controlLoop?: {
+    snapshotId?: string | null;
+    status?: string | null;
+    verdict?: string | null;
+    decisionAllowed?: boolean | null;
+    handoffCounts?: Record<string, unknown>;
+  } | null;
+};
+
+export type HouseMissionAgent = {
+  id: string;
+  name: string;
+  orgRole?: string;
+  rankLayer?: string;
+  rankLayerWeight?: number;
+  roleBadge?: string;
+  status?: string;
+  responsibilities?: string[];
+};
+
+export type HouseMissionRecord = {
+  houseId: string;
+  houseTitle: string;
+  status: string;
+  sourceTag?: string;
+  mission: {
+    id: string;
+    title: string;
+    status: string;
+    nextAction: string;
+    impact?: string;
+    blocker?: string;
+    proof: string;
+    proofStatus?: string;
+    sourceTag?: string;
+    route?: string | null;
+  };
+  chief?: HouseMissionAgent | null;
+  chiefs?: HouseMissionAgent[];
+  workers?: HouseMissionAgent[];
+  agents?: HouseMissionAgent[];
+  counts?: { agents?: number; chiefs?: number; workers?: number; activeTasks?: number; trucks?: number };
+  localQueue?: { path?: string; dispatchLog?: string; status?: string; dispatches?: number; executedAtUtc?: string | null };
+  assetSummary?: { total?: number; sleeping?: number; green?: number; amber?: number; red?: number; topSleeping?: string[] };
+  toolSummary?: { total?: number; live?: number; amber?: number; unknown?: number; labels?: string[] };
+  dispatches?: Array<{ agentId: string; agentName: string; role: string; action: string; target: string; status: string; proof?: string }>;
+  revenueMissions?: Array<{ id: string; houseId: string; title: string; proof: string; status: string; target: string; agents: string[] }>;
+  proofs?: Array<{ label: string; source: string; status: string }>;
+};
+
+export type HouseOrchestratorPayload = {
+  ok?: boolean;
+  sourceTag?: string;
+  generatedAtUtc?: string;
+  executedAtUtc?: string | null;
+  summary?: {
+    houses?: number;
+    queuedDispatches?: number;
+    expiredQueuedDispatches?: number;
+    localQueueTtlMinutes?: number;
+    coveredAgents?: number;
+    totalAgents?: number;
+    assetsAssigned?: number;
+    housesWithLocalQueue?: number;
+    runtimeActiveDispatches?: number;
+    paperclipLivingOrgActive?: number;
+    paperclipLivingOrgCheckedAt?: string | null;
+    paperclipLivingOrgProof?: string;
+  };
+  houseMissions?: HouseMissionRecord[];
+};
+
+export type ConsoleIaSnapshot = {
+  ok?: boolean;
+  status?: string;
+  sourceTag?: string;
+  mode?: string;
+  proof?: string;
+  paths?: { packetsDir?: string; responsesDir?: string; packetsJsonl?: string };
+};
+
+export type OpenClawRepoSnapshot = {
+  ok?: boolean;
+  status?: string;
+  sourceTag?: string;
+  proof?: string;
+  repoRoot?: string;
+  branch?: string | null;
+  commit?: string | null;
+  remoteUrl?: string | null;
+};
+
+export type ToolOperatingContract = {
+  id: string;
+  machineIds: string[];
+  label: string;
+  short: string;
+  houseId: string;
+  owner: string;
+  purpose: string;
+  usedWhen: string;
+  agentRule: string;
+  requiredInput: string;
+  requiredOutput: string;
+  proofRequired: string;
+  workGate: string;
+  costRule: string;
+};
+
+export type ToolOperatingContractsPayload = {
+  ok?: boolean;
+  sourceTag?: string;
+  policy?: string;
+  summary?: { contracts?: number; machineAliases?: number; houses?: number };
+  sourcePath?: string;
+  contracts?: ToolOperatingContract[];
+};
+
+export type HubWiringPayload = {
+  ok?: boolean;
+  status?: string;
+  sourceTag?: string;
+  policy?: string;
+  generatedAtUtc?: string;
+  sourceTags?: { contracts?: string | null; sourceLedger?: string | null; runtimeWork?: string | null };
+  summary?: {
+    contracts?: number;
+    houses?: number;
+    commandConnected?: number;
+    centralConnected?: number;
+    proofConnected?: number;
+    homeConnected?: number;
+    runtimeActiveContracts?: number;
+    runtimeActiveSessions?: number;
+    runtimeActiveAgents?: number;
+    runtimeActiveHouses?: number;
+    runtimeActiveCore?: number;
+    sleepingContracts?: number;
+    totalSpineEdges?: number;
+    connectedSpineEdges?: number;
+    sourceLedgerCoverage?: string;
+    sourceProofCoverage?: string;
+    falseGreenDowngrades?: number;
+  };
+  core?: Array<{ id: string; label: string; role: string; status: string; proof: string }>;
+  houses?: Array<{ id: string; label: string; status: string; proof: string }>;
+  contracts?: Array<{
+    id: string;
+    label: string;
+    short: string;
+    houseId: string;
+    owner: string;
+    status: string;
+    runtimeStatus: string;
+    canAnimate: boolean;
+    sleeping: boolean;
+    proof: string;
+    summary: string;
+    contract?: ToolOperatingContract;
+    edges?: Array<{ from: string; to: string; status: string; proof: string }>;
+  }>;
+  runtimeWork?: {
+    activeCount?: number;
+    uniqueAgents?: number;
+    houses?: number;
+    activeSessions?: Array<{
+      id?: string | null;
+      houseId?: string;
+      houseTitle?: string;
+      agentId?: string;
+      agentName?: string;
+      action?: string;
+      target?: string;
+      status?: string;
+      proof?: string;
+      startedAtUtc?: string | null;
+      activeUntilUtc?: string | null;
+    }>;
+  };
+  warnings?: string[];
+};
+
+export type HubLedgerHouseStats = {
+  total: number;
+  connected: number;
+  proofed: number;
+  green: number;
+  amber: number;
+  red: number;
+  unknown: number;
+  kinds: Record<string, number>;
+};
+
+export type HubLedgerItem = {
+  id: string;
+  name: string;
+  kind: string;
+  category: string;
+  houseId: string;
+  ownerAgentId?: string;
+  status: string;
+  ok: boolean;
+  connected: boolean;
+  proofed: boolean;
+  proof: string;
+  sourceTag: string;
+  sourcePath: string;
+  blocker?: string;
+  nextAction?: string;
+};
+
+export type HubSourceLedgerPayload = {
+  ok?: boolean;
+  sourceTag?: string;
+  policy?: string;
+  summary?: {
+    totalItems?: number;
+    connected?: number;
+    proofed?: number;
+    green?: number;
+    amber?: number;
+    red?: number;
+    unknown?: number;
+    falseGreenDowngrades?: number;
+    declaredCoverageTotal?: number;
+    declaredCoverageConnected?: number;
+    declaredCoverageProofed?: number;
+    assetVaultRemainderCoveredByRoots?: number;
+  };
+  declared?: {
+    truthSources?: number;
+    patrimoineEntries?: number;
+    canonAssets?: number;
+    runtimeSections?: number;
+    assetVaultRoots?: number;
+    assetVaultAssetsReturned?: number;
+    assetVaultAssetsDeclared?: number;
+    assetVaultRawFiles?: number | null;
+  };
+  byHouse?: Record<string, HubLedgerHouseStats>;
+  byKind?: Record<string, { label?: string; total?: number; connected?: number; proofed?: number; green?: number; amber?: number; red?: number; unknown?: number }>;
+  warnings?: string[];
+  items?: HubLedgerItem[];
 };
 
 export type Snapshot = {
@@ -74,6 +476,7 @@ export type Snapshot = {
       patch: string;
     }>;
   };
+  workerPool?: WorkerPoolSnapshot;
   commerce_machine?: Array<{
     id: string;
     name: string;
@@ -93,6 +496,10 @@ export type Snapshot = {
     service: string;
     outputDirCount: number | null;
   };
+  publisherNative?: PublisherNativeSnapshot;
+  publisherBridge?: PublisherBridgeSnapshot;
+  videoAvailability?: VideoAvailabilitySnapshot;
+  publisherCanon?: PublisherCanonSnapshot;
   services: Array<{ id: string; label: string; ok: boolean; status?: string; http_code?: number | null; url?: string; role?: string }>;
   knowledge?: Record<KnowledgeId, KnowledgeRecord>;
   offers: OfferRecord[];
@@ -141,11 +548,21 @@ export type Snapshot = {
       house: string;
       houseColor: string;
       rankLayer: string;
+      rankLayerWeight?: number;
+      orgRole?: string;
       boss: string;
       engine: string;
       responsibilities: string[];
     }>;
   };
+  houseOrchestrator?: HouseOrchestratorPayload;
+  houseMissions?: HouseMissionRecord[];
+  consoleIa?: ConsoleIaSnapshot;
+  consoleIaInbox?: ConsoleIAInitialInbox | null;
+  openclawRepo?: OpenClawRepoSnapshot;
+  toolOperatingContracts?: ToolOperatingContractsPayload;
+  hubSourceLedger?: HubSourceLedgerPayload | null;
+  hubWiring?: HubWiringPayload | null;
   writeBlocked: boolean;
   piiBlocked: boolean;
   dangerousActions: string[];

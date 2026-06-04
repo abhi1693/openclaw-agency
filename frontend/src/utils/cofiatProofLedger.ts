@@ -80,6 +80,12 @@ export const PROOF_LEDGER_GUARDS: Record<
     onViolation: "WARN/BLOCK selon synchro pending/blocked",
     requiresFs: false,
   },
+  "notebook-alm-sync": {
+    label: "NotebookLM Legacy Sync Guard",
+    protects: "Compatibilité des manifests qui utilisent encore notebook-alm",
+    onViolation: "WARN si l'index NotebookLM n'est pas lu / synchro en attente",
+    requiresFs: false,
+  },
   "notebooklm-sync": {
     label: "NotebookLM Sync Guard",
     protects: "NotebookLM branché au hub (index live lu) — push décisions = Chrome cowork",
@@ -162,7 +168,7 @@ export function validateMapSafety(facts: MapSafetyFacts): CofiatMapSafetyReport 
     agentsExpected: facts.agentsExpected,
     agentsSeen: facts.agentsSeen ?? 0,
     proofLedgerVisible: facts.proofLedgerVisible,
-    notebookLmVisible: facts.notebookLmVisible,
+    notebookAlmVisible: facts.notebookLmVisible,
     consoleIaConnected: facts.consoleIaConnected,
     collisions: facts.collisions,
     orphanRoutes: facts.orphanRoutes,

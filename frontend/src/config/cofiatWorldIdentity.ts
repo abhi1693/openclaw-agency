@@ -136,12 +136,16 @@ export type AvatarSeed = {
   hairStyle: "short" | "curly" | "long" | "bald" | "cap" | "helmet" | "hood";
   hairColor: "black" | "brown" | "blonde" | "auburn" | "gray";
   bodyShape: "slim" | "standard" | "broad";
+  eyeStyle: "round" | "sharp" | "sleepy" | "wide" | "mono";
+  noseStyle: "line" | "dot" | "bridge" | "wide";
 };
 const FACE: AvatarSeed["faceShape"][] = ["round", "oval", "square", "sharp", "soft"];
 const SKIN: AvatarSeed["skinTone"][] = ["light", "medium", "tan", "dark"];
 const HAIR: AvatarSeed["hairStyle"][] = ["short", "curly", "long", "bald", "cap", "helmet", "hood"];
 const HAIRC: AvatarSeed["hairColor"][] = ["black", "brown", "blonde", "auburn", "gray"];
 const BODY: AvatarSeed["bodyShape"][] = ["slim", "standard", "broad"];
+const EYES: AvatarSeed["eyeStyle"][] = ["round", "sharp", "sleepy", "wide", "mono"];
+const NOSE: AvatarSeed["noseStyle"][] = ["line", "dot", "bridge", "wide"];
 const SKIN_HEX: Record<AvatarSeed["skinTone"], string> = { light: "#f0d2b0", medium: "#e8c39e", tan: "#cf9d6f", dark: "#9c6b43" };
 const HAIR_HEX: Record<AvatarSeed["hairColor"], string> = { black: "#1f2430", brown: "#4a342099", blonde: "#c9a24b", auburn: "#7a3b1d", gray: "#9aa3ad" };
 
@@ -160,6 +164,8 @@ export function avatarSeed(agentId: string): AvatarSeed {
     hairStyle: HAIR[(h >>> 6) % HAIR.length],
     hairColor: HAIRC[(h >>> 9) % HAIRC.length],
     bodyShape: BODY[(h >>> 12) % BODY.length],
+    eyeStyle: EYES[(h >>> 15) % EYES.length],
+    noseStyle: NOSE[(h >>> 18) % NOSE.length],
   };
 }
 export const skinHex = (t: AvatarSeed["skinTone"]) => SKIN_HEX[t];

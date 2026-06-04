@@ -192,15 +192,55 @@ type ProofItem = {
   detail?: string;
 };
 
+const OPENCLAW_AGENT_TARGETS: ConsoleTarget[] = [
+  { id: "openclaw_antho", label: "Antho", scope: "Agent OpenClaw · bus Jarod", status: "AMBER" },
+  { id: "openclaw_jack", label: "Jack", scope: "Agent OpenClaw · bus Jarod", status: "AMBER" },
+  { id: "openclaw_nova", label: "Nova", scope: "Agent OpenClaw · bus Jarod", status: "AMBER" },
+  { id: "openclaw_atlas", label: "Atlas", scope: "Agent OpenClaw · bus Jarod", status: "AMBER" },
+  { id: "openclaw_iron", label: "Iron agent", scope: "Agent CRM Iron · bus Jarod", status: "AMBER" },
+  { id: "openclaw_david", label: "David", scope: "Agent OpenClaw · bus Jarod", status: "AMBER" },
+  { id: "openclaw_sonic", label: "Sonic", scope: "Agent OpenClaw · bus Jarod", status: "AMBER" },
+  { id: "openclaw_luna", label: "Luna", scope: "Agent OpenClaw · bus Jarod", status: "AMBER" },
+  { id: "openclaw_marco", label: "Marco", scope: "Agent OpenClaw · bus Jarod", status: "AMBER" },
+  { id: "openclaw_quant", label: "Quant", scope: "Agent OpenClaw · bus Jarod", status: "AMBER" },
+  { id: "openclaw_lab", label: "Lab", scope: "Agent OpenClaw · bus Jarod", status: "AMBER" },
+  { id: "openclaw_risk", label: "Risk", scope: "Agent OpenClaw · bus Jarod", status: "AMBER" },
+  { id: "openclaw_sentinel", label: "Sentinel", scope: "Agent OpenClaw · bus Jarod", status: "AMBER" },
+  { id: "openclaw_oracle", label: "Oracle", scope: "Agent OpenClaw · bus Jarod", status: "AMBER" },
+  { id: "openclaw_guardian", label: "Guardian", scope: "Agent OpenClaw · bus Jarod", status: "AMBER" },
+  { id: "openclaw_steward", label: "Steward", scope: "Agent OpenClaw · bus Jarod", status: "AMBER" },
+  { id: "openclaw_fiscal", label: "Fiscal", scope: "Agent OpenClaw · bus Jarod", status: "AMBER" },
+  { id: "openclaw_juriste", label: "Juriste", scope: "Agent OpenClaw · bus Jarod", status: "AMBER" },
+  { id: "openclaw_stratege", label: "Stratège", scope: "Agent OpenClaw · bus Jarod", status: "AMBER" },
+  { id: "openclaw_analyste", label: "Analyste", scope: "Agent OpenClaw · bus Jarod", status: "AMBER" },
+  { id: "openclaw_reviewer", label: "Reviewer", scope: "Agent OpenClaw · bus Jarod", status: "AMBER" },
+  { id: "openclaw_copywriter", label: "Copywriter", scope: "Agent OpenClaw · bus Jarod", status: "AMBER" },
+  { id: "openclaw_publisher", label: "Publisher", scope: "Agent OpenClaw · bus Jarod", status: "AMBER" },
+  { id: "openclaw_academy_master", label: "Academy Master", scope: "Agent OpenClaw · bus Jarod", status: "AMBER" },
+  { id: "openclaw_paperclip_master", label: "Paperclip Master", scope: "Agent OpenClaw · bus Jarod", status: "AMBER" },
+  { id: "openclaw_site_master", label: "Site Master", scope: "Agent OpenClaw · bus Jarod", status: "AMBER" },
+  { id: "openclaw_vip_master", label: "VIP Master", scope: "Agent OpenClaw · bus Jarod", status: "AMBER" },
+  { id: "openclaw_warehouse_keeper", label: "Warehouse Keeper", scope: "Agent OpenClaw · bus Jarod", status: "AMBER" },
+  { id: "openclaw_brain_master", label: "Brain Master", scope: "Agent OpenClaw · bus Jarod", status: "AMBER" },
+  { id: "openclaw_claude47", label: "Claude47", scope: "Agent OpenClaw · bus Jarod", status: "AMBER" },
+  { id: "openclaw_perception", label: "Perception", scope: "Agent vision/audio · bus Jarod", status: "AMBER" },
+  { id: "openclaw_broadcaster", label: "Broadcaster", scope: "Agent OpenClaw · bus Jarod", status: "AMBER" },
+  { id: "openclaw_mirofish", label: "MiroFish", scope: "Agent OpenClaw · bus Jarod", status: "AMBER" },
+];
+
+const OPENCLAW_AGENT_TARGET_IDS = new Set(OPENCLAW_AGENT_TARGETS.map((target) => target.id));
+
 const TARGETS: ConsoleTarget[] = [
-  { id: "chatgpt_sync", label: "ChatGPT", scope: "Brief local, pas API cachée", status: "AMBER" },
+  { id: "hermes_sanji", label: "Hermes / Sanji", scope: "Directeur ultime local", status: "LOCAL" },
   { id: "codex_local", label: "Codex", scope: "Patch, architecture, tests", status: "LOCAL" },
-  { id: "claude_local", label: "Claude", scope: "Mémoire, synthèse, QA locale", status: "AMBER" },
+  { id: "claude_local", label: "Luffy / Claude", scope: "Mémoire, synthèse, QA locale", status: "AMBER" },
+  { id: "jarod_openclaw", label: "Jarod / OpenClaw", scope: "Runtime, Lobster, agents terrain", status: "AMBER" },
+  { id: "kevin_gemini", label: "Kevin / Gemini", scope: "Yeux, caméra, écran, perception", status: "AMBER" },
   { id: "qwen_local", label: "Qwen", scope: "Bulk, contradiction, cheap lane", status: "AMBER" },
   { id: "perplexity_local", label: "Perplexity", scope: "Recherche, sources, evidence", status: "AMBER" },
-  { id: "jarod_openclaw", label: "Jarod + team", scope: "Runtime, Lobster, agents terrain", status: "AMBER" },
-  { id: "kevin_gemini", label: "Kevin / Gemini", scope: "Yeux, caméra, écran, perception", status: "AMBER" },
+  { id: "chatgpt_sync", label: "ChatGPT", scope: "Brief local, pas API cachée", status: "AMBER" },
   { id: "central_council", label: "Central Council", scope: "Codex + Claude + Jarod", status: "AMBER" },
+  ...OPENCLAW_AGENT_TARGETS,
   { id: "telegram_iron", label: "Iron", scope: "CRM Iron broker", status: "AMBER" },
   { id: "telegram_free", label: "Free", scope: "Canal gratuit", status: "AMBER" },
   { id: "telegram_vip", label: "VIP", scope: "Canal VIP", status: "AMBER" },
@@ -232,6 +272,7 @@ const CHATGPT_LANES = ["chatgpt_desktop", "chatgpt_desktop_brief", "chatgpt_brid
 const COUNCIL_LANES = ["council_synthesis", "council_arbitration"];
 
 const TARGET_COHERENCE: Record<string, TargetCoherence> = {
+  hermes_sanji: { defaultModel: "codex_5_5_xhigh", defaultAction: "ASK", allowedModels: CODEX_LANES, mediaAllowed: false },
   chatgpt_sync: { defaultModel: "chatgpt_desktop", defaultAction: "ASK", allowedModels: CHATGPT_LANES, mediaAllowed: false },
   codex_local: { defaultModel: "spark_5_3", defaultAction: "ASK", allowedModels: CODEX_LANES, mediaAllowed: false },
   claude_local: { defaultModel: "claude_4_8_max_high", defaultAction: "ASK", allowedModels: CLAUDE_LANES, mediaAllowed: false },
@@ -271,7 +312,7 @@ const LANE_MISSING_MODE: ConsoleModelMode = {
 // aucun bridge lecture branché → READ_MISSING/BRIDGE_MISSING ; aucun envoi réel → WRITE_LOCKED.
 type ChannelFeedItem = { id: string; author?: string; text: string; ts?: string };
 type ChannelDraft = { draftId: string; text: string; status: string; createdAt?: string };
-type DestinationState = {
+export type DestinationState = {
   destinationId: string;
   label: string;
   kind: string;
@@ -448,7 +489,12 @@ function ChannelColumn({
   );
 }
 
-const coherenceFor = (targetId: string): TargetCoherence => TARGET_COHERENCE[targetId] ?? DEFAULT_COHERENCE;
+const coherenceFor = (targetId: string): TargetCoherence => {
+  if (OPENCLAW_AGENT_TARGET_IDS.has(targetId)) {
+    return { defaultModel: "jarod_runtime", defaultAction: "ASK", allowedModels: JAROD_LANES, mediaAllowed: false };
+  }
+  return TARGET_COHERENCE[targetId] ?? DEFAULT_COHERENCE;
+};
 
 // Catalogue de lanes — chaque lane appartient à UN agent (cohérence stricte
 // imposée par TARGET_COHERENCE). Aucune lane n'appelle d'API cachée : ce sont
@@ -509,10 +555,12 @@ const TARGET_BUS_BY_ID: Record<string, string> = {
   chatgpt_sync: "chatgpt",
   claude_local: "claude",
   codex_local: "codex",
+  hermes_sanji: "codex",
   jarod_openclaw: "jarod",
   kevin_gemini: "kevin",
   qwen_local: "qwen",
   perplexity_local: "perplexity",
+  ...Object.fromEntries(OPENCLAW_AGENT_TARGETS.map((target) => [target.id, "jarod"])),
   telegram_iron: "telegram_iron",
   telegram_free: "telegram_free",
   telegram_vip: "telegram_vip",
@@ -894,7 +942,7 @@ const toAttachmentMetadata = (attachment: ConsoleIAAttachment) => ({
 });
 
 // ── Inbox conversations clients (alimentée par conversations_api.py du hub, read-only) ──
-type ConvThread = {
+export type ConvThread = {
   userId: string;
   name: string;
   username: string;
@@ -933,9 +981,25 @@ type Cockpit = {
 };
 
 // Flux 7 — totaux CRM réels (en-tête console).
-type CrmTotals = {
+export type CrmTotals = {
   clients?: number | null; clientsTg?: number | null; hot?: number | null; warm?: number | null;
   brokerAccounts?: number | null; depositors?: number | null; netDepUsd?: number | null; commissionUsd?: number | null; dmContacts?: number | null; sheetUrl?: string;
+};
+
+export type ConsoleIAInitialInbox = {
+  sourceTag?: string;
+  destinations?: DestinationState[];
+  conversations?: ConvThread[];
+  totals?: CrmTotals | null;
+};
+
+type ConsoleIAOverlayProps = {
+  mapMounted?: boolean;
+  triggerLabel?: string;
+  triggerSubtitle?: string;
+  initialInbox?: ConsoleIAInitialInbox | null;
+  triggerClassName?: string;
+  panelClassName?: string;
 };
 type ConvMessage = { ts: string; direction: string; by: string; text: string };
 
@@ -1334,7 +1398,14 @@ function ConversationsInbox({
   );
 }
 
-export function ConsoleIAOverlay() {
+export function ConsoleIAOverlay({
+  mapMounted = false,
+  triggerLabel = "console.IA",
+  triggerSubtitle = "chat + media",
+  initialInbox = null,
+  triggerClassName,
+  panelClassName,
+}: ConsoleIAOverlayProps = {}) {
   const [isOpen, setIsOpen] = useState(false);
   const [message, setMessage] = useState("");
   const [selectedTargetId, setSelectedTargetId] = useState(TARGETS[0].id);
@@ -1349,11 +1420,11 @@ export function ConsoleIAOverlay() {
   const [pickerOpen, setPickerOpen] = useState(false);
   const [activeChannelId, setActiveChannelId] = useState<string | null>(null);
   const [channelWorkMode, setChannelWorkMode] = useState<"agent_context" | "draft">("agent_context");
-  const [destinations, setDestinations] = useState<DestinationState[]>([]);
+  const [destinations, setDestinations] = useState<DestinationState[]>(() => initialInbox?.destinations ?? []);
   const destinationFor = (id: string): DestinationState =>
     destinations.find((dest) => dest.destinationId === id) ?? DEFAULT_DESTINATION(id);
-  const [conversations, setConversations] = useState<ConvThread[]>([]);
-  const [crmTotals, setCrmTotals] = useState<CrmTotals | null>(null);
+  const [conversations, setConversations] = useState<ConvThread[]>(() => initialInbox?.conversations ?? []);
+  const [crmTotals, setCrmTotals] = useState<CrmTotals | null>(() => initialInbox?.totals ?? null);
   const [cockpit, setCockpit] = useState<Cockpit | null>(null);
   const [allClients, setAllClients] = useState<ConvThread[]>([]);
   const [dmPool, setDmPool] = useState<ConvThread[]>([]);
@@ -2007,16 +2078,17 @@ export function ConsoleIAOverlay() {
       <button
         type="button"
         onClick={() => setIsOpen(true)}
-        className="fixed bottom-5 left-5 z-50 grid h-14 min-w-[196px] grid-cols-[42px_1fr] items-center gap-2 rounded-2xl border border-cyan-300/60 bg-cyan-950/85 p-2 text-left text-cyan-50 shadow-[0_0_32px_rgba(34,211,238,.25)] backdrop-blur transition hover:border-cyan-200"
+        className={triggerClassName ?? "fixed bottom-5 left-5 z-50 grid h-14 min-w-[196px] grid-cols-[42px_1fr] items-center gap-2 rounded-2xl border border-cyan-300/60 bg-cyan-950/85 p-2 text-left text-cyan-50 shadow-[0_0_32px_rgba(34,211,238,.25)] backdrop-blur transition hover:border-cyan-200"}
+        data-console-ia-map-mounted={mapMounted ? "true" : "false"}
         aria-label="Ouvrir console IA"
       >
         <span className="grid h-10 w-10 place-items-center rounded-xl border border-cyan-200/30 bg-cyan-400/15 text-sm font-black">
           cIA
         </span>
         <span>
-          <span className="block text-sm font-black leading-tight">console.IA</span>
+          <span className="block text-sm font-black leading-tight">{triggerLabel}</span>
           <span className="block text-[10px] font-bold uppercase tracking-[0.14em] text-cyan-100/70">
-            chat + media
+            {triggerSubtitle}
           </span>
         </span>
       </button>
@@ -2024,7 +2096,7 @@ export function ConsoleIAOverlay() {
       {isOpen ? (
         <section
           aria-label="Console IA Central Brain"
-          className="fixed bottom-24 left-5 z-50 grid max-h-[78vh] w-[min(1180px,calc(100vw-40px))] grid-rows-[auto_1fr] overflow-hidden rounded-2xl border border-cyan-300/50 bg-slate-950/96 text-slate-100 shadow-[0_28px_100px_rgba(0,0,0,.72)] backdrop-blur"
+          className={panelClassName ?? "fixed bottom-24 left-5 z-50 grid max-h-[68vh] w-[min(1180px,calc(100vw-40px))] grid-rows-[auto_auto_1fr] overflow-hidden rounded-2xl border border-cyan-300/50 bg-slate-950/96 text-slate-100 shadow-[0_28px_100px_rgba(0,0,0,.72)] backdrop-blur"}
         >
           <header className="flex items-start justify-between gap-3 border-b border-slate-700/40 bg-cyan-950/35 p-4">
             <div>

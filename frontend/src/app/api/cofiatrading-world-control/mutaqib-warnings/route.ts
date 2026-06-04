@@ -39,8 +39,9 @@ export async function GET() {
           }
         })
         .filter((w): w is Warning => w !== null);
-    } catch (e: any) {
-      if (e.code !== "ENOENT") throw e;
+    } catch (error: unknown) {
+      const code = error && typeof error === "object" && "code" in error ? (error as { code?: unknown }).code : null;
+      if (code !== "ENOENT") throw error;
       // file not yet created = no warnings = clean
     }
 
@@ -71,9 +72,10 @@ export async function GET() {
       mode: "advisor_non_blocking",
       hardlock_canon: "§45 cap 38 agents strict — Mu'taqib = sentinel script operated by Guardian, pas un 39e agent",
     });
-  } catch (e: any) {
+  } catch (error: unknown) {
+    const message = error instanceof Error ? error.message : String(error);
     return NextResponse.json(
-      { ok: false, error: e?.message ?? String(e) },
+      { ok: false, error: message },
       { status: 500 },
     );
   }

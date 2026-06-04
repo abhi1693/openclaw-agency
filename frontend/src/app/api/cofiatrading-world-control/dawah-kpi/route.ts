@@ -6,22 +6,31 @@ import { NextResponse } from "next/server";
 
 import { readLocalRevenue } from "../_lib/localRevenue";
 
+const recordFrom = (value: unknown): Record<string, unknown> =>
+  value && typeof value === "object" && !Array.isArray(value) ? (value as Record<string, unknown>) : {};
+
+const numberFrom = (value: unknown): number | null =>
+  typeof value === "number" && Number.isFinite(value) ? value : null;
+
+const stringFrom = (value: unknown): string | null =>
+  typeof value === "string" && value.trim() ? value : null;
+
 export async function GET() {
   // Source 1 : revenue LOCAL (cof_state.json) — fallback Abidjan :8430 COUPÉ 20260529
-  let revenue: Record<string, any> = {};
+  let revenue: Record<string, unknown> = {};
   try {
     const res = await readLocalRevenue();
-    if (res.ok && res.data) revenue = res.data as Record<string, any>;
+    if (res.ok && res.data) revenue = recordFrom(res.data);
   } catch { /* silent fallback */ }
 
   // Source 2 : CofiaPublisher status local :8540 (89 MP4 prêts = Prophètes inventory)
-  let publisher: Record<string, any> = {};
+  let publisher: Record<string, unknown> = {};
   try {
     const r = await fetch("http://127.0.0.1:8540/api/status", {
       signal: AbortSignal.timeout(3000),
       cache: "no-store",
     });
-    if (r.ok) publisher = await r.json();
+    if (r.ok) publisher = recordFrom(await r.json());
   } catch { /* silent */ }
 
   // Iron CRM canon audiences (canon LIVE 7 silos)
@@ -37,10 +46,10 @@ export async function GET() {
   };
 
   // KPI Da'wah canon (Sourate XLV V6) — chiffres réels Iron + Stripe
-  const current_mu_minīn = (revenue.active_vip ?? 0) + (revenue.active_premium ?? 0) + (revenue.active_elite ?? 0);
-  const past_due_count = revenue.past_due_count ?? 0;
-  const past_due_eur = revenue.past_due_eur ?? 0;
-  const current_mrr_eur = revenue.current_mrr_eur ?? 879;  // fallback known canon
+  const current_mu_minīn = (numberFrom(revenue.active_vip) ?? 0) + (numberFrom(revenue.active_premium) ?? 0) + (numberFrom(revenue.active_elite) ?? 0);
+  const past_due_count = numberFrom(revenue.past_due_count) ?? 0;
+  const past_due_eur = numberFrom(revenue.past_due_eur) ?? 0;
+  const current_mrr_eur = numberFrom(revenue.current_mrr_eur) ?? 879;  // fallback known canon
   const current_arr_eur = current_mrr_eur * 12;
   const target_arr_eur = 100_000_000;
   const arr_gap_eur = Math.max(0, target_arr_eur - current_arr_eur);
@@ -62,18 +71,18 @@ export async function GET() {
   const ltv_annual_eur = ltv_mean_monthly_eur * 12;
 
   // Prophètes inventory (Sourate XLIV V6)
-  const prophets_renders_ready = publisher.output_dir_count ?? 0;
+  const prophets_renders_ready = numberFrom(publisher.output_dir_count) ?? 0;
 
   // Anges status (sync angel-roster Sourate LVI V8)
-  let angels: Record<string, any> = {};
+  let angels: Record<string, unknown> = {};
   try {
     const r = await fetch("http://127.0.0.1:3000/api/cofiatrading-world-control/angel-roster", {
       signal: AbortSignal.timeout(3000),
       cache: "no-store",
     });
     if (r.ok) {
-      const data = await r.json();
-      angels = data.counts;
+      const data = recordFrom(await r.json());
+      angels = recordFrom(data.counts);
     }
   } catch { /* silent */ }
 
@@ -112,7 +121,7 @@ export async function GET() {
     },
     prophets: {
       renders_ready: prophets_renders_ready,
-      publish_status: publisher.status ?? "unknown",
+      publish_status: stringFrom(publisher.status) ?? "unknown",
     },
     angels_status: angels,
     honest_notes: [

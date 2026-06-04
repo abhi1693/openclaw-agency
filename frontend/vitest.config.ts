@@ -12,6 +12,7 @@ export default defineConfig({
     environment: "jsdom",
     setupFiles: ["./src/setupTests.ts"],
     globals: true,
+    exclude: ["**/node_modules/**", "**/.next/**", "**/.r5-backups/**"],
     coverage: {
       provider: "v8",
       reporter: ["text", "lcov"],
@@ -22,7 +23,7 @@ export default defineConfig({
         "src/lib/backoff.ts",
         "src/components/activity/ActivityFeed.tsx",
       ],
-      exclude: ["**/*.d.ts", "src/**/__generated__/**", "src/**/generated/**"],
+      exclude: ["**/*.d.ts", "**/.r5-backups/**", "src/**/__generated__/**", "src/**/generated/**"],
       thresholds: {
         lines: 100,
         statements: 100,
