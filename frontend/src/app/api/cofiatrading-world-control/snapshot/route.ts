@@ -1,9 +1,12 @@
 import { NextResponse } from "next/server";
-import { readdir, readFile } from "fs/promises";
+import { readdir, readFile, stat } from "fs/promises";
 import { execFile } from "child_process";
+import { basename, extname, join } from "path";
 import { promisify } from "util";
 
 import { readLocalRevenue } from "../_lib/localRevenue";
+import { buildHubWiringSnapshot } from "../_lib/hubWiring";
+import { buildSourceLedgerPayload } from "../source-ledger/route";
 import { getCofHost, getOpenClawApiBase, getLocalAuthToken } from "../../../../lib/cof-runtime";
 
 export const dynamic = "force-dynamic";
@@ -18,25 +21,40 @@ type FetchResult = {
 
 const HOST = getCofHost();
 const OPENCLAW_API = getOpenClawApiBase();
-const LOCAL_AUTH_TOKEN = getLocalAuthToken();
 const execFileAsync = promisify(execFile);
+const OPENCLAW_REPO_ROOT = "/Users/burakokyay/.openclaw/mission-control-frontend-restored";
+const OPENCLAW_REPO_REMOTE = "https://github.com/abhi1693/openclaw-mission-control.git";
+const HOUSE_ORCHESTRATOR_STATE = "/Users/burakokyay/.openclaw/state/cofiatrading_world_house_orchestrator.json";
+const CONSOLE_IA_PACKETS_DIR = "/Users/burakokyay/.openclaw/state/console_ia/packets";
+const CONSOLE_IA_RESPONSES_DIR = "/Users/burakokyay/.openclaw/state/console_ia/responses";
+const CONSOLE_IA_PACKETS_JSONL = "/Users/burakokyay/.openclaw/state/console_ia/packets.jsonl";
+const TOOL_OPERATING_CONTRACTS = "/Users/burakokyay/.openclaw/config/tool_operating_contracts.json";
+const WORKER_POOL_MANIFEST = "/Users/burakokyay/.openclaw/state/trading_os/worker_pool_manifest_latest.json";
+const CLAUDE_CONTROL_LOOP_STATE = "/Users/burakokyay/.openclaw/state/claude_7h/control_loop_latest.json";
 
 const endpoints = {
   revenue: "local://cof_state.json (readLocalRevenue — fallback Abidjan :8430 COUPÉ 20260529)",
   houses: process.env.COF_CENTRAL_BRAIN_HOUSES_URL ?? `${HOST}:8767/api/central-brain/houses`,
   publisher: process.env.COF_PUBLISHER_STATUS_URL ?? `${HOST}:8540/api/status`,
+  publisherCanon: process.env.COF_PUBLISHER_CANON_URL ?? `${HOST}:8540/api/publisher/single-canon-hub`,
+  publisherAssetBridge: process.env.COF_PUBLISHER_ASSET_BRIDGE_URL ?? `${HOST}:8540/api/publisher/hub-bridge/assets?limit=2278`,
+  publisherVideoBridge: process.env.COF_PUBLISHER_VIDEO_BRIDGE_URL ?? `${HOST}:8540/api/publisher/hub-bridge/videos?limit=160`,
+  publisherNativeRenders: process.env.COF_PUBLISHER_NATIVE_RENDERS_URL ?? `${OPENCLAW_API}/api/v1/cof/publisher/renders`,
+  publisherNativeState: process.env.COF_PUBLISHER_NATIVE_STATE_URL ?? `${OPENCLAW_API}/api/v1/cof/publisher/state`,
+  publisherNativeTiers: process.env.COF_PUBLISHER_NATIVE_TIERS_URL ?? `${OPENCLAW_API}/api/v1/cof/publisher/tiers`,
   ack: process.env.COF_ACK_HEALTH_URL ?? `${HOST}:8443/health`,
   rtk: process.env.COF_RTK_HEALTH_URL ?? `${HOST}:11435/rtk/health`,
-  proofLedger: process.env.COF_PROOF_LEDGER_HOME_URL ?? `${HOST}:8430/api/mission-control/home`,
+  proofLedger: process.env.COF_PROOF_LEDGER_HOME_URL ?? null,
 };
 
 // Services canon probes LIVE (cockpit Hub Vivant). OpenClaw official local network
 // model = one loopback Gateway on :18789; legacy duplicate ports are not canon.
 const SERVICE_PROBES: ReadonlyArray<{ id: string; label: string; url: string; role: string; onDemand?: boolean }> = [
-  { id: "hub_8430", label: "Hub :8430", url: `${HOST}:8430/cofiacontrol.html`, role: "Hub principal Iron + revenue + chat" },
+  { id: "hub_8430", label: "Hub backend :8430 (data API)", url: `${HOST}:8430/health`, role: "Backend data only; cockpit canon = :3000" },
   { id: "mission_control_3000", label: "Mission Control :3000", url: `${HOST}:3000/cofiatrading-world-control`, role: "Cockpit Hub Vivant NY" },
   { id: "central_brain_8767", label: "Central Brain :8767", url: `${HOST}:8767/api/central-brain/houses`, role: "Registry 15 maisons SSOT" },
-  { id: "cofiapublisher_8540", label: "CofiaPublisher :8540", url: `${HOST}:8540/api/status`, role: "Pipeline vidéos 89 MP4" },
+  { id: "cofiapublisher_native_8000", label: "CofiaPublisher native :8000", url: `${OPENCLAW_API}/api/v1/cof/publisher/state`, role: "Pipeline vidéos natif Mission Control" },
+  { id: "cofiapublisher_8540", label: "CofiaPublisher legacy :8540", url: `${HOST}:8540/api/status`, role: "Dashboard Publisher legacy / preview" },
   { id: "openclaw_gateway_18789", label: "OpenClaw Gateway :18789", url: `${HOST}:18789/health`, role: "Gateway OpenClaw/Lobster runtime" },
   { id: "inventory_8433", label: "Inventory :8433", url: `${HOST}:8433/health`, role: "Living Inventory canon", onDemand: true },
   { id: "llm_proxy_11435", label: "rtk-llm-proxy :11435", url: `${HOST}:11435/rtk/health`, role: "Gemini/Qwen routing local" },
@@ -56,24 +74,24 @@ type CommerceShop = {
 };
 const COMMERCE_MACHINE_CANON: ReadonlyArray<CommerceShop> = [
   { id: "instagram", name: "Instagram @cofiatrading", status: "AWAITING_SETUP", problem: "Token IG valide V9, 10 posts existants mais bio basique, 0 stories quotidiennes, 0 DM <4h, 0 grid cohérent", next_action: "Update bio brand-kit + premier carousel premium W22 + 3 stories/jour cron", owner_agent: "Malik al-Insta", proof_source: "Meta Graph API ig_user_id link Page" },
-  { id: "youtube", name: "YouTube CofiaPublisher V30", status: "CANON_GATE", problem: "89 MP4 prêts ~/cof-trading/remotion/out/, 0 publié, OAuth refresh expiré, channel art absent", next_action: "OAuth refresh Erwin 2min + publish video-01 unlisted → Reviewer GREEN → public + channel art brand", owner_agent: "Nova + Isrāfīl", proof_source: "ls remotion/out/*.mp4 + Reviewer GREEN gate" },
+  { id: "youtube", name: "YouTube CofiaPublisher V30", status: "CANON_GATE", problem: "MP4 prêts selon scan publisher; 0 publié, OAuth refresh expiré, channel art absent", next_action: "OAuth refresh Erwin 2min + publish video-01 unlisted → Reviewer proof gate → public + channel art brand", owner_agent: "Nova + Isrāfīl", proof_source: "assetsWarehouse.remotionOutDir + Reviewer proof gate" },
   { id: "facebook", name: "Facebook Page COFIA Trading", status: "AWAITING_SETUP", problem: "Page 1136548789543573 existe, about/desc/cover/profile VIDES, 0 followers, Meta Verified ⭐ payé non appliqué", next_action: "Upload cover + profile + about + premier post + soumettre Verified Application", owner_agent: "Luna", proof_source: "Meta Graph API page_token + brand-kit-2026-05" },
   { id: "tiktok", name: "TikTok", status: "AWAITING_SETUP", problem: "TIKTOK_ACCESS_TOKEN placeholder, 0 short publié, profile vide", next_action: "Génère token dev portal (Erwin 10min) + Sonic cron 1 short/jour debunk", owner_agent: "Sonic", proof_source: "TikTok Developer Portal app" },
-  { id: "telegram_free", name: "Telegram FREE -1001279616913", status: "LIVE", problem: "4891 members, broadcasts sporadiques, pas de cadence hebdo soignée", next_action: "Broadcast educational hebdo W22 captions premium V8/V12 + sondages mensuels", owner_agent: "Sonic + David", proof_source: "Hub :8430/api/iron/chat/send + 78452 msg IDs récents" },
-  { id: "telegram_vip", name: "Telegram VIP", status: "LIVE", problem: "29 members, sous-utilisé pour Welcome flow + signaux quotidiens", next_action: "Welcome flow auto post-Stripe + 1 signal STRAT-17 quotidien Marco", owner_agent: "Antho + Marco", proof_source: "Stripe webhook → Telegram VIP invite" },
+  { id: "telegram_free", name: "Telegram FREE -1001279616913", status: "PARTIAL", problem: "Members à vérifier via feed frais; broadcasts sporadiques, pas de preuve message-count frais dans ce snapshot", next_action: "Câbler feed Telegram frais + broadcast educational hebdo W22 captions premium V8/V12", owner_agent: "Sonic + David", proof_source: "owned_channel canon; runtime feed fresh missing" },
+  { id: "telegram_vip", name: "Telegram VIP", status: "PARTIAL", problem: "Members à vérifier via webhook/feed frais; usage prouvé seulement si invite Stripe + signal journalier horodatés", next_action: "Câbler Welcome flow auto post-Stripe + preuve signal STRAT-17 quotidien Marco", owner_agent: "Antho + Marco", proof_source: "Stripe webhook target canon; fresh dispatch proof missing" },
   { id: "whatsapp_business", name: "WhatsApp Business WABA US", status: "PARTIAL", problem: "Phone +1 555-964-8716 VERIFIED, template cofia_welcome_vip_fr PENDING Meta ~24h, 0 message envoyé", next_action: "Wait approval template + send 3 brokers + onboarding VIP", owner_agent: "David + Jack", proof_source: "Meta Graph waba_id 1320675216711048 template review" },
   { id: "gmail_brokers", name: "Gmail brokers reclaim", status: "PARTIAL", problem: "3 drafts (Nicolas/Fabienne/François) JAMAIS sent depuis 24h+", next_action: "Send via Gmail API Python OAuth refresh_token OR WhatsApp template approved", owner_agent: "Jack", proof_source: "Gmail drafts r-1313936... r-885955... r-412545..." },
-  { id: "stripe", name: "Stripe", status: "LIVE", problem: "MRR/VIP/past_due lus depuis le backend NY live, jamais figés dans le snapshot", next_action: "Comparer snapshot ↔ :8000/api/v1/cof/past-due avant toute relance past_due", owner_agent: "Mikā'īl", proof_source: "readLocalRevenue + backend NY :8000 Stripe read-only" },
-  { id: "brokers_cellxpert", name: "Brokers CellXpert", status: "CANON_GATE", problem: "6884 broker_accounts Default, IP whitelist ES pending, 4 brokers (FXcess/IronFX/RaiseFX/Libertex) PDFs daily 0 dispatched", next_action: "IP whitelist fix + dispatch quotidien WhatsApp/Gmail PDF reclaim", owner_agent: "Jack", proof_source: "broker_accounts Iron CRM + affiliate_contacts.json" },
+  { id: "stripe", name: "Stripe", status: "PARTIAL", problem: "MRR/VIP/past_due lus depuis sources locales, mais divergence snapshot/system-health à auditer avant claim LIVE unifié", next_action: "Comparer snapshot ↔ :8000/api/v1/cof/past-due avant toute relance past_due", owner_agent: "Mikā'īl", proof_source: "readLocalRevenue + backend NY :8000 Stripe read-only" },
+  { id: "brokers_cellxpert", name: "Brokers CellXpert", status: "CANON_GATE", problem: "broker_accounts à vérifier via scan frais; IP whitelist ES pending, PDFs daily non prouvés dispatchés", next_action: "IP whitelist fix + dispatch quotidien WhatsApp/Gmail PDF reclaim", owner_agent: "Jack", proof_source: "broker_accounts Iron CRM + affiliate_contacts.json" },
   { id: "notion", name: "Notion workspace", status: "PARTIAL", problem: "3 DBs créées (38 Anges + 4 Leviers + 11 Prices), pas de sync cron Hub↔Notion ni orders canon", next_action: "Script notion_to_orders.py LaunchAgent 1h + Welcome VIP page template + canon docs B2B", owner_agent: "Steward + Antho", proof_source: "Notion API 3 DBs ID 7a2d1ad6 + 7c54ea95 + 4e93d058" },
-  { id: "linear", name: "Linear cofiatrading team", status: "LIVE", problem: "76+ issues, 4 doublons §21 fermés 27/05, pas de cycles structurés ni projects par 4 leviers", next_action: "Cycles 2 weekly + projects par 4 leviers ROI + roadmap visible Hub", owner_agent: "Sentinel", proof_source: "Linear MCP list_issues team Cofiatrading" },
-  { id: "github", name: "GitHub @erwin-cmyk", status: "LIVE", problem: "Auto-commit branche feature OK, repos pas propres, README absents, pas de CI/CD ni topics", next_action: "README pro tous repos + badges + topics + GitHub Actions CI/CD", owner_agent: "Atlas + Codex", proof_source: "github.com/erwin-cmyk audit repos" },
+  { id: "linear", name: "Linear cofiatrading team", status: "PARTIAL", problem: "Issues et MCP existent, mais pas de cycles/projects live prouvés dans ce snapshot", next_action: "Câbler cycles 2 weekly + projects par 4 leviers ROI + roadmap visible Hub", owner_agent: "Sentinel", proof_source: "Linear MCP list_issues team Cofiatrading; workflow usage fresh missing" },
+  { id: "github", name: "GitHub @erwin-cmyk", status: "PARTIAL", problem: "Repos accessibles, mais README/CI/CD/topics et preuve d'exploitation business restent incomplets", next_action: "README pro tous repos + badges + topics + GitHub Actions CI/CD", owner_agent: "Atlas + Codex", proof_source: "github.com/erwin-cmyk audit repos; business workflow fresh missing" },
   { id: "vercel", name: "Vercel cofiatrading.com", status: "PARTIAL", problem: "Site déployé, landing pages SEO i18n incomplet, pas de tracking conversions ni Meta Pixel", next_action: "i18n EN/FR/ES/AR/TR + analytics + Meta Pixel CAPI v22", owner_agent: "Atlas", proof_source: "vercel.app cof-trading-site project" },
-  { id: "supabase", name: "Supabase pxynrgypfkoyuixsxvsj", status: "LIVE", problem: "9 advisors security RLS always_true backdoor (COF-130 P0), 149 emails newsletter jamais envoyée", next_action: "Fix RLS policies + envoyer newsletter weekly via Resend re-activé", owner_agent: "Atlas + Mikā'īl", proof_source: "Supabase MCP get_advisors security warnings" },
+  { id: "supabase", name: "Supabase pxynrgypfkoyuixsxvsj", status: "PARTIAL", problem: "Service accessible mais 9 advisors security RLS always_true backdoor (COF-130 P0), 149 emails newsletter jamais envoyée", next_action: "Fix RLS policies + envoyer newsletter weekly via Resend re-activé", owner_agent: "Atlas + Mikā'īl", proof_source: "Supabase MCP get_advisors security warnings" },
   { id: "n8n", name: "n8n coftrading.app.n8n.cloud", status: "PARTIAL", problem: "9 workflows ACTIVE dont fan-out publish, erreurs config + credentials sync manquantes", next_action: "Audit + fix workflows erreurs + credentials sync + webhook publish-approve", owner_agent: "Steward", proof_source: "n8n cloud workflow id kXojepCAXV5ktVsf" },
-  { id: "cofiapublisher", name: "CofiaPublisher pipeline V30", status: "LIVE", problem: "Server :8540 LIVE, 89 MP4 prêts, 0 publié, drawer Hub UI absent, ferrari-refresh LA pas installé", next_action: "Install LaunchAgent ferrari-refresh 300s + drawer cof-island-v21.html + Gemini Vision J+3", owner_agent: "Nova", proof_source: "curl :8540/api/status LIVE + 89 .mp4 remotion/out/" },
+  { id: "cofiapublisher", name: "CofiaPublisher pipeline V30", status: "PARTIAL", problem: "Server :8540 répond, MP4 prêts selon scan live, mais publication externe non prouvée; service live ≠ mission publication live", next_action: "Installer refresh ciblé 300s + drawer dans cockpit :3000 + Gemini Vision J+3", owner_agent: "Nova", proof_source: "curl :8540/api/status + assetsWarehouse.remotionOutDir; publish proof missing" },
   { id: "hedra", name: "Hedra Character-3 lipsync", status: "AWAITING_SETUP", problem: "$30/mo PAYÉ depuis 2026-05-18, HEDRA_API_KEY not set, 6 tentatives FAILED (faux-vert)", next_action: "Set HEDRA_API_KEY env + premier video talking-head Erwin Menorca + ElevenLabs voice clone", owner_agent: "Nova + Luna", proof_source: "hedra.com account $30/mo invoices" },
-  { id: "wispr_flow", name: "Wispr Flow voice", status: "LIVE", problem: "App installée, voice→Warp/Chrome Erwin OK", next_action: "Garder LIVE, intégrer dans pipeline Codex parallel", owner_agent: "Kevin", proof_source: "Wispr.app dictation Warp Terminal" },
+  { id: "wispr_flow", name: "Wispr Flow voice", status: "PARTIAL", problem: "App installée selon canon local, mais ce snapshot n'a pas de preuve d'événement voice récent", next_action: "Ajouter heartbeat Kevin/Wispr horodaté avant claim LIVE", owner_agent: "Kevin", proof_source: "Wispr.app dictation Warp Terminal; fresh event proof missing" },
   { id: "atas", name: "ATAS order flow", status: "AWAITING_SETUP", problem: "Pas câblé sur signaux STRAT-17, pas de widget Hub footprint", next_action: "Connector MT5 + footprint cluster export hub widget", owner_agent: "Marco + Quant", proof_source: "ATAS desktop + MT5 plugin" },
   { id: "tradingview", name: "TradingView", status: "AWAITING_SETUP", problem: "Pas d'API publique, 0 chart annoté publié, 0 followers growth", next_action: "Script Playwright tradingview_screenshot.py + publish 3 ideas/sem M5 NQ", owner_agent: "Quant-TV", proof_source: "TradingView Pro + Playwright cron weekly" },
 ];
@@ -111,9 +129,117 @@ const readString = (record: Record<string, unknown>, keys: string[]): string | n
   return null;
 };
 
-const readJson = async (url: string): Promise<FetchResult> => {
+const readBoolean = (record: Record<string, unknown>, keys: string[]): boolean | null => {
+  for (const key of keys) {
+    const value = record[key];
+    if (typeof value === "boolean") return value;
+  }
+  return null;
+};
+
+const readRecordList = (value: unknown): Record<string, unknown>[] =>
+  Array.isArray(value)
+    ? value.filter((item): item is Record<string, unknown> => Boolean(item) && typeof item === "object" && !Array.isArray(item))
+    : [];
+
+const readNonEmptyRecord = (value: unknown): Record<string, unknown> | null => {
+  const record = toRecord(value);
+  return Object.keys(record).length > 0 ? record : null;
+};
+
+const readPublisherWorkorders = (...values: unknown[]): Record<string, unknown>[] | Record<string, Record<string, unknown>> | null => {
+  for (const value of values) {
+    const list = readRecordList(value);
+    if (list.length > 0) return list.slice(0, 24);
+    const record = readNonEmptyRecord(value);
+    if (!record) continue;
+    const entries = Object.entries(record)
+      .filter((entry): entry is [string, Record<string, unknown>] => Boolean(entry[1]) && typeof entry[1] === "object" && !Array.isArray(entry[1]))
+      .slice(0, 24);
+    if (entries.length > 0) return Object.fromEntries(entries);
+  }
+  return null;
+};
+
+const buildPublisherCanonSnapshot = (result: FetchResult) => {
+  const payload = toRecord(result.data);
+  const canonical = toRecord(payload.canonical);
+  const counts = toRecord(payload.counts);
+  const verdict = readString(payload, ["verdict", "status"]) ?? (result.ok ? "LIVE_HTTP_NO_VERDICT" : "SOURCE_DOWN");
+
+  return {
+    ok: result.ok && verdict === "CANON_REGISTERED_GREEN",
+    status: verdict,
+    sourceTag: readString(payload, ["source_tag", "sourceTag"]),
+    canonical: {
+      path: readString(canonical, ["path"]),
+      url: readString(canonical, ["url"]),
+      exists: readBoolean(canonical, ["exists"]),
+    },
+    counts: {
+      assetsTotal: readNumber(counts, ["assets_total", "assetsTotal"]),
+      assetsWiredOrAvailable: readNumber(counts, ["assets_wired_or_available", "assetsWiredOrAvailable"]),
+      assetsToWire: readNumber(counts, ["assets_to_wire", "assetsToWire"]),
+      duplicatePublisherHtml: readNumber(counts, ["duplicate_publisher_html", "duplicatePublisherHtml"]),
+      activeRenders: readNumber(counts, ["active_renders", "activeRenders"]),
+      brollTotal: readNumber(counts, ["broll_total", "brollTotal"]),
+      pexelsBroll: readNumber(counts, ["pexels_broll", "pexelsBroll"]),
+      pixabayBroll: readNumber(counts, ["pixabay_broll", "pixabayBroll"]),
+      unsplashBroll: readNumber(counts, ["unsplash_broll", "unsplashBroll"]),
+      producedProven: readNumber(counts, ["produced_proven", "producedProven"]),
+      producedProvenConditional: readNumber(counts, ["produced_proven_conditional", "producedProvenConditional"]),
+      goldenProven: readNumber(counts, ["golden_proven", "goldenProven"]),
+      failedGate: readNumber(counts, ["failed_gate", "failedGate"]),
+      unprovenPartial: readNumber(counts, ["unproven_partial", "unprovenPartial"]),
+      provenTotalPublishableLocked: readNumber(counts, ["proven_total_publishable_locked", "provenTotalPublishableLocked"]),
+    },
+    surfaces: readRecordList(payload.surfaces).map((surface) => ({
+      id: readString(surface, ["id"]) ?? "unknown",
+      label: readString(surface, ["label"]) ?? "UNKNOWN",
+      status: readString(surface, ["status"]) ?? "UNKNOWN",
+      url: readString(surface, ["url"]),
+      path: readString(surface, ["path"]),
+    })),
+    stations: readRecordList(payload.stations).map((station) => ({
+      id: readString(station, ["id"]) ?? "unknown",
+      label: readString(station, ["label"]) ?? "UNKNOWN",
+      owner: readString(station, ["owner"]) ?? "UNKNOWN",
+      status: readString(station, ["status"]) ?? "UNKNOWN",
+      endpoint: readString(station, ["endpoint"]),
+    })),
+    assets: readRecordList(payload.assets).map((asset) => ({
+      id: readString(asset, ["id"]) ?? "unknown",
+      label: readString(asset, ["label"]) ?? "UNKNOWN",
+      state: readString(asset, ["state", "status"]) ?? "UNKNOWN",
+      role: readString(asset, ["role"]) ?? "",
+      count: readNumber(asset, ["count"]),
+      path: readString(asset, ["path"]),
+    })),
+    blockers: readRecordList(payload.blockers).map((blocker) => ({
+      id: readString(blocker, ["id"]) ?? "unknown",
+      status: readString(blocker, ["status"]) ?? "UNKNOWN",
+      impact: readString(blocker, ["impact"]) ?? "",
+      patch: readString(blocker, ["patch"]) ?? "",
+    })),
+    officialDocs: readRecordList(payload.official_docs ?? payload.officialDocs).map((doc) => ({
+      id: readString(doc, ["id"]) ?? "unknown",
+      label: readString(doc, ["label"]) ?? "UNKNOWN",
+      url: readString(doc, ["url"]) ?? "",
+    })),
+  };
+};
+
+const readJson = async (url: string | null, timeoutMs = 3500): Promise<FetchResult> => {
+  if (!url) {
+    return {
+      ok: false,
+      status: null,
+      data: null,
+      error: "SOURCE_NOT_CONFIGURED",
+    };
+  }
   const controller = new AbortController();
-  const timeout = setTimeout(() => controller.abort(), 3500);
+  const timeout = setTimeout(() => controller.abort(), timeoutMs);
 
   try {
     const response = await fetch(url, {
@@ -141,8 +267,157 @@ const readJson = async (url: string): Promise<FetchResult> => {
   }
 };
 
+const readOpenClawRepoProof = async () => {
+  try {
+    const config = await readFile(`${OPENCLAW_REPO_ROOT}/.git/config`, "utf8");
+    const head = (await readFile(`${OPENCLAW_REPO_ROOT}/.git/HEAD`, "utf8")).trim();
+    const remoteOk = config.includes(OPENCLAW_REPO_REMOTE);
+    const branch = head.startsWith("ref: refs/heads/") ? head.replace("ref: refs/heads/", "") : "detached";
+    const commit = head.startsWith("ref:")
+      ? (await readFile(`${OPENCLAW_REPO_ROOT}/.git/${head.replace("ref: ", "")}`, "utf8")).trim()
+      : head;
+    const ok = remoteOk && commit.length >= 7;
+    return {
+      ok,
+      status: ok ? "GREEN_LOCAL_REMOTE" : "AMBER_LOCAL_REMOTE_REVERIFY",
+      sourceTag: "OPENCLAW_MISSION_CONTROL_GITHUB_LOCAL_REMOTE_20260601",
+      repoRoot: OPENCLAW_REPO_ROOT,
+      remoteUrl: OPENCLAW_REPO_REMOTE,
+      branch,
+      commit,
+      proof: `${OPENCLAW_REPO_ROOT}/.git/config origin=${remoteOk ? OPENCLAW_REPO_REMOTE : "REMOTE_MISMATCH"} branch=${branch} commit=${commit.slice(0, 12)}`,
+    };
+  } catch (error) {
+    return {
+      ok: false,
+      status: "SOURCE_DOWN",
+      sourceTag: "OPENCLAW_MISSION_CONTROL_GITHUB_LOCAL_REMOTE_20260601",
+      repoRoot: OPENCLAW_REPO_ROOT,
+      remoteUrl: OPENCLAW_REPO_REMOTE,
+      branch: null,
+      commit: null,
+      proof: error instanceof Error ? error.message : "repo proof read failed",
+    };
+  }
+};
+
+const readHouseOrchestratorState = async () => {
+  try {
+    const payload = JSON.parse(await readFile(HOUSE_ORCHESTRATOR_STATE, "utf8")) as { ok?: boolean; houseMissions?: unknown[] };
+    return payload?.ok === true && Array.isArray(payload.houseMissions) ? payload : null;
+  } catch {
+    return null;
+  }
+};
+
+const readToolOperatingContracts = async () => {
+  try {
+    const raw = JSON.parse(await readFile(TOOL_OPERATING_CONTRACTS, "utf8")) as {
+      source_tag?: string;
+      policy?: string;
+      generated_at_utc?: string;
+      contracts?: Array<Record<string, unknown>>;
+    };
+    const contracts = Array.isArray(raw.contracts) ? raw.contracts : [];
+    const normalized = contracts
+      .filter((contract) => readString(contract, ["id"]) && readString(contract, ["label"]))
+      .map((contract) => {
+        const label = readString(contract, ["label"]) ?? "Tool";
+        const machineIds = Array.isArray(contract.machine_ids)
+          ? contract.machine_ids.filter((id): id is string => typeof id === "string" && id.length > 0)
+          : [];
+        return {
+          id: readString(contract, ["id"]) ?? label.toLowerCase(),
+          machineIds,
+          label,
+          short: readString(contract, ["short"]) ?? label.slice(0, 3).toUpperCase(),
+          houseId: readString(contract, ["house_id"]) ?? "central_brain",
+          owner: readString(contract, ["owner"]) ?? "Central Brain",
+          purpose: readString(contract, ["purpose"]) ?? "Utilite a documenter.",
+          usedWhen: readString(contract, ["used_when"]) ?? "Quand une mission le demande.",
+          agentRule: readString(contract, ["agent_rule"]) ?? "Usage controle par Proof Ledger.",
+          requiredInput: readString(contract, ["required_input"]) ?? "Mission sourcee.",
+          requiredOutput: readString(contract, ["required_output"]) ?? "Artefact verifiable.",
+          proofRequired: readString(contract, ["proof_required"]) ?? "Preuve locale + Proof Ledger.",
+          workGate: readString(contract, ["work_gate"]) ?? "Ne compte pas comme travail sans execution prouvee.",
+          costRule: readString(contract, ["cost_rule"]) ?? "Cout a justifier par mission.",
+        };
+      });
+    return {
+      ok: true,
+      sourceTag: readString(raw, ["source_tag"]) ?? "COFIAT_TOOL_OPERATING_CONTRACTS",
+      policy: readString(raw, ["policy"]) ?? "NO_FAKE_WORK_TOOL_CONTRACT",
+      generatedAtUtc: readString(raw, ["generated_at_utc"]),
+      sourcePath: TOOL_OPERATING_CONTRACTS,
+      summary: {
+        contracts: normalized.length,
+        machineAliases: normalized.reduce((total, contract) => total + contract.machineIds.length, 0),
+        houses: new Set(normalized.map((contract) => contract.houseId)).size,
+      },
+      contracts: normalized,
+    };
+  } catch (error) {
+    return {
+      ok: false,
+      sourceTag: "COFIAT_TOOL_OPERATING_CONTRACTS",
+      policy: "NO_FAKE_WORK_TOOL_CONTRACT",
+      sourcePath: TOOL_OPERATING_CONTRACTS,
+      blocker: error instanceof Error ? error.message : "contracts read failed",
+      contracts: [],
+    };
+  }
+};
+
+const readHubWiring = async () => {
+  try {
+    return await buildHubWiringSnapshot();
+  } catch {
+    return null;
+  }
+};
+
+const readHubSourceLedger = async () => {
+  try {
+    return await buildSourceLedgerPayload();
+  } catch {
+    return null;
+  }
+};
+
+const readConsoleIaProof = async () => {
+  try {
+    const packetsStat = await stat(CONSOLE_IA_PACKETS_DIR);
+    return {
+      ok: true,
+      status: "LOCAL_PACKET_ROUTE_READY",
+      sourceTag: "CONSOLE_IA_LOCAL_PACKET_ROUTE_SSR_20260601",
+      mode: "LOCAL_PACKET_READY",
+      proof: `${CONSOLE_IA_PACKETS_DIR} · mtime=${packetsStat.mtime.toISOString()}`,
+      paths: {
+        packetsDir: CONSOLE_IA_PACKETS_DIR,
+        responsesDir: CONSOLE_IA_RESPONSES_DIR,
+        packetsJsonl: CONSOLE_IA_PACKETS_JSONL,
+      },
+    };
+  } catch (error) {
+    return {
+      ok: false,
+      status: "AMBER_REVERIFY",
+      sourceTag: "CONSOLE_IA_LOCAL_PACKET_ROUTE_SSR_20260601",
+      mode: "LOCAL_PACKET_UNAVAILABLE",
+      proof: error instanceof Error ? error.message : "Console IA packets dir unavailable",
+      paths: {
+        packetsDir: CONSOLE_IA_PACKETS_DIR,
+        responsesDir: CONSOLE_IA_RESPONSES_DIR,
+        packetsJsonl: CONSOLE_IA_PACKETS_JSONL,
+      },
+    };
+  }
+};
+
 const readOpenClaw = async (path: string): Promise<FetchResult> => {
-  if (!LOCAL_AUTH_TOKEN) {
+  const localAuthToken = await getLocalAuthToken();
+  if (!localAuthToken) {
     return {
       ok: false,
       status: null,
@@ -159,7 +434,7 @@ const readOpenClaw = async (path: string): Promise<FetchResult> => {
       cache: "no-store",
       signal: controller.signal,
       headers: {
-        Authorization: `Bearer ${LOCAL_AUTH_TOKEN}`,
+        Authorization: `Bearer ${localAuthToken}`,
       },
     });
     const text = await response.text();
@@ -367,6 +642,7 @@ const buildRouteAggregation = ({
   knowledge,
   publisher,
   proofLedger,
+  assetsWarehouse,
 }: {
   revenue: Record<string, unknown>;
   brokers: Record<string, unknown>;
@@ -375,6 +651,7 @@ const buildRouteAggregation = ({
   knowledge: Record<string, KnowledgeSnapshot>;
   publisher: Record<string, unknown>;
   proofLedger: ProofLedgerSnapshot;
+  assetsWarehouse: Awaited<ReturnType<typeof readAssetsWarehouse>>;
 }) => {
   const currentArr = readNumber(revenue, ["arr_eur"]);
   const currentMrr = readNumber(revenue, ["mrr_eur", "mrr_active_eur"]);
@@ -398,7 +675,20 @@ const buildRouteAggregation = ({
     ?? sumBrokerMetric(brokers, "commission_lifetime_usd");
   const ftdCumul = readNumber(revenue, ["ftd_cumul"]) ?? sumBrokerMetric(brokers, "ftd");
   const obsidianFiles = parseNumberFromProof(knowledge.obsidian?.lastProof, /files=(\d+)/);
-  const rendersOldCity = readNumber(publisher, ["output_dir_count", "renders_count", "count"]);
+  const rendersNative = readNumber(publisher, ["output_dir_count", "renders_count", "count", "renders"]);
+  const orphanNative = readNumber(publisher, ["orphan_count", "orphan"]);
+  const archivedNative = readNumber(publisher, ["archived_count", "archived"]);
+  const goldProvedNative = readNumber(publisher, ["gold_proved_count", "gold_proved"]);
+  const publishLockReason = readString(publisher, ["publish_lock_reason"]);
+  const publisherSourceTag = readString(publisher, ["source_tag", "sourceTag"]) ?? "CofiaPublisher native source";
+  const assetFactoryHasLiveCount = [
+    assetsWarehouse.assetsInventoryCount,
+    assetsWarehouse.mp4Count,
+    assetsWarehouse.captionsCount,
+  ].some((value) => typeof value === "number");
+  const assetFactorySource = assetFactoryHasLiveCount
+    ? assetsWarehouse.sourceTag
+    : "STATIC_CANON_REFERENCE_ONLY";
 
   return {
     revenue_route: {
@@ -428,21 +718,38 @@ const buildRouteAggregation = ({
     acquisition_route: {
       id: "acquisition_route",
       label: "Acquisition Route",
-      source: "Asset Factory + Acquisition Engine + CofiaPublisher",
-      ...ASSET_FACTORY_CANON,
-      renders_old_city: rendersOldCity,
+      source: assetFactoryHasLiveCount
+        ? "filesystem_assets_warehouse + CofiaPublisher"
+        : "STATIC_CANON_REFERENCE_ONLY + CofiaPublisher",
+      asset_factory_source: assetFactorySource,
+      asset_factory_static_reference: ASSET_FACTORY_CANON,
+      asset_warehouse_ok: assetsWarehouse.ok,
+      assets_count: assetsWarehouse.assetsInventoryCount,
+      content_pieces: assetsWarehouse.mp4Count,
+      brochures: null,
+      scripts: assetsWarehouse.captionsCount,
+      renders_native: rendersNative,
       status: "AMBER",
       key_metrics: {
-        assets_count: ASSET_FACTORY_CANON.assets_count,
-        content_pieces: ASSET_FACTORY_CANON.content_pieces,
-        brochures: ASSET_FACTORY_CANON.brochures,
-        scripts: ASSET_FACTORY_CANON.scripts,
-        renders_old_city: rendersOldCity,
+        assets_count: assetsWarehouse.assetsInventoryCount,
+        content_pieces: assetsWarehouse.mp4Count,
+        brochures: null,
+        scripts: assetsWarehouse.captionsCount,
+        captions_count: assetsWarehouse.captionsCount,
+        asset_warehouse_ok: assetsWarehouse.ok,
+        asset_warehouse_errors: assetsWarehouse.errors,
+        renders_native: rendersNative,
+        archived_native: archivedNative,
+        orphan_native: orphanNative,
+        gold_proved_native: goldProvedNative,
       },
-      last_proof: publisherTruck?.lastProof ?? "CofiaPublisher status read-only",
-      next_checkpoint: publisherTruck?.nextAction ?? "Lock publish; certify read/status only",
+      last_proof: publisherTruck?.lastProof ?? publisherSourceTag,
+      next_checkpoint: publisherTruck?.nextAction ?? "Certifier les renders orphelins; publication externe verrouillee",
       gate_required: "PUBLISH locked",
-      blockers: ["86 renders remain OLD_CITY unless individually proven v22BU"],
+      blockers: [
+        orphanNative === null ? "Renders orphelins: source native manquante" : `${orphanNative} renders orphelins sous regle native`,
+        publishLockReason ?? "R8_ERWIN_GATE_EXTERNAL_PUBLISH",
+      ],
     },
     knowledge_route: {
       id: "knowledge_route",
@@ -601,16 +908,69 @@ const CAPTIONS_DIR =
 const ASSETS_INVENTORY_PATH =
   process.env.COF_ASSETS_INVENTORY_PATH ??
   "/Users/burakokyay/.openclaw/config/assets_inventory_canon.json";
+const ASSET_VAULT_PATH =
+  process.env.COF_ASSET_VAULT_PATH ??
+  "/Users/burakokyay/.openclaw/state/mission_control/asset_vault.json";
+const DEEP_STUDIO_MANIFEST_PATH =
+  process.env.COF_DEEP_STUDIO_MANIFEST_PATH ??
+  "/Users/burakokyay/.openclaw/state/cofiapublisher/universal_studio/asset_manifest_global.json";
+const IMAGE_GENERATION_MANIFEST_PATH =
+  process.env.COF_IMAGE_GENERATION_MANIFEST_PATH ??
+  "/Users/burakokyay/.openclaw/state/cofiapublisher/universal_studio/orders/studio-20260602T170805Z-anime_episode-1ada2b/image_generation_manifest.json";
+const IMAGE_GENERATION_MANIFEST_ENDPOINT =
+  process.env.COF_IMAGE_GENERATION_MANIFEST_ENDPOINT ??
+  `${OPENCLAW_API}/api/v1/cof/publisher/image-generation-manifest`;
+const LATEST_MP4_ROUTE = "/api/cofiatrading-world-control/remotion/latest-mp4";
+
+async function readLatestMp4FromRemotionOut() {
+  const files = await readdir(REMOTION_OUT_DIR);
+  let latest: {
+    stem: string;
+    filename: string;
+    path: string;
+    url: string;
+    sizeBytes: number;
+    sizeMb: number;
+    mtimeUtc: string;
+    sourceTag: string;
+  } | null = null;
+  let latestMtimeMs = -1;
+
+  for (const filename of files) {
+    if (!filename.toLowerCase().endsWith(".mp4")) continue;
+    const path = join(REMOTION_OUT_DIR, filename);
+    const fileStat = await stat(path);
+    if (!fileStat.isFile() || fileStat.mtimeMs <= latestMtimeMs) continue;
+    latestMtimeMs = fileStat.mtimeMs;
+    latest = {
+      stem: basename(filename, extname(filename)),
+      filename,
+      path,
+      url: `${LATEST_MP4_ROUTE}?v=${Math.round(fileStat.mtimeMs)}`,
+      sizeBytes: fileStat.size,
+      sizeMb: Math.round((fileStat.size / (1024 * 1024)) * 10) / 10,
+      mtimeUtc: fileStat.mtime.toISOString(),
+      sourceTag: "REMOTION_OUT_LATEST_MP4_DIRECT_SNAPSHOT_20260603",
+    };
+  }
+
+  return latest;
+}
 
 async function readAssetsWarehouse() {
   const errors: string[] = [];
   let mp4Count: number | null = null;
+  let latestMp4: Awaited<ReturnType<typeof readLatestMp4FromRemotionOut>> = null;
   let captionsCount: number | null = null;
   let assetsInventoryCount: number | null = null;
+  let assetVaultCount: number | null = null;
+  let assetVaultRawFileCount: number | null = null;
+  let deepStudioAssetCount: number | null = null;
 
   try {
     const files = await readdir(REMOTION_OUT_DIR);
     mp4Count = files.filter((file) => file.toLowerCase().endsWith(".mp4")).length;
+    latestMp4 = await readLatestMp4FromRemotionOut();
   } catch (error) {
     errors.push(`mp4:${error instanceof Error ? error.message : String(error)}`);
   }
@@ -641,20 +1001,42 @@ async function readAssetsWarehouse() {
   } catch (error) {
     errors.push(`assets_inventory:${error instanceof Error ? error.message : String(error)}`);
   }
+  try {
+    const parsed = JSON.parse(await readFile(ASSET_VAULT_PATH, "utf8")) as { summary?: { asset_count?: unknown; raw_file_count?: unknown } };
+    assetVaultCount = typeof parsed.summary?.asset_count === "number" ? parsed.summary.asset_count : null;
+    assetVaultRawFileCount = typeof parsed.summary?.raw_file_count === "number" ? parsed.summary.raw_file_count : null;
+  } catch (error) {
+    errors.push(`asset_vault:${error instanceof Error ? error.message : String(error)}`);
+  }
+  try {
+    const parsed = JSON.parse(await readFile(DEEP_STUDIO_MANIFEST_PATH, "utf8")) as { summary?: { asset_count?: unknown } };
+    deepStudioAssetCount = typeof parsed.summary?.asset_count === "number" ? parsed.summary.asset_count : null;
+  } catch (error) {
+    errors.push(`deep_studio_manifest:${error instanceof Error ? error.message : String(error)}`);
+  }
 
   return {
     ok:
       typeof mp4Count === "number" &&
       typeof captionsCount === "number" &&
-      typeof assetsInventoryCount === "number",
-    sourceTag: "filesystem_assets_warehouse",
+      typeof assetsInventoryCount === "number" &&
+      latestMp4 !== null,
+    sourceTag: "filesystem_assets_warehouse_snapshot_remotion_latest_mp4_20260603",
     mp4Count,
+    latestMp4,
     captionsCount,
     assetsInventoryCount,
+    assetVaultCount,
+    assetVaultRawFileCount,
+    deepStudioAssetCount,
     paths: {
       remotionOutDir: REMOTION_OUT_DIR,
       captionsDir: CAPTIONS_DIR,
       assetsInventoryPath: ASSETS_INVENTORY_PATH,
+      assetVaultPath: ASSET_VAULT_PATH,
+      deepStudioManifestPath: DEEP_STUDIO_MANIFEST_PATH,
+      imageGenerationManifestPath: IMAGE_GENERATION_MANIFEST_PATH,
+      imageGenerationManifestEndpoint: IMAGE_GENERATION_MANIFEST_ENDPOINT,
     },
     errors,
   };
@@ -664,29 +1046,56 @@ const AGENTS_CANON_PATH =
   process.env.COF_AGENTS_CANON_PATH ??
   "/Users/burakokyay/.openclaw/config/agents_visual_identity_canon.json";
 
+const orgRoleForRankLayer = (rankLayer: string) => {
+  const normalized = rankLayer.toLowerCase();
+  if (normalized.startsWith("l0")) return "owner";
+  if (normalized.startsWith("l1")) return "co_ceo";
+  if (normalized.includes("auxiliaire")) return "voice";
+  if (normalized.startsWith("l2")) return "manager";
+  if (normalized.startsWith("l3")) return "chief";
+  if (normalized.includes("executor")) return "worker";
+  return "specialist";
+};
+
+const rankLayerWeightFor = (rankLayer: string) => {
+  const normalized = rankLayer.toLowerCase();
+  if (normalized.startsWith("l0")) return 100;
+  if (normalized.startsWith("l1")) return 90;
+  if (normalized.startsWith("l2")) return 78;
+  if (normalized.startsWith("l3")) return 66;
+  if (normalized.includes("specialist")) return 48;
+  if (normalized.includes("executor")) return 40;
+  return 30;
+};
+
 async function readAgentsCanon() {
   try {
     const raw = await readFile(AGENTS_CANON_PATH, "utf8");
     const parsed = JSON.parse(raw);
     const list = Array.isArray(parsed?.agents) ? (parsed.agents as Record<string, unknown>[]) : [];
-    const agents = list.map((a) => ({
-      no: typeof a.no === "number" ? a.no : null,
-      id: String(a.id ?? "unknown"),
-      name: String(a.name ?? "Unknown"),
-      glyph: typeof a.glyph === "string" ? a.glyph : "",
-      avatarEmoji: typeof a.avatar_emoji === "string" ? a.avatar_emoji : "",
-      colorPrimary: typeof a.color_primary === "string" ? a.color_primary : "#888888",
-      colorAccent: typeof a.color_accent === "string" ? a.color_accent : "#aaaaaa",
-      roleBadge: typeof a.role_badge === "string" ? a.role_badge : "",
-      house: typeof a.house_attached === "string" ? a.house_attached : "unassigned",
-      houseColor: typeof a.house_color === "string" ? a.house_color : "#888888",
-      rankLayer: typeof a.rank_layer === "string" ? a.rank_layer : "",
-      boss: typeof a.boss === "string" ? a.boss : "",
-      engine: typeof a.engine === "string" ? a.engine : "",
-      responsibilities: Array.isArray(a.responsibilities)
-        ? (a.responsibilities as unknown[]).filter((r): r is string => typeof r === "string")
-        : [],
-    }));
+    const agents = list.map((a) => {
+      const rankLayer = typeof a.rank_layer === "string" ? a.rank_layer : "";
+      return {
+        no: typeof a.no === "number" ? a.no : null,
+        id: String(a.id ?? "unknown"),
+        name: String(a.name ?? "Unknown"),
+        glyph: typeof a.glyph === "string" ? a.glyph : "",
+        avatarEmoji: typeof a.avatar_emoji === "string" ? a.avatar_emoji : "",
+        colorPrimary: typeof a.color_primary === "string" ? a.color_primary : "#888888",
+        colorAccent: typeof a.color_accent === "string" ? a.color_accent : "#aaaaaa",
+        roleBadge: typeof a.role_badge === "string" ? a.role_badge : "",
+        house: typeof a.house_attached === "string" ? a.house_attached : "unassigned",
+        houseColor: typeof a.house_color === "string" ? a.house_color : "#888888",
+        rankLayer,
+        rankLayerWeight: rankLayerWeightFor(rankLayer),
+        orgRole: orgRoleForRankLayer(rankLayer),
+        boss: typeof a.boss === "string" ? a.boss : "",
+        engine: typeof a.engine === "string" ? a.engine : "",
+        responsibilities: Array.isArray(a.responsibilities)
+          ? (a.responsibilities as unknown[]).filter((r): r is string => typeof r === "string")
+          : [],
+      };
+    });
     return { ok: agents.length > 0, count: agents.length, sourceTag: "agents_visual_identity_canon", agents };
   } catch (error) {
     return {
@@ -756,6 +1165,110 @@ const readSafeJsonFile = async <T,>(filePath: string, fallback: T): Promise<T> =
   } catch {
     return fallback;
   }
+};
+
+const readWorkerPoolSnapshot = async () => {
+  const [manifest, controlLoop] = await Promise.all([
+    readSafeJsonFile<Record<string, unknown> | null>(WORKER_POOL_MANIFEST, null),
+    readSafeJsonFile<Record<string, unknown> | null>(CLAUDE_CONTROL_LOOP_STATE, null),
+  ]);
+  const nowMs = Date.now();
+  let fileMtimeUtc: string | null = null;
+  let fileAgeSec: number | null = null;
+  try {
+    const manifestStat = await stat(WORKER_POOL_MANIFEST);
+    fileMtimeUtc = manifestStat.mtime.toISOString();
+    fileAgeSec = Math.max(0, Math.round((nowMs - manifestStat.mtimeMs) / 1000));
+  } catch {
+    fileMtimeUtc = null;
+    fileAgeSec = null;
+  }
+  const freshnessStatus =
+    fileAgeSec === null ? "SOURCE_MISSING" : fileAgeSec > 180 ? "STALE" : "FRESH";
+  if (!manifest) {
+    return {
+      ok: false,
+      status: "SOURCE_MISSING",
+      sourceTag: null,
+      snapshotId: null,
+      sourcePath: WORKER_POOL_MANIFEST,
+      fileMtimeUtc,
+      fileAgeSec,
+      freshnessStatus,
+      summary: null,
+      laneDistribution: {},
+      activeLaneDistribution: {},
+      controlLoop: controlLoop
+        ? {
+            snapshotId: readString(controlLoop, ["snapshot_id"]),
+            status: readString(controlLoop, ["status"]),
+            verdict: readString(toRecord(controlLoop.self_challenge), ["verdict"]),
+            handoffCounts: toRecord(toRecord(controlLoop.handoff_audit).counts),
+          }
+        : null,
+    };
+  }
+
+  const summary = toRecord(manifest.summary);
+  const controlLoopAudit = toRecord(controlLoop?.handoff_audit);
+  const controlLoopChallenge = toRecord(controlLoop?.self_challenge);
+  const blockedSessionLimit = readNumber(summary, ["blocked_session_limit"]) ?? 0;
+  const failed = readNumber(summary, ["failed"]) ?? 0;
+  const running = readNumber(summary, ["running"]) ?? 0;
+  const sessionLimitParkedDuplicate = readNumber(summary, ["session_limit_parked_duplicate"]) ?? 0;
+  const staleProcessReaped = readNumber(summary, ["stale_process_reaped"]) ?? 0;
+  const runningProcessUnverified = readNumber(summary, ["running_process_unverified"]) ?? 0;
+  const status =
+    freshnessStatus !== "FRESH" ? "AMBER_STALE" :
+    blockedSessionLimit > 0 ? "WATCH_SESSION_LIMIT" :
+    failed > 0 ? "WATCH_FAILED_WORKERS" :
+    staleProcessReaped > 0 ? "WATCH_STALE_PROCESSES" :
+    runningProcessUnverified > 0 ? "WATCH_RUNNING_UNVERIFIED" :
+    running > 0 ? "WATCH_RUNNING" :
+    sessionLimitParkedDuplicate > 0 ? "WATCH_PARKED_DUPLICATES" :
+    "WATCH_IDLE";
+
+  return {
+    ok: freshnessStatus === "FRESH",
+    status,
+    sourceTag: readString(manifest, ["source_tag"]),
+    snapshotId: readString(manifest, ["snapshot_id"]),
+    sourcePath: WORKER_POOL_MANIFEST,
+    fileMtimeUtc,
+    fileAgeSec,
+    freshnessStatus,
+    summary: {
+      workers: readNumber(summary, ["workers"]),
+      active: readNumber(summary, ["active"]),
+      running,
+      runningRealPool: readNumber(summary, ["running_real_pool", "runningRealPool"]),
+      completed: readNumber(summary, ["completed"]),
+      failed,
+      queuedTasks: readNumber(summary, ["queued_tasks"]),
+      queuedTasksTotal: readNumber(summary, ["queued_tasks_total"]),
+      queuedTasksDeferred: readNumber(summary, ["queued_tasks_deferred"]),
+      queuedTasksResolvedByHandoff: readNumber(summary, ["queued_tasks_resolved_by_handoff", "queuedTasksResolvedByHandoff"]),
+      withProof: readNumber(summary, ["with_proof"]),
+      blockedSessionLimit,
+      sessionLimitParkedDuplicate,
+      staleProcessReaped,
+      runningProcessUnverified,
+      distinctActiveLanes: readNumber(summary, ["distinct_active_lanes"]),
+      duplicateRunning: readNumber(summary, ["duplicate_running"]),
+      laneSkew: readBoolean(summary, ["lane_skew"]),
+    },
+    laneDistribution: toRecord(summary.lane_distribution),
+    activeLaneDistribution: toRecord(summary.active_lane_distribution),
+    controlLoop: controlLoop
+      ? {
+          snapshotId: readString(controlLoop, ["snapshot_id"]),
+          status: readString(controlLoop, ["status"]),
+          verdict: readString(controlLoopChallenge, ["verdict"]),
+          decisionAllowed: readBoolean(controlLoopChallenge, ["decision_allowed"]),
+          handoffCounts: toRecord(controlLoopAudit.counts),
+        }
+      : null,
+  };
 };
 
 const parseTimestampMs = (value: unknown): number | null => {
@@ -969,6 +1482,235 @@ const buildLocalBoards = () =>
       houseId,
     })),
   );
+
+type AgentsCanonSnapshot = Awaited<ReturnType<typeof readAgentsCanon>>;
+type CanonAgentRecord = AgentsCanonSnapshot["agents"][number];
+
+const HOUSE_META = LOCAL_BOARD_HOUSE_MAP.map(([houseId, title, slugs]) => ({
+  houseId,
+  title,
+  slugs: [...slugs],
+}));
+
+const BOARD_SLUG_TO_HOUSE = new Map<string, (typeof LOCAL_BOARD_HOUSE_MAP)[number][0]>(
+  LOCAL_BOARD_HOUSE_MAP.flatMap(([houseId, , slugs]) => slugs.map((slug) => [slug, houseId] as const)),
+);
+
+const DONE_STATUS_PATTERN = /done|closed|complete|archived/i;
+const URGENT_PRIORITY_PATTERN = /urgent|high|p0|p1/i;
+
+const normalizeMissionStatus = (status: string) => {
+  const normalized = status.toLowerCase();
+  if (DONE_STATUS_PATTERN.test(normalized)) return "DONE";
+  if (normalized.includes("blocked") || normalized.includes("broken")) return "AMBER";
+  if (normalized.includes("local") || normalized.includes("fallback")) return "AMBER";
+  if (normalized.includes("active") || normalized.includes("progress") || normalized.includes("todo") || normalized.includes("pending")) return "ACTIVE";
+  return status && status !== "UNKNOWN" ? status.toUpperCase() : "CANON";
+};
+
+const pickHouseTask = (tasks: SanitizedTask[]) => {
+  const active = tasks.filter((task) => !DONE_STATUS_PATTERN.test(task.status));
+  const pool = active.length > 0 ? active : tasks;
+  return [...pool].sort((left, right) => {
+    const leftUrgent = URGENT_PRIORITY_PATTERN.test(left.priority) ? 0 : 1;
+    const rightUrgent = URGENT_PRIORITY_PATTERN.test(right.priority) ? 0 : 1;
+    return leftUrgent - rightUrgent || (left.dueTime ?? "9999").localeCompare(right.dueTime ?? "9999");
+  })[0] ?? null;
+};
+
+const proofStatusFor = (proof: string, missionSource?: SanitizedTask | null) => {
+  if (!proof || proof === "UNKNOWN") return "MISSING_PROOF";
+  if (proof === AGENTS_CANON_PATH || proof.includes("agents_visual_identity_canon")) return "CANON_SOURCE";
+  const sourceTag = missionSource?.sourceTag ?? "";
+  const failureMode = missionSource?.failureMode ?? "";
+  const gate = missionSource?.approvalGate ?? "";
+  const proofText = `${proof} ${sourceTag} ${failureMode} ${gate}`.toLowerCase();
+  if (
+    proofText.includes("fallback local") ||
+    proofText.includes("local_trucks_fallback") ||
+    proofText.includes("openclaw_api_down") ||
+    proofText.includes("read_only_fallback")
+  ) {
+    return "FALLBACK_ONLY";
+  }
+  const status = normalizeMissionStatus(missionSource?.status || missionSource?.truckStatus || "UNKNOWN");
+  if (missionSource?.lastRunAt && status === "ACTIVE") return "RUNTIME_PROOF";
+  return "SOURCE_ONLY";
+};
+
+const parseRouteStartHouse = (route: string) => {
+  const [from] = route.split("->").map((part) => part.trim());
+  return BOARD_SLUG_TO_HOUSE.get(from) ?? (HOUSE_META.some((house) => house.houseId === from) ? from : null);
+};
+
+const buildHouseMissions = ({
+  agentsCanon,
+  openclawRuntime,
+  apiAgents,
+  boardTaskPayloads,
+  garageTasks,
+}: {
+  agentsCanon: AgentsCanonSnapshot;
+  openclawRuntime: Awaited<ReturnType<typeof readOpenClawRuntime>>;
+  apiAgents: Record<string, unknown>[];
+  boardTaskPayloads: Array<{ board: Record<string, unknown>; tasks: SanitizedTask[] }>;
+  garageTasks: SanitizedTask[];
+}) => {
+  const agentsById = new Map<string, CanonAgentRecord>();
+  const runtimeStatusByAgent = new Map<string, string>();
+  const tasksByHouse = new Map<string, SanitizedTask[]>();
+  const trucksByHouse = new Map<string, SanitizedTask[]>();
+
+  for (const agent of agentsCanon.agents) {
+    agentsById.set(normalizeAgentKey(agent.id), agent);
+    agentsById.set(normalizeAgentKey(agent.name), agent);
+  }
+
+  for (const agent of openclawRuntime.agents) {
+    runtimeStatusByAgent.set(normalizeAgentKey(agent.id), agent.runtimeStatus);
+    runtimeStatusByAgent.set(normalizeAgentKey(agent.name), agent.runtimeStatus);
+  }
+  for (const agent of apiAgents) {
+    const id = readString(agent, ["id"]);
+    const name = readString(agent, ["name"]);
+    const status = readString(agent, ["status"]);
+    if (!status) continue;
+    if (id) runtimeStatusByAgent.set(normalizeAgentKey(id), status);
+    if (name) runtimeStatusByAgent.set(normalizeAgentKey(name), status);
+  }
+
+  for (const { board, tasks } of boardTaskPayloads) {
+    const slug = readString(board, ["slug"]);
+    const houseId = slug ? BOARD_SLUG_TO_HOUSE.get(slug) : null;
+    if (!houseId) continue;
+    tasksByHouse.set(houseId, [...(tasksByHouse.get(houseId) ?? []), ...tasks]);
+  }
+
+  for (const truck of garageTasks) {
+    const routeHouse = parseRouteStartHouse(truck.route);
+    const ownerHouse =
+      agentsById.get(normalizeAgentKey(truck.owner))?.house ??
+      agentsById.get(normalizeAgentKey(truck.driverAgent))?.house ??
+      null;
+    const houseId = routeHouse ?? (ownerHouse && HOUSE_META.some((house) => house.houseId === ownerHouse) ? ownerHouse : null);
+    if (!houseId) continue;
+    trucksByHouse.set(houseId, [...(trucksByHouse.get(houseId) ?? []), truck]);
+  }
+
+  const toMissionAgent = (agent: CanonAgentRecord) => {
+    const boss = agent.boss ? agentsById.get(normalizeAgentKey(agent.boss)) : null;
+    return {
+      id: agent.id,
+      name: agent.name,
+      orgRole: agent.orgRole,
+      rankLayer: agent.rankLayer,
+      rankLayerWeight: agent.rankLayerWeight,
+      bossId: agent.boss || null,
+      bossName: boss?.name ?? null,
+      roleBadge: agent.roleBadge,
+      status:
+        runtimeStatusByAgent.get(normalizeAgentKey(agent.id)) ??
+        runtimeStatusByAgent.get(normalizeAgentKey(agent.name)) ??
+        "CANON_ONLY",
+      responsibilities: agent.responsibilities,
+      proof: AGENTS_CANON_PATH,
+    };
+  };
+
+  return HOUSE_META.map(({ houseId, title, slugs }) => {
+    const houseAgents = agentsCanon.agents
+      .filter((agent) => agent.house === houseId)
+      .sort((left, right) => right.rankLayerWeight - left.rankLayerWeight || left.name.localeCompare(right.name));
+    const inHouseChiefs = houseAgents.filter((agent) =>
+      ["owner", "co_ceo", "manager", "chief", "voice"].includes(agent.orgRole),
+    );
+    const chiefSource = inHouseChiefs[0] ?? houseAgents[0] ?? null;
+    const chief = chiefSource ? toMissionAgent(chiefSource) : null;
+    const chiefs = (inHouseChiefs.length > 0 ? inHouseChiefs : chiefSource ? [chiefSource] : []).map(toMissionAgent);
+    const workers = houseAgents
+      .filter((agent) => !chiefSource || agent.id !== chiefSource.id)
+      .map(toMissionAgent);
+    const tasks = tasksByHouse.get(houseId) ?? [];
+    const trucks = trucksByHouse.get(houseId) ?? [];
+    const task = pickHouseTask(tasks);
+    const truck = !task ? pickHouseTask(trucks) : null;
+
+    const fallbackResponsibility =
+      chiefSource?.responsibilities[0] ??
+      houseAgents.flatMap((agent) => agent.responsibilities)[0] ??
+      "Mission source manquante";
+    const missionSource = task ?? truck;
+    const missionProof = missionSource?.lastProof && missionSource.lastProof !== "UNKNOWN"
+      ? missionSource.lastProof
+      : missionSource
+        ? missionSource.sourceOfTruth
+        : houseAgents.length > 0
+          ? AGENTS_CANON_PATH
+          : "NO_AGENT_OR_TASK_SOURCE";
+    const missionStatus = missionSource
+      ? normalizeMissionStatus(missionSource.status || missionSource.truckStatus)
+      : houseAgents.length > 0
+        ? "CANON"
+        : "SOURCE_GAP";
+    const missionTitle = missionSource
+      ? missionSource.currentJob !== "UNKNOWN"
+        ? missionSource.currentJob
+        : missionSource.title
+      : fallbackResponsibility;
+    const sourceTag = missionSource?.sourceTag ?? (houseAgents.length > 0 ? "agents_visual_identity_canon" : "SOURCE_GAP_NO_HOUSE_AGENT");
+
+    const orgEdges = houseAgents.flatMap((agent) => {
+      if (!agent.boss) return [];
+      const boss = agentsById.get(normalizeAgentKey(agent.boss));
+      if (!boss) return [];
+      return [{ fromAgentId: boss.id, toAgentId: agent.id, relation: "boss" as const }];
+    });
+
+    return {
+      houseId,
+      houseTitle: title,
+      status: missionStatus,
+      sourceTag,
+      primaryBoardSlug: slugs[0],
+      boardSlugs: slugs,
+      creator: {
+        houseId,
+        chiefAgentId: chief?.id ?? null,
+        chiefAgentName: chief?.name ?? null,
+      },
+      mission: {
+        id: missionSource?.id ?? `${houseId}-canon-mission`,
+        title: missionTitle,
+        status: missionStatus,
+        nextAction: missionSource?.nextAction ?? (houseAgents.length > 0 ? fallbackResponsibility : "Relier une source mission ou un agent canon a cette maison"),
+        impact: missionSource?.arrImpact ?? "UNKNOWN",
+        blocker: missionSource?.failureMode || (missionSource ? "" : houseAgents.length > 0 ? "" : "NO_HOUSE_AGENT_SOURCE"),
+        proof: missionProof,
+        proofStatus: proofStatusFor(missionProof, missionSource),
+        sourceTag,
+        taskId: missionSource?.id ?? null,
+        route: missionSource?.route && missionSource.route !== "UNKNOWN" ? missionSource.route : null,
+      },
+      chief,
+      chiefs,
+      workers,
+      agents: houseAgents.map(toMissionAgent),
+      orgEdges,
+      counts: {
+        agents: houseAgents.length,
+        chiefs: chiefs.length,
+        workers: workers.length,
+        activeTasks: tasks.filter((houseTask) => !DONE_STATUS_PATTERN.test(houseTask.status)).length,
+        trucks: trucks.length,
+      },
+      proofs: [
+        { label: "agents_canon", source: AGENTS_CANON_PATH, status: agentsCanon.ok ? "OK" : "SOURCE_DOWN" },
+        { label: "board_tasks", source: slugs.join(","), status: tasks.length > 0 ? "OK" : "NO_TASK_SOURCE" },
+        { label: "mission_proof", source: missionProof, status: proofStatusFor(missionProof, missionSource) },
+      ],
+    };
+  });
+};
 
 const readOpenClawRuntime = async () => {
   const nowMs = Date.now();
@@ -1207,6 +1949,12 @@ export async function GET() {
     revenueResult,
     housesResult,
     publisherResult,
+    publisherCanonResult,
+    publisherAssetBridgeResult,
+    publisherVideoBridgeResult,
+    publisherNativeRendersResult,
+    publisherNativeStateResult,
+    publisherNativeTiersResult,
 	    ackResult,
 	    rtkResult,
 	    proofLedgerResult,
@@ -1220,6 +1968,12 @@ export async function GET() {
       readLocalRevenue(),
       readJson(endpoints.houses),
       readJson(endpoints.publisher),
+      readJson(endpoints.publisherCanon, 12000),
+      readJson(endpoints.publisherAssetBridge, 15000),
+      readJson(endpoints.publisherVideoBridge, 10000),
+      readJson(endpoints.publisherNativeRenders, 12000),
+      readJson(endpoints.publisherNativeState, 12000),
+      readJson(endpoints.publisherNativeTiers, 12000),
 	      readJson(endpoints.ack),
 	      readJson(endpoints.rtk),
 	      readJson(endpoints.proofLedger),
@@ -1233,6 +1987,48 @@ export async function GET() {
 	  const revenue = toRecord(revenueResult.data);
 	  const housesPayload = toRecord(housesResult.data);
 	  const publisher = toRecord(publisherResult.data);
+	  const publisherCanon = buildPublisherCanonSnapshot(publisherCanonResult);
+	  const publisherAssetBridge = toRecord(publisherAssetBridgeResult.data);
+	  const publisherVideoBridge = toRecord(publisherVideoBridgeResult.data);
+	  const publisherNativeRenders = toRecord(publisherNativeRendersResult.data);
+	  const publisherNativeState = toRecord(publisherNativeStateResult.data);
+	  const publisherNativeTiers = toRecord(publisherNativeTiersResult.data);
+	  const publisherNativeCounts = toRecord(publisherNativeState.counts ?? publisherNativeRenders.counts);
+	  const publisherNativeQuality = toRecord(publisherNativeState.quality_truth);
+	  const publisherNativePublishLock = toRecord(publisherNativeState.publish_lock ?? publisherNativeRenders.publish_lock);
+	  const publisherNativeBatch = readNonEmptyRecord(publisherNativeState.batch)
+	    ?? readNonEmptyRecord(publisherNativeRenders.batch)
+	    ?? readNonEmptyRecord(publisherNativeState.keyframes)
+	    ?? readNonEmptyRecord(publisherNativeRenders.keyframes);
+	  const publisherNativeWorkorders = readPublisherWorkorders(
+	    publisherNativeState.workorders,
+	    publisherNativeState.work_orders,
+	    publisherNativeState.jobs,
+	    publisherNativeRenders.workorders,
+	    publisherNativeRenders.work_orders,
+	    publisherNativeRenders.jobs,
+	  );
+	  const publisherNativeRenderItems = Array.isArray(publisherNativeRenders.renders)
+	    ? publisherNativeRenders.renders
+	    : Array.isArray(publisherNativeRenders.items)
+	      ? publisherNativeRenders.items
+	      : [];
+	  const publisherNativeRendersCount = readNumber(publisherNativeCounts, ["renders"])
+	    ?? (publisherNativeRenderItems.length > 0 ? publisherNativeRenderItems.length : null);
+	  const publisherForRoutes = {
+	    ...publisher,
+	    output_dir_count: publisherNativeRendersCount ?? readNumber(publisher, ["output_dir_count", "renders_count", "count"]),
+	    renders: publisherNativeRendersCount,
+	    archived: readNumber(publisherNativeCounts, ["archived"]),
+	    archived_count: readNumber(publisherNativeCounts, ["archived"]),
+	    orphan: readNumber(publisherNativeCounts, ["orphan"]),
+	    orphan_count: readNumber(publisherNativeCounts, ["orphan"]),
+	    gold_proved: readNumber(publisherNativeCounts, ["gold_proved", "goldProved"]),
+	    gold_proved_count: readNumber(publisherNativeCounts, ["gold_proved", "goldProved"]),
+	    publish_lock_reason: readString(publisherNativePublishLock, ["reason"]),
+	    source_tag: readString(publisherNativeState, ["source_tag", "sourceTag"])
+	      ?? readString(publisherNativeRenders, ["source_tag", "sourceTag"]),
+	  };
 	  const proofLedgerPayload = toRecord(proofLedgerResult.data);
 	  const proofLedgerProofs = Array.isArray(proofLedgerPayload.proofs)
 	    ? proofLedgerPayload.proofs.filter((item) => item && typeof item === "object") as Record<string, unknown>[]
@@ -1353,6 +2149,8 @@ export async function GET() {
     past_due_source: readString(revenue, ["source_tag"]) ?? "NY local revenue snapshot",
   };
   const revenueDriftDetected = false;
+  const assetsWarehouse = await readAssetsWarehouse();
+  const workerPool = await readWorkerPoolSnapshot();
 
   const routes = buildRouteAggregation({
     revenue: unifiedRevenue,
@@ -1360,8 +2158,9 @@ export async function GET() {
 	    offers: offers as SanitizedOffer[],
 	    garageTasks,
 	    knowledge,
-	    publisher,
+	    publisher: publisherForRoutes,
 	    proofLedger,
+      assetsWarehouse,
 	  });
   const investorRoom = buildInvestorRoom({
     revenue: unifiedRevenue,
@@ -1439,33 +2238,74 @@ export async function GET() {
 
   // P11 Sourate LXVI Tatbīq · 7 actions concrètes Muharrik gates (fallback si filtre vide)
   const fallbackNext7Days = [
-    { title: "YouTube OAuth refresh + publish video-01 unlisted", board_id: null, status: "pending", priority: "urgent", due_time: null, arr_impact: "direct", source_tag: "MUHARRIK_GATE_YOUTUBE_UPLOAD", next_action: "Erwin OAuth Google Cloud Console 2min puis Studio upload + Reviewer GREEN → public" },
+    { title: "YouTube OAuth refresh + publish video-01 unlisted", board_id: null, status: "pending", priority: "urgent", due_time: null, arr_impact: "direct", source_tag: "MUHARRIK_GATE_YOUTUBE_UPLOAD", next_action: "Erwin OAuth Google Cloud Console 2min puis Studio upload + Reviewer proof gate → public" },
     { title: "Instagram premier post brand W22 + bio + 3 stories", board_id: null, status: "pending", priority: "urgent", due_time: null, arr_impact: "direct", source_tag: "MUHARRIK_GATE_INSTAGRAM_POST", next_action: "Meta Graph API ig_user_id link Page + caption W22 + brand-kit assets" },
     { title: "Facebook Page cover + profile + about + post + Verified", board_id: null, status: "pending", priority: "urgent", due_time: null, arr_impact: "direct", source_tag: "MUHARRIK_GATE_META_WRITE", next_action: "Upload via Graph API page_token + facebook-page-cover.png 1MB" },
     { title: "Past_due 291€ recovery (Jérôme + Albina + Jérémy)", board_id: null, status: "pending", priority: "urgent", due_time: null, arr_impact: "direct", source_tag: "MUHARRIK_GATE_STRIPE_PAST_DUE", next_action: "Customer Portal session URL + DM peer_context Iron CRM tg_id" },
     { title: "WhatsApp Business send 3 brokers reclaim", board_id: null, status: "pending", priority: "urgent", due_time: null, arr_impact: "direct", source_tag: "MUHARRIK_GATE_WHATSAPP_BROKERS", next_action: "Wait template approval Meta + dispatch_whatsapp_meta.py --cadence daily live" },
     { title: "Notion sync cron Hub↔orders canon + Welcome VIP template", board_id: null, status: "pending", priority: "high", due_time: null, arr_impact: "indirect", source_tag: "MUHARRIK_GATE_NOTION_SYNC", next_action: "Script notion_to_orders.py LaunchAgent 1h" },
-    { title: "CofiaPublisher LaunchAgent ferrari-refresh + drawer Hub UI", board_id: null, status: "pending", priority: "high", due_time: null, arr_impact: "direct", source_tag: "MUHARRIK_GATE_PUBLISHER_DRAWER", next_action: "Install LA 300s + drawer cof-island-v21.html L7139+L13018" },
+    { title: "CofiaPublisher refresh + drawer Hub UI", board_id: null, status: "pending", priority: "high", due_time: null, arr_impact: "direct", source_tag: "MUHARRIK_GATE_PUBLISHER_DRAWER", next_action: "Install refresh ciblé 300s + drawer cockpit :3000, sans surface HTML legacy" },
   ];
   const investorRoomEnriched = {
     ...investorRoom,
     next_7_days_tasks: investorRoom.next_7_days_tasks.length > 0 ? investorRoom.next_7_days_tasks : fallbackNext7Days,
   };
-
-  const assetsWarehouse = await readAssetsWarehouse();
   const agentsCanon = await readAgentsCanon();
+  const [openclawRepo, consoleIa, houseOrchestrator, toolOperatingContracts, hubSourceLedger, hubWiring] = await Promise.all([
+    readOpenClawRepoProof(),
+    readConsoleIaProof(),
+    readHouseOrchestratorState(),
+    readToolOperatingContracts(),
+    readHubSourceLedger(),
+    readHubWiring(),
+  ]);
+  const houseMissions = buildHouseMissions({
+    agentsCanon,
+    openclawRuntime,
+    apiAgents,
+    boardTaskPayloads,
+    garageTasks,
+  });
+  const generatedAtUtc = new Date().toISOString();
+  const snapshotSourceOk = revenueResult.ok || housesResult.ok || publisherResult.ok || publisherCanonResult.ok || publisherNativeStateResult.ok || publisherNativeRendersResult.ok;
+  const workerPoolStatus = readString(toRecord(workerPool), ["status"]) ?? "UNKNOWN";
+  const publisherState = readString(publisherNativeState, ["state", "status"]) ?? readString(publisher, ["status"]) ?? "UNKNOWN";
+  const publisherPublishAllowed = readBoolean(publisherNativePublishLock, ["allowed"]) === true;
+  const snapshotWatch =
+    workerPoolStatus.includes("WATCH") ||
+    workerPoolStatus.includes("SESSION_LIMIT") ||
+    publisherState === "DISTRIBUTION_LOCKED" ||
+    publisherPublishAllowed === false;
+  const snapshotStatus = !snapshotSourceOk ? "DOWN" : snapshotWatch ? "WATCH_READ_ONLY" : "LIVE";
 
   return NextResponse.json(
     {
-      ok: revenueResult.ok || housesResult.ok || publisherResult.ok,
-      fetchedAt: new Date().toISOString(),
-      sourceTag: "COFIATRADING_WORLD_CONTROL_READ_ONLY_SNAPSHOT_20260525",
+      ok: snapshotSourceOk,
+      status: snapshotStatus,
+      businessGreenAllowed: snapshotStatus === "LIVE",
+      fetchedAt: generatedAtUtc,
+      generatedAtUtc,
+      sourceTag: `COFIATRADING_WORLD_CONTROL_READ_ONLY_SNAPSHOT_${generatedAtUtc.replace(/[-:]/g, "").replace(/\.\d{3}Z$/, "Z")}`,
       assetsWarehouse,
       agentsCanon,
+      openclawRepo,
+      consoleIa,
+      houseOrchestrator,
+      toolOperatingContracts,
+      hubSourceLedger,
+      hubWiring,
+      houseMissions,
+      workerPool,
       endpoints: {
         revenue: { ok: revenueResult.ok, status: revenueResult.status },
         houses: { ok: housesResult.ok, status: housesResult.status },
         publisher: { ok: publisherResult.ok, status: publisherResult.status },
+        publisherCanon: { ok: publisherCanonResult.ok, status: publisherCanonResult.status },
+        publisherAssetBridge: { ok: publisherAssetBridgeResult.ok, status: publisherAssetBridgeResult.status },
+        publisherVideoBridge: { ok: publisherVideoBridgeResult.ok, status: publisherVideoBridgeResult.status },
+        publisherNativeRenders: { ok: publisherNativeRendersResult.ok, status: publisherNativeRendersResult.status },
+        publisherNativeState: { ok: publisherNativeStateResult.ok, status: publisherNativeStateResult.status },
+        publisherNativeTiers: { ok: publisherNativeTiersResult.ok, status: publisherNativeTiersResult.status },
 	        ack: { ok: ackResult.ok, status: ackResult.status },
 	        rtk: { ok: rtkResult.ok, status: rtkResult.status },
 	        proofLedger: { ok: proofLedgerResult.ok, status: proofLedgerResult.status },
@@ -1517,11 +2357,77 @@ export async function GET() {
         }),
       },
       publisher: {
-        ok: publisherResult.ok,
-        status: readString(publisher, ["status"]) ?? (publisherResult.ok ? "LIVE_HTTP" : "UNKNOWN"),
+        ok: publisherNativeStateResult.ok || publisherNativeRendersResult.ok || publisherResult.ok,
+        status: readString(publisherNativeState, ["state", "status"])
+          ?? readString(publisher, ["status"])
+          ?? (publisherNativeStateResult.ok || publisherResult.ok ? "LIVE_HTTP" : "UNKNOWN"),
         service: readString(publisher, ["service"]) ?? "CofiaPublisher",
-        outputDirCount: readNumber(publisher, ["output_dir_count", "renders_count", "count"]),
+        outputDirCount: publisherNativeRendersCount ?? readNumber(publisher, ["output_dir_count", "renders_count", "count"]),
       },
+      publisherNative: {
+        ok: publisherNativeStateResult.ok || publisherNativeRendersResult.ok,
+        sourceTag: readString(publisherNativeState, ["source_tag", "sourceTag"])
+          ?? readString(publisherNativeRenders, ["source_tag", "sourceTag"]),
+        mode: readString(publisherNativeState, ["mode"]) ?? readString(publisherNativeRenders, ["mode"]),
+        state: readString(publisherNativeState, ["state", "status"]) ?? "UNKNOWN",
+        global_alert: readBoolean(publisherNativeState, ["global_alert", "globalAlert"])
+          ?? readBoolean(publisherNativeRenders, ["global_alert", "globalAlert"]),
+        outputDir: readString(publisherNativeState, ["output_dir", "outputDir"]) ?? readString(publisherNativeRenders, ["output_dir", "outputDir"]),
+        counts: {
+          renders: publisherNativeRendersCount,
+          archived: readNumber(publisherNativeCounts, ["archived"]),
+          orphan: readNumber(publisherNativeCounts, ["orphan"]),
+          nonArchived: readNumber(publisherNativeCounts, ["non_archived", "nonArchived"]),
+          goldProved: readNumber(publisherNativeCounts, ["gold_proved", "goldProved"]),
+          unproven: readNumber(publisherNativeCounts, ["unproven"]),
+        },
+        batch: publisherNativeBatch,
+        workorders: publisherNativeWorkorders,
+        qualityTruth: {
+          falseGreenPatched: readBoolean(publisherNativeQuality, ["false_green_patched", "falseGreenPatched"]),
+          goldenCandidateScore: readNumber(publisherNativeQuality, ["golden_candidate_score", "goldenCandidateScore"]),
+          goldenCandidateStatus: readString(publisherNativeQuality, ["golden_candidate_status", "goldenCandidateStatus"]),
+        },
+        publishLock: {
+          allowed: readBoolean(publisherNativePublishLock, ["allowed"]),
+          reason: readString(publisherNativePublishLock, ["reason"]),
+        },
+        tiers: {
+          ok: publisherNativeTiersResult.ok,
+          sourceTag: readString(publisherNativeTiers, ["source_tag", "sourceTag"]),
+          localFirst: readBoolean(publisherNativeTiers, ["local_first", "localFirst"]),
+          secretValuesRead: readBoolean(publisherNativeTiers, ["secret_values_read", "secretValuesRead"]),
+          plans: toRecord(publisherNativeTiers.plans),
+        },
+      },
+      publisherBridge: {
+        ok: publisherAssetBridgeResult.ok && readBoolean(publisherAssetBridge, ["ok"]) === true,
+        status: readString(publisherAssetBridge, ["status"]) ?? "UNKNOWN",
+        sourceTag: readString(publisherAssetBridge, ["source_tag", "sourceTag"]),
+        endpoint: readString(publisherAssetBridge, ["endpoint"]) ?? endpoints.publisherAssetBridge,
+        clientScriptUrl: readString(publisherAssetBridge, ["client_script_url", "clientScriptUrl"]) ?? `${HOST}:8540/api/publisher/hub-bridge/client.js`,
+        exportedAssetCount: readNumber(publisherAssetBridge, ["exported_asset_count", "exportedAssetCount"]),
+        fullAssetCount: readNumber(publisherAssetBridge, ["full_asset_count", "fullAssetCount"]),
+        rawFileCandidates: readNumber(publisherAssetBridge, ["raw_file_candidates", "rawFileCandidates"]),
+        sha256IndexCount: readNumber(publisherAssetBridge, ["sha256_index_count", "sha256IndexCount"]),
+        physicalDuplicateCount: readNumber(publisherAssetBridge, ["physical_duplicate_count", "physicalDuplicateCount"]),
+        rootCount: readNumber(publisherAssetBridge, ["root_count", "rootCount"]),
+        accessErrorCount: readNumber(publisherAssetBridge, ["access_error_count", "accessErrorCount"]),
+        bridgeContract: readString(publisherAssetBridge, ["bridge_contract", "bridgeContract"]),
+        sampleAssets: Array.isArray(publisherAssetBridge.assets) ? publisherAssetBridge.assets.slice(0, 12) : [],
+      },
+      videoAvailability: {
+        ok: publisherVideoBridgeResult.ok && readBoolean(publisherVideoBridge, ["ok"]) === true,
+        status: readString(publisherVideoBridge, ["status"]) ?? "UNKNOWN",
+        sourceTag: readString(publisherVideoBridge, ["source_tag", "sourceTag"]),
+        outputDir: readString(publisherVideoBridge, ["output_dir", "outputDir"]),
+        scannedCount: readNumber(publisherVideoBridge, ["scanned_count", "scannedCount"]),
+        motionProofCount: readNumber(publisherVideoBridge, ["motion_proof_count", "motionProofCount"]),
+        latest: toRecord(publisherVideoBridge.latest),
+        latestMotionProof: toRecord(publisherVideoBridge.latest_motion_proof),
+        items: Array.isArray(publisherVideoBridge.items) ? publisherVideoBridge.items.slice(0, 24) : [],
+      },
+      publisherCanon,
       services: serviceProbes,
       openclaw: {
         sourceTag: "COFIATRADING_WORLD_CONTROL_LIVING_OBJECTS_20260525",

@@ -7,19 +7,42 @@ import { NextResponse } from "next/server";
 import { promises as fs } from "node:fs";
 import path from "node:path";
 import os from "node:os";
+import { readLocalRevenue } from "../_lib/localRevenue";
 
 export const dynamic = "force-dynamic";
 export const runtime = "nodejs";
 
 const HOST = "http://127.0.0.1";
-const SERVICES: { id: string; port: number; label: string }[] = [
-  { id: "hub_backend", port: 8430, label: "Hub backend (API/data)" },
-  { id: "central_brain_spine", port: 8430, label: "Central Brain spine /api/cb" },
-  { id: "cofiapublisher", port: 8540, label: "CofiaPublisher" },
-  { id: "lightrag", port: 9621, label: "LightRAG" },
-  { id: "paperclip", port: 3100, label: "Paperclip" },
-  { id: "rtk_proxy", port: 11435, label: "rtk-llm-proxy" },
+const SERVICES: { id: string; port: number; path: string; label: string }[] = [
+  { id: "hub_backend", port: 8430, path: "/health", label: "Hub backend (API/data)" },
+  { id: "central_brain_spine", port: 8767, path: "/api/central-brain/registry", label: "Central Brain registry" },
+  { id: "cofiapublisher", port: 8540, path: "/health", label: "CofiaPublisher" },
+  { id: "lightrag", port: 9621, path: "/health", label: "LightRAG" },
+  { id: "paperclip", port: 3100, path: "/", label: "Paperclip" },
+  { id: "rtk_proxy", port: 11435, path: "/health", label: "rtk-llm-proxy" },
 ];
+
+type JsonRecord = Record<string, unknown>;
+
+function asRecord(value: unknown): JsonRecord {
+  return value && typeof value === "object" && !Array.isArray(value) ? (value as JsonRecord) : {};
+}
+
+function numberOrNull(value: unknown): number | null {
+  return typeof value === "number" && Number.isFinite(value) ? value : null;
+}
+
+function stringOrNull(value: unknown): string | null {
+  return typeof value === "string" ? value : null;
+}
+
+function stringArray(value: unknown): string[] {
+  return Array.isArray(value) ? value.filter((item): item is string => typeof item === "string") : [];
+}
+
+function booleanOrNull(value: unknown): boolean | null {
+  return typeof value === "boolean" ? value : null;
+}
 
 async function probe(url: string): Promise<{ ok: boolean; code: number | null }> {
   try {
@@ -27,15 +50,15 @@ async function probe(url: string): Promise<{ ok: boolean; code: number | null }>
     const t = setTimeout(() => ctrl.abort(), 2500);
     const r = await fetch(url, { signal: ctrl.signal, cache: "no-store" });
     clearTimeout(t);
-    return { ok: r.status > 0 && r.status < 500, code: r.status };
+    return { ok: r.status >= 200 && r.status < 400, code: r.status };
   } catch {
     return { ok: false, code: null };
   }
 }
 
-async function readJson(p: string): Promise<Record<string, unknown> | null> {
+async function readJson(p: string): Promise<JsonRecord | null> {
   try {
-    return JSON.parse(await fs.readFile(p, "utf-8")) as Record<string, unknown>;
+    return JSON.parse(await fs.readFile(p, "utf-8")) as JsonRecord;
   } catch {
     return null;
   }
@@ -46,20 +69,31 @@ export async function GET() {
   // 1) services live (probe ports)
   const services = await Promise.all(
     SERVICES.map(async (s) => {
-      const ep = s.id === "central_brain_spine" ? `${HOST}:${s.port}/api/cb/health` : `${HOST}:${s.port}/`;
+      const ep = `${HOST}:${s.port}${s.path}`;
       const r = await probe(ep);
-      return { ...s, status: r.ok ? "UP" : "DOWN", code: r.code };
+      return { ...s, endpoint: ep, status: r.ok ? "UP" : "DOWN", code: r.code };
     }),
   );
   const servicesUp = services.filter((s) => s.status === "UP").length;
 
   // 2) cof_state (source de vérité : MRR/VIP/cost/agents)
-  const cof = await readJson(path.join(home, ".openclaw/state/cof_state/cof_state.json"));
-  const cofAgeMin =
-    cof && typeof cof.ts_epoch === "number" ? Math.round((Date.now() / 1000 - (cof.ts_epoch as number)) / 60) : null;
+  const cofPath = path.join(home, ".openclaw/state/cof_state/cof_state.json");
+  const cof = await readJson(cofPath);
+  const cofMeta = asRecord(cof?.meta);
+  const hubHome = asRecord(cof?.hub_home);
+  const revenue = asRecord(hubHome.revenue);
+  const cost = asRecord(hubHome.cost);
+  const agentsSummary = asRecord(hubHome.agents_summary);
+  const cofTsUtc = stringOrNull(cofMeta.ts_utc);
+  const cofTsMs = cofTsUtc ? Date.parse(cofTsUtc) : NaN;
+  const cofAgeMin = Number.isFinite(cofTsMs) ? Math.max(0, Math.round((Date.now() - cofTsMs) / 60000)) : null;
 
   // 3) état coordination (écrit par le sweep santé — restored services + archive surchauffe)
   const coord = await readJson(path.join(home, ".openclaw/state/system_coordination.json"));
+
+  // 3b) revenu courant : readLocalRevenue garde cof_state brut + overlay backend local :8000 si disponible.
+  const revenueResult = await readLocalRevenue();
+  const revenueCurrent = asRecord(revenueResult.data);
 
   // 4) flotte VPS (réutilise le mirror)
   const vpsCfg = await readJson(path.join(home, ".openclaw/config/vps_fleet_agents.json"));
@@ -76,16 +110,41 @@ export async function GET() {
     servicesTotal: services.length,
     cofState: cof
       ? {
+          sourcePath: cofPath,
+          ts_utc: cofTsUtc,
           freshMin: cofAgeMin,
-          mrr_eur: cof.mrr_eur ?? null,
-          active_vip: cof.active_vip ?? null,
-          cost_month_eur: cof.cost_month_eur ?? null,
-          cost_budget_eur: cof.cost_budget_eur ?? null,
-          cost_pct: cof.cost_pct ?? null,
-          agents_alive: cof.agents_alive ?? null,
-          agents_total: cof.agents_total ?? null,
+          sections_ok: numberOrNull(cofMeta.sections_ok),
+          sections_total: numberOrNull(cofMeta.sections_total),
+          stale_sections: stringArray(cofMeta.stale_sections),
+          mrr_eur: numberOrNull(revenue.mrr_eur),
+          active_vip: numberOrNull(revenue.active_vip),
+          cost_month_eur: numberOrNull(cost.month_eur),
+          cost_budget_eur: numberOrNull(cost.budget_monthly_eur),
+          cost_pct: numberOrNull(cost.pct_used),
+          agents_alive: numberOrNull(agentsSummary.alive),
+          agents_total: numberOrNull(agentsSummary.total),
+          agents_blocked: numberOrNull(agentsSummary.blocked),
         }
       : null,
+    revenueCurrent: revenueResult.ok
+      ? {
+          sourceTag: stringOrNull(revenueCurrent.source_tag),
+          readUtc: stringOrNull(revenueCurrent.read_utc),
+          stripeOverlayOk: booleanOrNull(revenueCurrent.stripe_overlay_ok),
+          stripeOverlayReadUtc: stringOrNull(revenueCurrent.stripe_overlay_read_utc),
+          mrr_eur: numberOrNull(revenueCurrent.mrr_eur),
+          active_vip: numberOrNull(revenueCurrent.active_vip),
+          cof_state_mrr_eur: numberOrNull(revenueCurrent.cof_state_mrr_eur),
+          cof_state_active_vip: numberOrNull(revenueCurrent.cof_state_active_vip),
+          backend_8000_mrr_eur: numberOrNull(revenueCurrent.backend_8000_mrr_eur),
+          backend_8000_active_vip: numberOrNull(revenueCurrent.backend_8000_active_vip),
+          revenue_delta_mrr_eur: numberOrNull(revenueCurrent.revenue_delta_mrr_eur),
+          revenue_delta_active_vip: numberOrNull(revenueCurrent.revenue_delta_active_vip),
+          revenue_consistency: stringOrNull(revenueCurrent.revenue_consistency),
+        }
+      : {
+          error: revenueResult.error ?? "LOCAL_REVENUE_UNAVAILABLE",
+        },
     coordination: coord ?? { note: "system_coordination.json absent — lancer le sweep santé" },
     vpsFleetAgents: vpsAgents,
   });

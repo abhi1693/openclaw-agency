@@ -78,6 +78,37 @@ type SystemHealthPayload = {
   };
   vpsFleetAgents?: number | null;
 };
+type PublisherNativeProgressBucket = {
+  current?: number | string | null;
+  total?: number | string | null;
+  done?: number | string | null;
+  completed?: number | string | null;
+  rendered?: number | string | null;
+  renders?: number | string | null;
+  frames?: number | string | null;
+  keyframes?: number | string | null;
+};
+type PublisherNativeWorkorder = {
+  id?: string | null;
+  label?: string | null;
+  name?: string | null;
+  title?: string | null;
+  status?: string | null;
+  state?: string | null;
+  phase?: string | null;
+  current?: number | string | null;
+  total?: number | string | null;
+  done?: number | string | null;
+  completed?: number | string | null;
+  rendered?: number | string | null;
+  renders?: number | string | null;
+  frames?: number | string | null;
+  keyframes?: PublisherNativeProgressBucket | number | string | null;
+  counts?: PublisherNativeProgressBucket | null;
+  batch?: PublisherNativeProgressBucket | null;
+  sourceTag?: string | null;
+  source_tag?: string | null;
+};
 export type CofiaSnapshot = {
   sourceTag?: string;
   revenue?: { currentMrrEur?: number | null; currentArrEur?: number | null; activeVip?: number | null; pastDueEur?: number | null; pastDueCount?: number | null };
@@ -86,8 +117,15 @@ export type CofiaSnapshot = {
   publisherNative?: {
     ok?: boolean;
     sourceTag?: string | null;
+    mode?: string | null;
     state?: string | null;
+    global_alert?: boolean | null;
+    globalAlert?: boolean | null;
+    outputDir?: string | null;
     counts?: { renders?: number | null; archived?: number | null; orphan?: number | null; goldProved?: number | null; unproven?: number | null };
+    batch?: PublisherNativeProgressBucket | null;
+    workorders?: PublisherNativeWorkorder[] | Record<string, PublisherNativeWorkorder | null> | null;
+    qualityTruth?: { falseGreenPatched?: boolean | null; goldenCandidateScore?: number | null; goldenCandidateStatus?: string | null };
     publishLock?: { allowed?: boolean | null; reason?: string | null };
   };
   publisherBridge?: {
@@ -142,6 +180,11 @@ export type Angel = { id: number; name: string; name_ar: string; platform: strin
 export type FeedEvent = { id: string; kind?: string; status?: string; label: string; source?: string; proof?: string; ts?: string; house_id?: string | null };
 type ToolBadge = { key: string; label: string; short: string; color: string; monthlyEur?: number | null; source: string };
 const WORLD_MAP_STRICT_CLIP_ID = "cof-world-map-strict-clip";
+const WORLD_MAP_VISUAL_GUARD_SOURCE_TAG = "CODEX_WORLD_MAP_VISUAL_GUARD_20260603";
+const CAMERA_Z_EPSILON = 0.0005;
+const CAMERA_XY_EPSILON = 0.03;
+const COFIAPUBLISHER_KEYFRAME_BATCH_TOTAL = 56;
+const COFIAPUBLISHER_ALERT_HOUSES = new Set(["youtube_studio", "assets_warehouse", "cofiapublisher_render_farm", "cofiapublisher_diffusion"]);
 type AgentTelemetry = { idleSec: number; activeSec: number; currentState: AgentState; stateSince: number; lastAction?: string };
 type AgentWorkProfile = {
   currentAction: string;
@@ -479,6 +522,189 @@ type SharedWorldLayout = {
   updatedAt?: string;
   clientId?: string;
 };
+type PublisherCriticalState = {
+  active: boolean;
+  source: string;
+  sourceTag: string;
+  status: string;
+  reason: string;
+};
+type PublisherNativeSnapshot = NonNullable<CofiaSnapshot["publisherNative"]>;
+type PublisherWorkorderView = {
+  id: string;
+  label: string;
+  status: string;
+  current: number | null;
+  total: number | null;
+  source: string;
+};
+type PublisherKeyframeProgress = {
+  current: number;
+  total: number;
+  percent: number;
+  filledTicks: number;
+  tickCount: number;
+  source: string;
+  status: string;
+  activeWorkorders: number;
+  totalWorkorders: number;
+  workorders: PublisherWorkorderView[];
+};
+const stabilizeCamera = (camera: WorldCamera): WorldCamera => ({
+  z: Number(camera.z.toFixed(4)),
+  tx: Number(camera.tx.toFixed(2)),
+  ty: Number(camera.ty.toFixed(2)),
+});
+const cameraChanged = (a: WorldCamera, b: WorldCamera) =>
+  Math.abs(a.z - b.z) >= CAMERA_Z_EPSILON
+  || Math.abs(a.tx - b.tx) >= CAMERA_XY_EPSILON
+  || Math.abs(a.ty - b.ty) >= CAMERA_XY_EPSILON;
+const criticalExternalStatus = (value: string | null | undefined) => {
+  const status = String(value ?? "").trim().toUpperCase();
+  if (!status) return false;
+  return /\b(CRITICAL|CRITIQUE|ALERTE_ROUGE|RED_ALERT|SOURCE_DOWN|DOWN|BROKEN|ERR|ERROR|FAILED|FAIL|FATAL|SEV0|SEV1)\b/.test(status);
+};
+const isPlainRecord = (value: unknown): value is Record<string, unknown> =>
+  Boolean(value && typeof value === "object" && !Array.isArray(value));
+const publisherNumber = (value: unknown): number | null => {
+  if (typeof value === "number" && Number.isFinite(value)) return value;
+  if (typeof value !== "string") return null;
+  const normalized = value.trim().replace(",", ".");
+  if (!/^-?\d+(\.\d+)?$/.test(normalized)) return null;
+  const parsed = Number(normalized);
+  return Number.isFinite(parsed) ? parsed : null;
+};
+const publisherText = (record: Record<string, unknown>, keys: string[]): string | null => {
+  for (const key of keys) {
+    const value = record[key];
+    if (typeof value === "string" && value.trim()) return value.trim();
+  }
+  return null;
+};
+const publisherNumberFrom = (record: Record<string, unknown> | null, keys: string[]): number | null => {
+  if (!record) return null;
+  for (const key of keys) {
+    const value = publisherNumber(record[key]);
+    if (value !== null) return value;
+  }
+  return null;
+};
+const firstPublisherNumber = (...values: Array<number | null | undefined>): number | null => {
+  for (const value of values) {
+    if (typeof value === "number" && Number.isFinite(value)) return value;
+  }
+  return null;
+};
+const publisherGlobalAlertActive = (native: PublisherNativeSnapshot | null | undefined) =>
+  native?.global_alert === true || native?.globalAlert === true;
+const normalizePublisherWorkorders = (input: unknown): PublisherWorkorderView[] => {
+  const entries: Array<[string, unknown]> = Array.isArray(input)
+    ? input.map((value, index) => [String(index + 1), value])
+    : isPlainRecord(input)
+      ? Object.entries(input)
+      : [];
+  return entries.flatMap(([fallbackId, value]) => {
+    if (!isPlainRecord(value)) return [];
+    const keyframes = isPlainRecord(value.keyframes) ? value.keyframes : null;
+    const counts = isPlainRecord(value.counts) ? value.counts : null;
+    const batch = isPlainRecord(value.batch) ? value.batch : null;
+    const id = publisherText(value, ["id", "workorder_id", "workorderId"]) ?? fallbackId;
+    const label = publisherText(value, ["label", "title", "name"]) ?? `workorder ${fallbackId}`;
+    const status = (publisherText(value, ["status", "state", "phase"]) ?? "UNKNOWN").toUpperCase();
+    const current = firstPublisherNumber(
+      publisherNumberFrom(value, ["current", "done", "completed", "rendered", "renders", "frames"]),
+      publisherNumber(value.keyframes),
+      publisherNumberFrom(keyframes, ["current", "done", "completed", "rendered", "renders", "frames"]),
+      publisherNumberFrom(counts, ["keyframes", "renders", "current", "done", "completed", "frames"]),
+      publisherNumberFrom(batch, ["current", "done", "completed", "rendered", "renders", "frames"]),
+    );
+    const total = firstPublisherNumber(
+      publisherNumberFrom(value, ["total", "target", "expected", "frames_total", "framesTotal"]),
+      publisherNumberFrom(keyframes, ["total", "target", "expected"]),
+      publisherNumberFrom(counts, ["total", "target", "expected"]),
+      publisherNumberFrom(batch, ["total", "target", "expected"]),
+    );
+    const source = publisherText(value, ["sourceTag", "source_tag", "source"]) ?? "publisherNative.workorders";
+    return [{ id, label, status, current, total, source }];
+  });
+};
+const workorderIsActive = (workorder: PublisherWorkorderView) => {
+  if (/\b(DONE|COMPLETE|COMPLETED|SUCCESS|FINISHED|FAILED|ERROR|BROKEN|CANCELLED)\b/.test(workorder.status)) return false;
+  if (typeof workorder.current === "number" && typeof workorder.total === "number" && workorder.current >= workorder.total) return false;
+  return /\b(ACTIVE|RUNNING|RENDER|PROCESS|WORK|IN_PROGRESS|PENDING|QUEUED|STARTED|UNKNOWN)\b/.test(workorder.status);
+};
+const workorderTone = (status: string) => {
+  if (/\b(FAILED|ERROR|BROKEN|CANCELLED)\b/.test(status)) return "#fb7185";
+  if (/\b(DONE|COMPLETE|COMPLETED|SUCCESS|FINISHED)\b/.test(status)) return "#34d399";
+  if (/\b(ACTIVE|RUNNING|RENDER|PROCESS|WORK|IN_PROGRESS)\b/.test(status)) return "#38bdf8";
+  return "#f59e0b";
+};
+const derivePublisherKeyframeProgress = (native: PublisherNativeSnapshot | null | undefined): PublisherKeyframeProgress => {
+  const workorders = normalizePublisherWorkorders(native?.workorders);
+  const renders = publisherNumber(native?.counts?.renders);
+  const batchRecord = isPlainRecord(native?.batch) ? native.batch : null;
+  const batchCurrent = publisherNumberFrom(batchRecord, ["current", "done", "completed", "rendered", "renders", "frames", "keyframes"]);
+  const batchTotal = publisherNumberFrom(batchRecord, ["total", "target", "expected"]);
+  const activeWorkorders = workorders.filter(workorderIsActive);
+  const visibleWorkorder = activeWorkorders.find((item) => item.total !== null || item.current !== null)
+    ?? workorders.find((item) => item.total !== null || item.current !== null)
+    ?? null;
+  const totalRaw = firstPublisherNumber(visibleWorkorder?.total, batchTotal, COFIAPUBLISHER_KEYFRAME_BATCH_TOTAL);
+  const total = Math.max(1, Math.round(totalRaw ?? COFIAPUBLISHER_KEYFRAME_BATCH_TOTAL));
+  const currentRaw = firstPublisherNumber(visibleWorkorder?.current, batchCurrent, renders, 0);
+  const current = Math.round(clampNumber(currentRaw ?? 0, 0, total));
+  const percent = clampNumber((current / total) * 100, 0, 100);
+  const tickCount = Math.min(total, COFIAPUBLISHER_KEYFRAME_BATCH_TOTAL);
+  const filledTicks = Math.round((percent / 100) * tickCount);
+  const source = visibleWorkorder
+    ? `${visibleWorkorder.id} · ${visibleWorkorder.source}`
+    : renders !== null
+      ? "publisherNative.counts.renders"
+      : "publisherNative.batch";
+  return {
+    current,
+    total,
+    percent,
+    filledTicks,
+    tickCount,
+    source,
+    status: visibleWorkorder?.status ?? native?.state ?? "UNKNOWN",
+    activeWorkorders: activeWorkorders.length,
+    totalWorkorders: workorders.length,
+    workorders: workorders.slice(0, 4),
+  };
+};
+const derivePublisherCriticalState = (snapshot: CofiaSnapshot | null | undefined): PublisherCriticalState => {
+  const native = snapshot?.publisherNative;
+  const bridge = snapshot?.publisherBridge;
+  const video = snapshot?.videoAvailability;
+  const service = snapshot?.services?.find((svc) => /cofiapublisher|8540|publisher/i.test(`${svc.id ?? ""} ${svc.label ?? ""} ${svc.url ?? ""}`));
+  if (publisherGlobalAlertActive(native)) {
+    return {
+      active: true,
+      source: "publisherNative.global_alert",
+      sourceTag: native?.sourceTag ?? "publisher-native-global-alert",
+      status: "GLOBAL_ALERT",
+      reason: "COF : LA CITADELLE demande alerte rouge via publisherNative.global_alert",
+    };
+  }
+  const checks = [
+    { source: "publisherNative.state", status: native?.state, sourceTag: native?.sourceTag },
+    { source: "publisherBridge.status", status: bridge?.status, sourceTag: bridge?.sourceTag },
+    { source: "videoAvailability.status", status: video?.status, sourceTag: video?.sourceTag },
+    { source: "publisherNative.publishLock.reason", status: native?.publishLock?.reason, sourceTag: native?.sourceTag },
+    { source: "services.cofiapublisher.status", status: service?.status, sourceTag: service?.url },
+  ];
+  const hit = checks.find((item) => criticalExternalStatus(item.status));
+  if (!hit) return { active: false, source: "none", sourceTag: "no-critical-external-indicator", status: "NORMAL", reason: "Aucun indicateur externe critique" };
+  return {
+    active: true,
+    source: hit.source,
+    sourceTag: hit.sourceTag ?? "publisher-external-state",
+    status: String(hit.status ?? "CRITICAL"),
+    reason: `COF : LA CITADELLE demande alerte rouge via ${hit.source}`,
+  };
+};
 const invColor = (s: string) => s === "GREEN" || s === "LIVE" ? "#34d399" : s === "AMBER" || s === "AMBER_REVERIFY" || s === "STALE" || s === "DEGRADED" ? "#f59e0b" : s === "RED" ? "#ef4444" : s === "QUARANTINE" ? "#fb7185" : "#64748b";
 /* mapping catégorie → maison — FALLBACK uniquement (si l'item n'a ni houseId/house/ownerHouse).
  * Basé sur les 26 catégories réelles des 742 items (les 57 sans houseId = tous "subscription"). */
@@ -567,6 +793,11 @@ const lerpPt = (a: Pt, b: Pt, t: number): Pt => ({ x: a.x + (b.x - a.x) * t, y: 
 const centroid = (pts: Pt[]): Pt => pts.reduce((a, p) => ({ x: a.x + p.x / pts.length, y: a.y + p.y / pts.length }), { x: 0, y: 0 });
 const insetTowards = (pts: Pt[], k: number): Pt[] => { const c = centroid(pts); return pts.map((p) => lerpPt(p, c, k)); };
 const rseed = (n: number) => { const x = Math.sin(n * 127.1) * 43758.5453; return x - Math.floor(x); };
+const stableHash = (value: string) => [...value].reduce((hash, char) => ((hash << 5) - hash + char.charCodeAt(0)) | 0, 0);
+const stableRouteBend = (a: string, b: string, kind: "main" | "second") => {
+  const sign = Math.abs(stableHash(`${a}->${b}`)) % 2 === 0 ? 1 : -1;
+  return (kind === "main" ? 34 : 22) * sign;
+};
 function shade(hex: string, amt: number): string {
   if (!hex || typeof hex !== "string") return "#64748b";
   const h = hex.replace("#", ""); const n = parseInt(h.length === 3 ? h.split("").map((c) => c + c).join("") : h, 16);
@@ -995,6 +1226,7 @@ export function WorldMapLiving({ snapshot, angelRoster, initialTruthMap, onSelec
   const parentAgentCount = snapshot?.agentsCanon?.agents?.length ?? snapshot?.agentsCanon?.count ?? 0;
   const localAgentCount = localSnapshot?.agentsCanon?.agents?.length ?? localSnapshot?.agentsCanon?.count ?? 0;
   const viewSnapshot = parentAgentCount > 0 ? snapshot : localAgentCount > 0 ? localSnapshot : snapshot ?? localSnapshot;
+  const publisherCritical = useMemo(() => derivePublisherCriticalState(viewSnapshot), [viewSnapshot]);
 
   useEffect(() => {
     if (snapshot?.houseOrchestrator?.ok && snapshot.houseOrchestrator.sourceTag !== houseOrchestrator?.sourceTag) {
@@ -1432,11 +1664,11 @@ export function WorldMapLiving({ snapshot, angelRoster, initialTruthMap, onSelec
     const z = typeof value.z === "number" && Number.isFinite(value.z) ? value.z : 1;
     const tx = typeof value.tx === "number" && Number.isFinite(value.tx) ? value.tx : 0;
     const ty = typeof value.ty === "number" && Number.isFinite(value.ty) ? value.ty : 0;
-    return {
+    return stabilizeCamera({
       z: clampNumber(z, 0.5, 2),
 	      tx: clampNumber(tx, -4200, 4200),
 	      ty: clampNumber(ty, -5200, 5200),
-    };
+    });
   }, []);
   const normalizePos = useCallback((raw: unknown): Record<string, { x: number; y: number }> => {
     const out: Record<string, { x: number; y: number }> = {};
@@ -1466,8 +1698,12 @@ export function WorldMapLiving({ snapshot, angelRoster, initialTruthMap, onSelec
   }, []);
   const markLayoutDirty = useCallback(() => { layoutDirty.current = true; }, []);
   const setSharedCam = useCallback((next: WorldCamera | ((current: WorldCamera) => WorldCamera)) => {
-    markLayoutDirty();
-    setCam((current) => normalizeCam(typeof next === "function" ? next(current) : next));
+    setCam((current) => {
+      const normalized = normalizeCam(typeof next === "function" ? next(current) : next);
+      if (!cameraChanged(current, normalized)) return current;
+      markLayoutDirty();
+      return normalized;
+    });
   }, [markLayoutDirty, normalizeCam]);
   const applySharedLayout = useCallback((layout?: SharedWorldLayout | null) => {
     if (!layout) return;
@@ -1591,6 +1827,7 @@ export function WorldMapLiving({ snapshot, angelRoster, initialTruthMap, onSelec
       && service.http_code !== null
     );
     const toolLiveFallback = !truthReady && toolMachines.some((machine) => machine.homeHouse === id && isMachineLiveWithProof(machine));
+    if (publisherCritical.active && COFIAPUBLISHER_ALERT_HOUSES.has(id)) return "ERR";
     if (PLANNED_IDS.has(id)) return "PLANNED"; // maisons à construire (CofiaPublisher) : jamais LIVE, statut roadmap honnête
     if (truthLive || localServiceLive || runtimeServiceLive || toolLiveFallback) return "LIVE";
     if (localDispatchReady) return "LOCAL_DISPATCH";
@@ -1599,7 +1836,7 @@ export function WorldMapLiving({ snapshot, angelRoster, initialTruthMap, onSelec
       : "AMBER"; // ALM/Proof = modules §23/§24, honnêtes AMBER sauf source fraîche prouvée.
     if (houseStatuses && houseStatuses[id]) { const raw = houseStatuses[id]; if (onDemandSet.has(id) && (raw === "SOURCE_DOWN" || raw === "DEGRADED")) return "SLEEPING"; if (raw === "LIVE" || raw === "GREEN") return "REGISTERED"; return raw; }
     if (registryError) return "ERR"; if (houseStatuses === null) return "LOADING"; return "ERR";
-  }, [houseStatuses, onDemandSet, registryError, toolMachines, truthByHouse, truthReady, services, openclawRuntime?.services, houseOrchestrator?.houseMissions, viewSnapshot?.houseMissions]);
+  }, [houseStatuses, onDemandSet, publisherCritical.active, registryError, toolMachines, truthByHouse, truthReady, services, openclawRuntime?.services, houseOrchestrator?.houseMissions, viewSnapshot?.houseMissions]);
 
   /* ════════ scène : terrain doux + routes + parcelles (viewBox serré sur les bâtiments) ════════ */
   const scene = useMemo(() => {
@@ -1687,7 +1924,7 @@ export function WorldMapLiving({ snapshot, angelRoster, initialTruthMap, onSelec
 	      const ha = EFF_BY_ID[a], hb = EFF_BY_ID[b]; const fa = isoProject(houseFrontWorld(ha).wx, houseFrontWorld(ha).wy), fb = isoProject(houseFrontWorld(hb).wx, houseFrontWorld(hb).wy);
 	      const dx = fb.sx - fa.sx, dy = fb.sy - fa.sy, len = Math.max(1, Math.hypot(dx, dy));
 	      const nx = -dy / len, ny = dx / len;
-	      const bend = (kind === "main" ? 34 : 22) * (rseed(a.length * 7 + b.length * 3) > 0.5 ? 1 : -1);
+	      const bend = stableRouteBend(a, b, kind);
 	      const c1 = { x: fa.sx + dx * 0.32 + nx * bend, y: fa.sy + dy * 0.32 + ny * bend - 8 };
 	      const c2 = { x: fa.sx + dx * 0.68 - nx * bend * 0.62, y: fa.sy + dy * 0.68 - ny * bend * 0.62 + 6 };
 	      return { id: `${a}__${b}`, a, b, kind, fa, fb, c1, c2, d: `M ${fa.sx.toFixed(1)} ${fa.sy.toFixed(1)} C ${c1.x.toFixed(1)} ${c1.y.toFixed(1)} ${c2.x.toFixed(1)} ${c2.y.toFixed(1)} ${fb.sx.toFixed(1)} ${fb.sy.toFixed(1)}`, w: kind === "main" ? 22 : 15 };
@@ -1804,6 +2041,7 @@ export function WorldMapLiving({ snapshot, angelRoster, initialTruthMap, onSelec
   const hubLedgerSummary = hubSourceLedger?.summary;
   const hubWiringSummary = hubWiring?.summary;
   const topChips: Array<[string, string]> = [];
+  if (publisherCritical.active) topChips.push(["Citadelle", "ALERTE ROUGE"]);
   const ownedAssetMachines = useMemo(() => {
     const buckets: Array<{ id: string; label: string; rx: RegExp; role: string }> = [
       { id: "owned_google_workspace", label: "Google Workspace", rx: /google\s+workspace/i, role: "Calendrier, Drive, Docs, Sheets — owned; usage live seulement avec preuve fraîche." },
@@ -1998,7 +2236,6 @@ export function WorldMapLiving({ snapshot, angelRoster, initialTruthMap, onSelec
 	  }, [canonAgents, inventory]);
 	  const runtimeAgentsByHome = useMemo(() => { const map: Record<string, RuntimeAgent[]> = {}; for (const agent of openclawRuntime?.agents ?? []) { const home = HOUSE_BY_ID[agent.homeHouse] ? agent.homeHouse : "openclaw_agent_barracks"; (map[home] ||= []).push(agent); } return map; }, [openclawRuntime]);
   const selZone = HOUSE_BY_ID[selectedHouse ?? ""] ?? null;
-  const canonicalEmbed = selZone ? CANONICAL_EMBEDS_BY_HOUSE[selZone.id] ?? null : null;
 
   const activityEvents = useMemo(() => {
     return [...truthEvents, ...worldStateEvents];
@@ -2008,6 +2245,10 @@ export function WorldMapLiving({ snapshot, angelRoster, initialTruthMap, onSelec
   const houseActivity = useMemo(() => {
     const map: Record<string, HouseActivity> = {};
     for (const h of ALL_HOUSES) {
+      if (publisherCritical.active && COFIAPUBLISHER_ALERT_HOUSES.has(h.id)) {
+        map[h.id] = { state: "alert", label: publisherCritical.reason };
+        continue;
+      }
       const st = statusFor(h.id);
       if (st === "SOURCE_DOWN" || st === "DEGRADED" || st === "ERR") { map[h.id] = { state: "alert" }; continue; }
       const kws = HOUSE_KEYWORDS[h.id] ?? [];
@@ -2046,7 +2287,7 @@ export function WorldMapLiving({ snapshot, angelRoster, initialTruthMap, onSelec
 	      }
     }
     return map;
-  }, [activityEvents, houseMissionsById, statusFor]);
+  }, [activityEvents, houseMissionsById, publisherCritical.active, publisherCritical.reason, statusFor]);
 
 	  const agentDispatchStateById = useMemo(() => {
 	    const map: Record<string, AgentState> = {};
@@ -2260,7 +2501,7 @@ export function WorldMapLiving({ snapshot, angelRoster, initialTruthMap, onSelec
 	      if (!(e.ctrlKey || e.metaKey || e.altKey)) return;
 	      e.preventDefault();
 	      const rect = el.getBoundingClientRect();
-	      const factor = e.deltaY < 0 ? 1.12 : 1 / 1.12;
+	      const factor = clampNumber(Math.exp(-e.deltaY * 0.0012), 0.78, 1.28);
 	      setSharedCam((current) => zoomCameraAtPoint(current, factor, e.clientX - rect.left, e.clientY - rect.top));
 	    };
     el.addEventListener("wheel", onWheel, { passive: false });
@@ -2315,9 +2556,14 @@ export function WorldMapLiving({ snapshot, angelRoster, initialTruthMap, onSelec
     setSharedCam(canonicalCam);
   };
 	  const resetLayout = () => { markLayoutDirty(); setPosOverride({}); setSharedCam(canonicalCam); };
-	  const camG = `translate(${cam.tx.toFixed(2)} ${(cam.ty + WORLD_Y_OFFSET).toFixed(2)}) scale(${cam.z.toFixed(3)})`;
+	  const camG = `translate(${cam.tx.toFixed(2)} ${(cam.ty + WORLD_Y_OFFSET).toFixed(2)}) scale(${cam.z.toFixed(4)})`;
+	  const worldShellClassName = `flex w-full max-w-none min-w-0 flex-col gap-2 overflow-hidden rounded-md border p-2 text-slate-100 backdrop-blur ${
+	    publisherCritical.active
+	      ? "border-red-500/70 bg-red-950/35 shadow-[0_0_0_1px_rgba(248,113,113,0.35),0_24px_90px_rgba(127,29,29,0.72),inset_0_1px_0_rgba(255,255,255,0.08)]"
+	      : "border-slate-500/30 bg-slate-950/88 shadow-[0_24px_90px_rgba(2,6,23,0.55),inset_0_1px_0_rgba(255,255,255,0.06)]"
+	  }`;
 	  return (
-    <div className="flex w-full max-w-none min-w-0 flex-col gap-2 overflow-hidden rounded-md border border-slate-500/30 bg-slate-950/88 p-2 text-slate-100 shadow-[0_24px_90px_rgba(2,6,23,0.55),inset_0_1px_0_rgba(255,255,255,0.06)] backdrop-blur" data-agent-count={canonAgents.length} data-agent-links-count={activeVisibleAgents.length} data-agent-placement-policy="runtime-proof-only-houses-idle-park" data-rest-park-agents={idleLeisureCount} data-mission-orders-count={houseMissions.length} data-mission-quality-average={missionQualityAverage} data-proof-ledger-quality-rows={missionQualityRows.length} data-house-local-dispatches={localDispatchCount} data-house-expired-dispatches={expiredLocalDispatchCount} data-house-local-agent-coverage={`${localCoveredAgentCount}/${localTotalAgentCount || canonAgents.length}`} data-live-source-events-count={truthEvents.length} data-source-probe-events-count={sourceEvents.length} data-truth-source-count={truthSourceCount} data-hub-source-ledger-total={hubLedgerSummary?.declaredCoverageTotal ?? 0} data-hub-source-ledger-connected={hubLedgerSummary?.declaredCoverageConnected ?? 0} data-hub-source-ledger-proofed={hubLedgerSummary?.declaredCoverageProofed ?? 0} data-hub-source-ledger-false-green-downgrades={hubLedgerSummary?.falseGreenDowngrades ?? 0} data-hub-wiring-source={hubWiring?.sourceTag ?? "pending"} data-hub-wiring-policy={hubWiring?.policy ?? "pending"} data-hub-wiring-contracts={hubWiringSummary?.contracts ?? 0} data-hub-wiring-command={hubWiringSummary?.commandConnected ?? 0} data-hub-wiring-central={hubWiringSummary?.centralConnected ?? 0} data-hub-wiring-proof={hubWiringSummary?.proofConnected ?? 0} data-hub-wiring-runtime-active={hubWiringSummary?.runtimeActiveContracts ?? 0} data-hub-wiring-sleeping={hubWiringSummary?.sleepingContracts ?? 0} data-hub-wiring-spine-edges={`${hubWiringSummary?.connectedSpineEdges ?? 0}/${hubWiringSummary?.totalSpineEdges ?? 0}`} data-cofiapublisher-bridge-status={viewSnapshot?.publisherBridge?.status ?? "pending"} data-cofiapublisher-bridge-assets={`${viewSnapshot?.publisherBridge?.exportedAssetCount ?? 0}/${viewSnapshot?.publisherBridge?.fullAssetCount ?? 0}`} data-cofiapublisher-motion-proofs={viewSnapshot?.videoAvailability?.motionProofCount ?? 0} data-tool-operating-contracts={toolContractList.length} data-tool-contract-machines={machines.filter((machine) => Boolean(machine.contract)).length} data-tool-contract-policy={toolContracts?.policy ?? "pending"} data-shared-layout-camera={`${cam.z.toFixed(3)},${cam.tx.toFixed(1)},${cam.ty.toFixed(1)}`} data-shared-layout-viewport={`${Math.round(size.cw)}x${Math.round(size.ch)}`} data-console-mission-targets="removed" data-v2-world-map="asset-work-no-fake-motion" data-house-orchestrator-source={houseOrchestratorSource ?? "pending"} data-snapshot-source={viewSnapshot?.agentsCanon?.sourceTag ?? "pending"} data-leisure-park="ready" data-idle-leisure-agents={idleLeisureCount} data-queued-local-agents={0} data-runtime-active-agents={runtimeActiveAgentCount} data-structural-buildings={effHouses.length} data-neighborhood-tools-houses={Object.keys(machinesByHome).length} data-neighborhood-tools-total={machines.length}>
+    <div className={worldShellClassName} data-world-map-visual-guard={WORLD_MAP_VISUAL_GUARD_SOURCE_TAG} data-cofiapublisher-critical={publisherCritical.active ? "true" : "false"} data-citadelle-alert-status={publisherCritical.status} data-citadelle-alert-source={publisherCritical.source} data-citadelle-alert-source-tag={publisherCritical.sourceTag} data-route-markers-policy="unmounted-static-routes" data-svg-pointer-policy="no-svg-bounds-pointer-events" data-agent-count={canonAgents.length} data-agent-links-count={activeVisibleAgents.length} data-agent-placement-policy="runtime-proof-only-houses-idle-park" data-rest-park-agents={idleLeisureCount} data-mission-orders-count={houseMissions.length} data-mission-quality-average={missionQualityAverage} data-proof-ledger-quality-rows={missionQualityRows.length} data-house-local-dispatches={localDispatchCount} data-house-expired-dispatches={expiredLocalDispatchCount} data-house-local-agent-coverage={`${localCoveredAgentCount}/${localTotalAgentCount || canonAgents.length}`} data-live-source-events-count={truthEvents.length} data-source-probe-events-count={sourceEvents.length} data-truth-source-count={truthSourceCount} data-hub-source-ledger-total={hubLedgerSummary?.declaredCoverageTotal ?? 0} data-hub-source-ledger-connected={hubLedgerSummary?.declaredCoverageConnected ?? 0} data-hub-source-ledger-proofed={hubLedgerSummary?.declaredCoverageProofed ?? 0} data-hub-source-ledger-false-green-downgrades={hubLedgerSummary?.falseGreenDowngrades ?? 0} data-hub-wiring-source={hubWiring?.sourceTag ?? "pending"} data-hub-wiring-policy={hubWiring?.policy ?? "pending"} data-hub-wiring-contracts={hubWiringSummary?.contracts ?? 0} data-hub-wiring-command={hubWiringSummary?.commandConnected ?? 0} data-hub-wiring-central={hubWiringSummary?.centralConnected ?? 0} data-hub-wiring-proof={hubWiringSummary?.proofConnected ?? 0} data-hub-wiring-runtime-active={hubWiringSummary?.runtimeActiveContracts ?? 0} data-hub-wiring-sleeping={hubWiringSummary?.sleepingContracts ?? 0} data-hub-wiring-spine-edges={`${hubWiringSummary?.connectedSpineEdges ?? 0}/${hubWiringSummary?.totalSpineEdges ?? 0}`} data-cofiapublisher-bridge-status={viewSnapshot?.publisherBridge?.status ?? "pending"} data-cofiapublisher-bridge-assets={`${viewSnapshot?.publisherBridge?.exportedAssetCount ?? 0}/${viewSnapshot?.publisherBridge?.fullAssetCount ?? 0}`} data-cofiapublisher-motion-proofs={viewSnapshot?.videoAvailability?.motionProofCount ?? 0} data-tool-operating-contracts={toolContractList.length} data-tool-contract-machines={machines.filter((machine) => Boolean(machine.contract)).length} data-tool-contract-policy={toolContracts?.policy ?? "pending"} data-shared-layout-camera={`${cam.z.toFixed(4)},${cam.tx.toFixed(2)},${cam.ty.toFixed(2)}`} data-shared-layout-viewport={`${Math.round(size.cw)}x${Math.round(size.ch)}`} data-console-mission-targets="removed" data-v2-world-map="asset-work-no-fake-motion" data-house-orchestrator-source={houseOrchestratorSource ?? "pending"} data-snapshot-source={viewSnapshot?.agentsCanon?.sourceTag ?? "pending"} data-leisure-park="ready" data-idle-leisure-agents={idleLeisureCount} data-queued-local-agents={0} data-runtime-active-agents={runtimeActiveAgentCount} data-structural-buildings={effHouses.length} data-neighborhood-tools-houses={Object.keys(machinesByHome).length} data-neighborhood-tools-total={machines.length}>
       <style>{`
         @keyframes cof-phone-work { 0%,100% { transform: rotate(-2deg) translateY(0); } 45% { transform: rotate(4deg) translateY(-1.2px); } }
         @keyframes cof-keyboard-work { 0%,100% { transform: translateY(0) scaleX(1); } 50% { transform: translateY(-1.4px) scaleX(1.035); } }
@@ -2326,7 +2572,7 @@ export function WorldMapLiving({ snapshot, angelRoster, initialTruthMap, onSelec
         @keyframes cof-tool-proof { 0%,100% { opacity: .78; filter: brightness(1); } 50% { opacity: 1; filter: brightness(1.35); } }
         @keyframes cof-rest-water { 0%,100% { opacity: .36; transform: translateX(-2px); } 50% { opacity: .68; transform: translateX(4px); } }
         @keyframes cof-rest-smoke { 0%,100% { opacity: .22; transform: translateY(0) scale(1); } 50% { opacity: .54; transform: translateY(-5px) scale(1.04); } }
-        @keyframes cof-route-pulse { 0%,100% { opacity: .18; stroke-dashoffset: 0; } 50% { opacity: .58; stroke-dashoffset: -22; } }
+        @keyframes cof-route-pulse { 0%,100% { opacity: .32; stroke-dashoffset: 0; } 50% { opacity: .32; stroke-dashoffset: 0; } }
         @keyframes cof-lamp-glow { 0%,100% { opacity: .54; transform: scale(.92); } 50% { opacity: .94; transform: scale(1.16); } }
         @keyframes cof-traffic-red { 0%,38%,100% { opacity: 1; filter: drop-shadow(0 0 5px #ef4444); } 45%,88% { opacity: .28; filter: none; } }
         @keyframes cof-traffic-amber { 0%,35%,62%,100% { opacity: .25; filter: none; } 42%,54% { opacity: 1; filter: drop-shadow(0 0 5px #f59e0b); } }
@@ -2340,7 +2586,7 @@ export function WorldMapLiving({ snapshot, angelRoster, initialTruthMap, onSelec
         .char-prop, [data-agent-tool-badge] { animation: cof-tool-proof 1.2s ease-in-out infinite; }
         .cof-rest-water { animation: cof-rest-water 2.8s ease-in-out infinite; transform-origin: center; transform-box: fill-box; }
         .cof-rest-smoke { animation: cof-rest-smoke 3.2s ease-in-out infinite; transform-origin: center; transform-box: fill-box; }
-        .cof-route-pulse { animation: cof-route-pulse 2.7s linear infinite; }
+        .cof-route-pulse { animation: none; }
         .cof-map-lamp-glow { animation: cof-lamp-glow 2.6s ease-in-out infinite; transform-origin: center; transform-box: fill-box; }
         .cof-traffic-red { animation: cof-traffic-red 4.8s linear infinite; }
         .cof-traffic-amber { animation: cof-traffic-amber 4.8s linear infinite; }
@@ -2362,6 +2608,13 @@ export function WorldMapLiving({ snapshot, angelRoster, initialTruthMap, onSelec
       </div>
 
 	      <div ref={sceneRef} data-shared-layout-scene="world-map" data-world-map-bounds="strict-hidden" onPointerDown={onScenePointerDown} onPointerMove={onScenePointerMove} onPointerUp={onScenePointerUp} onPointerCancel={onScenePointerUp} style={{ cursor: editMode ? "grab" : "default", touchAction: editMode ? "none" : "pan-y", overflow: "hidden", contain: "layout paint size", isolation: "isolate", backgroundColor: "#07111b", backgroundImage: "radial-gradient(90% 80% at 50% 38%, #155f66 0%, #0b343d 52%, #0c2230 100%)" }} className="relative h-[640px] min-h-[560px] w-full max-w-full overflow-hidden rounded-md border border-cyan-300/20 bg-[#07111b] shadow-[0_20px_80px_rgba(2,6,23,0.55),inset_0_1px_0_rgba(255,255,255,0.06)] lg:h-[calc(100vh-205px)] xl:h-[calc(100vh-190px)]">
+        {publisherCritical.active && (
+          <div className="pointer-events-none absolute right-2 top-2 z-[29] max-w-[min(420px,calc(100%-140px))] rounded-md border border-red-300/70 bg-red-950/92 px-3 py-2 text-right shadow-[0_0_36px_rgba(239,68,68,0.48)] backdrop-blur" data-citadelle-critical-banner="active">
+            <p className="text-[10px] font-black uppercase tracking-[0.22em] text-red-100">COF : LA CITADELLE</p>
+            <p className="mt-0.5 truncate text-[9px] font-bold uppercase text-red-200">{publisherCritical.status}</p>
+            <p className="mt-1 max-h-[2.4em] overflow-hidden text-[9px] leading-snug text-red-100/85">{publisherCritical.reason}</p>
+          </div>
+        )}
         <svg
           data-world-map-svg-bounds="strict"
           viewBox={scene.viewBox}
@@ -2450,16 +2703,7 @@ export function WorldMapLiving({ snapshot, angelRoster, initialTruthMap, onSelec
 	              </g>);
 	            })}
 	          </g>
-	          <g data-road-life="moving-route-markers" pointerEvents="none">
-	            {scene.roads.map((r, i) => (
-	              <g key={`road-life-${r.id}`} data-road-life-route={r.id} data-attached-road={r.id} data-attached-houses={`${r.a},${r.b}`}>
-	                <circle r={r.kind === "main" ? 4.4 : 3.4} fill={r.kind === "main" ? "#facc15" : "#67e8f9"} opacity="0.78">
-	                  <animateMotion dur={`${8 + (i % 5) * 1.4}s`} repeatCount="indefinite" path={r.d} />
-	                  <animate attributeName="opacity" values="0;0.88;0.88;0" dur={`${8 + (i % 5) * 1.4}s`} repeatCount="indefinite" />
-	                </circle>
-	              </g>
-	            ))}
-	          </g>
+		          {/* Routes statiques: aucun marker animé n'est monté dans le DOM. */}
 	          <g data-road-fixtures="lamps-signals-stops-attached">
 	            {scene.roadFurniture.map((f) => (
 	              <g
@@ -2553,35 +2797,7 @@ export function WorldMapLiving({ snapshot, angelRoster, initialTruthMap, onSelec
 		          {uiScale <= 0 && <g data-svg-agent-layer="proof-state">
 	            {visibleAgents.map(({ agent, wx, wy, state, parkedVehicleOnly }) => parkedVehicleOnly ? null : (<SvgAgentMarker key={`svg-agent-${agent.id}`} agent={agent} wx={wx} wy={wy} state={state} tool={isAgentWorkingState(state) ? agentWorkProfilesById[agent.id]?.tool ?? null : null} />))}
 	          </g>}
-	          {!editMode && (
-	            <g data-house-select-overlay-layer="top" pointerEvents="all">
-	              {builtSorted.map((b) => {
-	                const house = b.house;
-	                const parcel = insetTowards(b.ground, -0.72);
-	                const xs = parcel.map((p) => p.x);
-	                const ys = parcel.map((p) => p.y);
-	                const x = Math.min(...xs);
-	                const y = Math.min(...ys);
-	                const width = Math.max(...xs) - x;
-	                const height = Math.max(...ys) - y;
-	                return (
-	                  <rect
-	                    key={`house-select-overlay-${house.id}`}
-	                    data-house-select-overlay={house.id}
-	                    x={x}
-	                    y={y}
-	                    width={width}
-	                    height={height}
-	                    fill="rgba(255,255,255,0.01)"
-	                    style={{ cursor: "pointer" }}
-	                    onPointerDown={(e) => { e.stopPropagation(); movedRef.current = false; clearSel(); setSelectedHouse(house.id); setHouseTab(defaultHouseTab(house.id)); onSelectHouse(house.id); }}
-	                    onClick={(e) => { e.stopPropagation(); }}
-	                  />
-	                );
-	              })}
-	            </g>
-	          )}
-          </g>
+	          </g>
           </g>
         </svg>
 
@@ -2753,19 +2969,21 @@ export function WorldMapLiving({ snapshot, angelRoster, initialTruthMap, onSelec
 	                    {houseTab === "vue" && (
 	                      <div className="mt-2">
 	                        {canonicalEmbed && (
-	                          <div className="mb-2 overflow-hidden rounded border bg-slate-950/70" style={{ borderColor: `${canonicalEmbed.accent}55` }} data-canonical-embed-house={selZone.id} data-canonical-embed-url={canonicalEmbed.url}>
+	                          <div className="mb-2 overflow-hidden rounded border bg-slate-950/70" style={{ borderColor: `${canonicalEmbed.accent}55` }} data-canonical-service-summary={selZone.id} data-canonical-service-url={canonicalEmbed.url}>
 	                            <div className="flex items-center justify-between gap-2 border-b border-slate-800 px-2 py-1">
 	                              <span className="truncate text-[10px] font-black uppercase" style={{ color: canonicalEmbed.accent }}>{canonicalEmbed.label}</span>
-	                              <span className="truncate text-[8px] text-slate-500">{canonicalEmbed.url}</span>
+	                              <span className="truncate text-[8px] text-slate-500">{canonicalEmbed.canonicalUrl}</span>
 	                            </div>
-	                            <iframe
-	                              src={canonicalEmbed.url}
-	                              title={`${canonicalEmbed.label} intégré`}
-	                              className="h-[220px] w-full border-0 bg-slate-950"
-	                              loading="lazy"
-	                              referrerPolicy="no-referrer"
-	                              sandbox="allow-forms allow-same-origin allow-scripts"
-	                            />
+	                            {selZone.id === "youtube_studio" ? (
+	                              <CofiaPublisherPipelinePanel snapshot={viewSnapshot} critical={publisherCritical} />
+	                            ) : (
+	                              <div className="grid grid-cols-2 gap-1 p-1.5 text-[9px]" data-canonical-service-no-extra-iframe={selZone.id}>
+	                                <span className="rounded bg-slate-900/80 px-1.5 py-1 text-slate-400">Service canon</span>
+	                                <span className="truncate rounded bg-slate-900/80 px-1.5 py-1 text-right font-bold text-slate-200">{canonicalEmbed.label}</span>
+	                                <span className="rounded bg-slate-900/80 px-1.5 py-1 text-slate-400">Surface live</span>
+	                                <span className="truncate rounded bg-slate-900/80 px-1.5 py-1 text-right font-bold text-cyan-200">{canonicalEmbed.canonicalUrl}</span>
+	                              </div>
+	                            )}
 	                          </div>
 	                        )}
 	                        {selZone.id === "central_brain" && (
@@ -2924,6 +3142,85 @@ export function WorldMapLiving({ snapshot, angelRoster, initialTruthMap, onSelec
 }
 
 const ACT_LABEL: Record<AgentState, string> = { idle: "repos", queued: "non exécuté", alert: "alerte", phone: "messagerie", keyboard: "traitement", inspect: "inspection", work: "mission locale" };
+
+function CofiaPublisherPipelinePanel({ snapshot, critical }: { snapshot: CofiaSnapshot | null | undefined; critical: PublisherCriticalState }) {
+  const native = snapshot?.publisherNative;
+  const bridge = snapshot?.publisherBridge;
+  const video = snapshot?.videoAvailability;
+  const lock = native?.publishLock;
+  const keyframeProgress = useMemo(() => derivePublisherKeyframeProgress(native), [native]);
+  const citadelleAlert = critical.active || publisherGlobalAlertActive(native);
+  const keyframeTicks = useMemo(
+    () => Array.from({ length: keyframeProgress.tickCount }, (_, index) => index < keyframeProgress.filledTicks),
+    [keyframeProgress.filledTicks, keyframeProgress.tickCount],
+  );
+  const nativeStatus = native?.state ?? (native?.ok ? "LIVE_HTTP" : "UNKNOWN");
+  const bridgeStatus = bridge?.status ?? (bridge?.ok ? "LIVE" : "UNKNOWN");
+  const videoStatus = video?.status ?? (video?.ok ? "LIVE" : "UNKNOWN");
+  const rows = [
+    { label: "Pipeline natif", value: nativeStatus, tone: runtimeColor(nativeStatus), source: native?.sourceTag ?? "publisherNative" },
+    { label: "Renders", value: fmtNum(native?.counts?.renders), tone: "#38bdf8", source: native?.outputDir ?? "output_dir" },
+    { label: "Keyframes", value: `${fmtNum(keyframeProgress.current)}/${fmtNum(keyframeProgress.total)}`, tone: citadelleAlert ? "#fecaca" : "#f472b6", source: keyframeProgress.source },
+    { label: "Workorders", value: `${keyframeProgress.activeWorkorders}/${keyframeProgress.totalWorkorders || "0"}`, tone: workorderTone(keyframeProgress.status), source: keyframeProgress.status },
+    { label: "Bridge Hub", value: bridgeStatus, tone: runtimeColor(bridgeStatus), source: bridge?.endpoint ?? "hub bridge" },
+    { label: "Assets", value: `${fmtNum(bridge?.exportedAssetCount)}/${fmtNum(bridge?.fullAssetCount)}`, tone: "#14b8a6", source: bridge?.sourceTag ?? "asset bridge" },
+    { label: "Motion proofs", value: fmtNum(video?.motionProofCount), tone: runtimeColor(videoStatus), source: video?.sourceTag ?? "video bridge" },
+    { label: "Publish gate", value: lock?.allowed === true ? "ALLOW" : (lock?.reason ?? "LOCKED"), tone: lock?.allowed === true ? "#34d399" : "#f59e0b", source: "publishLock" },
+  ];
+  const tabs = ["1", "2", "3", "4 COF : LA CITADELLE", "5"];
+  return (
+    <div className="p-1.5" data-cofiapublisher-pipeline-panel="prepared" data-citadelle-critical={citadelleAlert ? "true" : "false"} data-publisher-global-alert={publisherGlobalAlertActive(native) ? "true" : "false"} data-publisher-keyframes={`${keyframeProgress.current}/${keyframeProgress.total}`} data-publisher-workorders={`${keyframeProgress.activeWorkorders}/${keyframeProgress.totalWorkorders}`}>
+      <div className={`mb-1.5 rounded border px-1.5 py-1 ${citadelleAlert ? "border-red-400/70 bg-red-500/12 shadow-[0_0_22px_rgba(239,68,68,0.24)]" : "border-pink-400/25 bg-pink-400/5"}`}>
+        <div className="flex items-center justify-between gap-2">
+          <span className="truncate text-[10px] font-black uppercase text-pink-100">COFIAPUBLISHER pipeline</span>
+          <span className="shrink-0 text-[8px] font-black" style={{ color: citadelleAlert ? "#fecaca" : "#f9a8d4" }}>{citadelleAlert ? "ALERTE ROUGE" : "READY"}</span>
+        </div>
+        <div className="mt-1 grid grid-cols-5 gap-1" data-cofiapublisher-8540-five-tabs="stable">
+          {tabs.map((tab, idx) => (
+            <span key={tab} data-citadelle-tab-alert={idx === 3 && citadelleAlert ? "true" : "false"} className={`truncate rounded px-1 py-0.5 text-center text-[7.5px] font-black ${idx === 3 ? (citadelleAlert ? "border border-red-200/85 bg-red-600/35 text-red-50 shadow-[0_0_18px_rgba(239,68,68,0.34)]" : "border border-red-300/55 bg-red-500/15 text-red-100") : "bg-slate-950/70 text-slate-300"}`}>{tab}</span>
+          ))}
+        </div>
+        <div className="mt-1.5">
+          <div className="flex items-center justify-between gap-2">
+            <span className="text-[8px] font-black uppercase tracking-wide text-slate-300">Keyframes</span>
+            <span className="text-[8px] font-black tabular-nums" style={{ color: citadelleAlert ? "#fecaca" : "#f9a8d4" }}>{keyframeProgress.current}/{keyframeProgress.total}</span>
+          </div>
+          <div className="mt-1 h-1.5 overflow-hidden rounded-full bg-slate-950/90" data-keyframe-progress-meter="publisherNative.counts.renders">
+            <div className="h-full rounded-full bg-gradient-to-r from-pink-400 via-sky-300 to-emerald-300" style={{ width: `${keyframeProgress.percent}%` }} />
+          </div>
+          <div className="mt-1 grid grid-cols-[repeat(14,minmax(0,1fr))] gap-0.5" data-keyframe-ticks={`${keyframeProgress.filledTicks}/${keyframeProgress.tickCount}`}>
+            {keyframeTicks.map((filled, index) => (
+              <span key={`kf-${index}`} className={`h-1 rounded-full ${filled ? (citadelleAlert ? "bg-red-200" : "bg-pink-300") : "bg-slate-800"}`} />
+            ))}
+          </div>
+        </div>
+        <p className="mt-1 truncate text-[8px] text-slate-400">{citadelleAlert ? `${critical.source} · ${critical.sourceTag}` : "external critical indicator: normal"}</p>
+      </div>
+      <div className="grid grid-cols-2 gap-1">
+        {rows.map((row) => (
+          <div key={row.label} className="rounded border border-slate-800/80 bg-slate-950/70 px-1.5 py-1">
+            <div className="flex items-baseline justify-between gap-1">
+              <span className="truncate text-[8.5px] uppercase text-slate-400">{row.label}</span>
+              <span className="shrink-0 text-[9px] font-black" style={{ color: row.tone }}>{row.value}</span>
+            </div>
+            <span className="mt-0.5 block truncate text-[7.5px] text-slate-500">{row.source}</span>
+          </div>
+        ))}
+      </div>
+      {keyframeProgress.workorders.length > 0 && (
+        <div className="mt-1.5 flex flex-col gap-1" data-cofiapublisher-workorders-live="snapshot">
+          {keyframeProgress.workorders.map((workorder) => (
+            <div key={workorder.id} className="grid grid-cols-[minmax(0,1fr)_52px_42px] items-center gap-1 rounded border border-slate-800/70 bg-slate-950/60 px-1.5 py-0.5">
+              <span className="truncate text-[8px] font-bold text-slate-300">{workorder.label}</span>
+              <span className="truncate text-right text-[7.5px] font-black" style={{ color: workorderTone(workorder.status) }}>{workorder.status}</span>
+              <span className="text-right text-[7.5px] font-black tabular-nums text-slate-400">{workorder.current ?? "-"}{workorder.total !== null ? `/${workorder.total}` : ""}</span>
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
 
 function missionCreatorText(h: House): string {
   switch (h.type) {
@@ -3798,7 +4095,8 @@ function Building({ b, status, activity, mission, missionQuality, truthSources, 
         data-house-hitbox={h.id}
         points={insetTowards(parcel, -0.44).map(P).join(" ")}
         fill="transparent"
-        pointerEvents="bounding-box"
+        opacity={0}
+        pointerEvents="all"
         onPointerDown={(e) => { e.stopPropagation(); if (!editMode) onDirectSelect(); }}
         onClick={(e) => { e.stopPropagation(); if (editMode) onSelect(); else onDirectSelect(); }}
       />

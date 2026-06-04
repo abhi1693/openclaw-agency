@@ -27,6 +27,7 @@ const num = (v: unknown): number | null =>
 
 export async function readLocalRevenue(): Promise<FetchResultLike> {
   try {
+    const readUtc = new Date().toISOString();
     const d = rec(JSON.parse(await readFile(COF_STATE, "utf8")));
     const r = rec(rec(d.hub_home).revenue);
     const crm = rec(rec(d.crm_commissions).current);
@@ -35,6 +36,7 @@ export async function readLocalRevenue(): Promise<FetchResultLike> {
 
     const mrr = num(r.mrr_eur) ?? num(r.stripe_mrr_eur);
     const arr = mrr != null ? mrr * 12 : null;
+    const cofStateVip = num(r.stripe_active);
 
     const brokers: Record<string, { ftd: number; commission_lifetime_usd: number }> = {};
     for (const [k, v] of Object.entries(brokersRaw)) {
@@ -48,10 +50,13 @@ export async function readLocalRevenue(): Promise<FetchResultLike> {
     // Base = cof_state local (brokers/ftd/clients + MRR snapshot 300s).
     let mrrFinal = mrr;
     let arrFinal = arr;
-    let vipFinal = num(r.stripe_active);
+    let vipFinal = cofStateVip;
     let pastDueEur: number | null = null;
     let pastDueCount: number | null = null;
     let sourceTag = "NY_LOCAL_REVENUE_FROM_COF_STATE_NO_ABIDJAN_20260529";
+    let stripeOverlayOk = false;
+    let stripeOverlayReadUtc: string | null = null;
+    let pastDueReadUtc: string | null = null;
 
     // Overlay LIVE = backend NY host-natif :8000 (Stripe direct, non-Abidjan) si dispo. Fallback gracieux.
     try {
@@ -70,6 +75,8 @@ export async function readLocalRevenue(): Promise<FetchResultLike> {
           arrFinal = liveMrr * 12;
           vipFinal = num(rv.active_count) ?? vipFinal;
           sourceTag = "NY_BACKEND_8000_STRIPE_LIVE_OVERLAY_NO_ABIDJAN_20260529";
+          stripeOverlayOk = true;
+          stripeOverlayReadUtc = readUtc;
         }
       }
       if (pdRes.ok) {
@@ -79,6 +86,7 @@ export async function readLocalRevenue(): Promise<FetchResultLike> {
         if (totalEur != null) pastDueEur = totalEur;
         else if (items.length) pastDueEur = items.reduce((s: number, it: unknown) => s + (num(rec(it).amount_due_eur) ?? 0), 0);
         pastDueCount = num(pd.items_count) ?? (items.length || null);
+        pastDueReadUtc = readUtc;
       }
     } catch {
       /* backend down → on garde cof_state local, aucune régression */
@@ -87,7 +95,21 @@ export async function readLocalRevenue(): Promise<FetchResultLike> {
     const data = {
       ok: true,
       source_tag: sourceTag,
+      read_utc: readUtc,
+      stripe_overlay_ok: stripeOverlayOk,
+      stripe_overlay_read_utc: stripeOverlayReadUtc,
+      past_due_read_utc: pastDueReadUtc,
       cof_state_ts: rec(d.meta).ts_utc ?? null,
+      cof_state_mrr_eur: mrr,
+      cof_state_active_vip: cofStateVip,
+      backend_8000_mrr_eur: stripeOverlayOk ? mrrFinal : null,
+      backend_8000_active_vip: stripeOverlayOk ? vipFinal : null,
+      revenue_delta_mrr_eur: mrr != null && mrrFinal != null ? Math.round((mrrFinal - mrr) * 100) / 100 : null,
+      revenue_delta_active_vip: cofStateVip != null && vipFinal != null ? vipFinal - cofStateVip : null,
+      revenue_consistency:
+        stripeOverlayOk && ((mrr != null && mrrFinal != null && mrrFinal !== mrr) || (cofStateVip != null && vipFinal != null && vipFinal !== cofStateVip))
+          ? "WATCH_BACKEND_8000_DIFFERS_FROM_COF_STATE"
+          : "OK",
       mrr_eur: mrrFinal,
       mrr_active_eur: mrrFinal,
       current_mrr_eur: mrrFinal,

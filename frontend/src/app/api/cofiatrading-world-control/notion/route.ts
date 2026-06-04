@@ -28,6 +28,7 @@ type FileProof = {
 type SyncEntry = {
   error_count?: unknown;
   last_error?: unknown;
+  last_error_ts?: unknown;
   last_pushed_ts?: unknown;
 };
 
@@ -45,7 +46,7 @@ const EXPECTED_SYNC_TARGETS = [
   "mocs",
   "state",
 ];
-const IGNORED_SYNC_SOURCES = new Set([
+const LEGACY_IGNORED_SYNC_SOURCES = new Set([
   "decisions._AGENT_CONTEXT",
   "decisions._TEMPLATE",
   "decisions._immuables-r4-ban-anthropic",
@@ -206,15 +207,29 @@ async function syncProof() {
   }
 
   const seenTargets = new Set<string>();
-  const errors: Array<{ src: string; errorCount: number; lastError: string | null; lastPushedUtc: string | null }> = [];
+  const errors: Array<{
+    src: string;
+    errorCount: number;
+    lastError: string | null;
+    lastErrorUtc: string | null;
+    lastPushedUtc: string | null;
+    legacyIgnored: boolean;
+  }> = [];
+  const recoveredLastErrors: Array<{
+    src: string;
+    lastError: string | null;
+    lastErrorUtc: string | null;
+    lastPushedUtc: string | null;
+  }> = [];
   let healthyCount = 0;
   let newestPushUtc: string | null = null;
 
   for (const [src, entry] of Object.entries(raw)) {
-    if (IGNORED_SYNC_SOURCES.has(src)) continue;
     const target = src.split(".", 1)[0];
     if (target) seenTargets.add(target);
     const errorCount = typeof entry.error_count === "number" ? entry.error_count : 0;
+    const lastError = typeof entry.last_error === "string" ? entry.last_error.slice(0, 280) : null;
+    const lastErrorUtc = typeof entry.last_error_ts === "string" ? entry.last_error_ts : null;
     const lastPushedUtc = typeof entry.last_pushed_ts === "string" ? entry.last_pushed_ts : null;
     if (lastPushedUtc && (!newestPushUtc || Date.parse(lastPushedUtc) > Date.parse(newestPushUtc))) {
       newestPushUtc = lastPushedUtc;
@@ -223,7 +238,16 @@ async function syncProof() {
       errors.push({
         src,
         errorCount,
-        lastError: typeof entry.last_error === "string" ? entry.last_error.slice(0, 280) : null,
+        lastError,
+        lastErrorUtc,
+        lastPushedUtc,
+        legacyIgnored: LEGACY_IGNORED_SYNC_SOURCES.has(src),
+      });
+    } else if (lastError) {
+      recoveredLastErrors.push({
+        src,
+        lastError,
+        lastErrorUtc,
         lastPushedUtc,
       });
     } else {
@@ -233,6 +257,7 @@ async function syncProof() {
 
   const missing = EXPECTED_SYNC_TARGETS.filter((target) => !seenTargets.has(target));
   const newestAgeDays = daysSince(newestPushUtc);
+  const legacyIgnoredErrorCount = errors.filter((entry) => entry.legacyIgnored).length;
   const ok = missing.length === 0 && errors.length === 0 && newestAgeDays !== null && newestAgeDays <= 1;
   return {
     ok,
@@ -245,12 +270,16 @@ async function syncProof() {
     missing,
     healthyCount,
     errorCount: errors.length,
+    legacyIgnoredErrorCount,
+    recoveredLastErrorCount: recoveredLastErrors.length,
+    lastErrorPresentCount: errors.length + recoveredLastErrors.length,
     newestPushUtc,
     newestAgeDays,
     errors: errors.slice(0, 8),
+    recoveredLastErrors: recoveredLastErrors.slice(0, 8),
     proof: ok
       ? `notion_sync_state green · newest=${newestPushUtc}`
-      : `notion_sync_state amber · missing=${missing.length} · errors=${errors.length} · newest=${newestPushUtc ?? "none"}`,
+      : `notion_sync_state amber · missing=${missing.length} · blockingErrors=${errors.length} · legacyIgnoredErrors=${legacyIgnoredErrorCount} · recoveredLastErrors=${recoveredLastErrors.length} · newest=${newestPushUtc ?? "none"}`,
     queue,
   };
 }
@@ -311,15 +340,18 @@ export async function GET(request: Request) {
     const archivedAncestorCount = syncErrors.filter((entry) =>
       String(entry.lastError ?? "").toLowerCase().includes("archived ancestor"),
     ).length;
+    const schemaErrorCount = syncErrors.filter((entry) =>
+      String(entry.lastError ?? "").toLowerCase().includes("property that exists"),
+    ).length;
     const blocker = local.ok && sync.ok
       ? null
       : local.ok
-        ? `Notion local OK, sync AMBER: errors=${sync.errorCount}, queuedLocalWrites=${sync.queuedLocalWrites}, newest=${sync.newestPushUtc ?? "none"}, archivedAncestor=${archivedAncestorCount}`
+        ? `Notion local OK, sync AMBER: blockingErrors=${sync.errorCount}, legacyIgnoredErrors=${sync.legacyIgnoredErrorCount}, recoveredLastErrors=${sync.recoveredLastErrorCount}, queuedLocalWrites=${sync.queuedLocalWrites}, newest=${sync.newestPushUtc ?? "none"}, archivedAncestor=${archivedAncestorCount}, schemaErrors=${schemaErrorCount}`
         : "Notion Desktop/cache local non prouvé";
     const nextAction = local.ok && sync.ok
       ? "keep local-first mirror and sync monitor running"
-      : archivedAncestorCount > 0
-        ? "unarchive or retarget the archived Notion ancestor pages, then rerun notion_sync_all.py once"
+      : archivedAncestorCount > 0 || schemaErrorCount > 0
+        ? "retarget/unarchive archived ancestors and fix decisions DB schema mapping, then rerun notion_sync_all.py once"
         : "rerun notion_sync_all.py once and inspect the newest sync error";
     return NextResponse.json(
       {

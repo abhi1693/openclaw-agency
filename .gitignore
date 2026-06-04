@@ -6,6 +6,7 @@ __pycache__/
 node_modules/
 .next/
 *.tsbuildinfo
+*.log
 
 # Env
 .env
@@ -14,6 +15,14 @@ node_modules/
 # IDE
 .idea/
 .runlogs/
+.DS_Store
+
+# Local dated backups / R5 snapshots
+*.bak-*
+.r5-backups/
+frontend/.r5-backups/
+frontend/design/*_latest.json
+frontend/design/*_standalone_latest.json
 
 # Worktrees
 .worktrees/
