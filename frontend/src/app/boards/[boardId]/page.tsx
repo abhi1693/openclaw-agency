@@ -3302,6 +3302,8 @@ export default function BoardDetailPage() {
                             <StatusDot
                               status={agent.status}
                               variant="agent"
+                              hasSpawnFailed={!!agent.last_provision_error}
+                              spawnFailedTooltip={agent.last_provision_error ?? "Last spawn failed"}
                               className={cn(
                                 "absolute -right-0.5 -bottom-0.5 h-2.5 w-2.5 rounded-full border-2 border-white",
                                 isWorking && "ring-2 ring-emerald-200",

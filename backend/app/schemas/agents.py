@@ -245,6 +245,10 @@ class AgentRead(AgentBase):
         default=None,
         description="Last heartbeat timestamp.",
     )
+    last_provision_error: str | None = Field(
+        default=None,
+        description="Error message from the most recent provision attempt, if it failed.",
+    )
     created_at: datetime = Field(description="Creation timestamp.")
     updated_at: datetime = Field(description="Last update timestamp.")
 

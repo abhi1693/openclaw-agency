@@ -114,7 +114,20 @@ export function AgentsTable({
       {
         accessorKey: "status",
         header: "Status",
-        cell: ({ row }) => pillCell(row.original.status),
+        cell: ({ row }) => (
+          <span className="inline-flex items-center gap-1.5">
+            {pillCell(row.original.status)}
+            {row.original.last_provision_error && (
+              <span
+                title={`Last spawn failed: ${row.original.last_provision_error}`}
+                className="inline-flex h-4 w-4 shrink-0 cursor-help items-center justify-center rounded-full bg-amber-400 text-[9px] font-bold text-white"
+                aria-label="Last spawn failed"
+              >
+                !
+              </span>
+            )}
+          </span>
+        ),
       },
       {
         accessorKey: "openclaw_session_id",

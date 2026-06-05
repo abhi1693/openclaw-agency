@@ -31,6 +31,8 @@ export interface AgentRead {
   is_gateway_main?: boolean;
   /** Last heartbeat timestamp. */
   last_seen_at?: string | null;
+  /** Error message from the most recent provision attempt, if it failed. */
+  last_provision_error?: string | null;
   /**
    * Human-readable agent display name.
    * @minLength 1

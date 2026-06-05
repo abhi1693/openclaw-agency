@@ -57,14 +57,20 @@ type StatusDotProps = {
   status?: string | null;
   variant?: StatusDotVariant;
   className?: string;
+  /** When true, shows a warning badge overlaid on the dot (for spawn-failed agents). */
+  hasSpawnFailed?: boolean;
+  /** Tooltip text shown on hover when spawn has failed. */
+  spawnFailedTooltip?: string;
 };
 
 export function StatusDot({
   status,
   variant = "agent",
   className,
+  hasSpawnFailed = false,
+  spawnFailedTooltip = "Last spawn failed",
 }: StatusDotProps) {
-  return (
+  const dot = (
     <span
       aria-hidden="true"
       className={cn(
@@ -73,5 +79,47 @@ export function StatusDot({
         className,
       )}
     />
+  );
+
+  if (!hasSpawnFailed) {
+    return dot;
+  }
+
+  return (
+    <span
+      className="relative inline-flex"
+      title={spawnFailedTooltip}
+      aria-label={spawnFailedTooltip}
+    >
+      {dot}
+      {/* Warning badge: small orange triangle with exclamation */}
+<span
+        className={cn(
+          "absolute -right-0.5 -top-0.5 flex h-2 w-2 items-center justify-center",
+ )}
+      >
+        <svg
+          viewBox="0 0 10 10"
+          className="h-full w-full"
+          fill="none"
+          xmlns="http://www.w3.org/2000/svg"
+        >
+          {/* Orange triangle warning badge */}
+          <path
+            d="M5 1L9 9H1L5 1Z"
+            fill="hsl(38 92% 50%)"
+            stroke="white"
+            strokeWidth="0.5"
+          />
+          {/* Exclamation mark */}
+          <path
+            d="M5 4.5V6.5M5 3.5V3.8"
+            stroke="white"
+            strokeWidth="1"
+            strokeLinecap="round"
+          />
+        </svg>
+      </span>
+    </span>
   );
 }
