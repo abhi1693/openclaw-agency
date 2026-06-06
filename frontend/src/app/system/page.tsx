@@ -88,12 +88,93 @@ function cronToHuman(expr: string): string {
   if (parts.length !== 5) return expr
   const [minStr, hourStr, dom, mon, dow] = parts
 
+  const parseWholeNumber = (value: string) => /^\d+$/.test(value) ? Number(value) : null
+  const pad2 = (value: number) => String(value).padStart(2, '0')
   const fmtTime = (h: string, m: string) => {
-    const hNum = parseInt(h)
-    const mNum = parseInt(m)
-    if (isNaN(hNum) || isNaN(mNum)) return null
-    if (mNum === 0) return `${String(hNum).padStart(2, '0')}:00`
-    return `${String(hNum).padStart(2, '0')}:${String(mNum).padStart(2, '0')}`
+    const hNum = parseWholeNumber(h)
+    const mNum = parseWholeNumber(m)
+    if (hNum === null || mNum === null) return null
+    if (mNum === 0) return `${pad2(hNum)}:00`
+    return `${pad2(hNum)}:${pad2(mNum)}`
+  }
+
+  const parseStep = (value: string) => {
+    const match = value.match(/^(\*|\d+|\d+-\d+)\/(\d+)$/)
+    if (!match) return null
+    const step = parseWholeNumber(match[2])
+    if (step === null || step <= 0) return null
+    return { base: match[1], step }
+  }
+
+  const formatStepScope = (base: string) => {
+    if (base === '*') return ''
+    if (base.includes('-')) return `(${base})`
+    return `(从${base}开始)`
+  }
+
+  const DOW_NAMES = ['日', '一', '二', '三', '四', '五', '六']
+  const domNum = parseWholeNumber(dom)
+  const minNum = parseWholeNumber(minStr)
+  const hourNum = parseWholeNumber(hourStr)
+  const minuteStep = parseStep(minStr)
+  const hourStep = parseStep(hourStr)
+  const domStep = parseStep(dom)
+  const monStep = parseStep(mon)
+
+  const formatDayContext = () => {
+    if (dom === '*' && mon === '*' && dow === '*') return '每天'
+
+    if (dom === '*' && mon === '*' && dow !== '*' && !dow.includes(',') && !dow.includes('/')) {
+      if (dow.includes('-')) {
+        const [startStr, endStr] = dow.split('-')
+        const start = parseWholeNumber(startStr)
+        const end = parseWholeNumber(endStr)
+        if (start !== null && end !== null && start >= 0 && end <= 6) {
+          return `周${DOW_NAMES[start]}至${DOW_NAMES[end]}`
+        }
+      }
+
+      const day = parseWholeNumber(dow)
+      if (day !== null && day >= 0 && day <= 6) {
+        return day === 0 ? '每周日' : `每周${DOW_NAMES[day]}`
+      }
+    }
+
+    if (dom.includes(',') && mon === '*' && dow === '*') {
+      return `每月${dom.split(',').join('/')}号`
+    }
+
+    if (domNum !== null && mon === '*' && dow === '*') {
+      return `每月${domNum}号`
+    }
+
+    return null
+  }
+
+  const dayContext = formatDayContext()
+
+  if (minuteStep && hourStr === '*' && dayContext) {
+    const prefix = dayContext === '每天' ? '' : `${dayContext} `
+    return `${prefix}每${minuteStep.step}分钟${formatStepScope(minuteStep.base)}`.trim()
+  }
+
+  if (minuteStep && hourNum !== null && dayContext) {
+    return `${dayContext} ${pad2(hourNum)} 时每${minuteStep.step}分钟${formatStepScope(minuteStep.base)}`
+  }
+
+  if (hourStep && minNum !== null && dayContext) {
+    const prefix = dayContext === '每天' ? '' : `${dayContext} `
+    const minuteSuffix = minNum === 0 ? '' : ` ${pad2(minNum)}分`
+    return `${prefix}每${hourStep.step}小时${formatStepScope(hourStep.base)}${minuteSuffix}`.trim()
+  }
+
+  const time = fmtTime(hourStr, minStr)
+  if (domStep && mon === '*' && dow === '*' && time) {
+    return `每${domStep.step}天${formatStepScope(domStep.base)} ${time}`
+  }
+
+  if (monStep && domNum !== null && dow === '*' && time) {
+    return `每${monStep.step}个月${formatStepScope(monStep.base)} ${domNum}号 ${time}`
   }
 
   // Multi-hour daily: "0 0,6,12,18 * * *" → "每天 0/6/12/18 时"
@@ -102,43 +183,8 @@ function cronToHuman(expr: string): string {
     return `每天 ${hours} 时`
   }
 
-  const time = fmtTime(hourStr, minStr)
-  if (!time) return expr
-
-  // Daily: "0 5 * * *" → "每天 05:00"
-  if (dom === '*' && mon === '*' && dow === '*') {
-    return `每天 ${time}`
-  }
-
-  // Weekly with range "1-6": "0 4 * * 1-6" → "周一至六 04:00"
-  if (dom === '*' && mon === '*' && dow !== '*' && !dow.includes(',')) {
-    const DOW_NAMES = ['日', '一', '二', '三', '四', '五', '六']
-    if (dow.includes('-')) {
-      const [start, end] = dow.split('-').map(Number)
-      if (!isNaN(start) && !isNaN(end) && start >= 0 && end <= 6) {
-        return `周${DOW_NAMES[start]}至${DOW_NAMES[end]} ${time}`
-      }
-    }
-    // Single weekday: "0 4 * * 1" → "每周一 04:00"
-    const d = parseInt(dow)
-    if (!isNaN(d) && d >= 0 && d <= 6) {
-      if (d === 0) return `每周日 ${time}`
-      return `每周${DOW_NAMES[d]} ${time}`
-    }
-  }
-
-  // Monthly multi-day: "0 4 8,22 * *" → "每月8/22号 04:00"
-  if (dom.includes(',') && mon === '*' && dow === '*') {
-    const days = dom.split(',').join('/')
-    return `每月${days}号 ${time}`
-  }
-
-  // Monthly single day: "0 7 1 * *" → "每月1号 07:00"
-  if (dom !== '*' && !dom.includes('/') && mon === '*' && dow === '*') {
-    const day = parseInt(dom)
-    if (!isNaN(day) && day >= 1 && day <= 31) {
-      return `每月${day}号 ${time}`
-    }
+  if (time && dayContext) {
+    return `${dayContext} ${time}`
   }
 
   return expr
