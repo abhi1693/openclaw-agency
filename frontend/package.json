@@ -52,14 +52,14 @@
     "@types/react": "^19",
     "@types/react-dom": "^19",
     "@types/react-simple-maps": "^3.0.6",
-    "@vitest/coverage-v8": "^4.0.18",
+    "@vitest/coverage-v8": "^4.1.8",
     "autoprefixer": "^10.4.24",
     "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",
     "cypress": "^14.5.4",
     "eslint": "^9",
     "eslint-config-next": "^16.2.4",
-    "jsdom": "^25.0.1",
+    "jsdom": "^28.0.0",
     "lucide-react": "^0.563.0",
     "orval": "^8.3.0",
     "postcss": "^8.5.6",
@@ -68,6 +68,9 @@
     "tailwindcss": "^3.4.19",
     "tailwindcss-animate": "^1.0.7",
     "typescript": "^5",
-    "vitest": "^4.0.18"
+    "vitest": "^4.1.8"
+  },
+  "overrides": {
+    "uuid": "^9.0.1"
   }
 }
