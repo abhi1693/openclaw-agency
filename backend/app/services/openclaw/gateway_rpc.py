@@ -538,6 +538,81 @@ async def send_message(
     return await openclaw_call("chat.send", params, config=config)
 
 
+def _is_missing_session_error(exc: OpenClawGatewayError) -> bool:
+    message = str(exc).lower()
+    if not message:
+        return False
+    return any(
+        marker in message
+        for marker in (
+            "not found",
+            "unknown session",
+            "no such session",
+            "session does not exist",
+        )
+    )
+
+
+def _is_recoverable_session_send_error(exc: OpenClawGatewayError) -> bool:
+    message = str(exc).lower()
+    if not message:
+        return False
+    return any(
+        marker in message
+        for marker in (
+            "session not found",
+            "unknown session",
+            "no such session",
+            "session does not exist",
+            "session closed",
+            "session ended",
+            "session inactive",
+            "session is inactive",
+            "not active",
+            "session expired",
+            "expired session",
+        )
+    )
+
+
+async def reset_session(session_key: str, *, config: GatewayConfig) -> object:
+    """Reset a session in the gateway."""
+    return await openclaw_call("sessions.reset", {"key": session_key}, config=config)
+
+
+async def send_message_with_session_recovery(
+    message: str,
+    *,
+    session_key: str,
+    config: GatewayConfig,
+    deliver: bool = False,
+    label: str | None = None,
+) -> object:
+    """Send a message and recreate a stale session once when needed."""
+    try:
+        return await send_message(
+            message,
+            session_key=session_key,
+            config=config,
+            deliver=deliver,
+        )
+    except OpenClawGatewayError as exc:
+        if not _is_recoverable_session_send_error(exc):
+            raise
+        try:
+            await reset_session(session_key, config=config)
+        except OpenClawGatewayError as reset_exc:
+            if not _is_missing_session_error(reset_exc):
+                raise
+        await ensure_session(session_key, config=config, label=label)
+        return await send_message(
+            message,
+            session_key=session_key,
+            config=config,
+            deliver=deliver,
+        )
+
+
 async def get_chat_history(
     session_key: str,
     config: GatewayConfig,

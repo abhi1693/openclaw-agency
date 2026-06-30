@@ -29,7 +29,7 @@ from app.services.openclaw.gateway_rpc import (
     ensure_session,
     get_chat_history,
     openclaw_call,
-    send_message,
+    send_message_with_session_recovery,
 )
 from app.services.openclaw.policies import OpenClawAuthorizationPolicy
 from app.services.openclaw.shared import GatewayAgentIdentity
@@ -360,7 +360,12 @@ class GatewaySessionService(OpenClawDBService):
         try:
             if main_session and session_id == main_session:
                 await ensure_session(main_session, config=config, label="Gateway Agent")
-            await send_message(payload.content, session_key=session_id, config=config)
+            await send_message_with_session_recovery(
+                payload.content,
+                session_key=session_id,
+                config=config,
+                label="Gateway Agent" if main_session and session_id == main_session else None,
+            )
         except OpenClawGatewayError as exc:
             raise HTTPException(
                 status_code=status.HTTP_502_BAD_GATEWAY,

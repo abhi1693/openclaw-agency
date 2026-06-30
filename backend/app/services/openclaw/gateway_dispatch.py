@@ -18,7 +18,11 @@ from app.services.openclaw.gateway_resolver import (
     require_gateway_for_board,
 )
 from app.services.openclaw.gateway_rpc import GatewayConfig as GatewayClientConfig
-from app.services.openclaw.gateway_rpc import OpenClawGatewayError, ensure_session, send_message
+from app.services.openclaw.gateway_rpc import (
+    OpenClawGatewayError,
+    ensure_session,
+    send_message_with_session_recovery,
+)
 
 
 class GatewayDispatchService(OpenClawDBService):
@@ -48,7 +52,13 @@ class GatewayDispatchService(OpenClawDBService):
         deliver: bool = False,
     ) -> None:
         await ensure_session(session_key, config=config, label=agent_name)
-        await send_message(message, session_key=session_key, config=config, deliver=deliver)
+        await send_message_with_session_recovery(
+            message,
+            session_key=session_key,
+            config=config,
+            deliver=deliver,
+            label=agent_name,
+        )
 
     async def try_send_agent_message(
         self,

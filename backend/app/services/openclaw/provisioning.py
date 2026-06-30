@@ -42,6 +42,7 @@ from app.services.openclaw.gateway_rpc import (
     ensure_session,
     openclaw_call,
     send_message,
+    send_message_with_session_recovery,
 )
 from app.services.openclaw.internal.agent_key import agent_key as _agent_key
 from app.services.openclaw.internal.agent_key import slugify
@@ -1112,11 +1113,12 @@ class OpenClawGatewayProvisioner:
         )
         await ensure_session(session_key, config=client_config, label=agent.name)
         verb = wakeup_verb or ("provisioned" if action == "provision" else "updated")
-        await send_message(
+        await send_message_with_session_recovery(
             _wakeup_text(agent, verb=verb),
             session_key=session_key,
             config=client_config,
             deliver=deliver_wakeup,
+            label=agent.name,
         )
 
     async def delete_agent_lifecycle(
