@@ -310,7 +310,6 @@ export default function ActivityPage() {
   >({
     query: {
       enabled: Boolean(isSignedIn),
-      refetchOnMount: "always",
       refetchOnWindowFocus: false,
       retry: false,
     },

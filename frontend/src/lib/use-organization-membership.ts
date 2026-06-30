@@ -17,7 +17,6 @@ export function useOrganizationMembership(
   >({
     query: {
       enabled: Boolean(isSignedIn),
-      refetchOnMount: "always",
       retry: false,
     },
   });

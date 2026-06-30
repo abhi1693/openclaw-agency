@@ -417,7 +417,6 @@ export function BoardApprovalsPanel({
     query: {
       enabled: Boolean(!usingExternal && isSignedIn && boardId),
       refetchInterval: 15_000,
-      refetchOnMount: "always",
       retry: false,
     },
   });

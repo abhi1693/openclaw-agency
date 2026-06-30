@@ -208,12 +208,14 @@ function KpiCard({
   progress?: number;
 }) {
   return (
-    <div className="rounded-xl border border-slate-200 bg-white p-6 shadow-sm transition hover:-translate-y-0.5 hover:shadow-md">
+    <div className="rounded-2xl border border-slate-200/80 bg-white p-6 shadow-sm transition-all duration-200 ease-out hover:-translate-y-0.5 hover:border-slate-300 hover:shadow-lg">
       <div className="mb-4 flex items-center justify-between">
-        <p className="text-xs font-semibold uppercase tracking-wider text-slate-500">
+        <p className="text-[11px] font-semibold uppercase tracking-[0.2em] text-slate-500">
           {label}
         </p>
-        <div className="rounded-lg bg-blue-50 p-2 text-blue-600">{icon}</div>
+        <div className="rounded-xl border border-blue-100 bg-blue-50 p-2 text-blue-600 shadow-sm">
+          {icon}
+        </div>
       </div>
       <div className="flex items-end gap-2">
         <h3 className="font-heading text-4xl font-bold text-slate-900">
@@ -223,9 +225,9 @@ function KpiCard({
       {sublabel ? (
         <p className="mt-2 text-xs text-slate-500">{sublabel}</p>
       ) : null}
-      <div className="mt-3 h-1 overflow-hidden rounded-full bg-slate-100">
+      <div className="mt-3 h-1.5 overflow-hidden rounded-full bg-slate-100">
         <div
-          className="h-full rounded-full bg-gradient-to-r from-blue-500 to-blue-600"
+          className="h-full rounded-full bg-gradient-to-r from-blue-600 to-blue-700"
           style={{ width: `${progress}%` }}
         />
       </div>
@@ -243,7 +245,7 @@ function ChartCard({
   children: React.ReactNode;
 }) {
   return (
-    <div className="rounded-xl border border-slate-200 bg-white p-6 shadow-sm">
+    <div className="rounded-2xl border border-slate-200/80 bg-white p-6 shadow-sm">
       <div className="mb-6 flex items-center justify-between">
         <div>
           <h3 className="font-heading text-base font-semibold text-slate-900">
@@ -288,7 +290,6 @@ export default function DashboardPage() {
       query: {
         enabled: Boolean(isSignedIn),
         refetchInterval: 30_000,
-        refetchOnMount: "always",
       },
     },
   );
@@ -301,7 +302,6 @@ export default function DashboardPage() {
       query: {
         enabled: Boolean(isSignedIn),
         refetchInterval: 30_000,
-        refetchOnMount: "always",
       },
     },
   );
@@ -372,7 +372,6 @@ export default function DashboardPage() {
       query: {
         enabled: Boolean(isSignedIn),
         refetchInterval: 15_000,
-        refetchOnMount: "always",
       },
     },
   );

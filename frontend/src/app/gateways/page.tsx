@@ -47,7 +47,6 @@ export default function GatewaysPage() {
     query: {
       enabled: Boolean(isSignedIn && isAdmin),
       refetchInterval: 30_000,
-      refetchOnMount: "always",
     },
   });
 

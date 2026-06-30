@@ -419,28 +419,28 @@ export const TaskBoard = memo(function TaskBoard({
             key={column.title}
             className={cn(
               // On mobile, columns are stacked, so avoid forcing tall fixed heights.
-              "kanban-column min-h-0",
+              "kanban-column min-h-0 transition-shadow",
               // On larger screens, keep columns tall to reduce empty space during drag.
               "sm:min-h-[calc(100vh-260px)]",
               activeColumn === column.status &&
                 !readOnly &&
-                "ring-2 ring-slate-200",
+                "ring-2 ring-slate-200/80 shadow-[0_10px_25px_rgba(15,23,42,0.08)]",
             )}
             onDrop={readOnly ? undefined : handleDrop(column.status)}
             onDragOver={readOnly ? undefined : handleDragOver(column.status)}
             onDragLeave={readOnly ? undefined : handleDragLeave(column.status)}
           >
-            <div className="column-header z-10 rounded-t-xl border border-b-0 border-slate-200 bg-white px-4 py-3 sm:sticky sm:top-0 sm:bg-white/80 sm:backdrop-blur">
+            <div className="column-header z-10 rounded-t-2xl border border-b-0 border-slate-200/80 bg-white/90 px-4 py-3 shadow-sm sm:sticky sm:top-0 sm:bg-white/80 sm:backdrop-blur">
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-2">
-                  <span className={cn("h-2 w-2 rounded-full", column.dot)} />
-                  <h3 className="text-sm font-semibold text-slate-900">
+                  <span className={cn("h-2.5 w-2.5 rounded-full", column.dot)} />
+                  <h3 className="text-[13px] font-semibold uppercase tracking-[0.08em] text-slate-900">
                     {column.title}
                   </h3>
                 </div>
                 <span
                   className={cn(
-                    "flex h-6 w-6 items-center justify-center rounded-full text-xs font-semibold",
+                    "flex h-6 w-6 items-center justify-center rounded-full text-xs font-semibold shadow-sm",
                     column.badge,
                   )}
                 >
@@ -474,10 +474,10 @@ export const TaskBoard = memo(function TaskBoard({
                       type="button"
                       onClick={() => setReviewBucket(option.key)}
                       className={cn(
-                        "rounded-full border px-2.5 py-1 transition",
+                        "rounded-full border px-2.5 py-1 text-[10px] font-semibold uppercase tracking-wide transition-all",
                         reviewBucket === option.key
-                          ? "border-slate-900 bg-slate-900 text-white"
-                          : "border-slate-200 bg-white text-slate-600 hover:border-slate-300 hover:bg-slate-50",
+                          ? "border-slate-900 bg-slate-900 text-white shadow-sm"
+                          : "border-slate-200 bg-white text-slate-600 hover:border-slate-300 hover:bg-slate-50 hover:text-slate-800",
                       )}
                       aria-pressed={reviewBucket === option.key}
                     >
@@ -487,7 +487,7 @@ export const TaskBoard = memo(function TaskBoard({
                 </div>
               ) : null}
             </div>
-            <div className="rounded-b-xl border border-t-0 border-slate-200 bg-white p-3">
+            <div className="rounded-b-2xl border border-t-0 border-slate-200/80 bg-white p-3 shadow-sm">
               <div className="space-y-3">
                 {filteredTasks.map((task) => {
                   const dueState = resolveDueState(task);

@@ -63,7 +63,6 @@ export default function AgentsPage() {
     query: {
       enabled: Boolean(isSignedIn && isAdmin),
       refetchInterval: 30_000,
-      refetchOnMount: "always",
     },
   });
 
@@ -74,7 +73,6 @@ export default function AgentsPage() {
     query: {
       enabled: Boolean(isSignedIn && isAdmin),
       refetchInterval: 15_000,
-      refetchOnMount: "always",
     },
   });
 

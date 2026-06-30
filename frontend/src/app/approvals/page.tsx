@@ -32,7 +32,6 @@ function GlobalApprovalsInner() {
     query: {
       enabled: Boolean(isSignedIn),
       refetchInterval: 30_000,
-      refetchOnMount: "always",
       retry: false,
     },
     request: { cache: "no-store" },
@@ -63,7 +62,6 @@ function GlobalApprovalsInner() {
     queryKey: approvalsKey,
     enabled: Boolean(isSignedIn && boards.length > 0),
     refetchInterval: 15_000,
-    refetchOnMount: "always",
     retry: false,
     queryFn: async () => {
       const results = await Promise.allSettled(

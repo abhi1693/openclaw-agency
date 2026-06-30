@@ -63,7 +63,6 @@ export default function SkillsPacksPage() {
   >({
     query: {
       enabled: Boolean(isSignedIn && isAdmin),
-      refetchOnMount: "always",
       refetchInterval: 15_000,
     },
   });

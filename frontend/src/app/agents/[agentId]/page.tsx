@@ -65,7 +65,6 @@ export default function AgentDetailPage() {
     query: {
       enabled: Boolean(isSignedIn && isAdmin && agentId),
       refetchInterval: 30_000,
-      refetchOnMount: "always",
       retry: false,
     },
   });
@@ -91,7 +90,6 @@ export default function AgentDetailPage() {
     query: {
       enabled: Boolean(isSignedIn && isAdmin),
       refetchInterval: 60_000,
-      refetchOnMount: "always",
       retry: false,
     },
   });

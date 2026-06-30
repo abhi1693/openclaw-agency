@@ -213,7 +213,6 @@ export default function BoardGroupDetailPage() {
         query: {
           enabled: Boolean(isSignedIn && groupId),
           refetchInterval: 30_000,
-          refetchOnMount: "always",
           retry: false,
         },
       },
@@ -250,7 +249,6 @@ export default function BoardGroupDetailPage() {
   >({
     query: {
       enabled: Boolean(isSignedIn),
-      refetchOnMount: "always",
     },
   });
 
@@ -273,7 +271,6 @@ export default function BoardGroupDetailPage() {
       {
         query: {
           enabled: Boolean(isSignedIn && groupId && isChatOpen),
-          refetchOnMount: "always",
           retry: false,
         },
       },
@@ -289,7 +286,6 @@ export default function BoardGroupDetailPage() {
       {
         query: {
           enabled: Boolean(isSignedIn && groupId && isNotesOpen),
-          refetchOnMount: "always",
           retry: false,
         },
       },

@@ -1,6 +1,8 @@
 "use client";
 
 import Link from "next/link";
+import { usePathname } from "next/navigation";
+import { useEffect, useMemo, useState } from "react";
 import type { ReactNode } from "react";
 
 import {
@@ -14,6 +16,34 @@ import { UserMenu } from "@/components/organisms/UserMenu";
 
 export function LandingShell({ children }: { children: ReactNode }) {
   const clerkEnabled = isClerkEnabled();
+  const pathname = usePathname();
+  const [hash, setHash] = useState("");
+
+  useEffect(() => {
+    const updateHash = () => setHash(window.location.hash);
+    updateHash();
+    window.addEventListener("hashchange", updateHash);
+    return () => window.removeEventListener("hashchange", updateHash);
+  }, []);
+
+  const navItems = useMemo(
+    () => [
+      { href: "#capabilities", label: "Capabilities" },
+      { href: "/boards", label: "Boards" },
+      { href: "/activity", label: "Activity" },
+      { href: "/gateways", label: "Gateways" },
+    ],
+    [],
+  );
+
+  const isActive = (href: string) => {
+    if (href.startsWith("#")) {
+      if (pathname !== "/") return false;
+      if (!hash && href === "#capabilities") return true;
+      return hash === href;
+    }
+    return pathname === href || pathname.startsWith(`${href}/`);
+  };
 
   return (
     <div className="landing-enterprise">
@@ -30,10 +60,15 @@ export function LandingShell({ children }: { children: ReactNode }) {
           </Link>
 
           <div className="nav-links">
-            <Link href="#capabilities">Capabilities</Link>
-            <Link href="/boards">Boards</Link>
-            <Link href="/activity">Activity</Link>
-            <Link href="/gateways">Gateways</Link>
+            {navItems.map((item) => (
+              <Link
+                key={item.href}
+                href={item.href}
+                className={isActive(item.href) ? "is-active" : undefined}
+              >
+                {item.label}
+              </Link>
+            ))}
           </div>
 
           <div className="nav-cta">

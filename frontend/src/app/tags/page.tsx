@@ -51,7 +51,6 @@ export default function TagsPage() {
   >(undefined, {
     query: {
       enabled: Boolean(isSignedIn),
-      refetchOnMount: "always",
       refetchInterval: 30_000,
     },
   });

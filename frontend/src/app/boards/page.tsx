@@ -50,7 +50,6 @@ export default function BoardsPage() {
     query: {
       enabled: Boolean(isSignedIn),
       refetchInterval: 30_000,
-      refetchOnMount: "always",
     },
   });
 
@@ -63,7 +62,6 @@ export default function BoardsPage() {
       query: {
         enabled: Boolean(isSignedIn),
         refetchInterval: 30_000,
-        refetchOnMount: "always",
       },
     },
   );

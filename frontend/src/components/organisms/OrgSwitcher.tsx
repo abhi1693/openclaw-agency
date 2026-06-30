@@ -56,7 +56,6 @@ export function OrgSwitcher() {
   >({
     query: {
       enabled: Boolean(isSignedIn),
-      refetchOnMount: "always",
       retry: false,
     },
   });

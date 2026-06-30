@@ -43,25 +43,25 @@ export function TaskCard({
   const needsLeadReview =
     status === "review" && !isBlocked && !hasPendingApproval;
   const leftBarClassName = isBlocked
-    ? "bg-rose-400"
+    ? "bg-rose-500"
     : hasPendingApproval
-      ? "bg-amber-400"
+      ? "bg-amber-500"
       : needsLeadReview
-        ? "bg-indigo-400"
+        ? "bg-indigo-500"
         : null;
   const priorityBadge = (value?: string) => {
     if (!value) return null;
     const normalized = value.toLowerCase();
     if (normalized === "high") {
-      return "bg-rose-100 text-rose-700";
+      return "border-rose-200 bg-rose-100 text-rose-700";
     }
     if (normalized === "medium") {
-      return "bg-amber-100 text-amber-700";
+      return "border-amber-200 bg-amber-100 text-amber-700";
     }
     if (normalized === "low") {
-      return "bg-emerald-100 text-emerald-700";
+      return "border-emerald-200 bg-emerald-100 text-emerald-700";
     }
-    return "bg-slate-100 text-slate-600";
+    return "border-slate-200 bg-slate-100 text-slate-600";
   };
 
   const priorityLabel = priority ? priority.toUpperCase() : "MEDIUM";
@@ -70,7 +70,7 @@ export function TaskCard({
   return (
     <div
       className={cn(
-        "group relative cursor-pointer rounded-lg border border-slate-200 bg-white p-4 shadow-sm transition-all hover:-translate-y-0.5 hover:border-slate-300 hover:shadow-md",
+        "group relative cursor-pointer rounded-xl border border-slate-200/80 bg-white p-5 shadow-sm transition-all duration-200 ease-out hover:-translate-y-0.5 hover:border-slate-300 hover:shadow-lg focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-200/70",
         isDragging && "opacity-60 shadow-none",
         hasPendingApproval && "border-amber-200 bg-amber-50/40",
         isBlocked && "border-rose-200 bg-rose-50/50",
@@ -92,14 +92,14 @@ export function TaskCard({
       {leftBarClassName ? (
         <span
           className={cn(
-            "absolute left-0 top-0 h-full w-1 rounded-l-lg",
+            "absolute left-0 top-0 h-full w-1.5 rounded-l-xl",
             leftBarClassName,
           )}
         />
       ) : null}
       <div className="flex items-start justify-between gap-3">
         <div className="min-w-0 space-y-2">
-          <p className="text-sm font-medium text-slate-900 line-clamp-2 break-words">
+          <p className="text-[15px] font-semibold text-slate-900 line-clamp-2 break-words">
             {title}
           </p>
           {isBlocked ? (
@@ -125,7 +125,7 @@ export function TaskCard({
               {visibleTags.map((tag) => (
                 <span
                   key={tag.id}
-                  className="inline-flex items-center gap-1 rounded-full border border-slate-200 bg-white px-2 py-0.5 text-[10px] font-semibold text-slate-700"
+                  className="inline-flex items-center gap-1 rounded-full border border-slate-200 bg-slate-50 px-2 py-0.5 text-[10px] font-semibold text-slate-700 shadow-[0_1px_2px_rgba(15,23,42,0.06)]"
                 >
                   <span
                     className="h-1.5 w-1.5 rounded-full"
@@ -145,8 +145,8 @@ export function TaskCard({
         <div className="flex flex-shrink-0 flex-col items-end gap-2">
           <span
             className={cn(
-              "inline-flex items-center rounded-full px-2 py-1 text-[10px] font-semibold uppercase tracking-wide",
-              priorityBadge(priority) ?? "bg-slate-100 text-slate-600",
+              "inline-flex items-center rounded-full border px-2.5 py-1 text-[10px] font-semibold uppercase tracking-[0.12em] shadow-sm",
+              priorityBadge(priority) ?? "border-slate-200 bg-slate-100 text-slate-600",
             )}
           >
             {priorityLabel}

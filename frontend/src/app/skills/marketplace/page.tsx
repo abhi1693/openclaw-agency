@@ -207,7 +207,6 @@ export default function SkillsMarketplacePage() {
   >(undefined, {
     query: {
       enabled: Boolean(isSignedIn && isAdmin),
-      refetchOnMount: "always",
       refetchInterval: 30_000,
     },
   });
@@ -280,7 +279,6 @@ export default function SkillsMarketplacePage() {
   >(skillsParams, {
     query: {
       enabled: Boolean(isSignedIn && isAdmin && resolvedGatewayId),
-      refetchOnMount: "always",
       refetchInterval: 15_000,
     },
   });
@@ -296,7 +294,6 @@ export default function SkillsMarketplacePage() {
     >(filterOptionsParams, {
       query: {
         enabled: Boolean(isSignedIn && isAdmin && resolvedGatewayId),
-        refetchOnMount: "always",
         refetchInterval: 15_000,
       },
     });
@@ -314,7 +311,6 @@ export default function SkillsMarketplacePage() {
   >({
     query: {
       enabled: Boolean(isSignedIn && isAdmin),
-      refetchOnMount: "always",
     },
   });
 

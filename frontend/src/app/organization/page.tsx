@@ -272,7 +272,6 @@ export default function OrganizationPage() {
   >({
     query: {
       enabled: Boolean(isSignedIn),
-      refetchOnMount: "always",
     },
   });
 
@@ -284,7 +283,6 @@ export default function OrganizationPage() {
     {
       query: {
         enabled: Boolean(isSignedIn),
-        refetchOnMount: "always",
       },
     },
   );
@@ -297,7 +295,6 @@ export default function OrganizationPage() {
     {
       query: {
         enabled: Boolean(isSignedIn),
-        refetchOnMount: "always",
       },
     },
   );
@@ -308,7 +305,6 @@ export default function OrganizationPage() {
   >({
     query: {
       enabled: Boolean(isSignedIn),
-      refetchOnMount: "always",
     },
   });
 
@@ -327,7 +323,6 @@ export default function OrganizationPage() {
     {
       query: {
         enabled: Boolean(isSignedIn && isAdmin),
-        refetchOnMount: "always",
         retry: false,
       },
     },

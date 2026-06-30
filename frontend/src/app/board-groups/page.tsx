@@ -43,7 +43,6 @@ export default function BoardGroupsPage() {
     query: {
       enabled: Boolean(isSignedIn),
       refetchInterval: 30_000,
-      refetchOnMount: "always",
     },
   });
 

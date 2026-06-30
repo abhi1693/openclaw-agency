@@ -46,7 +46,6 @@ export default function CustomFieldsPage() {
     >({
       query: {
         enabled: Boolean(isSignedIn),
-        refetchOnMount: "always",
         refetchInterval: 30_000,
       },
     });
