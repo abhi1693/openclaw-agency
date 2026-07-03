@@ -31,7 +31,10 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { DEFAULT_IDENTITY_PROFILE } from "@/lib/agent-templates";
+import {
+  DEFAULT_IDENTITY_PROFILE,
+  getAgentRoleOptions,
+} from "@/lib/agent-templates";
 
 type IdentityProfile = {
   role: string;
@@ -293,17 +296,30 @@ export default function EditAgentPage() {
                 <label className="text-sm font-medium text-slate-900">
                   Role
                 </label>
-                <Input
+                <Select
                   value={resolvedIdentityProfile.role}
-                  onChange={(event) =>
+                  onValueChange={(value) =>
                     setIdentityProfile({
                       ...resolvedIdentityProfile,
-                      role: event.target.value,
+                      role: value,
                     })
                   }
-                  placeholder="e.g. Founder, Social Media Manager"
                   disabled={isLoading}
-                />
+                >
+                  <SelectTrigger>
+                    <SelectValue placeholder="Select role" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {getAgentRoleOptions(resolvedIdentityProfile.role).map((option) => (
+                      <SelectItem key={option.value} value={option.value}>
+                        {option.label}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+                <p className="text-xs text-slate-500">
+                  Choose one of the five active OpenClaw identities.
+                </p>
               </div>
             </div>
             <div className="grid gap-6 md:grid-cols-2">

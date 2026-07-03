@@ -28,7 +28,7 @@ DEFAULT_CHANNEL_HEARTBEAT_VISIBILITY: dict[str, bool] = {
 }
 
 DEFAULT_IDENTITY_PROFILE = {
-    "role": "Generalist",
+    "role": "Vanguard",
     "communication_style": "direct, concise, practical",
     "emoji": ":gear:",
 }

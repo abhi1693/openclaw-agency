@@ -1,5 +1,27 @@
+export const AGENT_ROLE_OPTIONS = [
+  { value: "Vanguard", label: "Vanguard" },
+  { value: "Atlas", label: "Atlas" },
+  { value: "Aegis", label: "Aegis" },
+  { value: "Forge", label: "Forge" },
+  { value: "Echo", label: "Echo" },
+] as const;
+
+export const getAgentRoleOptions = (currentRole?: string | null) => {
+  const normalizedRole = currentRole?.trim() ?? "";
+  if (
+    normalizedRole &&
+    !AGENT_ROLE_OPTIONS.some((option) => option.value === normalizedRole)
+  ) {
+    return [
+      ...AGENT_ROLE_OPTIONS,
+      { value: normalizedRole, label: `${normalizedRole} (legacy)` },
+    ];
+  }
+  return AGENT_ROLE_OPTIONS;
+};
+
 export const DEFAULT_IDENTITY_PROFILE = {
-  role: "Generalist",
+  role: AGENT_ROLE_OPTIONS[0].value,
   communication_style: "direct, concise, practical",
   emoji: ":gear:",
 };
