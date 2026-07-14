@@ -243,7 +243,15 @@ class AgentRead(AgentBase):
     )
     last_seen_at: datetime | None = Field(
         default=None,
-        description="Last heartbeat timestamp.",
+        description="Last API activity timestamp (any authenticated request).",
+    )
+    last_heartbeat_at: datetime | None = Field(
+        default=None,
+        description=(
+            "Timestamp of the most recent successful POST /api/v1/agent/heartbeat. "
+            "Used for online/offline status computation (1.5× interval threshold). "
+            "NULL means the agent has never posted a dedicated heartbeat."
+        ),
     )
     created_at: datetime = Field(description="Creation timestamp.")
     updated_at: datetime = Field(description="Last update timestamp.")

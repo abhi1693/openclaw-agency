@@ -130,12 +130,19 @@ def _chat_targets(
     mentions: set[str],
     actor: ActorContext,
 ) -> dict[str, Agent]:
+    # Notify only agents who are actually addressed:
+    #   - anyone explicitly @mentioned (including "@lead"), and
+    #   - the board lead when the post is authored by a HUMAN (so people can
+    #     always reach the lead).
+    # Routine agent-to-agent chatter no longer force-pushes a full turn into
+    # every lead's session (the primary source of context bloat + interrupts).
+    actor_is_human = actor.actor_type != "agent"
     targets: dict[str, Agent] = {}
     for agent in agents:
-        if agent.is_board_lead:
+        if mentions and matches_agent_mention(agent, mentions):
             targets[str(agent.id)] = agent
             continue
-        if mentions and matches_agent_mention(agent, mentions):
+        if agent.is_board_lead and actor_is_human:
             targets[str(agent.id)] = agent
     if actor.actor_type == "agent" and actor.agent:
         targets.pop(str(actor.agent.id), None)
@@ -187,6 +194,7 @@ async def _notify_chat_targets(
     )
     if not targets:
         return
+    actor_is_agent = actor.actor_type == "agent"
     actor_name = _actor_display_name(actor)
     snippet = memory.content.strip()
     if len(snippet) > MAX_SNIPPET_LENGTH:
@@ -211,6 +219,10 @@ async def _notify_chat_targets(
             config=config,
             agent_name=agent.name,
             message=message,
+            throttle_key=(f"{board.id}:{agent.id}" if actor_is_agent else None),
+            min_interval_seconds=(
+                settings.agent_notify_min_interval_seconds if actor_is_agent else None
+            ),
         )
         if error is not None:
             continue

@@ -587,12 +587,41 @@ const TaskCommentCard = memo(function TaskCommentCard({
   comment,
   authorLabel,
   isHighlighted = false,
+  boardId,
+  taskId,
+  isAdmin = false,
+  onRedacted,
 }: {
   comment: TaskComment;
   authorLabel: string;
   isHighlighted?: boolean;
+  boardId?: string;
+  taskId?: string;
+  isAdmin?: boolean;
+  onRedacted?: (commentId: string) => void;
 }) {
   const message = (comment.message ?? "").trim();
+  const isRedacted = (comment as TaskCommentRead & { is_redacted?: boolean }).is_redacted === true
+    || message === "[redacted]";
+  const [redacting, setRedacting] = useState(false);
+
+  const handleRedact = useCallback(async () => {
+    if (!boardId || !taskId) return;
+    if (!confirm("Redact this comment? This cannot be undone.")) return;
+    setRedacting(true);
+    try {
+      await fetch(`/api/v1/boards/${boardId}/tasks/${taskId}/comments/${comment.id}`, {
+        method: "DELETE",
+        headers: { "Content-Type": "application/json" },
+      });
+      onRedacted?.(comment.id);
+    } catch {
+      alert("Redaction failed. Please try again.");
+    } finally {
+      setRedacting(false);
+    }
+  }, [boardId, taskId, comment.id, onRedacted]);
+
   return (
     <div
       id={commentElementId(comment.id)}
@@ -601,13 +630,28 @@ const TaskCommentCard = memo(function TaskCommentCard({
         isHighlighted
           ? "border-blue-300 ring-2 ring-blue-200"
           : "border-slate-200",
+        isRedacted && "opacity-60",
       )}
     >
       <div className="flex items-center justify-between text-xs text-slate-500">
         <span>{authorLabel}</span>
-        <span>{formatShortTimestamp(comment.created_at)}</span>
+        <div className="flex items-center gap-2">
+          <span>{formatShortTimestamp(comment.created_at)}</span>
+          {isAdmin && !isRedacted && boardId && taskId && (
+            <button
+              onClick={handleRedact}
+              disabled={redacting}
+              className="ml-1 rounded px-1.5 py-0.5 text-xs text-red-500 hover:bg-red-50 hover:text-red-700 disabled:opacity-50 transition"
+              title="Redact this comment (admin only)"
+            >
+              {redacting ? "…" : "Redact"}
+            </button>
+          )}
+        </div>
       </div>
-      {message ? (
+      {isRedacted ? (
+        <p className="mt-2 text-sm italic text-slate-400">[redacted]</p>
+      ) : message ? (
         <div className="mt-2 select-text cursor-text text-sm leading-relaxed text-slate-900 break-words">
           <Markdown content={message} variant="comment" />
         </div>
@@ -836,6 +880,12 @@ export default function BoardDetailPage() {
     const member =
       membershipQuery.data?.status === 200 ? membershipQuery.data.data : null;
     return member ? ["owner", "admin"].includes(member.role) : false;
+  }, [membershipQuery.data]);
+  // Comment redaction requires org owner (security_admin) privilege — not general admin.
+  const canRedactComments = useMemo(() => {
+    const member =
+      membershipQuery.data?.status === 200 ? membershipQuery.data.data : null;
+    return member?.role === "owner";
   }, [membershipQuery.data]);
   const currentUserDisplayName = useMemo(() => {
     const member =
@@ -3982,6 +4032,18 @@ export default function BoardDetailPage() {
                           ? (assigneeById.get(comment.agent_id) ?? "Agent")
                           : currentUserDisplayName
                       }
+                      boardId={boardId}
+                      taskId={selectedTask?.id}
+                      isAdmin={canRedactComments}
+                      onRedacted={(commentId) => {
+                        setComments((prev) =>
+                          prev.map((c) =>
+                            c.id === commentId
+                              ? { ...c, message: "[redacted]", is_redacted: true }
+                              : c,
+                          ),
+                        );
+                      }}
                     />
                   ))}
                 </div>

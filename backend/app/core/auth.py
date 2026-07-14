@@ -439,7 +439,16 @@ async def _resolve_local_auth_context(
             raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED)
         return None
     expected = settings.local_auth_token.strip()
-    if not expected or not compare_digest(token, expected):
+    # Compare UTF-8 bytes, not str. hmac.compare_digest() raises
+    # TypeError("comparing strings with non-ASCII characters is not supported")
+    # when given str args containing non-ASCII codepoints. On mixed
+    # user/agent routes the caller (require_user_or_agent) resolves user
+    # auth first and expects a graceful None so it can fall through to
+    # agent-token auth; a raised TypeError instead 500s the request and
+    # blocks agents whose bearer token contains non-ASCII bytes.
+    if not expected or not compare_digest(
+        token.encode("utf-8"), expected.encode("utf-8")
+    ):
         if required:
             raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED)
         return None

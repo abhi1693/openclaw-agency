@@ -62,7 +62,30 @@ class GatewayDispatchService(OpenClawDBService):
         agent_name: str,
         message: str,
         deliver: bool = False,
+        throttle_key: str | None = None,
+        min_interval_seconds: float | None = None,
     ) -> OpenClawGatewayError | None:
+        # Coalesce bursty agent-originated notifications so a single recipient
+        # session is not interrupted more than once per window. Fail-open: any
+        # Redis error must never drop a real message.
+        if throttle_key and min_interval_seconds and min_interval_seconds > 0:
+            try:
+                from app.core.config import settings as _settings
+                from app.core.rate_limit import _get_async_redis
+
+                # rq_redis_url is always configured (RQ_REDIS_URL); rate_limit_redis_url
+                # is only populated when RATE_LIMIT_BACKEND=redis, so use the RQ URL.
+                redis = _get_async_redis(_settings.rq_redis_url)
+                allowed = await redis.set(
+                    f"notify-throttle:{throttle_key}",
+                    "1",
+                    nx=True,
+                    ex=int(min_interval_seconds),
+                )
+                if not allowed:
+                    return None
+            except Exception:  # noqa: BLE001 - never block delivery on cache errors
+                pass
         try:
             await self.send_agent_message(
                 session_key=session_key,

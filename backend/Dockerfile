@@ -56,7 +56,8 @@ USER appuser
 # Default API port
 EXPOSE 8000
 
-# Run migrations then start the API.
-# alembic upgrade head is idempotent — safe to run on every container start.
-# It ensures the DB schema is always current without a separate migration step.
-CMD ["sh", "-c", "python -m alembic upgrade head && uvicorn app.main:app --host 0.0.0.0 --port 8000"]
+# Start the API. Migrations are applied automatically by app/db/session.py
+# init_db() on startup (DB_AUTO_MIGRATE=true), so there is no need to run
+# a separate alembic step here.  Running both caused a race/overlap error
+# when the migration tree had multiple unmerged heads.
+CMD ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000"]
