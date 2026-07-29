@@ -420,6 +420,34 @@ Baseline choice:
 
 - `npm` for highest compatibility.
 
+### Example: X/Twitter skill pack
+
+Use a real networked skill to verify that Mission Control can sync a non-`main`
+pack branch, install it on a selected gateway, and keep visible actions inside
+your approval process.
+
+Recommended smoke test:
+
+1. Open **Skills > Skill packs**.
+2. Add pack URL `https://github.com/Xquik-dev/tweetclaw`.
+3. Set branch `master`.
+4. Sync the pack and confirm the discovered skill path is
+   `skills/tweetclaw`.
+5. Install the skill on the gateway that should run X/Twitter work.
+
+TweetClaw adds X/Twitter automation to OpenClaw. It scrapes and searches tweets,
+including replies. It also exports followers, looks up users, and monitors
+tweets. Webhooks and giveaway draws support automation workflows. Approval gates
+protect post and reply actions. Use GitHub and npm for setup. Keep ClawHub as a
+discovery page while that listing lags behind npm:
+
+- GitHub: <https://github.com/Xquik-dev/tweetclaw>
+- npm: <https://www.npmjs.com/package/@xquik/tweetclaw>
+- ClawHub discovery: <https://clawhub.ai/plugins/@xquik/tweetclaw>
+- OpenClaw install command: `openclaw plugins install @xquik/tweetclaw`
+
+Xquik is an independent third-party service. Not affiliated with X Corp. "Twitter" and "X" are trademarks of X Corp.
+
 ## Validation Before Use
 
 Do a schema check before running production workloads:
