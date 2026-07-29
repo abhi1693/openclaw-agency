@@ -435,10 +435,11 @@ Recommended smoke test:
    `skills/tweetclaw`.
 5. Install the skill on the gateway that should run X/Twitter work.
 
-TweetClaw is the OpenClaw plugin for scrape tweets, search tweets, search tweet
-replies, follower export, user lookup, monitor tweets, webhooks, giveaway draws,
-and approval-gated post or reply actions. Use GitHub and npm for setup; keep
-ClawHub as a discovery page while that listing lags behind npm:
+TweetClaw adds X/Twitter automation to OpenClaw. It scrapes and searches tweets,
+including replies. It also exports followers, looks up users, and monitors
+tweets. Webhooks and giveaway draws support automation workflows. Approval gates
+protect post and reply actions. Use GitHub and npm for setup. Keep ClawHub as a
+discovery page while that listing lags behind npm:
 
 - GitHub: <https://github.com/Xquik-dev/tweetclaw>
 - npm: <https://www.npmjs.com/package/@xquik/tweetclaw>
