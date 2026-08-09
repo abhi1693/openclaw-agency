@@ -101,3 +101,15 @@ class TaskCommentRead(SQLModel):
     agent_id: UUID | None
     task_id: UUID | None
     created_at: datetime
+    redacted_at: datetime | None = None
+    redacted_by_user_id: UUID | None = None
+    is_redacted: bool = False
+
+
+class TaskCommentRedactResponse(SQLModel):
+    """Response after redacting a task comment."""
+
+    id: UUID
+    redacted_at: datetime
+    redacted_by_user_id: UUID | None
+    original_message_hash: str

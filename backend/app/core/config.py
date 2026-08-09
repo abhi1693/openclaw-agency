@@ -77,6 +77,12 @@ class Settings(BaseSettings):
     rq_redis_url: str = "redis://localhost:6379/0"
     rq_queue_name: str = "default"
     rq_dispatch_throttle_seconds: float = 15.0
+    # Minimum seconds between agent-ORIGINATED board notifications delivered to a
+    # single recipient agent session. Bursts of agent-to-agent chatter / routine
+    # heartbeat @mentions within this window are coalesced (dropped as interrupts;
+    # the recipient still sees them on its next board poll). Human-authored posts
+    # and task-assignment notifications are NEVER throttled. 0 disables.
+    agent_notify_min_interval_seconds: float = 180.0
     rq_dispatch_max_retries: int = 3
     rq_dispatch_retry_base_seconds: float = 10.0
     rq_dispatch_retry_max_seconds: float = 120.0

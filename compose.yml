@@ -3,6 +3,7 @@ name: openclaw-mission-control
 services:
   db:
     image: postgres:16-alpine
+    restart: unless-stopped
     environment:
       POSTGRES_DB: ${POSTGRES_DB:-mission_control}
       POSTGRES_USER: ${POSTGRES_USER:-postgres}
@@ -19,6 +20,7 @@ services:
 
   redis:
     image: redis:7-alpine
+    restart: unless-stopped
     ports:
       - "127.0.0.1:${REDIS_PORT:-6379}:6379"
     healthcheck:
@@ -51,7 +53,8 @@ services:
       redis:
         condition: service_healthy
     ports:
-      - "${BACKEND_PORT:-8000}:8000"
+      - "0.0.0.0:${BACKEND_PORT:-8000}:8000"
+    restart: unless-stopped
 
   frontend:
     build:
@@ -71,7 +74,8 @@ services:
     depends_on:
       - backend
     ports:
-      - "${FRONTEND_PORT:-3000}:3000"
+      - "0.0.0.0:${FRONTEND_PORT:-3000}:3000"
+    restart: unless-stopped
     develop:
       watch:
         # Rebuild frontend image when UI source or build config changes.

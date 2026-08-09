@@ -12,6 +12,8 @@ from app.models.base import QueryModel
 
 RUNTIME_ANNOTATION_TYPES = (datetime,)
 
+REDACTED_MESSAGE = "[redacted]"
+
 
 class ActivityEvent(QueryModel, table=True):
     """Discrete activity event tied to board/task/agent context."""
@@ -25,3 +27,11 @@ class ActivityEvent(QueryModel, table=True):
     task_id: UUID | None = Field(default=None, foreign_key="tasks.id", index=True)
     board_id: UUID | None = Field(default=None, foreign_key="boards.id", index=True)
     created_at: datetime = Field(default_factory=utcnow)
+    # Redaction fields (migration a1b2c3d4e5f6)
+    redacted_at: datetime | None = Field(default=None, index=True)
+    redacted_by_user_id: UUID | None = Field(default=None)
+    original_message_hash: str | None = Field(default=None, max_length=64)
+
+    @property
+    def is_redacted(self) -> bool:
+        return self.redacted_at is not None

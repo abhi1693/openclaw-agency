@@ -21,21 +21,19 @@ depends_on = None
 def upgrade() -> None:
     # Task list endpoints filter primarily by board_id, optionally by status
     # and assigned_agent_id, and always order by created_at (desc in code).
-    # These composite btree indexes allow fast backward scans with LIMIT.
-    op.create_index(
-        "ix_tasks_board_id_created_at",
-        "tasks",
-        ["board_id", "created_at"],
+    # IF NOT EXISTS: these indexes may already exist from manual creation or a prior
+    # migration run; using raw SQL makes this migration idempotent.
+    op.execute(
+        "CREATE INDEX IF NOT EXISTS ix_tasks_board_id_created_at"
+        " ON tasks (board_id, created_at)"
     )
-    op.create_index(
-        "ix_tasks_board_id_status_created_at",
-        "tasks",
-        ["board_id", "status", "created_at"],
+    op.execute(
+        "CREATE INDEX IF NOT EXISTS ix_tasks_board_id_status_created_at"
+        " ON tasks (board_id, status, created_at)"
     )
-    op.create_index(
-        "ix_tasks_board_id_assigned_agent_id_created_at",
-        "tasks",
-        ["board_id", "assigned_agent_id", "created_at"],
+    op.execute(
+        "CREATE INDEX IF NOT EXISTS ix_tasks_board_id_assigned_agent_id_created_at"
+        " ON tasks (board_id, assigned_agent_id, created_at)"
     )
 
 

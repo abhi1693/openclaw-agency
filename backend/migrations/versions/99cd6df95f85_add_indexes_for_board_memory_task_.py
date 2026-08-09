@@ -20,20 +20,20 @@ depends_on = None
 
 def upgrade() -> None:
     # Board memory lists filter on (board_id, is_chat) and order by created_at desc.
-    op.create_index(
-        "ix_board_memory_board_id_is_chat_created_at",
-        "board_memory",
-        ["board_id", "is_chat", "created_at"],
+    # IF NOT EXISTS: these indexes may already exist from manual creation or a prior
+    # migration run; using raw SQL makes this migration idempotent.
+    op.execute(
+        "CREATE INDEX IF NOT EXISTS ix_board_memory_board_id_is_chat_created_at"
+        " ON board_memory (board_id, is_chat, created_at)"
     )
 
     # Task comments are stored as ActivityEvent rows with event_type='task.comment'.
-    # Listing comments uses task_id + created_at ordering, so a partial composite index
-    # avoids scanning other activity rows.
-    op.create_index(
-        "ix_activity_events_task_comment_task_id_created_at",
-        "activity_events",
-        ["task_id", "created_at"],
-        postgresql_where=sa.text("event_type = 'task.comment'"),
+    # Listing comments uses task_id + created_at ordering.
+    op.execute(
+        "CREATE INDEX IF NOT EXISTS"
+        " ix_activity_events_task_comment_task_id_created_at"
+        " ON activity_events (task_id, created_at)"
+        " WHERE event_type = 'task.comment'"
     )
 
 

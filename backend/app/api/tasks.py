@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import asyncio
+import hashlib
 import json
 from collections import deque
 from dataclasses import dataclass
@@ -23,11 +24,12 @@ from app.api.deps import (
     require_user_auth,
     require_user_or_agent,
 )
+from app.core.config import settings
 from app.core.time import utcnow
 from app.db import crud
 from app.db.pagination import paginate
 from app.db.session import async_session_maker, get_session
-from app.models.activity_events import ActivityEvent
+from app.models.activity_events import ActivityEvent, REDACTED_MESSAGE
 from app.models.agents import Agent
 from app.models.approval_task_links import ApprovalTaskLink
 from app.models.approvals import Approval
@@ -50,7 +52,7 @@ from app.schemas.task_custom_fields import (
     TaskCustomFieldValues,
     validate_custom_field_value,
 )
-from app.schemas.tasks import TaskCommentCreate, TaskCommentRead, TaskCreate, TaskRead, TaskUpdate
+from app.schemas.tasks import TaskCommentCreate, TaskCommentRead, TaskCommentRedactResponse, TaskCreate, TaskRead, TaskUpdate
 from app.services.activity_log import record_activity
 from app.services.approval_task_links import (
     load_task_ids_by_approval,
@@ -583,6 +585,8 @@ async def _send_agent_task_message(
     config: GatewayClientConfig,
     agent_name: str,
     message: str,
+    throttle_key: str | None = None,
+    min_interval_seconds: float | None = None,
 ) -> OpenClawGatewayError | None:
     return await dispatch.try_send_agent_message(
         session_key=session_key,
@@ -590,6 +594,8 @@ async def _send_agent_task_message(
         agent_name=agent_name,
         message=message,
         deliver=False,
+        throttle_key=throttle_key,
+        min_interval_seconds=min_interval_seconds,
     )
 
 
@@ -1725,7 +1731,14 @@ async def delete_task(
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND)
     if auth.user is None:
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED)
-    await require_board_access(session, user=auth.user, board=board, write=True)
+    # Redaction requires security_admin privilege (org owner role) — not general board write access.
+    # General admin is too broad: widens attack surface for evidence tampering on PHI-adjacent threads.
+    member = await require_board_access(session, user=auth.user, board=board, write=True)
+    if member.role not in {"owner"}:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Comment redaction requires org owner (security_admin) privilege.",
+        )
     await delete_task_and_related_records(session, task=task)
     return OkResponse()
 
@@ -1847,6 +1860,7 @@ async def _notify_task_comment_targets(
 
     snippet = _truncate_snippet(request.message)
     actor_name = _comment_actor_name(request.actor)
+    actor_is_agent = request.actor.actor_type == "agent"
     for agent in request.targets.values():
         if not agent.openclaw_session_id:
             continue
@@ -1874,6 +1888,12 @@ async def _notify_task_comment_targets(
             config=config,
             agent_name=agent.name,
             message=notification,
+            throttle_key=(
+                f"{board.id}:{agent.id}" if actor_is_agent else None
+            ),
+            min_interval_seconds=(
+                settings.agent_notify_min_interval_seconds if actor_is_agent else None
+            ),
         )
 
 
@@ -2782,4 +2802,68 @@ async def create_task_comment(
             mention_names=mention_names,
         ),
     )
+    return event
+
+
+@router.delete("/{task_id}/comments/{comment_id}", response_model=TaskCommentRedactResponse)
+async def redact_task_comment(
+    comment_id: UUID,
+    task: Task = TASK_DEP,
+    session: AsyncSession = SESSION_DEP,
+    auth: AuthContext = USER_AUTH_DEP,
+) -> ActivityEvent:
+    """Redact a task comment (admin-only). Replaces message with [redacted] and stores a hash."""
+    if task.board_id is None:
+        raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_CONTENT)
+    board = await Board.objects.by_id(task.board_id).first(session)
+    if board is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND)
+    if auth.user is None:
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED)
+    # Redaction requires security_admin privilege (org owner role) — not general board write access.
+    # General admin is too broad: widens attack surface for evidence tampering on PHI-adjacent threads.
+    member = await require_board_access(session, user=auth.user, board=board, write=True)
+    if member.role not in {"owner"}:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Comment redaction requires org owner (security_admin) privilege.",
+        )
+
+    event = (
+        await session.exec(
+            select(ActivityEvent)
+            .where(col(ActivityEvent.id) == comment_id)
+            .where(col(ActivityEvent.task_id) == task.id)
+            .where(col(ActivityEvent.event_type) == "task.comment")
+        )
+    ).first()
+    if event is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Comment not found.")
+
+    if event.redacted_at is not None:
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail="Comment is already redacted.",
+        )
+
+    # Hash the original message for audit (SHA-256, hex digest)
+    original_text = event.message or ""
+    original_hash = hashlib.sha256(original_text.encode()).hexdigest()
+
+    event.original_message_hash = original_hash
+    event.message = REDACTED_MESSAGE
+    event.redacted_at = utcnow()
+    event.redacted_by_user_id = auth.user.id if auth.user else None
+    session.add(event)
+
+    # Audit activity record
+    record_activity(
+        session,
+        event_type="task.comment_redacted",
+        task_id=task.id,
+        message=f"Comment {comment_id} redacted by user. Original hash: {original_hash[:8]}...",
+        board_id=task.board_id,
+    )
+    await session.commit()
+    await session.refresh(event)
     return event
