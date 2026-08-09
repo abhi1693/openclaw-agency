@@ -1,0 +1,14 @@
+{
+  "_doc": "CofiaPublisher safe zones par format (UI plateforme). Coords en fraction de hauteur/largeur, 0=haut/gauche.",
+  "9:16": {
+    "w": 1080, "h": 1920,
+    "exclude": {"top": 0.12, "bottom": 0.22, "right": 0.14},
+    "caption_band": {"top": 0.55, "bottom": 0.80, "side_margin_px": 110, "max_font_px": 80},
+    "logo": {"corner": "top-right", "top_px": 54, "right_px": 46, "max_w_px": 160},
+    "cta": {"band_top": 0.62, "band_bottom": 0.80, "side_margin_px": 90},
+    "disclaimer": {"bottom_px": 288, "min_font_px": 26, "centered": true, "contrast": "pastille rgba(5,8,15,.55) + texte #fff + shadow", "_r7": "remonte 150->288 (~85% vertical) hors zone UI basse 22%"},
+    "caption_cta_separation": {"cta_card_bottom_px": 320, "caption_band_during_cta_bottom_px": 720, "gap_frames_before_cta": 10, "_r7": "captions remontees a 720px pendant la fenetre CTA pour ne jamais recouvrir REJOINS LE VIP"},
+    "rule": "captions+CTA dans 0.15-0.82 h, marge laterale >=110px ; logo hors top 12% interactif ; rien d'essentiel sous bottom 22% (UI TikTok/Reels/Shorts) ; disclaimer >=288px du bas ; captions remontees hors carte CTA"
+  },
+  "16:9": {"w": 1920, "h": 1080, "exclude": {"bottom": 0.18}, "lower_third": {"bottom_px": 90, "left_px": 90}}
+}

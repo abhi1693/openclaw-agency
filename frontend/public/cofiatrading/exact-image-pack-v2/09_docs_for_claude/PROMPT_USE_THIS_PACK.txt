@@ -1,0 +1,21 @@
+
+CLAUDE/CODEX — USE EXACT IMAGE ASSET PACK
+
+Use this pack:
+cofiatrading_exact_image_asset_pack_v2.zip
+
+Read:
+09_docs_for_claude/README_FOR_CLAUDE.md
+09_docs_for_claude/assets_manifest.json
+
+Goal:
+Implement /cofiatrading-world-control to match the exact generated image style and structure, while preserving OpenClaw shell.
+
+Do not invent another design.
+Do not use random dots.
+Do not use flat rectangles.
+Use the extracted building crops, panel crops, route crops, and layout coordinates as reference.
+
+Validation:
+Screenshot must visually match the exact image structure:
+left OpenClaw nav, top HUD, isometric city map, right inspector, agents bar, flows, bottom missions/calendar/activity/minimap.

@@ -1,0 +1,1439 @@
+{
+  "pack": "COFIATRADING Exact Generated Image Asset Pack V2",
+  "source_image": "00_full_reference/cofiatrading_world_control_exact_generated_image.png",
+  "source_size": [
+    1536,
+    1024
+  ],
+  "note": "Raster crops extracted from the exact generated image; not native layers.",
+  "assets": [
+    {
+      "id": "layout_left_sidebar",
+      "name": "Left Sidebar OpenClaw Navigation",
+      "category": "01_layout_sections",
+      "box_xyxy": [
+        0,
+        0,
+        170,
+        1024
+      ],
+      "width": 170,
+      "height": 1024,
+      "description": "Navigation OpenClaw complète à conserver",
+      "role": "nav",
+      "click_action": "open_section",
+      "image": "01_layout_sections/layout_left_sidebar__left_sidebar_openclaw_navigation.png"
+    },
+    {
+      "id": "layout_top_header",
+      "name": "Top HUD Header",
+      "category": "01_layout_sections",
+      "box_xyxy": [
+        170,
+        0,
+        1536,
+        70
+      ],
+      "width": 1366,
+      "height": 70,
+      "description": "Header avec titre, search, KPIs MRR/ARR/VIP/assets/services/maisons",
+      "role": "hud",
+      "click_action": "open_section",
+      "image": "01_layout_sections/layout_top_header__top_hud_header.png"
+    },
+    {
+      "id": "layout_world_map",
+      "name": "Main Living City Map",
+      "category": "01_layout_sections",
+      "box_xyxy": [
+        170,
+        70,
+        1265,
+        640
+      ],
+      "width": 1095,
+      "height": 570,
+      "description": "Carte isométrique centrale avec 15 bâtiments, routes, agents et camions",
+      "role": "city_map",
+      "click_action": "open_section",
+      "image": "01_layout_sections/layout_world_map__main_living_city_map.png"
+    },
+    {
+      "id": "layout_right_inspector",
+      "name": "Right Context Inspector",
+      "category": "01_layout_sections",
+      "box_xyxy": [
+        1265,
+        70,
+        1536,
+        690
+      ],
+      "width": 271,
+      "height": 620,
+      "description": "Inspector de contexte Trading Tower",
+      "role": "inspector",
+      "click_action": "open_section",
+      "image": "01_layout_sections/layout_right_inspector__right_context_inspector.png"
+    },
+    {
+      "id": "layout_agents_bar",
+      "name": "Agents Online Bar",
+      "category": "01_layout_sections",
+      "box_xyxy": [
+        180,
+        640,
+        1145,
+        708
+      ],
+      "width": 965,
+      "height": 68,
+      "description": "Barre agents en ligne",
+      "role": "agent_bar",
+      "click_action": "open_section",
+      "image": "01_layout_sections/layout_agents_bar__agents_online_bar.png"
+    },
+    {
+      "id": "layout_active_flows_bar",
+      "name": "Active Flows Bar",
+      "category": "01_layout_sections",
+      "box_xyxy": [
+        180,
+        705,
+        1145,
+        765
+      ],
+      "width": 965,
+      "height": 60,
+      "description": "Flux actifs, 8 flux",
+      "role": "flows",
+      "click_action": "open_section",
+      "image": "01_layout_sections/layout_active_flows_bar__active_flows_bar.png"
+    },
+    {
+      "id": "layout_bottom_area",
+      "name": "Bottom Operating Area",
+      "category": "01_layout_sections",
+      "box_xyxy": [
+        170,
+        765,
+        1536,
+        1024
+      ],
+      "width": 1366,
+      "height": 259,
+      "description": "Missions, calendrier, activité, mini-map",
+      "role": "bottom",
+      "click_action": "open_section",
+      "image": "01_layout_sections/layout_bottom_area__bottom_operating_area.png"
+    },
+    {
+      "id": "layout_missions_table",
+      "name": "Missions Active Table",
+      "category": "01_layout_sections",
+      "box_xyxy": [
+        180,
+        770,
+        533,
+        1000
+      ],
+      "width": 353,
+      "height": 230,
+      "description": "Missions actives",
+      "role": "missions",
+      "click_action": "open_section",
+      "image": "01_layout_sections/layout_missions_table__missions_active_table.png"
+    },
+    {
+      "id": "layout_calendar",
+      "name": "Operational Calendar",
+      "category": "01_layout_sections",
+      "box_xyxy": [
+        535,
+        770,
+        950,
+        1000
+      ],
+      "width": 415,
+      "height": 230,
+      "description": "Calendrier opérationnel",
+      "role": "calendar",
+      "click_action": "open_section",
+      "image": "01_layout_sections/layout_calendar__operational_calendar.png"
+    },
+    {
+      "id": "layout_activity_feed",
+      "name": "Live Activity Feed",
+      "category": "01_layout_sections",
+      "box_xyxy": [
+        950,
+        770,
+        1255,
+        1000
+      ],
+      "width": 305,
+      "height": 230,
+      "description": "Activité en direct",
+      "role": "activity",
+      "click_action": "open_section",
+      "image": "01_layout_sections/layout_activity_feed__live_activity_feed.png"
+    },
+    {
+      "id": "layout_mini_map",
+      "name": "Mini Map",
+      "category": "01_layout_sections",
+      "box_xyxy": [
+        1260,
+        770,
+        1535,
+        1000
+      ],
+      "width": 275,
+      "height": 230,
+      "description": "Mini carte isométrique",
+      "role": "minimap",
+      "click_action": "open_section",
+      "image": "01_layout_sections/layout_mini_map__mini_map.png"
+    },
+    {
+      "id": "building_01_mission_control_tower",
+      "name": "01 Mission Control Tower",
+      "category": "02_city_buildings_15",
+      "box_xyxy": [
+        335,
+        85,
+        575,
+        290
+      ],
+      "width": 240,
+      "height": 205,
+      "description": "Commande mondiale",
+      "role": "mission_control_tower",
+      "click_action": "open_department_inspector",
+      "image": "02_city_buildings_15/building_01_mission_control_tower__01_mission_control_tower.png"
+    },
+    {
+      "id": "building_02_central_brain",
+      "name": "02 Central Brain",
+      "category": "02_city_buildings_15",
+      "box_xyxy": [
+        585,
+        95,
+        810,
+        275
+      ],
+      "width": 225,
+      "height": 180,
+      "description": "Codex / Guardian registry",
+      "role": "central_brain",
+      "click_action": "open_department_inspector",
+      "image": "02_city_buildings_15/building_02_central_brain__02_central_brain.png"
+    },
+    {
+      "id": "building_03_iron_office",
+      "name": "03 Iron Office",
+      "category": "02_city_buildings_15",
+      "box_xyxy": [
+        845,
+        92,
+        1055,
+        275
+      ],
+      "width": 210,
+      "height": 183,
+      "description": "Iron / Jack revenue and brokers",
+      "role": "iron_office",
+      "click_action": "open_department_inspector",
+      "image": "02_city_buildings_15/building_03_iron_office__03_iron_office.png"
+    },
+    {
+      "id": "building_04_vip_gate",
+      "name": "04 VIP Gate",
+      "category": "02_city_buildings_15",
+      "box_xyxy": [
+        1035,
+        155,
+        1240,
+        360
+      ],
+      "width": 205,
+      "height": 205,
+      "description": "Clients et accès VIP",
+      "role": "vip_gate",
+      "click_action": "open_department_inspector",
+      "image": "02_city_buildings_15/building_04_vip_gate__04_vip_gate.png"
+    },
+    {
+      "id": "building_05_trading_tower",
+      "name": "05 Trading Tower",
+      "category": "02_city_buildings_15",
+      "box_xyxy": [
+        210,
+        218,
+        390,
+        430
+      ],
+      "width": 180,
+      "height": 212,
+      "description": "Marco / Risk signal proof",
+      "role": "mt4_signal_tower",
+      "click_action": "open_department_inspector",
+      "image": "02_city_buildings_15/building_05_trading_tower__05_trading_tower.png"
+    },
+    {
+      "id": "building_06_youtube_studio",
+      "name": "06 YouTube Studio",
+      "category": "02_city_buildings_15",
+      "box_xyxy": [
+        425,
+        245,
+        600,
+        440
+      ],
+      "width": 175,
+      "height": 195,
+      "description": "Nova / Israfil publishing",
+      "role": "youtube_studio",
+      "click_action": "open_department_inspector",
+      "image": "02_city_buildings_15/building_06_youtube_studio__06_youtube_studio.png"
+    },
+    {
+      "id": "building_07_site_seo_lab",
+      "name": "07 Site SEO Lab",
+      "category": "02_city_buildings_15",
+      "box_xyxy": [
+        625,
+        285,
+        810,
+        465
+      ],
+      "width": 185,
+      "height": 180,
+      "description": "Atlas / Paul MKT leads",
+      "role": "site_seo_lab",
+      "click_action": "open_department_inspector",
+      "image": "02_city_buildings_15/building_07_site_seo_lab__07_site_seo_lab.png"
+    },
+    {
+      "id": "building_08_assets_warehouse",
+      "name": "08 Assets Warehouse",
+      "category": "02_city_buildings_15",
+      "box_xyxy": [
+        870,
+        295,
+        1075,
+        480
+      ],
+      "width": 205,
+      "height": 185,
+      "description": "Lab / Brand assets",
+      "role": "assets_warehouse",
+      "click_action": "open_department_inspector",
+      "image": "02_city_buildings_15/building_08_assets_warehouse__08_assets_warehouse.png"
+    },
+    {
+      "id": "building_09_openclaw_barracks",
+      "name": "09 OpenClaw Barracks",
+      "category": "02_city_buildings_15",
+      "box_xyxy": [
+        220,
+        440,
+        390,
+        580
+      ],
+      "width": 170,
+      "height": 140,
+      "description": "Jarod / Codex agents",
+      "role": "openclaw_agent_barracks",
+      "click_action": "open_department_inspector",
+      "image": "02_city_buildings_15/building_09_openclaw_barracks__09_openclaw_barracks.png"
+    },
+    {
+      "id": "building_10_paperclip_factory",
+      "name": "10 Paperclip Factory",
+      "category": "02_city_buildings_15",
+      "box_xyxy": [
+        400,
+        380,
+        555,
+        545
+      ],
+      "width": 155,
+      "height": 165,
+      "description": "Sentinel / Lab automation",
+      "role": "paperclip_factory",
+      "click_action": "open_department_inspector",
+      "image": "02_city_buildings_15/building_10_paperclip_factory__10_paperclip_factory.png"
+    },
+    {
+      "id": "building_11_lightrag_observatory",
+      "name": "11 LightRAG Observatory",
+      "category": "02_city_buildings_15",
+      "box_xyxy": [
+        575,
+        420,
+        760,
+        585
+      ],
+      "width": 185,
+      "height": 165,
+      "description": "Lab / Quant knowledge",
+      "role": "lightrag_observatory",
+      "click_action": "open_department_inspector",
+      "image": "02_city_buildings_15/building_11_lightrag_observatory__11_lightrag_observatory.png"
+    },
+    {
+      "id": "building_12_obsidian_library",
+      "name": "12 Obsidian Library",
+      "category": "02_city_buildings_15",
+      "box_xyxy": [
+        755,
+        405,
+        925,
+        575
+      ],
+      "width": 170,
+      "height": 170,
+      "description": "Steward / Guardian memory",
+      "role": "obsidian_library",
+      "click_action": "open_department_inspector",
+      "image": "02_city_buildings_15/building_12_obsidian_library__12_obsidian_library.png"
+    },
+    {
+      "id": "building_13_calendar_tower",
+      "name": "13 Calendar Tower",
+      "category": "02_city_buildings_15",
+      "box_xyxy": [
+        985,
+        445,
+        1185,
+        620
+      ],
+      "width": 200,
+      "height": 175,
+      "description": "Calendar / Kevin rhythm",
+      "role": "calendar_tower",
+      "click_action": "open_department_inspector",
+      "image": "02_city_buildings_15/building_13_calendar_tower__13_calendar_tower.png"
+    },
+    {
+      "id": "building_14_compliance_port",
+      "name": "14 Compliance Port",
+      "category": "02_city_buildings_15",
+      "box_xyxy": [
+        360,
+        520,
+        525,
+        685
+      ],
+      "width": 165,
+      "height": 165,
+      "description": "Juriste / Fiscal compliance",
+      "role": "compliance_port",
+      "click_action": "open_department_inspector",
+      "image": "02_city_buildings_15/building_14_compliance_port__14_compliance_port.png"
+    },
+    {
+      "id": "building_15_trading_academy",
+      "name": "15 Trading Academy",
+      "category": "02_city_buildings_15",
+      "box_xyxy": [
+        695,
+        525,
+        895,
+        710
+      ],
+      "width": 200,
+      "height": 185,
+      "description": "Quant / Marco education",
+      "role": "trading_academy",
+      "click_action": "open_department_inspector",
+      "image": "02_city_buildings_15/building_15_trading_academy__15_trading_academy.png"
+    },
+    {
+      "id": "agent_codex_map",
+      "name": "Codex Map Avatar",
+      "category": "03_agents_and_people",
+      "box_xyxy": [
+        530,
+        140,
+        585,
+        205
+      ],
+      "width": 55,
+      "height": 65,
+      "description": "Codex worker on map",
+      "role": "Codex",
+      "click_action": "open_agent_work_card",
+      "image": "03_agents_and_people/agent_codex_map__codex_map_avatar.png"
+    },
+    {
+      "id": "agent_claude_map",
+      "name": "Claude Map Avatar",
+      "category": "03_agents_and_people",
+      "box_xyxy": [
+        720,
+        120,
+        775,
+        185
+      ],
+      "width": 55,
+      "height": 65,
+      "description": "Claude worker on map",
+      "role": "Claude",
+      "click_action": "open_agent_work_card",
+      "image": "03_agents_and_people/agent_claude_map__claude_map_avatar.png"
+    },
+    {
+      "id": "agent_iron_map",
+      "name": "Iron Map Avatar",
+      "category": "03_agents_and_people",
+      "box_xyxy": [
+        955,
+        135,
+        1010,
+        195
+      ],
+      "width": 55,
+      "height": 60,
+      "description": "Iron worker on map",
+      "role": "Iron",
+      "click_action": "open_agent_work_card",
+      "image": "03_agents_and_people/agent_iron_map__iron_map_avatar.png"
+    },
+    {
+      "id": "agent_jarod_map",
+      "name": "Jarod Map Avatar",
+      "category": "03_agents_and_people",
+      "box_xyxy": [
+        295,
+        380,
+        350,
+        455
+      ],
+      "width": 55,
+      "height": 75,
+      "description": "Jarod worker on map",
+      "role": "Jarod",
+      "click_action": "open_agent_work_card",
+      "image": "03_agents_and_people/agent_jarod_map__jarod_map_avatar.png"
+    },
+    {
+      "id": "agent_atlas_map",
+      "name": "Atlas Map Avatar",
+      "category": "03_agents_and_people",
+      "box_xyxy": [
+        750,
+        320,
+        805,
+        390
+      ],
+      "width": 55,
+      "height": 70,
+      "description": "Atlas worker on map",
+      "role": "Atlas",
+      "click_action": "open_agent_work_card",
+      "image": "03_agents_and_people/agent_atlas_map__atlas_map_avatar.png"
+    },
+    {
+      "id": "agent_kevin_map",
+      "name": "Kevin Map Avatar",
+      "category": "03_agents_and_people",
+      "box_xyxy": [
+        1135,
+        465,
+        1190,
+        545
+      ],
+      "width": 55,
+      "height": 80,
+      "description": "Kevin worker on map",
+      "role": "Kevin",
+      "click_action": "open_agent_work_card",
+      "image": "03_agents_and_people/agent_kevin_map__kevin_map_avatar.png"
+    },
+    {
+      "id": "agent_marco_map",
+      "name": "Marco Map Avatar",
+      "category": "03_agents_and_people",
+      "box_xyxy": [
+        855,
+        555,
+        910,
+        625
+      ],
+      "width": 55,
+      "height": 70,
+      "description": "Marco worker on map",
+      "role": "Marco",
+      "click_action": "open_agent_work_card",
+      "image": "03_agents_and_people/agent_marco_map__marco_map_avatar.png"
+    },
+    {
+      "id": "agents_online_full_bar",
+      "name": "All Agents Online Bar",
+      "category": "03_agents_and_people",
+      "box_xyxy": [
+        188,
+        645,
+        1140,
+        700
+      ],
+      "width": 952,
+      "height": 55,
+      "description": "14 agents en ligne full bar",
+      "role": "agent_bar",
+      "click_action": "open_agents_roster",
+      "image": "03_agents_and_people/agents_online_full_bar__all_agents_online_bar.png"
+    },
+    {
+      "id": "agent_bar_01_codex",
+      "name": "Agent Bar Codex",
+      "category": "03_agents_and_people",
+      "box_xyxy": [
+        193,
+        658,
+        265,
+        693
+      ],
+      "width": 72,
+      "height": 35,
+      "description": "Codex avatar from agents bar",
+      "role": "Codex",
+      "click_action": "open_agent_work_card",
+      "image": "03_agents_and_people/agent_bar_01_codex__agent_bar_codex.png"
+    },
+    {
+      "id": "agent_bar_02_claude",
+      "name": "Agent Bar Claude",
+      "category": "03_agents_and_people",
+      "box_xyxy": [
+        262,
+        658,
+        335,
+        693
+      ],
+      "width": 73,
+      "height": 35,
+      "description": "Claude avatar from agents bar",
+      "role": "Claude",
+      "click_action": "open_agent_work_card",
+      "image": "03_agents_and_people/agent_bar_02_claude__agent_bar_claude.png"
+    },
+    {
+      "id": "agent_bar_03_gpt",
+      "name": "Agent Bar GPT",
+      "category": "03_agents_and_people",
+      "box_xyxy": [
+        334,
+        658,
+        405,
+        693
+      ],
+      "width": 71,
+      "height": 35,
+      "description": "GPT avatar from agents bar",
+      "role": "GPT",
+      "click_action": "open_agent_work_card",
+      "image": "03_agents_and_people/agent_bar_03_gpt__agent_bar_gpt.png"
+    },
+    {
+      "id": "agent_bar_04_jarod",
+      "name": "Agent Bar Jarod",
+      "category": "03_agents_and_people",
+      "box_xyxy": [
+        404,
+        658,
+        475,
+        693
+      ],
+      "width": 71,
+      "height": 35,
+      "description": "Jarod avatar from agents bar",
+      "role": "Jarod",
+      "click_action": "open_agent_work_card",
+      "image": "03_agents_and_people/agent_bar_04_jarod__agent_bar_jarod.png"
+    },
+    {
+      "id": "agent_bar_05_kevin",
+      "name": "Agent Bar Kevin",
+      "category": "03_agents_and_people",
+      "box_xyxy": [
+        477,
+        658,
+        548,
+        693
+      ],
+      "width": 71,
+      "height": 35,
+      "description": "Kevin avatar from agents bar",
+      "role": "Kevin",
+      "click_action": "open_agent_work_card",
+      "image": "03_agents_and_people/agent_bar_05_kevin__agent_bar_kevin.png"
+    },
+    {
+      "id": "agent_bar_06_nova",
+      "name": "Agent Bar Nova",
+      "category": "03_agents_and_people",
+      "box_xyxy": [
+        548,
+        658,
+        620,
+        693
+      ],
+      "width": 72,
+      "height": 35,
+      "description": "Nova avatar from agents bar",
+      "role": "Nova",
+      "click_action": "open_agent_work_card",
+      "image": "03_agents_and_people/agent_bar_06_nova__agent_bar_nova.png"
+    },
+    {
+      "id": "agent_bar_07_iron",
+      "name": "Agent Bar Iron",
+      "category": "03_agents_and_people",
+      "box_xyxy": [
+        620,
+        658,
+        693,
+        693
+      ],
+      "width": 73,
+      "height": 35,
+      "description": "Iron avatar from agents bar",
+      "role": "Iron",
+      "click_action": "open_agent_work_card",
+      "image": "03_agents_and_people/agent_bar_07_iron__agent_bar_iron.png"
+    },
+    {
+      "id": "agent_bar_08_david",
+      "name": "Agent Bar David",
+      "category": "03_agents_and_people",
+      "box_xyxy": [
+        681,
+        658,
+        755,
+        693
+      ],
+      "width": 74,
+      "height": 35,
+      "description": "David avatar from agents bar",
+      "role": "David",
+      "click_action": "open_agent_work_card",
+      "image": "03_agents_and_people/agent_bar_08_david__agent_bar_david.png"
+    },
+    {
+      "id": "agent_bar_09_marco",
+      "name": "Agent Bar Marco",
+      "category": "03_agents_and_people",
+      "box_xyxy": [
+        744,
+        658,
+        819,
+        693
+      ],
+      "width": 75,
+      "height": 35,
+      "description": "Marco avatar from agents bar",
+      "role": "Marco",
+      "click_action": "open_agent_work_card",
+      "image": "03_agents_and_people/agent_bar_09_marco__agent_bar_marco.png"
+    },
+    {
+      "id": "agent_bar_10_risk",
+      "name": "Agent Bar Risk",
+      "category": "03_agents_and_people",
+      "box_xyxy": [
+        807,
+        658,
+        882,
+        693
+      ],
+      "width": 75,
+      "height": 35,
+      "description": "Risk avatar from agents bar",
+      "role": "Risk",
+      "click_action": "open_agent_work_card",
+      "image": "03_agents_and_people/agent_bar_10_risk__agent_bar_risk.png"
+    },
+    {
+      "id": "agent_bar_11_quant",
+      "name": "Agent Bar Quant",
+      "category": "03_agents_and_people",
+      "box_xyxy": [
+        858,
+        658,
+        935,
+        693
+      ],
+      "width": 77,
+      "height": 35,
+      "description": "Quant avatar from agents bar",
+      "role": "Quant",
+      "click_action": "open_agent_work_card",
+      "image": "03_agents_and_people/agent_bar_11_quant__agent_bar_quant.png"
+    },
+    {
+      "id": "agent_bar_12_atlas",
+      "name": "Agent Bar Atlas",
+      "category": "03_agents_and_people",
+      "box_xyxy": [
+        919,
+        658,
+        995,
+        693
+      ],
+      "width": 76,
+      "height": 35,
+      "description": "Atlas avatar from agents bar",
+      "role": "Atlas",
+      "click_action": "open_agent_work_card",
+      "image": "03_agents_and_people/agent_bar_12_atlas__agent_bar_atlas.png"
+    },
+    {
+      "id": "agent_bar_13_guardian",
+      "name": "Agent Bar Guardian",
+      "category": "03_agents_and_people",
+      "box_xyxy": [
+        980,
+        658,
+        1057,
+        693
+      ],
+      "width": 77,
+      "height": 35,
+      "description": "Guardian avatar from agents bar",
+      "role": "Guardian",
+      "click_action": "open_agent_work_card",
+      "image": "03_agents_and_people/agent_bar_13_guardian__agent_bar_guardian.png"
+    },
+    {
+      "id": "agent_bar_14_steward",
+      "name": "Agent Bar Steward",
+      "category": "03_agents_and_people",
+      "box_xyxy": [
+        1048,
+        658,
+        1125,
+        693
+      ],
+      "width": 77,
+      "height": 35,
+      "description": "Steward avatar from agents bar",
+      "role": "Steward",
+      "click_action": "open_agent_work_card",
+      "image": "03_agents_and_people/agent_bar_14_steward__agent_bar_steward.png"
+    },
+    {
+      "id": "truck_green_trading_route",
+      "name": "Green Truck Trading Route",
+      "category": "04_trucks_routes_flows",
+      "box_xyxy": [
+        260,
+        334,
+        397,
+        390
+      ],
+      "width": 137,
+      "height": 56,
+      "description": "Green truck on route near Trading Tower",
+      "role": "truck",
+      "click_action": "open_truck_mission_card",
+      "image": "04_trucks_routes_flows/truck_green_trading_route__green_truck_trading_route.png"
+    },
+    {
+      "id": "truck_blue_main_route",
+      "name": "Blue Truck Main Route",
+      "category": "04_trucks_routes_flows",
+      "box_xyxy": [
+        740,
+        255,
+        820,
+        322
+      ],
+      "width": 80,
+      "height": 67,
+      "description": "Blue truck on main road",
+      "role": "truck",
+      "click_action": "open_truck_mission_card",
+      "image": "04_trucks_routes_flows/truck_blue_main_route__blue_truck_main_route.png"
+    },
+    {
+      "id": "truck_white_calendar_route",
+      "name": "White Truck Calendar Route",
+      "category": "04_trucks_routes_flows",
+      "box_xyxy": [
+        1075,
+        525,
+        1150,
+        585
+      ],
+      "width": 75,
+      "height": 60,
+      "description": "White truck near Calendar Tower",
+      "role": "truck",
+      "click_action": "open_truck_mission_card",
+      "image": "04_trucks_routes_flows/truck_white_calendar_route__white_truck_calendar_route.png"
+    },
+    {
+      "id": "truck_orange_assets_route",
+      "name": "Orange Truck Assets Route",
+      "category": "04_trucks_routes_flows",
+      "box_xyxy": [
+        962,
+        365,
+        1045,
+        430
+      ],
+      "width": 83,
+      "height": 65,
+      "description": "Orange truck near assets warehouse",
+      "role": "truck",
+      "click_action": "open_truck_mission_card",
+      "image": "04_trucks_routes_flows/truck_orange_assets_route__orange_truck_assets_route.png"
+    },
+    {
+      "id": "flow_chip_assets_to_youtube",
+      "name": "Flow Chip Assets to YouTube",
+      "category": "04_trucks_routes_flows",
+      "box_xyxy": [
+        195,
+        720,
+        350,
+        752
+      ],
+      "width": 155,
+      "height": 32,
+      "description": "Entrepôt → YouTube active flow chip",
+      "role": "flow",
+      "click_action": "open_flow_inspector",
+      "image": "04_trucks_routes_flows/flow_chip_assets_to_youtube__flow_chip_assets_to_youtube.png"
+    },
+    {
+      "id": "flow_chip_trading_to_vip",
+      "name": "Flow Chip Trading to VIP",
+      "category": "04_trucks_routes_flows",
+      "box_xyxy": [
+        350,
+        720,
+        545,
+        752
+      ],
+      "width": 195,
+      "height": 32,
+      "description": "Trading Tower → VIP Gate active flow chip",
+      "role": "flow",
+      "click_action": "open_flow_inspector",
+      "image": "04_trucks_routes_flows/flow_chip_trading_to_vip__flow_chip_trading_to_vip.png"
+    },
+    {
+      "id": "flow_chip_iron_to_vip",
+      "name": "Flow Chip Iron Office to VIP Gate",
+      "category": "04_trucks_routes_flows",
+      "box_xyxy": [
+        548,
+        720,
+        728,
+        752
+      ],
+      "width": 180,
+      "height": 32,
+      "description": "Iron Office → VIP Gate active flow chip",
+      "role": "flow",
+      "click_action": "open_flow_inspector",
+      "image": "04_trucks_routes_flows/flow_chip_iron_to_vip__flow_chip_iron_office_to_vip_gate.png"
+    },
+    {
+      "id": "flow_chip_knowledge_to_brain",
+      "name": "Flow Chip Knowledge to Central Brain",
+      "category": "04_trucks_routes_flows",
+      "box_xyxy": [
+        730,
+        720,
+        958,
+        752
+      ],
+      "width": 228,
+      "height": 32,
+      "description": "Knowledge Vault → Central Brain active flow",
+      "role": "flow",
+      "click_action": "open_flow_inspector",
+      "image": "04_trucks_routes_flows/flow_chip_knowledge_to_brain__flow_chip_knowledge_to_central_brain.png"
+    },
+    {
+      "id": "flow_chip_8_active",
+      "name": "8 Active Flows Button",
+      "category": "04_trucks_routes_flows",
+      "box_xyxy": [
+        970,
+        713,
+        1100,
+        750
+      ],
+      "width": 130,
+      "height": 37,
+      "description": "8 flux actifs indicator",
+      "role": "flow",
+      "click_action": "open_flow_inspector",
+      "image": "04_trucks_routes_flows/flow_chip_8_active__8_active_flows_button.png"
+    },
+    {
+      "id": "kpi_mrr",
+      "name": "KPI MRR 879",
+      "category": "05_kpis_panels_ui",
+      "box_xyxy": [
+        680,
+        14,
+        773,
+        58
+      ],
+      "width": 93,
+      "height": 44,
+      "description": "MRR 879 €",
+      "role": "kpi",
+      "click_action": "open_source_truth_card",
+      "image": "05_kpis_panels_ui/kpi_mrr__kpi_mrr_879.png"
+    },
+    {
+      "id": "kpi_arr",
+      "name": "KPI ARR 10548",
+      "category": "05_kpis_panels_ui",
+      "box_xyxy": [
+        775,
+        14,
+        905,
+        58
+      ],
+      "width": 130,
+      "height": 44,
+      "description": "ARR 10548 €",
+      "role": "kpi",
+      "click_action": "open_source_truth_card",
+      "image": "05_kpis_panels_ui/kpi_arr__kpi_arr_10548.png"
+    },
+    {
+      "id": "kpi_vip",
+      "name": "KPI VIP 7",
+      "category": "05_kpis_panels_ui",
+      "box_xyxy": [
+        908,
+        14,
+        980,
+        58
+      ],
+      "width": 72,
+      "height": 44,
+      "description": "VIP 7",
+      "role": "kpi",
+      "click_action": "open_source_truth_card",
+      "image": "05_kpis_panels_ui/kpi_vip__kpi_vip_7.png"
+    },
+    {
+      "id": "kpi_assets_94",
+      "name": "KPI Assets 94",
+      "category": "05_kpis_panels_ui",
+      "box_xyxy": [
+        980,
+        14,
+        1072,
+        58
+      ],
+      "width": 92,
+      "height": 44,
+      "description": "Actifs 94",
+      "role": "kpi",
+      "click_action": "open_source_truth_card",
+      "image": "05_kpis_panels_ui/kpi_assets_94__kpi_assets_94.png"
+    },
+    {
+      "id": "kpi_services_5_8",
+      "name": "KPI Services 5 of 8",
+      "category": "05_kpis_panels_ui",
+      "box_xyxy": [
+        1075,
+        14,
+        1180,
+        58
+      ],
+      "width": 105,
+      "height": 44,
+      "description": "Services 5/8",
+      "role": "kpi",
+      "click_action": "open_source_truth_card",
+      "image": "05_kpis_panels_ui/kpi_services_5_8__kpi_services_5_of_8.png"
+    },
+    {
+      "id": "kpi_maisons_15",
+      "name": "KPI Maisons 15",
+      "category": "05_kpis_panels_ui",
+      "box_xyxy": [
+        1184,
+        14,
+        1262,
+        58
+      ],
+      "width": 78,
+      "height": 44,
+      "description": "Maisons 15",
+      "role": "kpi",
+      "click_action": "open_source_truth_card",
+      "image": "05_kpis_panels_ui/kpi_maisons_15__kpi_maisons_15.png"
+    },
+    {
+      "id": "state_world_panel",
+      "name": "Etat du Monde Panel",
+      "category": "05_kpis_panels_ui",
+      "box_xyxy": [
+        184,
+        84,
+        330,
+        214
+      ],
+      "width": 146,
+      "height": 130,
+      "description": "État du monde operational",
+      "role": "panel",
+      "click_action": "open_world_state",
+      "image": "05_kpis_panels_ui/state_world_panel__etat_du_monde_panel.png"
+    },
+    {
+      "id": "right_inspector_header",
+      "name": "Right Inspector Header",
+      "category": "05_kpis_panels_ui",
+      "box_xyxy": [
+        1268,
+        72,
+        1534,
+        145
+      ],
+      "width": 266,
+      "height": 73,
+      "description": "Trading Tower header",
+      "role": "panel",
+      "click_action": "open_context_inspector",
+      "image": "05_kpis_panels_ui/right_inspector_header__right_inspector_header.png"
+    },
+    {
+      "id": "right_inspector_tabs",
+      "name": "Right Inspector Tabs",
+      "category": "05_kpis_panels_ui",
+      "box_xyxy": [
+        1268,
+        147,
+        1530,
+        185
+      ],
+      "width": 262,
+      "height": 38,
+      "description": "Aperçu / Missions / Activité / Outils",
+      "role": "panel",
+      "click_action": "open_context_inspector",
+      "image": "05_kpis_panels_ui/right_inspector_tabs__right_inspector_tabs.png"
+    },
+    {
+      "id": "right_inspector_details",
+      "name": "Right Inspector Details",
+      "category": "05_kpis_panels_ui",
+      "box_xyxy": [
+        1268,
+        185,
+        1530,
+        395
+      ],
+      "width": 262,
+      "height": 210,
+      "description": "Owner status blocker proof",
+      "role": "panel",
+      "click_action": "open_context_inspector",
+      "image": "05_kpis_panels_ui/right_inspector_details__right_inspector_details.png"
+    },
+    {
+      "id": "right_inspector_tools",
+      "name": "Right Inspector Tools",
+      "category": "05_kpis_panels_ui",
+      "box_xyxy": [
+        1268,
+        400,
+        1530,
+        500
+      ],
+      "width": 262,
+      "height": 100,
+      "description": "Outils connectés",
+      "role": "panel",
+      "click_action": "open_tool_state_card",
+      "image": "05_kpis_panels_ui/right_inspector_tools__right_inspector_tools.png"
+    },
+    {
+      "id": "right_inspector_flows",
+      "name": "Right Inspector Flows",
+      "category": "05_kpis_panels_ui",
+      "box_xyxy": [
+        1268,
+        505,
+        1530,
+        690
+      ],
+      "width": 262,
+      "height": 185,
+      "description": "Flux entrants/sortants",
+      "role": "panel",
+      "click_action": "open_flow_inspector",
+      "image": "05_kpis_panels_ui/right_inspector_flows__right_inspector_flows.png"
+    },
+    {
+      "id": "bottom_missions_active",
+      "name": "Missions Actives Panel",
+      "category": "06_bottom_operating_panels",
+      "box_xyxy": [
+        180,
+        770,
+        533,
+        1000
+      ],
+      "width": 353,
+      "height": 230,
+      "description": "Missions actives table",
+      "role": "bottom",
+      "click_action": "open_mission_table",
+      "image": "06_bottom_operating_panels/bottom_missions_active__missions_actives_panel.png"
+    },
+    {
+      "id": "bottom_calendar_operational",
+      "name": "Calendrier Operationnel Panel",
+      "category": "06_bottom_operating_panels",
+      "box_xyxy": [
+        535,
+        770,
+        950,
+        1000
+      ],
+      "width": 415,
+      "height": 230,
+      "description": "Operational calendar",
+      "role": "bottom",
+      "click_action": "open_calendar",
+      "image": "06_bottom_operating_panels/bottom_calendar_operational__calendrier_operationnel_panel.png"
+    },
+    {
+      "id": "bottom_live_activity",
+      "name": "Activite En Direct Panel",
+      "category": "06_bottom_operating_panels",
+      "box_xyxy": [
+        950,
+        770,
+        1255,
+        1000
+      ],
+      "width": 305,
+      "height": 230,
+      "description": "Live activity feed",
+      "role": "bottom",
+      "click_action": "open_activity_feed",
+      "image": "06_bottom_operating_panels/bottom_live_activity__activite_en_direct_panel.png"
+    },
+    {
+      "id": "bottom_mini_map_panel",
+      "name": "Mini Carte Panel",
+      "category": "06_bottom_operating_panels",
+      "box_xyxy": [
+        1260,
+        770,
+        1534,
+        1000
+      ],
+      "width": 274,
+      "height": 230,
+      "description": "Mini map",
+      "role": "bottom",
+      "click_action": "open_minimap",
+      "image": "06_bottom_operating_panels/bottom_mini_map_panel__mini_carte_panel.png"
+    },
+    {
+      "id": "calendar_red_task",
+      "name": "Calendar Red YouTube Task",
+      "category": "06_bottom_operating_panels",
+      "box_xyxy": [
+        550,
+        832,
+        715,
+        865
+      ],
+      "width": 165,
+      "height": 33,
+      "description": "YouTube task in calendar",
+      "role": "calendar_task",
+      "click_action": "open_mission_detail",
+      "image": "06_bottom_operating_panels/calendar_red_task__calendar_red_youtube_task.png"
+    },
+    {
+      "id": "calendar_purple_task",
+      "name": "Calendar Purple VIP Task",
+      "category": "06_bottom_operating_panels",
+      "box_xyxy": [
+        622,
+        860,
+        766,
+        895
+      ],
+      "width": 144,
+      "height": 35,
+      "description": "VIP onboarding task",
+      "role": "calendar_task",
+      "click_action": "open_mission_detail",
+      "image": "06_bottom_operating_panels/calendar_purple_task__calendar_purple_vip_task.png"
+    },
+    {
+      "id": "calendar_orange_task",
+      "name": "Calendar Orange Compliance Task",
+      "category": "06_bottom_operating_panels",
+      "box_xyxy": [
+        685,
+        895,
+        842,
+        930
+      ],
+      "width": 157,
+      "height": 35,
+      "description": "Compliance report task",
+      "role": "calendar_task",
+      "click_action": "open_mission_detail",
+      "image": "06_bottom_operating_panels/calendar_orange_task__calendar_orange_compliance_task.png"
+    },
+    {
+      "id": "calendar_blue_task",
+      "name": "Calendar Blue SEO Task",
+      "category": "06_bottom_operating_panels",
+      "box_xyxy": [
+        740,
+        930,
+        872,
+        964
+      ],
+      "width": 132,
+      "height": 34,
+      "description": "SEO task",
+      "role": "calendar_task",
+      "click_action": "open_mission_detail",
+      "image": "06_bottom_operating_panels/calendar_blue_task__calendar_blue_seo_task.png"
+    },
+    {
+      "id": "calendar_green_task",
+      "name": "Calendar Green Trading Task",
+      "category": "06_bottom_operating_panels",
+      "box_xyxy": [
+        820,
+        960,
+        940,
+        995
+      ],
+      "width": 120,
+      "height": 35,
+      "description": "Trading portfolio task",
+      "role": "calendar_task",
+      "click_action": "open_mission_detail",
+      "image": "06_bottom_operating_panels/calendar_green_task__calendar_green_trading_task.png"
+    },
+    {
+      "id": "nav_header_openclaw",
+      "name": "OpenClaw Sidebar Header",
+      "category": "07_icons_nav",
+      "box_xyxy": [
+        0,
+        0,
+        170,
+        70
+      ],
+      "width": 170,
+      "height": 70,
+      "description": "OpenClaw header",
+      "role": "sidebar",
+      "click_action": "nav",
+      "image": "07_icons_nav/nav_header_openclaw__openclaw_sidebar_header.png"
+    },
+    {
+      "id": "nav_vue_monde_active",
+      "name": "Nav Vue Monde Active",
+      "category": "07_icons_nav",
+      "box_xyxy": [
+        10,
+        105,
+        165,
+        132
+      ],
+      "width": 155,
+      "height": 27,
+      "description": "Active sidebar item",
+      "role": "sidebar",
+      "click_action": "nav",
+      "image": "07_icons_nav/nav_vue_monde_active__nav_vue_monde_active.png"
+    },
+    {
+      "id": "nav_missions_badge",
+      "name": "Nav Missions Badge",
+      "category": "07_icons_nav",
+      "box_xyxy": [
+        10,
+        260,
+        165,
+        290
+      ],
+      "width": 155,
+      "height": 30,
+      "description": "Missions nav with count",
+      "role": "sidebar",
+      "click_action": "nav",
+      "image": "07_icons_nav/nav_missions_badge__nav_missions_badge.png"
+    },
+    {
+      "id": "nav_alertes_badge",
+      "name": "Nav Alertes Badge",
+      "category": "07_icons_nav",
+      "box_xyxy": [
+        10,
+        342,
+        165,
+        365
+      ],
+      "width": 155,
+      "height": 23,
+      "description": "Alerts nav with red count",
+      "role": "sidebar",
+      "click_action": "nav",
+      "image": "07_icons_nav/nav_alertes_badge__nav_alertes_badge.png"
+    },
+    {
+      "id": "nav_agents_assets_tools",
+      "name": "Nav Resources Group",
+      "category": "07_icons_nav",
+      "box_xyxy": [
+        10,
+        415,
+        165,
+        520
+      ],
+      "width": 155,
+      "height": 105,
+      "description": "Agents / actifs / outils / documents",
+      "role": "sidebar",
+      "click_action": "nav",
+      "image": "07_icons_nav/nav_agents_assets_tools__nav_resources_group.png"
+    },
+    {
+      "id": "nav_system_status",
+      "name": "Nav System Status",
+      "category": "07_icons_nav",
+      "box_xyxy": [
+        10,
+        750,
+        165,
+        812
+      ],
+      "width": 155,
+      "height": 62,
+      "description": "System status operational",
+      "role": "sidebar",
+      "click_action": "nav",
+      "image": "07_icons_nav/nav_system_status__nav_system_status.png"
+    }
+  ]
+}

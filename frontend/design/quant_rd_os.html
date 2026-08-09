@@ -1,0 +1,890 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Quant R&D OS — STRAT-17/18 · research desk v2 (MOCK / standalone)</title>
+<!--
+  STANDALONE MOCK v2 — aucun fetch, aucun backend, aucun ordre, aucun secret, aucun auto-exec.
+  Workflow chaîné en état JS local (STATE). Boutons dangereux disabled. Navigation/mock transitions actives.
+  Données: REAL (backtest agrégé) · PAPER (signals.db) · MODEL ($ modélisés) · NOT PROVEN (reconstruit/non câblé).
+  Sources: INSTITUTIONAL_REDTEAM_…171034Z · PERFORMANCE_SPRINT_…161500Z · PERF_LAB_STRAT17/18 · AUDIT_FULL_…153500Z · signals.db.
+  Verdict comité: RESEARCH ONLY. Paper OOS négatif. NQ/MNQ ×10. Fat-tail. Aucun % / $ live.
+-->
+<style>
+  :root{
+    --navy:#040d20; --navy2:#0a1a33; --panel:rgba(12,28,54,.74); --panel2:rgba(9,20,40,.6); --panel3:rgba(14,32,60,.55);
+    --line:rgba(0,185,255,.15); --line2:rgba(0,185,255,.30);
+    --cyan:#00B9FF; --blue:#0066FF; --violet:#9d7bff; --violet2:#c4a8ff; --silver:#c7d4e6; --mute:#8295af; --dim:#5b6f8f;
+    --green:#23d18b; --green2:#10f0b0; --red:#ff5470; --amber:#ffb23e; --txt:#e8f0fb; --r:9px; --r2:13px;
+  }
+  *{box-sizing:border-box;margin:0;padding:0}
+  html,body{height:100%}
+  body{background:
+      radial-gradient(1100px 640px at 82% -12%, rgba(0,102,255,.11), transparent 60%),
+      radial-gradient(820px 560px at -5% 108%, rgba(157,123,255,.09), transparent 55%), var(--navy);
+    color:var(--txt); font:13px/1.45 -apple-system,BlinkMacSystemFont,"Segoe UI",Inter,system-ui,sans-serif;
+    -webkit-font-smoothing:antialiased; overflow:hidden;}
+  .app{display:grid; grid-template-rows:46px 34px 1fr; height:100vh; min-width:1340px}
+
+  .topbar{display:flex; align-items:center; gap:13px; padding:0 15px; background:linear-gradient(180deg,rgba(11,27,52,.96),rgba(7,18,38,.86)); border-bottom:1px solid var(--line); backdrop-filter:blur(8px)}
+  .home{color:var(--mute); text-decoration:none; font-size:12px; padding:5px 9px; border:1px solid var(--line); border-radius:7px; white-space:nowrap}
+  .home:hover{color:var(--cyan); border-color:var(--line2)}
+  .brand{font-weight:800; letter-spacing:.3px; font-size:14px} .brand .dot{color:var(--cyan)}
+  .seg{display:flex; border:1px solid var(--line); border-radius:8px; overflow:hidden}
+  .seg button{background:transparent; color:var(--mute); border:0; padding:5px 12px; font-size:12px; cursor:pointer; font-weight:600}
+  .seg button.on{background:linear-gradient(180deg,rgba(0,185,255,.22),rgba(0,102,255,.13)); color:#eafaff}
+  .spacer{flex:1}
+  .ctl{display:flex; align-items:center; gap:6px; font-size:11px; color:var(--mute)}
+  .toggle{display:inline-flex; border:1px solid var(--line2); border-radius:20px; overflow:hidden; cursor:pointer}
+  .toggle span{padding:3px 10px; font-weight:700; font-size:11px}
+  .toggle .a{background:rgba(255,178,62,.16); color:var(--amber)} .toggle .b{color:var(--dim)}
+  select.mini{background:var(--navy2); color:var(--silver); border:1px solid var(--line); border-radius:6px; padding:3px 7px; font-size:11px}
+  .kbd{font-size:10px; color:var(--mute); border:1px solid var(--line); border-radius:4px; padding:1px 5px; background:var(--navy2)}
+
+  .verdict{display:flex; align-items:center; gap:14px; padding:0 16px; background:linear-gradient(90deg,rgba(255,84,112,.13),rgba(255,178,62,.06) 55%,transparent); border-bottom:1px solid rgba(255,84,112,.22); font-size:12px}
+  .verdict b{color:#ffd9e0}
+  .vtag{display:inline-flex; align-items:center; gap:5px; padding:2px 9px; border-radius:20px; font-weight:700; font-size:11px; border:1px solid}
+  .vtag.research{color:var(--amber); border-color:rgba(255,178,62,.4); background:rgba(255,178,62,.10)}
+  .vtag.warn{color:var(--red); border-color:rgba(255,84,112,.4); background:rgba(255,84,112,.08)}
+
+  .body{display:grid; grid-template-columns:182px 1fr; overflow:hidden}
+  .rail{border-right:1px solid var(--line); padding:10px 9px; display:flex; flex-direction:column; gap:2px; background:var(--panel2); overflow-y:auto}
+  .rail .grp{font-size:9.5px; letter-spacing:1.3px; color:var(--dim); text-transform:uppercase; margin:11px 8px 3px}
+  .nav{display:flex; align-items:center; gap:8px; padding:7px 9px; border-radius:8px; color:var(--mute); cursor:pointer; font-weight:600; font-size:12.5px}
+  .nav:hover{background:rgba(0,185,255,.06); color:var(--silver)}
+  .nav.on{background:linear-gradient(90deg,rgba(0,185,255,.18),transparent); color:#eafaff; box-shadow:inset 2px 0 0 var(--cyan)}
+  .nav.research.on{background:linear-gradient(90deg,rgba(157,123,255,.2),transparent); box-shadow:inset 2px 0 0 var(--violet)}
+  .nav .ic{width:15px; text-align:center; opacity:.9}
+  .railfoot{margin-top:auto; font-size:10px; color:var(--dim); padding:8px; border-top:1px solid var(--line)}
+  .flowbadge{font-size:9px; color:var(--violet2); background:rgba(157,123,255,.1); border:1px solid rgba(157,123,255,.3); border-radius:5px; padding:2px 5px; margin-top:6px; display:block; line-height:1.4}
+
+  .main{overflow-y:auto; padding:14px 18px 56px}
+  .main::-webkit-scrollbar{width:9px}.main::-webkit-scrollbar-thumb{background:rgba(0,185,255,.18); border-radius:8px}
+  .page{display:none} .page.on{display:block; animation:fade .2s}
+  @keyframes fade{from{opacity:0;transform:translateY(5px)}to{opacity:1;transform:none}}
+
+  h1.pt{font-size:17px; font-weight:800; letter-spacing:.2px; margin-bottom:2px; display:flex; align-items:center; gap:9px}
+  .sub{color:var(--mute); font-size:12px; margin-bottom:13px}
+
+  .grid{display:grid; gap:12px}
+  .g6{grid-template-columns:repeat(6,1fr)} .g5{grid-template-columns:repeat(5,1fr)} .g4{grid-template-columns:repeat(4,1fr)}
+  .g3{grid-template-columns:repeat(3,1fr)} .g2{grid-template-columns:repeat(2,1fr)}
+  .g-2-1{grid-template-columns:2fr 1fr} .g-1-2{grid-template-columns:1fr 2fr} .g-3-2{grid-template-columns:3fr 2fr} .g-1-1-1{grid-template-columns:1fr 1fr 1fr}
+  .mb{margin-bottom:12px}
+
+  .card{background:var(--panel); border:1px solid var(--line); border-radius:var(--r2); padding:13px 14px; position:relative}
+  .card.v{border-color:rgba(157,123,255,.22)} .card.tight{padding:11px 12px}
+  .card h3{font-size:11px; letter-spacing:.5px; text-transform:uppercase; color:var(--mute); font-weight:700; margin-bottom:10px; display:flex; justify-content:space-between; gap:8px; align-items:center}
+  .card h3 .r{font-weight:600; letter-spacing:0; text-transform:none}
+
+  .kpi{display:flex; flex-direction:column; gap:4px}
+  .kpi .v{font-size:22px; font-weight:800; letter-spacing:-.5px; line-height:1}
+  .kpi .l{font-size:11px; color:var(--mute)}
+  .kpi .v.green{color:var(--green2)} .kpi .v.red{color:var(--red)} .kpi .v.cyan{color:var(--cyan)} .kpi .v.amber{color:var(--amber)} .kpi .v.violet{color:var(--violet2)}
+
+  .badge{display:inline-flex; align-items:center; gap:3px; font-size:9px; font-weight:800; letter-spacing:.4px; padding:2px 5px; border-radius:5px; border:1px solid; vertical-align:middle}
+  .b-real{color:#9fd0ff; border-color:rgba(0,102,255,.5); background:rgba(0,102,255,.10)}
+  .b-paper{color:#7af0ff; border-color:rgba(0,185,255,.5); background:rgba(0,185,255,.10)}
+  .b-model{color:var(--amber); border-color:rgba(255,178,62,.5); background:rgba(255,178,62,.08)}
+  .b-np{color:#ff8aa0; border-color:rgba(255,84,112,.5); background:rgba(255,84,112,.08)}
+
+  table{width:100%; border-collapse:collapse; font-size:12px}
+  th{text-align:left; color:var(--dim); font-weight:700; font-size:10px; letter-spacing:.5px; text-transform:uppercase; padding:6px 7px; border-bottom:1px solid var(--line)}
+  th.sortable{cursor:pointer; user-select:none} th.sortable:hover{color:var(--cyan)}
+  td{padding:6px 7px; border-bottom:1px solid rgba(0,185,255,.06)}
+  tr.clk{cursor:pointer} tr.clk:hover td{background:rgba(0,185,255,.07)}
+  td.num,th.num{text-align:right; font-variant-numeric:tabular-nums}
+  .pill{font-size:10px; font-weight:700; padding:2px 7px; border-radius:20px; border:1px solid; white-space:nowrap}
+  .pill.promote{color:var(--green2); border-color:rgba(35,209,139,.4); background:rgba(35,209,139,.08)}
+  .pill.reject{color:var(--red); border-color:rgba(255,84,112,.4); background:rgba(255,84,112,.08)}
+  .pill.insuf{color:var(--amber); border-color:rgba(255,178,62,.4); background:rgba(255,178,62,.08)}
+  .pill.research{color:var(--violet2); border-color:rgba(157,123,255,.4); background:rgba(157,123,255,.08)}
+
+  canvas{display:block; width:100%}
+  .legend{display:flex; gap:12px; flex-wrap:wrap; font-size:10.5px; color:var(--mute); margin-top:8px}
+  .legend i{display:inline-block; width:9px; height:9px; border-radius:2px; margin-right:5px; vertical-align:middle}
+
+  .warnrow{display:flex; gap:8px; flex-wrap:wrap; margin:3px 0 0}
+  .warn{display:inline-flex; align-items:center; gap:6px; font-size:11px; padding:5px 10px; border-radius:8px; border:1px solid rgba(255,84,112,.3); background:rgba(255,84,112,.07); color:#ffc1cd}
+  .warn.amber{border-color:rgba(255,178,62,.3); background:rgba(255,178,62,.07); color:#ffe0ad}
+  .warn.ok{border-color:rgba(35,209,139,.3); background:rgba(35,209,139,.07); color:#a9f5d3}
+
+  .btn{font-size:11.5px; font-weight:700; padding:7px 13px; border-radius:8px; border:1px solid var(--line2); background:rgba(0,185,255,.06); color:var(--mute); cursor:not-allowed; opacity:.62; display:inline-flex; align-items:center; gap:6px}
+  .btn.act{cursor:pointer; opacity:1; color:#eafaff; border-color:var(--cyan); background:rgba(0,185,255,.14)}
+  .btn.act:hover{background:rgba(0,185,255,.22)}
+  .btn.actv{cursor:pointer; opacity:1; color:#f0e9ff; border-color:rgba(157,123,255,.6); background:rgba(157,123,255,.16)}
+  .btn.actv:hover{background:rgba(157,123,255,.26)}
+  .btn .lk{font-size:9px; color:var(--dim)}
+  .btnrow{display:flex; gap:8px; flex-wrap:wrap}
+
+  .bar{height:6px; border-radius:5px; background:rgba(255,255,255,.06); overflow:hidden}
+  .bar > i{display:block; height:100%; border-radius:5px}
+  .meter{display:flex; flex-direction:column; gap:4px}
+  .meter .top{display:flex; justify-content:space-between; font-size:11px}
+  .note{font-size:11px; color:var(--dim); margin-top:8px; line-height:1.5}
+  .kv{display:flex; justify-content:space-between; font-size:11.5px; padding:4px 0; border-bottom:1px solid rgba(0,185,255,.06)}
+  .kv .k{color:var(--mute)} .kv .v{font-variant-numeric:tabular-nums; font-weight:600}
+
+  .cmd{background:linear-gradient(135deg,rgba(157,123,255,.13),rgba(0,185,255,.06)); border:1px solid rgba(157,123,255,.3); border-radius:var(--r2); padding:14px 16px}
+  .cmdtop{display:flex; align-items:center; gap:10px; margin-bottom:11px}
+  .cmdtop .ic{width:30px;height:30px;border-radius:8px;display:grid;place-items:center;background:rgba(157,123,255,.18);border:1px solid rgba(157,123,255,.4);font-size:15px}
+  .cmdin{display:flex; gap:9px; align-items:center}
+  .cmdin input{flex:1; background:rgba(4,13,32,.7); border:1px solid var(--line2); border-radius:9px; padding:11px 13px; color:var(--txt); font-size:12.5px}
+  .cmdin input::placeholder{color:var(--dim)}
+  .chiprow{display:flex; gap:7px; flex-wrap:wrap; margin-top:10px}
+  .chip{font-size:11px; font-weight:600; padding:6px 11px; border-radius:20px; border:1px solid var(--line); background:var(--panel2); color:var(--mute); cursor:not-allowed; opacity:.78}
+  .chip.v{border-color:rgba(157,123,255,.35); color:var(--violet2); background:rgba(157,123,255,.07)}
+  .chip.c{border-color:rgba(0,185,255,.3); color:#7af0ff; background:rgba(0,185,255,.06)}
+  .chip.go{cursor:pointer; opacity:1; border-color:rgba(0,185,255,.4)}
+  .chip.go:hover{background:rgba(0,185,255,.13)}
+
+  .nba{border:1px solid var(--line); border-radius:10px; padding:10px 11px; background:var(--panel3); display:flex; flex-direction:column; gap:6px; cursor:pointer}
+  .nba:hover{border-color:var(--line2); background:rgba(0,185,255,.05)}
+  .nba .h{display:flex; align-items:center; gap:7px; font-weight:700; font-size:12px}
+  .nba .h .n{width:18px;height:18px;border-radius:5px;display:grid;place-items:center;font-size:10px;background:rgba(157,123,255,.18);color:var(--violet2);border:1px solid rgba(157,123,255,.35)}
+  .nba .d{font-size:10.5px; color:var(--mute); line-height:1.45}
+  .nba .pr{font-size:9px; font-weight:800; letter-spacing:.4px; padding:1px 6px; border-radius:5px; align-self:flex-start}
+  .nba .pr.p0{color:var(--red); background:rgba(255,84,112,.1); border:1px solid rgba(255,84,112,.4)}
+  .nba .pr.p1{color:var(--amber); background:rgba(255,178,62,.1); border:1px solid rgba(255,178,62,.4)}
+
+  .ruleset{display:flex; flex-direction:column; gap:8px}
+  .ruleblk{display:flex; align-items:center; gap:9px; padding:9px 11px; border-radius:9px; border:1px solid var(--line); background:var(--panel3)}
+  .ruleblk .tag{font-size:9.5px; font-weight:800; letter-spacing:.5px; padding:2px 7px; border-radius:5px; text-transform:uppercase; min-width:70px; text-align:center}
+  .ruleblk.entry .tag{background:rgba(0,185,255,.14); color:var(--cyan); border:1px solid rgba(0,185,255,.3)}
+  .ruleblk.exit .tag{background:rgba(35,209,139,.12); color:var(--green2); border:1px solid rgba(35,209,139,.3)}
+  .ruleblk.risk .tag{background:rgba(255,84,112,.12); color:var(--red); border:1px solid rgba(255,84,112,.3)}
+  .ruleblk.filter .tag{background:rgba(157,123,255,.12); color:var(--violet2); border:1px solid rgba(157,123,255,.3)}
+  .ruleblk select{flex:1; background:rgba(4,13,32,.6); color:var(--silver); border:1px solid var(--line); border-radius:6px; padding:5px 8px; font-size:11.5px}
+  .ruleblk .op{color:var(--dim); font-size:11px}
+  .bstat{font-size:8.5px; font-weight:800; letter-spacing:.4px; padding:2px 6px; border-radius:5px; border:1px solid; white-space:nowrap; min-width:84px; text-align:center}
+  .bstat.ready{color:var(--green2); border-color:rgba(35,209,139,.4); background:rgba(35,209,139,.08)}
+  .bstat.miss{color:var(--red); border-color:rgba(255,84,112,.4); background:rgba(255,84,112,.08)}
+  .bstat.mock{color:var(--violet2); border-color:rgba(157,123,255,.4); background:rgba(157,123,255,.08)}
+  .bstat.rej{color:var(--amber); border-color:rgba(255,178,62,.4); background:rgba(255,178,62,.08)}
+  .diff{font-size:11px} .diff .row{display:flex; justify-content:space-between; padding:4px 0; border-bottom:1px solid rgba(0,185,255,.06)}
+  .diff .chg{color:var(--green2)} .diff .same{color:var(--dim)}
+
+  .console{background:#03091a; border:1px solid var(--line2); border-radius:9px; padding:12px 14px; font:11.5px/1.65 ui-monospace,SFMono-Regular,Menlo,monospace; color:#bfe3ff; max-height:230px; overflow-y:auto}
+  .console .ln{display:flex; gap:8px}
+  .console .pmt{color:var(--violet2)} .console .ok{color:var(--green2)} .console .er{color:var(--red)} .console .wn{color:var(--amber)} .console .mut{color:var(--dim)}
+  .blink{animation:bl 1.1s steps(2) infinite} @keyframes bl{50%{opacity:0}}
+
+  .replay{display:grid; grid-template-columns:1fr 300px; gap:12px}
+  .chartwrap{background:var(--panel); border:1px solid var(--line); border-radius:var(--r2); padding:11px; position:relative}
+  #chartHost{position:relative}
+  #chartHost #replayChart{display:block; width:100%; background:#03081a; border:1px solid rgba(0,185,255,.12); border-radius:8px}
+  #chartHost #replayCross{position:absolute; left:0; top:0; width:100%; pointer-events:none; z-index:4}
+  #replayTip{position:absolute; pointer-events:none; background:rgba(3,9,26,.96); border:1px solid var(--line2); border-radius:7px; padding:6px 9px; font-size:10.5px; color:#cfe9ff; display:none; z-index:5; white-space:nowrap; font-variant-numeric:tabular-nums}
+  .tradebar{display:flex; gap:5px; flex-wrap:wrap; margin-bottom:9px}
+  .tchip{font-size:11px; padding:5px 8px; border-radius:7px; border:1px solid var(--line); background:var(--panel2); color:var(--mute); cursor:pointer; font-variant-numeric:tabular-nums}
+  .tchip.on{border-color:var(--cyan); color:#eafaff; background:rgba(0,185,255,.12)}
+  .tchip.win{box-shadow:inset 0 -2px 0 var(--green)} .tchip.loss{box-shadow:inset 0 -2px 0 var(--red)}
+  .rrail{display:flex; flex-direction:column; gap:10px}
+  .rbig{font-size:30px; font-weight:800; line-height:1}
+  .scrub{margin-top:9px} input[type=range]{width:100%; accent-color:var(--cyan)}
+  .tl{display:flex; justify-content:space-between; font-size:10px; color:var(--dim); margin-top:3px}
+  .tlmark{display:flex; gap:5px; flex-wrap:wrap; margin-top:7px}
+  .tlmark span{font-size:9.5px; padding:2px 7px; border-radius:5px; border:1px solid var(--line); color:var(--mute)}
+  .tags{display:flex; gap:5px; flex-wrap:wrap; margin-top:6px}
+  .tg{font-size:9.5px; padding:2px 7px; border-radius:20px; border:1px solid rgba(157,123,255,.35); color:var(--violet2); background:rgba(157,123,255,.07)}
+
+  .vipbox{background:linear-gradient(180deg,rgba(0,185,255,.05),transparent); border:1px solid var(--line); border-radius:var(--r2); padding:15px; font-size:13px; line-height:1.6; color:#d6e4f5}
+  .tpl-list{display:flex; flex-direction:column; gap:5px}
+  .tpl{display:flex; justify-content:space-between; align-items:center; gap:8px; padding:8px 10px; border-radius:8px; border:1px solid var(--line); background:var(--panel3); cursor:pointer; font-size:11.5px}
+  .tpl:hover{border-color:var(--line2); background:rgba(0,185,255,.05)}
+  .tpl.on{border-color:var(--cyan); background:rgba(0,185,255,.1); color:#eafaff}
+  .tpl .st{font-size:8.5px; font-weight:800; padding:2px 6px; border-radius:5px; border:1px solid}
+  .tpl .st.safe{color:var(--green2); border-color:rgba(35,209,139,.4)} .tpl .st.draft{color:var(--amber); border-color:rgba(255,178,62,.4)} .tpl .st.blk{color:var(--red); border-color:rgba(255,84,112,.4)}
+  .checklist{list-style:none; display:flex; flex-direction:column; gap:6px}
+  .checklist li{display:flex; gap:8px; align-items:flex-start; font-size:11.5px}
+  .checklist .x{color:var(--red); font-weight:800} .checklist .ok{color:var(--green2); font-weight:800}
+  .foot-disc{font-size:10px; color:var(--dim); margin-top:8px; font-style:italic}
+  .feed{display:flex; flex-direction:column; gap:7px}
+  .feed .it{display:flex; gap:9px; align-items:flex-start; font-size:11.5px; padding:6px 0; border-bottom:1px solid rgba(0,185,255,.06)}
+  .feed .it .d{color:var(--dim); white-space:nowrap; font-size:10px; min-width:64px}
+  .dotv{width:7px;height:7px;border-radius:50%;margin-top:4px;flex:none}
+  .scorebar{display:flex; align-items:center; gap:8px; padding:3px 0}
+  .scorebar .n{width:140px; font-size:11px; color:var(--silver)}
+  .scorebar .t{flex:1; height:7px; border-radius:5px; background:rgba(255,255,255,.05); overflow:hidden}
+  .scorebar .t > i{display:block; height:100%}
+  .scorebar .x{width:50px; text-align:right; font-size:10.5px; font-variant-numeric:tabular-nums; color:var(--mute)}
+</style>
+</head>
+<body>
+<div class="app">
+
+  <div class="topbar">
+    <a class="home" href="#">◀ World Control</a>
+    <div class="brand">QUANT R&D<span class="dot"> OS</span> <span class="kbd" style="margin-left:4px">v2</span></div>
+    <div class="seg" id="stratSeg">
+      <button class="on" data-strat="STRAT-17">STRAT-17</button>
+      <button data-strat="STRAT-18">STRAT-18</button>
+      <button data-strat="Portfolio">Portfolio</button>
+      <button data-strat="Candidate">Candidate</button>
+    </div>
+    <div class="spacer"></div>
+    <div class="ctl">Instrument
+      <span class="toggle" id="instToggle" title="MNQ micro $2/pt · NQ plein $20/pt (×10)">
+        <span class="a" id="instA">MNQ</span><span class="b" id="instB">NQ</span></span>
+    </div>
+    <div class="ctl">Slippage
+      <select class="mini" id="slipSel"><option>1 tick</option><option>2 ticks</option><option>4 ticks</option><option>6 ticks</option><option>8 ticks</option></select>
+    </div>
+    <div class="ctl"><span class="kbd">MOCK · no backend</span></div>
+  </div>
+
+  <div class="verdict">
+    <span class="vtag research">⬤ RESEARCH ONLY</span>
+    <span>Comité — <b>capital réel = 0</b></span>
+    <span class="vtag warn">fat-tail</span><span class="vtag warn">paper OOS négatif</span><span class="vtag warn">NQ↔MNQ ×10</span>
+    <span class="spacer"></span>
+    <span style="font-size:11px;color:var(--dim)">flow actif : <b id="flowState" style="color:var(--violet2)">STRAT-17 · baseline · MNQ</b></span>
+  </div>
+
+  <div class="body">
+    <div class="rail">
+      <div class="grp">Research</div>
+      <div class="nav research on" data-pg="cmd"><span class="ic">✦</span> Command Center</div>
+      <div class="nav research" data-pg="builder"><span class="ic">⛭</span> Strategy Builder</div>
+      <div class="nav research" data-pg="data"><span class="ic">▤</span> Data Explorer</div>
+      <div class="grp">Lab</div>
+      <div class="nav" data-pg="backtest"><span class="ic">▷</span> Backtest Lab</div>
+      <div class="nav" data-pg="replay"><span class="ic">▣</span> Trade Replay Pro</div>
+      <div class="nav" data-pg="robust"><span class="ic">⚠</span> Robustness / Red-team</div>
+      <div class="grp">Validation</div>
+      <div class="nav" data-pg="variants"><span class="ic">≣</span> Variant Leaderboard</div>
+      <div class="nav" data-pg="paper"><span class="ic">◷</span> Paper-Forward Health</div>
+      <div class="grp">Output</div>
+      <div class="nav" data-pg="vip"><span class="ic">✦</span> Template Studio</div>
+      <div class="railfoot">standalone · no fetch · no order
+        <span class="flowbadge">WORKFLOW chaîné : Builder → Backtest → Replay · Variant → Backtest · Paper → Studio</span>
+      </div>
+    </div>
+
+    <div class="main">
+
+      <!-- COMMAND CENTER -->
+      <section class="page on" id="pg-cmd">
+        <h1 class="pt">Research Command Center</h1>
+        <div class="sub">Laboratoire STRAT-17/18 : créer → tester → casser → valider → publier (draft). Assistants mock · workflow chaîné en local.</div>
+        <div class="cmd mb">
+          <div class="cmdtop"><div class="ic">✦</div><div><div style="font-weight:700;font-size:13px">Ask Central Brain / Claude Quant / Codex</div><div style="font-size:10.5px;color:var(--mute)">Orchestrateur recherche — <span class="badge b-np">MOCK</span></div></div></div>
+          <div class="cmdin"><input type="text" disabled placeholder="Créer une variante STRAT-17 avec TP1 plus proche (1.5R) et tester l'OOS paper…"><button class="btn" disabled>⮕ Envoyer <span class="lk">disabled</span></button></div>
+          <div class="chiprow">
+            <span class="chip v">✦ Ask Central Brain</span><span class="chip v">👒 Ask Claude Quant</span><span class="chip c">⌁ Ask Codex research script</span>
+            <span class="chip go" onclick="go('builder')">＋ Create hypothesis →</span><span class="chip go" onclick="go('robust')">⚠ Send to red-team →</span>
+          </div>
+        </div>
+        <div class="card mb v" style="padding:12px 14px">
+          <h3>Research mission active <span class="r"><span class="badge b-np">MOCK</span></span></h3>
+          <div class="grid g5" style="gap:10px">
+            <div><div style="font-size:9.5px;color:var(--dim);text-transform:uppercase;letter-spacing:.5px">Mission</div><div style="font-size:12px;margin-top:3px">Réduire le drawdown STRAT-17 sans tuer l'edge hors-queue</div></div>
+            <div><div style="font-size:9.5px;color:var(--dim);text-transform:uppercase;letter-spacing:.5px">Hypothesis</div><div style="font-size:12px;margin-top:3px">TP1 plus proche (1.5R) capture plus tôt → DD↓</div></div>
+            <div><div style="font-size:9.5px;color:var(--dim);text-transform:uppercase;letter-spacing:.5px">Assigned agents</div><div style="font-size:12px;margin-top:3px"><span class="tg" style="display:inline-block">Quant</span> <span class="tg" style="display:inline-block">Risk</span> <span class="tg" style="display:inline-block">Codex</span></div></div>
+            <div><div style="font-size:9.5px;color:var(--dim);text-transform:uppercase;letter-spacing:.5px">Next step</div><div style="font-size:12px;margin-top:3px">Re-backtest MNQ natif + PBO/DSR</div></div>
+            <div><div style="font-size:9.5px;color:var(--dim);text-transform:uppercase;letter-spacing:.5px">Current blocker</div><div style="font-size:12px;margin-top:3px;color:#ffc1cd">Paper OOS négatif · trade-list backtest absente</div></div>
+          </div>
+        </div>
+        <div class="card mb" style="padding:11px 13px">
+          <h3>Next best actions <span class="r">recommandé par le red-team · cliquable</span></h3>
+          <div class="grid g5">
+            <div class="nba" onclick="go('paper')"><div class="h"><span class="n">1</span>Expliquer paper OOS négatif</div><div class="d">S17 −0.44R / S18 −5.06R vs 40/68% WR. Voir Paper-Forward.</div><span class="pr p0">P0 CRITICAL</span></div>
+            <div class="nba" onclick="go('backtest')"><div class="h"><span class="n">2</span>Corriger NQ/MNQ ×10</div><div class="d">Re-backtest MNQ natif. Ouvrir Backtest Lab.</div><span class="pr p0">P0</span></div>
+            <div class="nba" onclick="go('backtest')"><div class="h"><span class="n">3</span>Tester slippage 1→8t</div><div class="d">Sensibilité PnL. 94.8% @4t. Backtest Lab.</div><span class="pr p1">P1</span></div>
+            <div class="nba" onclick="go('robust')"><div class="h"><span class="n">4</span>Vérifier fat-tail</div><div class="d">Drop top-10% → 16%/1.7%. Robustness.</div><span class="pr p0">P0</span></div>
+            <div class="nba" onclick="go('paper')"><div class="h"><span class="n">5</span>Paper-forward health gate</div><div class="d">44/100. Gate non atteint. Paper-Forward.</div><span class="pr p1">P1</span></div>
+          </div>
+        </div>
+        <div class="grid g5 mb">
+          <div class="card tight"><div class="kpi"><span class="v cyan" id="ovPF">11.43</span><span class="l">PF backtest <span class="badge b-real">REAL</span> <span class="badge b-np">overfit</span></span></div></div>
+          <div class="card tight"><div class="kpi"><span class="v" id="ovWR">40.0%</span><span class="l">WR backtest <span class="badge b-real">REAL</span></span></div></div>
+          <div class="card tight"><div class="kpi"><span class="v red" id="ovPaper">−0.44 R</span><span class="l">Paper OOS sum R <span class="badge b-paper">PAPER</span></span></div></div>
+          <div class="card tight"><div class="kpi"><span class="v amber" id="ovTail">15.9%</span><span class="l">PnL hors top-10% <span class="badge b-real">REAL</span></span></div></div>
+          <div class="card tight"><div class="kpi"><span class="v violet">3.5/10</span><span class="l">Institutional grade <span class="badge b-real">REAL</span></span></div></div>
+        </div>
+        <div class="grid g-3-2">
+          <div class="card"><h3>Equity curve <span class="r"><span class="badge b-np">NOT PROVEN</span> reconstruite mensuelle · <span class="badge b-paper">PAPER</span> live</span></h3><canvas id="ovEquity" height="180"></canvas>
+            <div class="legend"><span><i style="background:var(--cyan)"></i>backtest cumulé</span><span><i style="background:var(--red)"></i>paper live (R)</span></div></div>
+          <div class="card"><h3>Research activity feed <span class="r"><span class="badge b-np">MOCK</span></span></h3><div class="feed" id="feed"></div></div>
+        </div>
+      </section>
+
+      <!-- STRATEGY BUILDER -->
+      <section class="page" id="pg-builder">
+        <h1 class="pt">Strategy Builder <span class="pill research" id="bCandTag">candidate from STRAT-17 baseline</span></h1>
+        <div class="sub">Rule-blocks + statut + diff vs baseline. « Build » disabled, mais « Send to Backtest Lab » exécute le run mock chaîné.</div>
+        <div class="btnrow mb">
+          <button class="btn act" onclick="loadBaseline('STRAT-17')">⮣ Load STRAT-17 baseline</button>
+          <button class="btn act" onclick="loadBaseline('STRAT-18')">⮣ Load STRAT-18 baseline</button>
+          <span class="card tight" style="padding:7px 12px;display:flex;align-items:center;gap:9px"><span style="font-size:10.5px;color:var(--mute)">Complétude</span> <b id="complScore" style="color:var(--green2)">6/8 READY</b> <span id="complBlk" style="color:var(--red);font-size:11px">· 2 blockers</span></span>
+        </div>
+        <div class="grid g-2-1">
+          <div class="card v">
+            <h3>Rule blocks <span class="r" id="bBase">base : STRAT-17 baseline</span></h3>
+            <div class="ruleset" id="ruleset"></div>
+            <div class="btnrow" style="margin-top:12px">
+              <button class="btn" disabled>⛭ Build research candidate <span class="lk">disabled · MOCK</span></button>
+              <button class="btn act" onclick="sendToBacktest()">⮕ Send to Backtest Lab →</button>
+              <button class="btn actv" onclick="go('robust')">⚠ Send to Red-Team →</button>
+            </div>
+          </div>
+          <div class="card">
+            <h3>Diff vs baseline <span class="r"><span class="badge b-model">MODEL</span></span></h3>
+            <div class="diff" id="diffBox"></div>
+            <div class="warnrow" style="margin-top:9px"><span class="warn amber">⚠ Re-pondération de sortie sur la même population — pas un nouvel edge.</span></div>
+          </div>
+        </div>
+      </section>
+
+      <!-- DATA EXPLORER -->
+      <section class="page" id="pg-data">
+        <h1 class="pt">Data Explorer</h1>
+        <div class="sub">Sources de recherche : couverture, fraîcheur, gaps, usage, feeds, blockers. Aucune connexion réseau active.</div>
+        <div class="grid g3 mb">
+          <div class="card tight" style="border-color:rgba(35,209,139,.3)"><h3 style="color:var(--green2)">✓ Testable now</h3>
+            <div class="kv"><span class="k">STRAT-17/18 backtest agrégé</span><span class="v">PERF_LAB</span></div>
+            <div class="kv"><span class="k">Paper replay trade-level</span><span class="v">signals.db</span></div>
+            <div class="kv"><span class="k">Robustness adversarial</span><span class="v">REDTEAM</span></div>
+            <div class="kv"><span class="k">Slippage 1-8t</span><span class="v">engine</span></div></div>
+          <div class="card tight" style="border-color:rgba(255,178,62,.3)"><h3 style="color:var(--amber)">◐ Partially testable</h3>
+            <div class="kv"><span class="k">MNQ natif</span><span class="v" style="color:var(--amber)">re-backtest requis</span></div>
+            <div class="kv"><span class="k">PBO / Deflated Sharpe</span><span class="v" style="color:var(--amber)">non calculé</span></div>
+            <div class="kv"><span class="k">Paper-forward edge</span><span class="v" style="color:var(--amber)">n=44 &lt; 100</span></div>
+            <div class="kv"><span class="k">ES/GC enriched</span><span class="v" style="color:var(--amber)">trou comblé</span></div></div>
+          <div class="card tight" style="border-color:rgba(255,84,112,.3)"><h3 style="color:var(--red)">✕ Not testable yet</h3>
+            <div class="kv"><span class="k">Backtest replay trade-level</span><span class="v" style="color:var(--red)">trade-list absente</span></div>
+            <div class="kv"><span class="k">Microstructure T3 mbp/mbo</span><span class="v" style="color:var(--red)">source absente</span></div>
+            <div class="kv"><span class="k">Comptes perso live</span><span class="v" style="color:var(--red)">read non câblé</span></div>
+            <div class="kv"><span class="k">Exec réelle</span><span class="v" style="color:var(--red)">OFF (bien)</span></div></div>
+        </div>
+        <div class="card mb" style="padding:5px 7px;overflow-x:auto">
+          <table><thead><tr><th>Source</th><th>Coverage</th><th>Freshness</th><th>Gaps</th><th>Usable for</th><th>Feeds</th><th>Status</th><th>Blockers</th></tr></thead><tbody id="dataTable"></tbody></table>
+        </div>
+        <div class="grid g-1-2">
+          <div class="card">
+            <h3>Strategy testability <span class="r"><span class="badge b-real">REAL</span> synthèse</span></h3>
+            <div class="kv"><span class="k">STRAT-17 replay paper</span><span class="v" style="color:var(--green2)">OK <span class="badge b-paper">PAPER</span></span></div>
+            <div class="kv"><span class="k">STRAT-17 backtest replay</span><span class="v" style="color:var(--red)">NOT PROVEN (trade-list absente)</span></div>
+            <div class="kv"><span class="k">STRAT-18 paper OOS</span><span class="v" style="color:var(--red)">NEGATIVE −5.06R</span></div>
+            <div class="kv"><span class="k">Personal accounts data</span><span class="v" style="color:var(--red)">NOT PROVEN (read non câblé)</span></div>
+            <div class="kv"><span class="k">Re-backtest MNQ natif</span><span class="v" style="color:var(--amber)">requis (mismatch ×10)</span></div>
+            <div class="kv"><span class="k">PBO / Deflated Sharpe</span><span class="v" style="color:var(--amber)">non calculé</span></div>
+          </div>
+          <div class="card">
+            <h3>Coverage map</h3>
+            <div class="meter" style="gap:10px">
+              <div class="meter"><div class="top"><span>Databento T2 (ohlcv-1m NQ+ES)</span><span style="color:var(--green2)">épuisé · 100%</span></div><div class="bar"><i style="width:100%;background:var(--green)"></i></div></div>
+              <div class="meter"><div class="top"><span>ATAS/Rithmic enriched NQ (42j)</span><span style="color:var(--green2)">continu</span></div><div class="bar"><i style="width:92%;background:var(--green)"></i></div></div>
+              <div class="meter"><div class="top"><span>ATAS ES/GC (trou 05-16→28)</span><span style="color:var(--amber)">rattrapé 05-29</span></div><div class="bar"><i style="width:74%;background:var(--amber)"></i></div></div>
+              <div class="meter"><div class="top"><span>signals.db (paper trade-level)</span><span style="color:var(--cyan)">273 lignes</span></div><div class="bar"><i style="width:60%;background:var(--cyan)"></i></div></div>
+              <div class="meter"><div class="top"><span>dry-run execution logs</span><span style="color:var(--cyan)">sim/bracket</span></div><div class="bar"><i style="width:45%;background:var(--cyan)"></i></div></div>
+              <div class="meter"><div class="top"><span>Vrai T3 mbp/mbo</span><span style="color:var(--red)">absent</span></div><div class="bar"><i style="width:6%;background:var(--red)"></i></div></div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- BACKTEST LAB -->
+      <section class="page" id="pg-backtest">
+        <h1 class="pt">Backtest Lab</h1>
+        <div class="sub">research → backtest → validation. « Run engine » disabled ; le flow chaîné exécute le run mock + console.</div>
+        <div class="grid g-1-2 mb">
+          <div class="card">
+            <h3>Configuration <span class="r" id="cfgFrom"></span></h3>
+            <div class="kv"><span class="k">Stratégie</span><span class="v"><select class="mini" id="btStrat"><option>STRAT-17</option><option>STRAT-18</option><option>Candidate vNext</option></select></span></div>
+            <div class="kv"><span class="k">Variant</span><span class="v"><select class="mini" id="btVar"><option>baseline</option><option>vNext (TP1@1.5R)</option><option>rejected (microstructure)</option></select></span></div>
+            <div class="kv"><span class="k">Slippage</span><span class="v"><select class="mini" id="btSlip"><option>1 tick</option><option>2 ticks</option><option>4 ticks</option><option>6 ticks</option><option>8 ticks</option></select></span></div>
+            <div class="kv"><span class="k">Cost model</span><span class="v">$4 / RT commission</span></div>
+            <div class="kv"><span class="k">Instrument</span><span class="v" id="btInst">MNQ ($2/pt)</span></div>
+            <div class="kv"><span class="k">Window</span><span class="v">2025-04-01 → 2026-04-01</span></div>
+            <div class="btnrow" style="margin-top:11px">
+              <button class="btn act" onclick="runBacktest()">▷ Run (mock)</button>
+              <button class="btn" disabled>⚙ Run engine <span class="lk">disabled</span></button>
+              <button class="btn act" onclick="go('replay')">▣ Open in Trade Replay →</button>
+            </div>
+          </div>
+          <div class="card">
+            <h3>Résultats <span class="r" id="btTitle">STRAT-17 · baseline <span class="badge b-real">REAL</span></span></h3>
+            <div class="grid g4 mb" id="btKpis"></div>
+            <canvas id="btEquity" height="120"></canvas>
+            <div class="warnrow" id="btWarn"></div>
+          </div>
+        </div>
+        <div class="card mb" style="border-color:rgba(255,178,62,.3);background:linear-gradient(90deg,rgba(255,178,62,.07),transparent)">
+          <h3>Decision Card <span class="r">verdict comité — <span class="badge b-real">REAL</span></span></h3>
+          <div style="display:flex;gap:9px;flex-wrap:wrap;align-items:center">
+            <span class="pill research" style="font-size:12px">RESEARCH ONLY</span>
+            <span class="warn">✕ OOS paper negative</span>
+            <span class="warn">✕ fat-tail unresolved</span>
+            <span class="warn">✕ NQ/MNQ unresolved (×10)</span>
+            <span class="warn amber">✕ PBO / DSR missing</span>
+            <span class="spacer" style="flex:1"></span>
+            <span style="font-size:11px;color:var(--mute)">capital réel = 0 · paper-forward 100+ trades requis</span>
+          </div>
+        </div>
+        <div class="grid g-2-1">
+          <div class="card"><h3>Research console <span class="r">research → backtest → validation · <span class="badge b-np">MOCK</span></span></h3><div class="console" id="btConsole"></div></div>
+          <div class="card">
+            <h3>OOS GAP <span class="r"><span class="badge b-real">REAL</span>/<span class="badge b-paper">PAPER</span></span></h3>
+            <div class="kv"><span class="k">Backtest WR</span><span class="v" id="gapBt">40%</span></div>
+            <div class="kv"><span class="k">Paper WR</span><span class="v" style="color:var(--red)" id="gapPaper">30%</span></div>
+            <div class="kv"><span class="k">Paper sum R</span><span class="v" style="color:var(--red)" id="gapSum">−0.44</span></div>
+            <div class="kv"><span class="k">Severity</span><span class="v"><span class="pill reject" id="gapSev">CRITICAL</span></span></div>
+            <div class="note">Run history</div>
+            <div style="max-height:104px;overflow-y:auto"><table style="font-size:10.5px"><tbody id="runHist"></tbody></table></div>
+          </div>
+        </div>
+      </section>
+
+      <!-- TRADE REPLAY -->
+      <section class="page" id="pg-replay">
+        <h1 class="pt">Trade Replay Pro <span style="font-size:12px;color:var(--mute);font-weight:500">— écran central</span></h1>
+        <div class="sub">Trades <b>paper réels</b> signals.db <span class="badge b-paper">PAPER</span>. Candles 1m synthétiques + axes/crosshair/tooltip <span class="badge b-np">NOT PROVEN</span>.</div>
+        <div class="tradebar" id="tradeBar"></div>
+        <div class="replay">
+          <div class="chartwrap">
+            <div id="chartHost"><canvas id="replayChart" height="360"></canvas><canvas id="replayCross" height="360"></canvas><div id="replayTip"></div></div>
+            <canvas id="replayVol" height="48" style="margin-top:4px"></canvas>
+            <canvas id="replayDelta" height="42" style="margin-top:3px"></canvas>
+            <div class="legend">
+              <span><i style="background:var(--cyan)"></i>entry</span><span><i style="background:var(--red)"></i>SL</span>
+              <span><i style="background:var(--green)"></i>TP1</span><span><i style="background:#1bb877"></i>TP2</span>
+              <span><i style="background:#0e8f5c"></i>TP3</span><span><i style="background:var(--amber)"></i>BE/MFE/MAE</span><span><i style="background:rgba(157,123,255,.7)"></i>volume</span><span><i style="background:var(--violet)"></i>delta/CVD</span>
+            </div>
+            <div class="scrub"><input type="range" id="scrub" min="0" max="100" value="100">
+              <div class="tl"><span>signal</span><span>entry</span><span>TP1</span><span>BE</span><span>TP2/TP3/SL</span><span>close</span></div></div>
+            <div class="tlmark" id="tlMark"></div>
+            <div class="grid g-1-1-1" style="margin-top:11px">
+              <div class="card tight"><h3>Equity (paper) <span class="r"><span class="badge b-paper">PAPER</span></span></h3><canvas id="replayEquity" height="86"></canvas></div>
+              <div class="card tight"><h3>Drawdown <span class="r"><span class="badge b-paper">PAPER</span></span></h3><canvas id="replayDD" height="86"></canvas></div>
+              <div class="card tight" style="padding:9px 11px"><h3>Trade list <span class="r">cliquable</span></h3><div id="miniList" style="font-size:11px"></div></div>
+            </div>
+          </div>
+          <div class="rrail">
+            <div class="card tight">
+              <h3>Résultat <span class="r" id="rTradeId">#—</span></h3>
+              <div class="rbig" id="rR">+0.66 R</div>
+              <div style="margin:7px 0"><span class="badge b-paper">PAPER</span> <span class="badge" id="rOutcome">—</span></div>
+              <div class="kv"><span class="k">Strategy</span><span class="v">STRAT-17 AOKIJI</span></div>
+              <div class="kv"><span class="k">Date / time</span><span class="v" id="rDate">—</span></div>
+              <div class="kv"><span class="k">Side · Instr</span><span class="v" id="rSide">—</span></div>
+              <div class="kv"><span class="k">Entry</span><span class="v" id="rEntry">—</span></div>
+              <div class="kv"><span class="k">Stop</span><span class="v" style="color:var(--red)" id="rStop">—</span></div>
+              <div class="kv"><span class="k">TP1/TP2/TP3</span><span class="v" style="color:var(--green2)" id="rTP">—</span></div>
+              <div class="kv"><span class="k">peak·MFE·MAE</span><span class="v" id="rMfe">—</span></div>
+              <div class="kv"><span class="k">exit_reason</span><span class="v" id="rExit">—</span></div>
+              <div class="tags" id="rTags"></div>
+            </div>
+            <div class="card tight"><h3>Failure / review</h3><div class="note" id="rReject" style="margin-top:0">—</div></div>
+            <div class="card tight"><h3>Backtest vs Paper</h3>
+              <div class="kv"><span class="k">WR backtest</span><span class="v">40%</span></div>
+              <div class="kv"><span class="k">WR paper (n=34)</span><span class="v" style="color:var(--red)">30.3%</span></div>
+              <div class="kv"><span class="k">sum R paper</span><span class="v" style="color:var(--red)">−0.44 → +0.22</span></div></div>
+            <div class="card tight"><h3>Warnings</h3>
+              <div class="warnrow" style="flex-direction:column;align-items:stretch">
+                <span class="warn" id="wTail">⚠ fat-tail : —</span>
+                <span class="warn amber">⚠ NQ/MNQ ×10 — $ <span id="wInst">MNQ</span></span>
+                <span class="warn amber">⚠ slippage 94.8% du PnL @4t</span></div></div>
+            <button class="btn" disabled>▶ Replay backtest trade-level <span class="lk">NOT PROVEN · disabled</span></button>
+          </div>
+        </div>
+      </section>
+
+      <!-- ROBUSTNESS -->
+      <section class="page" id="pg-robust">
+        <h1 class="pt">Robustness Lab / Red-team <span style="font-size:12px;color:var(--mute);font-weight:500">— comité d'investissement</span></h1>
+        <div class="sub">Tout le red-team centralisé : fat-tail · slippage · NQ/MNQ · Monte Carlo · paper OOS · grade · verdict.</div>
+        <div class="card mb" style="padding:12px 14px;border-color:rgba(255,84,112,.3);background:linear-gradient(90deg,rgba(255,84,112,.1),transparent)">
+          <div style="display:flex;align-items:center;gap:14px;flex-wrap:wrap">
+            <span style="font-size:16px;font-weight:800;color:var(--red)">Can this candidate be promoted? — NO</span>
+            <span style="font-size:11.5px;color:var(--mute)">OOS paper negative · fat-tail unresolved · NQ-MNQ ×10 unresolved · PBO/DSR non calculé.</span>
+            <span class="spacer"></span><span class="pill research">→ paper-forward only</span>
+          </div>
+        </div>
+        <div class="grid g4 mb">
+          <div class="card tight"><div class="kpi"><span class="v red">15.9%</span><span class="l">PnL hors top-10% (S17) <span class="badge b-real">REAL</span></span></div></div>
+          <div class="card tight"><div class="kpi"><span class="v red">$12 707</span><span class="l">DD P95 MC (NQ) <span class="badge b-real">REAL</span></span></div></div>
+          <div class="card tight"><div class="kpi"><span class="v green">94.8%</span><span class="l">PnL @4t slippage <span class="badge b-real">REAL</span></span></div></div>
+          <div class="card tight"><div class="kpi"><span class="v amber">×10</span><span class="l">NQ($20) vs MNQ($2) <span class="badge b-real">REAL</span></span></div></div>
+        </div>
+        <div class="grid g-1-1-1 mb">
+          <div class="card"><h3>Top-winners dependency <span class="r"><span class="badge b-real">REAL</span></span></h3>
+            <div class="meter" style="gap:9px">
+              <div class="meter"><div class="top"><span>top-1 (S17)</span><span style="color:var(--amber)">9.3%</span></div><div class="bar"><i style="width:9.3%;background:var(--amber)"></i></div></div>
+              <div class="meter"><div class="top"><span>top-5 (S17)</span><span style="color:var(--amber)">34.3%</span></div><div class="bar"><i style="width:34%;background:var(--amber)"></i></div></div>
+              <div class="meter"><div class="top"><span>top-5% (S18)</span><span style="color:var(--red)">53.6%</span></div><div class="bar"><i style="width:54%;background:var(--red)"></i></div></div>
+              <div class="meter"><div class="top"><span>winsorized PF S18</span><span style="color:var(--red)">6.78→1.10</span></div><div class="bar"><i style="width:16%;background:var(--red)"></i></div></div>
+            </div></div>
+          <div class="card"><h3>Slippage sensitivity 1→4t <span class="r"><span class="badge b-real">REAL</span></span></h3><canvas id="slipChart" height="150"></canvas>
+            <div class="note">S17 94.8% · vNext 95.7% · S18 93.7% du PnL conservé @4t — seul test clairement passé.</div></div>
+          <div class="card"><h3>Monte Carlo DD <span class="r"><span class="badge b-real">REAL</span></span></h3><canvas id="mcChart" height="150"></canvas>
+            <div class="note">maxDD bt = best-case · P95 ≈ 2×.</div></div>
+        </div>
+        <div class="grid g-2-1">
+          <div class="card" style="padding:5px 7px"><table><thead><tr><th>#</th><th>Red flag</th><th>Preuve</th><th>Grav.</th><th>Action</th></tr></thead><tbody id="rfTable"></tbody></table></div>
+          <div class="card"><h3>Scorecard (0-10) <span class="r"><span class="badge b-real">REAL</span></span></h3><div id="scorecard" style="font-size:10px"></div></div>
+        </div>
+      </section>
+
+      <!-- VARIANTS -->
+      <section class="page" id="pg-variants">
+        <h1 class="pt">Variant Leaderboard</h1>
+        <div class="sub">35 variantes. Tri cliquable · filtre famille · clic ligne → charge Backtest Lab. <b style="color:var(--amber)">Multiple-testing non corrigé</b>.</div>
+        <div class="btnrow mb">
+          <span style="font-size:11px;color:var(--mute);align-self:center">Filtre :</span>
+          <button class="btn act" onclick="filterVar('all')">Toutes</button>
+          <button class="btn act" onclick="filterVar('17')">STRAT-17</button>
+          <button class="btn act" onclick="filterVar('18')">STRAT-18</button>
+          <button class="btn act" onclick="filterVar('promote')">Promote</button>
+          <button class="btn act" onclick="filterVar('reject')">Reject/Insuf</button>
+        </div>
+        <div class="card mb" style="padding:5px 7px;overflow-x:auto">
+          <table><thead><tr>
+            <th class="sortable" onclick="sortVar('s')">Strat</th><th>Variant</th>
+            <th class="num sortable" onclick="sortVar('pf')">PF</th><th class="num">R/PnL</th><th class="num sortable" onclick="sortVar('ddr')">DD</th>
+            <th class="num">n</th><th class="num">kept%</th><th>OOS</th><th>slip4t</th><th>PBO/DSR</th><th>Tail</th>
+            <th>Why not live?</th><th>Next required proof</th><th>Verdict</th>
+          </tr></thead><tbody id="varTable"></tbody></table>
+        </div>
+        <div class="grid g-2-1">
+          <div class="card"><h3>PF × DD reduction <span class="r"><span class="badge b-real">REAL</span></span></h3><canvas id="varScatter" height="200"></canvas>
+            <div class="legend"><span><i style="background:var(--green)"></i>PAPER TEST CANDIDATE</span><span><i style="background:var(--red)"></i>REJECT</span><span><i style="background:var(--amber)"></i>INSUFFICIENT N</span></div></div>
+          <div class="card"><h3>Lecture</h3>
+            <div class="warnrow" style="flex-direction:column;align-items:stretch">
+              <span class="warn amber">⚠ Aucune variante n'est « live-ready ». Le mieux = PAPER TEST CANDIDATE (research-only).</span>
+              <span class="warn">⚠ PBO / Deflated Sharpe non calculé sur 32 variantes — « validé » = NOT PROVEN.</span>
+              <span class="warn">⚠ Tout candidate exige 100+ paper trades positifs avant toute discussion de taille.</span>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- PAPER FORWARD -->
+      <section class="page" id="pg-paper">
+        <h1 class="pt">Paper-Forward Health</h1>
+        <div class="sub">Seul OOS temps réel. Health gate = <b>100 trades live positifs</b>. <span class="badge b-paper">PAPER</span></div>
+        <div class="card mb" style="padding:12px 14px;border-color:rgba(255,84,112,.3);background:linear-gradient(90deg,rgba(255,84,112,.1),transparent)">
+          <div style="display:flex;align-items:center;gap:16px;flex-wrap:wrap">
+            <span style="font-size:18px;font-weight:800;color:var(--red)">HEALTH : FAIL</span>
+            <span style="font-size:11.5px;color:var(--mute)">STRAT-17/18 <b>pas prêts</b> tant que le paper OOS ne confirme pas un edge. sum R live négatif, n insuffisant.</span>
+            <span class="spacer"></span>
+            <span class="pill reject">FAIL &lt;100</span><span class="pill insuf">WATCH 100-200</span><span class="pill promote">PASS &gt;200 · sumR&gt;0</span>
+            <button class="btn actv" onclick="go('vip')">✦ Open Template Studio →</button>
+          </div>
+        </div>
+        <div class="grid g4 mb">
+          <div class="card tight"><h3>Rolling 20 trades</h3><div class="meter"><div class="top"><span>WR</span><span style="color:var(--red)">30%</span></div><div class="bar"><i style="width:30%;background:var(--red)"></i></div></div><div class="note">backtest 40% (S17)</div></div>
+          <div class="card tight"><h3>Rolling 50 trades</h3><div class="meter"><div class="top"><span>sum R</span><span style="color:var(--red)">−4.8 (n=44)</span></div><div class="bar"><i style="width:22%;background:var(--red)"></i></div></div><div class="note">n insuffisant</div></div>
+          <div class="card tight"><h3>Days since last trade</h3><div class="kpi"><span class="v" style="font-size:20px">1 j</span><span class="l">05-29 dernier signal paper</span></div></div>
+          <div class="card tight"><h3>Target 100 trades</h3><div class="meter"><div class="top"><span>S17+S18</span><span>44 / 100</span></div><div class="bar"><i style="width:44%;background:var(--violet)"></i></div></div><div class="note">gate non atteint</div></div>
+        </div>
+        <div class="grid g-2-1">
+          <div class="card"><h3>Rolling WR (20) dans le temps <span class="r"><span class="badge b-paper">PAPER</span></span></h3><canvas id="rollWR" height="170"></canvas>
+            <div class="note">WR live oscille 25-35% — sous le 40% backtest. Aucune confirmation d'edge.</div></div>
+          <div class="card"><h3>Accepted vs Rejected <span class="r"><span class="badge b-paper">PAPER</span></span></h3>
+            <table style="font-size:11px"><thead><tr><th>Strat</th><th class="num">accepted</th><th class="num">rejected</th><th class="num">sum R</th><th>health</th></tr></thead>
+            <tbody>
+              <tr><td>STRAT-17</td><td class="num">34</td><td class="num">7</td><td class="num" style="color:var(--amber)">+0.22</td><td><span class="pill reject">FAIL</span></td></tr>
+              <tr><td>STRAT-18</td><td class="num">10</td><td class="num">2</td><td class="num" style="color:var(--red)">−5.06</td><td><span class="pill reject">FAIL</span></td></tr>
+            </tbody></table>
+            <div class="warnrow" style="margin-top:9px"><span class="warn">⚠ STOP STRATEGY if health &lt; threshold</span></div>
+          </div>
+        </div>
+        <div class="grid g2" style="margin-top:12px">
+          <div class="card"><h3>PASS conditions <span class="r">toutes requises avant tout statut live</span></h3>
+            <ul class="checklist">
+              <li><span class="x">✕</span> 100+ paper trades (actuel 44)</li>
+              <li><span class="x">✕</span> sum R positive (actuel S17 +0.22 / S18 −5.06)</li>
+              <li><span class="x">✕</span> rolling-20 WR positive vs backtest (actuel 30% &lt; 40%)</li>
+              <li><span class="x">✕</span> DD under threshold (P95 ≈ 2× backtest)</li>
+              <li><span class="ok">✓</span> accepted &gt; rejected (44 vs 9)</li>
+              <li><span class="ok">✓</span> no compliance issue (EXEC OFF, no bypass)</li>
+            </ul>
+            <div class="warnrow" style="margin-top:8px"><span class="warn">4/6 conditions échouent → HEALTH FAIL</span></div>
+          </div>
+          <div class="card"><h3>Next 30 days <span class="r">plan paper-forward</span></h3>
+            <div class="feed">
+              <div class="it"><span class="dotv" style="background:var(--violet)"></span><div><b>S1-S2</b> · forward-record continu, viser n=60-70, comparer R live vs backtest chaque semaine</div></div>
+              <div class="it"><span class="dotv" style="background:var(--cyan)"></span><div><b>S2</b> · re-backtest MNQ natif ($2/pt) — corriger le mismatch ×10</div></div>
+              <div class="it"><span class="dotv" style="background:var(--amber)"></span><div><b>S3</b> · estimer PBO (CSCV) + Deflated Sharpe sur les 32 variantes</div></div>
+              <div class="it"><span class="dotv" style="background:var(--green2)"></span><div><b>S4</b> · review : si sum R live &gt; 0 sur n≥100 → passer WATCH, sinon RESEARCH ONLY maintenu</div></div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- TEMPLATE STUDIO -->
+      <section class="page" id="pg-vip">
+        <h1 class="pt">Post Studio <span style="font-size:12px;color:var(--mute);font-weight:500">— VIP-safe · draft only · aucun envoi ici</span></h1>
+        <div class="sub">Génère des messages honnêtes. <b>Zéro % live, zéro $ live</b>, gagnants+perdants. L'envoi réel ira plus tard dans Revenue/CRM ou Telegram — ici tout est draft.</div>
+        <div class="grid" style="grid-template-columns:240px 1fr 280px;gap:12px">
+          <div class="card"><h3>Templates <span class="r">10</span></h3><div class="tpl-list" id="tplList"></div></div>
+          <div class="card">
+            <h3 id="tplTitle">Signal VIP <span class="r"><span class="st safe" id="tplStat">VIP-safe</span></span></h3>
+            <div style="font-size:10px;color:var(--dim);text-transform:uppercase;letter-spacing:.5px;margin-bottom:6px">Variables (mock — depuis signals.db)</div>
+            <div id="tplVars" style="display:flex;flex-wrap:wrap;gap:5px;margin-bottom:10px"></div>
+            <div style="font-size:10px;color:var(--dim);text-transform:uppercase;letter-spacing:.5px;margin-bottom:6px">Editor / preview</div>
+            <div class="vipbox" id="tplPreview"></div>
+          </div>
+          <div class="card">
+            <h3>Compliance checker</h3>
+            <ul class="checklist" id="tplCheck"></ul>
+            <div style="font-size:10px;color:var(--dim);text-transform:uppercase;letter-spacing:.5px;margin:12px 0 6px">Required data</div>
+            <div id="tplData" style="font-size:11px"></div>
+            <div style="font-size:10px;color:var(--dim);text-transform:uppercase;letter-spacing:.5px;margin:12px 0 6px">Channels (draft only)</div>
+            <div style="display:flex;flex-direction:column;gap:6px">
+              <div class="kv" style="padding:5px 0"><span class="k">Free channel</span><button class="btn" disabled style="padding:4px 9px">Draft <span class="lk">disabled</span></button></div>
+              <div class="kv" style="padding:5px 0"><span class="k">VIP channel</span><button class="btn" disabled style="padding:4px 9px">Draft <span class="lk">disabled</span></button></div>
+              <div class="kv" style="padding:5px 0"><span class="k">Erwin review</span><button class="btn" disabled style="padding:4px 9px">Send to review <span class="lk">disabled</span></button></div>
+              <div class="kv" style="padding:5px 0;border:none"><span class="k">Revenue / CRM</span><button class="btn" disabled style="padding:4px 9px">Export draft <span class="lk">disabled</span></button></div>
+            </div>
+            <div class="warnrow" style="margin-top:9px"><span class="warn amber">⚠ Aucun envoi réel depuis cet OS — uniquement des drafts.</span></div>
+          </div>
+        </div>
+      </section>
+
+    </div>
+  </div>
+</div>
+
+<script>
+/* ===== shared workflow state ===== */
+const STATE={strategy:'STRAT-17',variant:'baseline',instrument:'MNQ',slippage:'1 tick',trade:0,candidate:'STRAT-17 baseline'};
+function flowSync(){document.getElementById('flowState').textContent=STATE.strategy+' · '+STATE.variant+' · '+STATE.instrument;}
+
+const TRADES=[
+  {id:"05-29 15:58",date:"2026-05-29 15:58",side:"LONG",instr:"NQ",entry:30361.5,stop:30326.75,tp1:30431.0,tp2:30500.5,tp3:30639.5,r:0.66,exit:"BE",mfe:2.48,mae:-0.14,peak:2.48,win:true,tags:["reclaim","BE-secured","RTH"]},
+  {id:"05-28 16:19",date:"2026-05-28 16:19",side:"SHORT",instr:"NQ",entry:30299.75,stop:30314.07,tp1:30271.11,tp2:30242.46,tp3:30185.18,r:-1.0,exit:"SL",mfe:1.05,mae:-1.01,peak:1.05,win:false,tags:["stop-hit","late-entry"]},
+  {id:"05-27 15:49",date:"2026-05-27 15:49",side:"LONG",instr:"NQ",entry:29893.75,stop:29851.66,tp1:29977.93,tp2:30062.11,tp3:30230.46,r:3.28,exit:"TIMEOUT",mfe:4.23,mae:-0.27,peak:4.23,win:true,tags:["runner","top-decile","tail-winner"]},
+  {id:"05-26 18:22",date:"2026-05-26 18:22",side:"SHORT",instr:"NQ",entry:30043.25,stop:30055.38,tp1:30019.0,tp2:29994.75,tp3:29946.25,r:-1.0,exit:"SL",mfe:0.23,mae:-1.03,peak:0.23,win:false,tags:["stop-hit","chop"]},
+  {id:"05-26 15:50",date:"2026-05-26 15:50",side:"LONG",instr:"NQ",entry:29948.25,stop:29912.61,tp1:30019.54,tp2:30090.82,tp3:30233.39,r:-1.0,exit:"SL",mfe:0.14,mae:-1.00,peak:0.14,win:false,tags:["stop-hit","hour-10"]},
+];
+const VARIANTS=[
+  {s:"17",n:"TP1@1.5R (exit)",pf:14.78,pnl:"+22.4%",dd:"−21.4%",ddr:21.4,nn:215,kept:"100%",oos:"12.44",pbo:"n/c",tail:"26.7%",v:"promote"},
+  {s:"17",n:"vNext TP1@1.5R + n<2000",pf:16.57,pnl:"+19%",dd:"−21.4%",ddr:21.4,nn:200,kept:"93%",oos:"12.44",pbo:"n/c",tail:"26.7%",v:"promote"},
+  {s:"18",n:"TP 0.7/2/4R ladder",pf:16.92,pnl:"+4.9%",dd:"=",ddr:8,nn:118,kept:"100%",oos:"4.53",pbo:"n/c",tail:"21.1%",v:"promote"},
+  {s:"18",n:"half-size h10 @ size≥2",pf:null,pnl:"DD −50%",dd:"−50%",ddr:50,nn:118,kept:"100%",oos:"—",pbo:"—",tail:"—",v:"promote"},
+  {s:"17",n:"score≥3 reduce",pf:12.11,pnl:"73% gardé",dd:"−33%",ddr:33,nn:215,kept:"73%",oos:"—",pbo:"—",tail:"—",v:"promote"},
+  {s:"17",n:"cvd_exhaustion (n=22)",pf:27.30,pnl:"flatteur",dd:"—",ddr:5,nn:22,kept:"—",oos:"—",pbo:"—",tail:"—",v:"insuf"},
+  {s:"17",n:"score≥5 (n=13)",pf:null,pnl:"flatteur",dd:"—",ddr:5,nn:13,kept:"—",oos:"—",pbo:"—",tail:"—",v:"insuf"},
+  {s:"17/18",n:"microstructure CVD/ES-NQ/reclaim",pf:null,pnl:"coupé",dd:"pire",ddr:-10,nn:0,kept:"—",oos:"—",pbo:"—",tail:"—",v:"reject"},
+  {s:"18",n:"breakout_strength≥2.0 (n=19)",pf:null,pnl:"—",dd:"—",ddr:3,nn:19,kept:"—",oos:"—",pbo:"—",tail:"—",v:"reject"},
+];
+const REDFLAGS=[["RF1","Edge = fat-tail (drop top10% → 16%/1.7%)","test1_outliers","CRITICAL","Sizing hors top-décile"],["RF2","Paper live NÉGATIF","signals.db","CRITICAL","RESEARCH/PAPER · 100+ tr"],["RF3","DD bt = best-case (P95 2×)","test2_montecarlo","HIGH","Sizer sur P95/P99"],["RF4","NQ(bt) vs MNQ(live) ×10","execution_config","HIGH","Re-backtest MNQ"],["RF5","Faux-vert auto_exec","exec_manager:94/198","HIGH","Aligner flag"],["RF6","Multiple-testing non corrigé","perf_lab A-E","HIGH","DSR + PBO/CSCV"],["RF7","S18 vNext overfit OOS","test4_walkforward","MEDIUM","WF nested"],["RF8","Incohérence R↔$","test7_stop_realism","MEDIUM","Recalibrer risk"]];
+const SCORE=[["Alpha quality",3],["Robustness (hors outliers)",2],["Sample size",4],["Walk-forward stability",5],["Drawdown control",3],["Slippage realism",7],["Copy-trading suitability",2],["VIP suitability",5],["Execution readiness",2],["Compliance safety",6],["Commercial potential",5]];
+const DATA=[
+  ["Databento T2","ohlcv-1m NQ+ES · 699 774 bars","épuisé","aucun","backtest agrégé","engine","real","aucun"],
+  ["ATAS/Rithmic enriched","tick NQ 42j continu","live","aucun","replay candles / signaux","live-rithmic","real","—"],
+  ["signals.db","273 trades paper","live","—","replay · paper-forward","daemon PID216","paper","n insuffisant (44 clos)"],
+  ["PERF_LAB JSON","baseline + 35 var","05-29","pas de trade-list","backtest / variants","fichier","real","trade-list absente"],
+  ["REDTEAM JSON","8 tests adversariaux","05-29","—","robustness","fichier","real","—"],
+  ["dry-run execution logs","sim/bracket 3×MNQ","live","—","execution realism","hub log","paper","exec réelle OFF"],
+  ["T3 mbp/mbo","microstructure","—","absent","—","—","np","source absente"],
+];
+const FEED=[["05-29 17:10","red-team institutionnel livré — verdict RESEARCH ONLY","red"],["05-29 16:15","sprint performance — TP1@1.5R = levier #1","amber"],["05-29 15:50","PERF_LAB 35 variantes — fat-tail confirmé","amber"],["05-29 15:35","audit complet STRAT-17/18","cyan"],["05-27 15:49","paper trade +3.28R (runner top-décile)","green"],["05-26","paper OOS sum R négatif détecté","red"]];
+const BASELINES={
+  'STRAT-17':{type:'sweep reclaim (order-flow)',entry:'VAL/VAH sweep + reclaim confirm',exit:'TP1 @ 2.0R · TP2/TP3 ladder',risk:'per_trade_risk $50',session:'RTH · skip hour=10',data:'ATAS/Rithmic NQ 42j',val:'sanity 5/5 · PBO n/c'},
+  'STRAT-18':{type:'breakout stack 4-filtres',entry:'breakout + delta_confirm',exit:'TP 0.7/2/4R ladder',risk:'per_trade_risk $50',session:'RTH',data:'ATAS/Rithmic NQ',val:'sanity · PBO n/c'},
+};
+const TEMPLATES=[
+  {n:"Signal VIP",st:"safe",txt:"📊 STRAT-17 (NQ futures) — setup order-flow.\nEntrée / SL / TP publiés en temps réel.\nEn test public · on publie gagnants ET perdants.\n⚠ Trading futures = risque de perte. Backtest ≠ futur.",data:"signals.db (PAPER)",ck:[["ok","aucun % / $ live"],["ok","gagnants ET perdants"],["x","ne pas promettre de résultat"]]},
+  {n:"Signal Free",st:"safe",txt:"🔓 Setup du jour (version gratuite) — STRAT-17 NQ.\nContexte order-flow, niveaux clés.\nLes entrées/SL/TP détaillés sont réservés au canal en test.\n⚠ Risque de perte.",data:"signals.db",ck:[["ok","pas de niveaux précis"],["ok","disclaimer présent"]]},
+  {n:"Daily paper-forward recap",st:"safe",txt:"🗓️ Récap paper du jour — 4 signaux, R net du jour −0.34R.\nHealth gate : FAIL (44/100 trades).\nTransparence totale, capital réel = 0.",data:"signals.db + health gate",ck:[["ok","health status affiché"],["ok","aucun $ live"]]},
+  {n:"Weekly transparency report",st:"safe",txt:"📅 Semaine paper STRAT-17/18.\nGagnants + perdants listés. WR live 30% (vs 40% backtest).\nResearch only — aucune promesse.",data:"signals.db agrégé",ck:[["ok","bt vs paper affiché"],["ok","perdants visibles"]]},
+  {n:"Strategy update",st:"draft",txt:"🔧 Update : test TP1 plus proche (1.5R) sur STRAT-17.\nObjectif = réduire le drawdown. En recherche, pas validé.",data:"PERF_LAB",ck:[["ok","pas de promesse"],["x","ne pas dire « validé »"]]},
+  {n:"Red-team warning update",st:"safe",txt:"⚠ Transparence red-team : l'edge dépend de quelques gros trades (fat-tail). En paper réel, perte. Prudence maximale.",data:"REDTEAM",ck:[["ok","honnêteté fat-tail"],["ok","aucune vente"]]},
+  {n:"Backtest vs paper OOS update",st:"safe",txt:"📉 Backtest WR 40% → paper live WR 30%. L'écart est publié. On ne masque rien. Research only.",data:"PERF_LAB + signals.db",ck:[["ok","écart bt↔live publié"]]},
+  {n:"Trade replay summary",st:"draft",txt:"🎬 Replay : LONG NQ +3.28R (runner). Leçon : ce type de trade = top-décile, ne pas sizer dessus.",data:"signals.db",ck:[["ok","leçon honnête"],["x","ne pas extrapoler"]]},
+  {n:"Risk warning block",st:"safe",txt:"⚠ Le trading de futures comporte un risque de perte en capital. Les drawdowns peuvent être importants (P95 modélisé élevé).",data:"statique",ck:[["ok","toujours insérable"]]},
+  {n:"No-performance-claim disclaimer",st:"blk",txt:"Les performances passées (backtest) ne préjugent pas des résultats futurs. Aucun rendement live n'est communiqué. Aucune garantie.",data:"statique",ck:[["ok","obligatoire partout"],["x","ne jamais retirer"]]},
+];
+
+const $=s=>document.querySelector(s), $$=s=>[...document.querySelectorAll(s)];
+const C=getComputedStyle(document.documentElement); const col=n=>C.getPropertyValue(n).trim();
+function ctx(id){const c=$('#'+id);if(!c)return null;const dpr=window.devicePixelRatio||1;const w=c.clientWidth||c.parentElement.clientWidth;if(w<10)return null;const baseH=c.getAttribute('height')*1;c.width=w*dpr;c.height=baseH*dpr;const x=c.getContext('2d');x.scale(dpr,dpr);return {x,w,h:baseH,c};}
+function axis(x,w,h,l){l=l||34;x.strokeStyle='rgba(0,185,255,.10)';x.lineWidth=1;for(let i=0;i<=4;i++){const y=10+i*(h-26)/4;x.beginPath();x.moveTo(l,y);x.lineTo(w-8,y);x.stroke();}}
+const cmap={red:col('--red'),amber:col('--amber'),cyan:col('--cyan'),green:col('--green2'),violet:col('--violet')};
+
+/* ===== nav ===== */
+function go(pg){$$('.nav').forEach(x=>x.classList.toggle('on',x.dataset.pg===pg));$$('.page').forEach(p=>p.classList.remove('on'));$('#pg-'+pg).classList.add('on');setTimeout(redrawAll,30);}
+$$('.nav').forEach(n=>n.onclick=()=>go(n.dataset.pg));
+$$('#stratSeg button').forEach(b=>b.onclick=()=>{$$('#stratSeg button').forEach(x=>x.classList.remove('on'));b.classList.add('on');STATE.strategy=b.dataset.strat;flowSync();
+  const m={'STRAT-17':['11.43','40.0%','−0.44 R','15.9%'],'STRAT-18':['6.78','59%','−5.06 R','1.7%'],'Portfolio':['—','—','négatif','—'],'Candidate':['16.57','45.5%','en test','26.7%']}[STATE.strategy];
+  $('#ovPF').textContent=m[0];$('#ovWR').textContent=m[1];$('#ovPaper').textContent=m[2];$('#ovTail').textContent=m[3];});
+
+let MNQ=true;
+function setInst(){$('#instA').className=MNQ?'a':'b';$('#instB').className=MNQ?'b':'a';STATE.instrument=MNQ?'MNQ':'NQ';flowSync();const l=STATE.instrument;$('#wInst').textContent=l;$('#btInst').textContent=MNQ?'MNQ ($2/pt)':'NQ ($20/pt)';drawMC();drawSlip();runBacktest(true);}
+$('#instToggle').onclick=()=>{MNQ=!MNQ;setInst();};
+$('#slipSel').onchange=e=>{STATE.slippage=e.target.value;flowSync();$('#btSlip').value=e.target.value;runBacktest(true);};
+
+/* ===== builder ===== */
+function loadBaseline(s){STATE.candidate=s+' baseline';STATE.strategy=s;flowSync();$('#bCandTag').textContent='candidate from '+s+' baseline';$('#bBase').textContent='base : '+s+' baseline';buildRules(s);}
+function buildRules(s){const b=BASELINES[s];const rows=[
+  ['filter','Instrument',s==='STRAT-17'?'NQ → re-backtest MNQ requis':'NQ → MNQ requis','miss','MISSING DATA'],
+  ['filter','Type',b.type,'ready','READY'],
+  ['entry','Entry',b.entry,'ready','READY'],
+  ['exit','Exit',b.exit,'mock','MOCK'],
+  ['risk','Risk',b.risk+' — incohérent vs ~$70 MNQ','rej','R↔$ REJECTED'],
+  ['filter','Session',b.session,'ready','READY'],
+  ['filter','Data source',b.data,'ready','READY'],
+  ['exit','Validation',b.val,'rej','PBO MISSING'],
+];
+  $('#ruleset').innerHTML=rows.map(r=>`<div class="ruleblk ${r[0]}"><span class="tag">${r[1]}</span><select disabled><option>${r[2]}</option></select><span class="bstat ${r[3]}">${r[4]}</span></div>`).join('');
+  const ready=rows.filter(r=>r[3]==='ready').length;const blk=rows.filter(r=>r[3]==='miss'||r[3]==='rej').length;
+  $('#complScore').textContent=ready+'/8 READY';$('#complBlk').textContent='· '+blk+' blockers';
+  const base=BASELINES['STRAT-17'];
+  $('#diffBox').innerHTML=[['Entry',b.entry,base.entry],['Exit',b.exit,base.exit],['Risk',b.risk,base.risk],['Session',b.session,base.session],['Data',b.data,base.data],['Validation',b.val,base.val]]
+    .map(d=>{const same=d[1]===d[2];return `<div class="row"><span class="k" style="color:var(--mute)">${d[0]}</span><span class="${same?'same':'chg'}">${same?'= inchangé':'Δ '+d[1]}</span></div>`;}).join('');
+}
+function sendToBacktest(){$('#btStrat').value=STATE.strategy.startsWith('STRAT')?STATE.strategy:'STRAT-17';STATE.variant=$('#btVar').value;flowSync();go('backtest');$('#cfgFrom').innerHTML='⬅ from Strategy Builder · '+STATE.candidate;setTimeout(()=>runBacktest(),60);}
+
+/* ===== backtest ===== */
+const RUNHIST=[];
+function runBacktest(silent){const si=$('#btStrat').selectedIndex,vi=$('#btVar').selectedIndex;STATE.variant=$('#btVar').value;flowSync();const f=MNQ?.1:1;
+  const sets={0:{0:[11.43,40,5728,215,'−0.44',40,30],1:[14.78,44.6,4501,215,'+0.22',45,41],2:[3.1,33,9000,30,'coupé',40,30]},1:{0:[6.78,59,10116,118,'−5.06',68,30],1:[16.92,61,9446,118,'−5.06',68,30],2:[2.1,40,12000,19,'reject',40,30]},2:{0:[16.57,45.5,4501,200,'en test',46,42],1:[16.57,45.5,4501,200,'en test',46,42],2:[16.57,45.5,4501,200,'en test',46,42]}};
+  const d=sets[si][vi];const tail=si==1?'1.7%':'15.9%';
+  $('#btTitle').innerHTML=$('#btStrat').value+' · '+$('#btVar').value+' <span class="badge b-real">REAL</span>';
+  $('#btKpis').innerHTML=[['PF',d[0],'cyan'],['WR',d[1]+'%',''],['maxDD','$'+((d[2]*f)|0).toLocaleString('fr-FR'),'amber'],['n',d[3],'']].map(k=>`<div class="card tight" style="padding:8px 9px"><div class="kpi"><span class="v ${k[2]}" style="font-size:17px">${k[1]}</span><span class="l">${k[0]}</span></div></div>`).join('');
+  $('#btWarn').innerHTML=`<span class="warn">⚠ OOS paper sum R: ${d[4]}</span><span class="warn amber">⚠ tail drop top10% → ${tail}</span><span class="warn amber">⚠ ${MNQ?'MNQ':'NQ'} · ${$('#btSlip').value}</span>`;
+  $('#gapBt').textContent=d[5]+'%';$('#gapPaper').textContent=d[6]+'%';$('#gapSum').textContent=d[4];
+  const neg=String(d[4]).indexOf('−')>=0||String(d[4]).indexOf('coupé')>=0||String(d[4]).indexOf('reject')>=0;
+  $('#gapSev').textContent=neg?'CRITICAL':'WATCH';$('#gapSev').className='pill '+(neg?'reject':'insuf');
+  drawBtEquity(d,f);
+  $('#btConsole').innerHTML=[
+    ['pmt','quant@research:~$ run_backtest --strat '+$('#btStrat').value.toLowerCase().replace(/ /g,'')+' --variant '+(['baseline','vnext','rejected'][vi])+' --slip '+$('#btSlip').value.replace(/ /g,'')+' --inst '+(MNQ?'MNQ':'NQ')],
+    ['mut','> loading '+d[3]+' trades · window 2025-04-01→2026-04-01 · commission $4/RT'],
+    ['ok','✓ PF='+d[0]+'  WR='+d[1]+'%  maxDD=$'+((d[2]*f)|0).toLocaleString('fr-FR')+'  ('+(MNQ?'MNQ $2/pt':'NQ $20/pt')+')'],
+    ['wn','⚠ multiple-testing: 32 variantes · PBO/Deflated-Sharpe NON calculé'],
+    ['wn','⚠ fat-tail: drop top-10% → PnL restant '+tail],
+    [neg?'er':'wn','⚠ OOS paper sum R = '+d[4]+(neg?'  → edge non confirmé en réel':'')],
+    [neg?'er':'wn',(neg?'✗ candidate REJECTED — OOS paper negative. RESEARCH ONLY.':'◐ research-only candidate, requires 100+ paper trades positifs (+ PBO/DSR) avant tout statut.')],
+    ['mut','> next: re-backtest MNQ natif · estimer PBO (CSCV) · forward-record 100+ trades <span class="blink">▌</span>']
+  ].map(l=>`<div class="ln"><span class="${l[0]}">${l[1]}</span></div>`).join('');
+  if(!silent){RUNHIST.unshift([(RUNHIST.length+1),$('#btStrat').value.replace('STRAT-',''),(['base','vNext','rej'][vi]),$('#btSlip').value.replace(' ticks','t').replace(' tick','t'),(neg?'REJECT':'PAPER?'),d[4]]);
+    $('#runHist').innerHTML=RUNHIST.slice(0,7).map(r=>`<tr><td style="color:var(--dim)">#${r[0]}</td><td>S${r[1]}</td><td>${r[2]}</td><td>${r[3]}</td><td><span class="pill ${r[4]==='REJECT'?'reject':'insuf'}" style="font-size:8.5px">${r[4]}</span></td><td class="num" style="color:var(--red)">${r[5]}</td></tr>`).join('');}
+}
+['btStrat','btVar','btSlip'].forEach(id=>$('#'+id)&&($('#'+id).onchange=()=>{if(id==='btSlip'){STATE.slippage=$('#btSlip').value;$('#slipSel').value=$('#btSlip').value;}runBacktest();}));
+function drawBtEquity(d,f){const o=ctx('btEquity');if(!o)return;const{x,w,h}=o;axis(x,w,h);const slip=$('#btSlip').selectedIndex;const decay=1-slip*0.013;const base=[0,1.5,1,3,4.5,4,6,7.5,7,9,11,10.5,13,15];const mx=15*decay;x.strokeStyle=col('--cyan');x.lineWidth=2;x.beginPath();base.forEach((v,i)=>{const vv=v*decay;const px=34+i*(w-42)/(base.length-1),py=h-14-(vv)/(mx||1)*(h-26);i?x.lineTo(px,py):x.moveTo(px,py);});x.stroke();}
+
+/* ===== charts ===== */
+function drawEquity(){const o=ctx('ovEquity');if(!o)return;const{x,w,h}=o;axis(x,w,h);const bt=[0,1,2.6,4.5,7,8,11,13,15.5,17,20,22,25,27,30,32.5];const lv=[0,-1,-2,-1.3,-2.5,-1.8,-2.2,-0.9,-1.4,-0.6,0.2,0.22,0.1,-0.3,0,0.22];const all=bt.concat(lv);const mn=Math.min(...all),mx=Math.max(...all);
+  function L(a,c,fill){x.strokeStyle=c;x.lineWidth=2;x.beginPath();a.forEach((v,i)=>{const px=34+i*(w-42)/(a.length-1),py=h-16-(v-mn)/(mx-mn)*(h-30);i?x.lineTo(px,py):x.moveTo(px,py);});x.stroke();if(fill){const g=x.createLinearGradient(0,0,0,h);g.addColorStop(0,'rgba(0,185,255,.2)');g.addColorStop(1,'rgba(0,185,255,0)');x.lineTo(w-8,h-16);x.lineTo(34,h-16);x.fillStyle=g;x.fill();}}
+  L(bt,col('--cyan'),true);L(lv,col('--red'),false);}
+function drawMC(){const o=ctx('mcChart');if(!o)return;const{x,w,h}=o;axis(x,w,h,38);const f=MNQ?.1:1;const s=[['P50',8204],['P95',12707],['P99',15602],['max',22635]];const bt=5728,mx=24000,bw=(w-54)/s.length;
+  s.forEach((d,i)=>{const bh=(d[1]/mx)*(h-34);const px=42+i*bw;x.fillStyle=i>=1?'rgba(255,84,112,.6)':'rgba(0,185,255,.5)';x.fillRect(px,h-18-bh,bw*.55,bh);x.fillStyle=col('--mute');x.font='9px sans-serif';x.textAlign='center';x.fillText(d[0],px+bw*.27,h-5);x.fillStyle='#fde';x.font='8px sans-serif';x.fillText('$'+((d[1]*f)|0).toLocaleString('fr-FR'),px+bw*.27,h-22-bh);});
+  const by=h-18-(bt/mx)*(h-34);x.strokeStyle=col('--green2');x.setLineDash([5,4]);x.beginPath();x.moveTo(38,by);x.lineTo(w-8,by);x.stroke();x.setLineDash([]);}
+function drawSlip(){const o=ctx('slipChart');if(!o)return;const{x,w,h}=o;axis(x,w,h);const s17=[100,98.9,97.4,95.8,94.8],s18=[100,98.2,96.5,94.9,93.7];
+  function L(a,c){const mn=92,mx=101;x.strokeStyle=c;x.lineWidth=2;x.beginPath();a.forEach((v,i)=>{const px=34+i*(w-42)/(a.length-1),py=h-16-(v-mn)/(mx-mn)*(h-30);i?x.lineTo(px,py):x.moveTo(px,py);});x.stroke();}
+  L(s17,col('--cyan'));L(s18,col('--amber'));x.fillStyle=col('--dim');x.font='9px sans-serif';x.textAlign='center';['1t','2t','3t','4t','5t'].forEach((t,i)=>x.fillText(t,34+i*(w-42)/4,h-3));}
+function drawScatter(){const o=ctx('varScatter');if(!o)return;const{x,w,h}=o;axis(x,w,h);
+  VARIANTS.forEach(v=>{if(v.pf==null)return;const px=38+(v.ddr+12)/62*(w-50);const py=h-22-(v.pf/28)*(h-38);x.fillStyle=v.v==='promote'?col('--green'):v.v==='reject'?col('--red'):col('--amber');x.beginPath();x.arc(px,py,5,0,7);x.fill();});
+  x.fillStyle=col('--dim');x.font='9px sans-serif';x.textAlign='center';x.fillText('DD reduction % →',w/2,h-4);x.save();x.translate(11,h/2);x.rotate(-Math.PI/2);x.fillText('PF ↑',0,0);x.restore();
+  x.textAlign='left';['0','15','30','45','60'].forEach((t,i)=>x.fillText(t,34+i*(w-46)/4,h-14));}
+function drawRollWR(){const o=ctx('rollWR');if(!o)return;const{x,w,h}=o;axis(x,w,h);const wr=[35,30,28,33,25,30,27,31,29,26,30,30];
+  const mn=20,mx=45;x.strokeStyle=col('--red');x.lineWidth=2;x.beginPath();wr.forEach((v,i)=>{const px=34+i*(w-42)/(wr.length-1),py=h-16-(v-mn)/(mx-mn)*(h-30);i?x.lineTo(px,py):x.moveTo(px,py);});x.stroke();
+  const by=h-16-(40-mn)/(mx-mn)*(h-30);x.strokeStyle=col('--cyan');x.setLineDash([5,4]);x.beginPath();x.moveTo(34,by);x.lineTo(w-8,by);x.stroke();x.setLineDash([]);x.fillStyle=col('--cyan');x.font='9px sans-serif';x.fillText('40% backtest',w-90,by-4);}
+
+/* ===== replay with axes + crosshair + tooltip + volume ===== */
+let curT=0,scrubVal=100,CANDLES=[];
+function buildTradeBar(){$('#tradeBar').innerHTML='';TRADES.forEach((t,i)=>{const e=document.createElement('div');e.className='tchip '+(t.win?'win':'loss')+(i===curT?' on':'');e.textContent=t.id+'  '+(t.r>=0?'+':'')+t.r.toFixed(2)+'R';e.onclick=()=>{curT=i;buildTradeBar();drawReplay();fillRail();};$('#tradeBar').appendChild(e);});}
+function fillRail(){const t=TRADES[curT];$('#rTradeId').textContent=t.id;$('#rR').textContent=(t.r>=0?'+':'')+t.r.toFixed(2)+' R';$('#rR').style.color=t.r>=0?col('--green2'):col('--red');
+  $('#rOutcome').textContent=t.win?'CLOSED WIN':'CLOSED LOSS';$('#rOutcome').className='badge '+(t.win?'b-paper':'b-np');
+  $('#rDate').textContent=t.date;$('#rSide').textContent=t.side+' · '+t.instr;$('#rEntry').textContent=t.entry;$('#rStop').textContent=t.stop;$('#rTP').textContent=t.tp1+' / '+t.tp2+' / '+t.tp3;
+  $('#rMfe').textContent=t.peak.toFixed(2)+' / '+t.mfe.toFixed(2)+' / '+t.mae.toFixed(2);$('#rExit').textContent=t.exit;
+  $('#rTags').innerHTML=t.tags.map(g=>`<span class="tg">#${g}</span>`).join('');
+  const big=t.r>=2.5;$('#wTail').textContent='⚠ fat-tail : '+(big?'∈ top-décile — edge surévalué si on compte dessus':'hors top-décile (OK)');
+  $('#rReject').textContent=big?'Un comité rejetterait de sizer sur ce runner (TP3 8R) : ~6-22 trades portent tout le PnL. Espérance hors top-décile quasi nulle.':(t.r<=-1?'Stop touché net. WR live 30% << 40% backtest = divergence OOS.':'Sortie BE/partielle — sain, mais ne prouve pas un edge sur n=34.');
+  const mk=t.win?(t.r>=2.5?['signal','entry','TP1 ✓','BE ✓','TP2 ✓','TP3 ~','close']:['signal','entry','TP1 ✓','BE ✓','close']):['signal','entry','—','SL ✕','close'];
+  $('#tlMark').innerHTML=mk.map(m=>`<span style="${m.includes('✓')?'color:var(--green2);border-color:rgba(35,209,139,.3)':m.includes('✕')?'color:var(--red);border-color:rgba(255,84,112,.3)':''}">${m}</span>`).join('');
+  $('#miniList').innerHTML=TRADES.map((q,i)=>`<div class="kv" style="padding:4px 0;cursor:pointer;${i===curT?'color:#eafaff':''}" onclick="curT=${i};buildTradeBar();drawReplay();fillRail();"><span class="k">${q.id}</span><span class="v" style="color:${q.r>=0?'var(--green2)':'var(--red)'}">${q.r>=0?'+':''}${q.r.toFixed(2)}R</span></div>`).join('');
+}
+function genCandles(t){const N=56,dir=t.side==='LONG'?1:-1;let price=t.entry-dir*(t.entry-t.stop)*1.1;const tgt=t.r>0?(t.r>=2.5?t.tp3:t.tp1):t.stop;let seed=curT*97+7;const rnd=()=>{seed=(seed*1103515245+12345)&0x7fffffff;return seed/0x7fffffff;};
+  CANDLES=[];for(let i=0;i<N;i++){const prog=i/(N-1);const drift=t.entry+(tgt-t.entry)*Math.min(1,prog*1.12)*(prog>0.1?1:0);const o=price;price=drift+(rnd()-.5)*(t.entry-t.stop)*.5;const c=price;const hi=Math.max(o,c)+rnd()*(t.entry-t.stop)*.25,lo=Math.min(o,c)-rnd()*(t.entry-t.stop)*.25;CANDLES.push({o,c,hi,lo,v:0.3+rnd()});}}
+let RGEO={padL:8,padR:54,cw:1,N:1,Y:v=>v,plot:0,w:0,h:0};
+function drawReplay(){const o=ctx('replayChart');if(!o)return;const t=TRADES[curT];const{x,w,h}=o;genCandles(t);
+  x.fillStyle='#03081a';x.fillRect(0,0,w,h); // navy background — chart never blank
+  const lvls=[t.tp3,t.tp2,t.tp1,t.entry,t.stop];const hi=Math.max(...lvls)*1.0009,lo=Math.min(...lvls)*0.9991;const padL=8,padR=54;
+  const Y=v=>h-20-(v-lo)/(hi-lo)*(h-40);const N=CANDLES.length,plot=Math.round(N*scrubVal/100);const cw=(w-padL-padR)/N;
+  RGEO={padL,padR,cw,N,Y,plot,hi,lo,w,h};
+  // grid horizontal (price) + right axis labels
+  x.strokeStyle='rgba(0,185,255,.07)';x.lineWidth=1;x.fillStyle=col('--dim');x.font='9px ui-monospace,monospace';x.textAlign='left';
+  for(let g=0;g<=5;g++){const v=lo+(hi-lo)*g/5;const yy=Y(v);x.beginPath();x.moveTo(padL,yy);x.lineTo(w-padR,yy);x.stroke();x.fillText(v.toFixed(0),w-padR+4,yy+3);}
+  // grid vertical (time)
+  for(let g=0;g<=6;g++){const xx=padL+(w-padL-padR)*g/6;x.strokeStyle='rgba(0,185,255,.04)';x.beginPath();x.moveTo(xx,8);x.lineTo(xx,h-16);x.stroke();}
+  // candles
+  for(let i=0;i<N;i++){if(i>plot)continue;const k=CANDLES[i];const px=padL+i*cw,up=k.c>=k.o;x.strokeStyle=up?col('--green'):col('--red');x.lineWidth=1;x.beginPath();x.moveTo(px+cw*.45,Y(k.hi));x.lineTo(px+cw*.45,Y(k.lo));x.stroke();x.fillStyle=up?'rgba(35,209,139,.92)':'rgba(255,84,112,.92)';x.fillRect(px+cw*.12,Y(Math.max(k.o,k.c)),cw*.66,Math.max(2,Math.abs(Y(k.o)-Y(k.c))));}
+  // level lines (entry/SL/TP) with right-edge price
+  function lvl(v,c,lbl,dash){x.strokeStyle=c;x.lineWidth=1.4;if(dash)x.setLineDash([6,4]);x.beginPath();x.moveTo(padL,Y(v));x.lineTo(w-padR,Y(v));x.stroke();x.setLineDash([]);x.fillStyle=c;x.font='9px sans-serif';x.textAlign='left';x.fillText(lbl,padL+3,Y(v)-3);}
+  lvl(t.tp3,'#0e8f5c','TP3',true);lvl(t.tp2,'#1bb877','TP2',true);lvl(t.tp1,col('--green'),'TP1',false);lvl(t.entry,col('--cyan'),'ENTRY',false);lvl(t.stop,col('--red'),'SL',false);
+  // MFE / MAE markers
+  const mfeV=t.side==='LONG'?t.entry+(t.entry-t.stop)*t.mfe:t.entry-(t.entry-t.stop)*t.mfe;const maeV=t.side==='LONG'?t.entry+(t.entry-t.stop)*t.mae:t.entry-(t.entry-t.stop)*t.mae;
+  const mfeX=padL+plot*cw*0.62,maeX=padL+plot*cw*0.34;
+  x.fillStyle=col('--amber');x.beginPath();x.arc(mfeX,Y(mfeV),3.5,0,7);x.fill();x.fillText('MFE',mfeX+5,Y(mfeV)-3);
+  x.fillStyle=col('--red');x.beginPath();x.arc(maeX,Y(maeV),3.5,0,7);x.fill();x.fillText('MAE',maeX+5,Y(maeV)+11);
+  if(t.exit==='BE'){x.fillStyle=col('--amber');x.font='8px sans-serif';x.fillText('● BE',padL+plot*cw*0.48,Y(t.entry)+12);}
+  // time axis
+  x.fillStyle=col('--dim');x.font='8px ui-monospace,monospace';x.textAlign='center';['signal','entry','+10m','+20m','close'].forEach((t2,i)=>x.fillText(t2,padL+(w-padL-padR)*i/4,h-5));
+  drawVol(plot);drawDelta(plot);drawReplayEq();drawReplayDD();
+}
+function drawVol(plot){const o=ctx('replayVol');if(!o)return;const{x,w,h}=o;x.fillStyle='#03081a';x.fillRect(0,0,w,h);const padL=8,padR=54,N=CANDLES.length,cw=(w-padL-padR)/N;const mx=Math.max(...CANDLES.map(k=>k.v));
+  for(let i=0;i<N;i++){if(i>plot)continue;const k=CANDLES[i];const bh=(k.v/mx)*(h-10);x.fillStyle=k.c>=k.o?'rgba(35,209,139,.55)':'rgba(255,84,112,.55)';x.fillRect(padL+i*cw+cw*.12,h-4-bh,cw*.66,bh);}
+  x.fillStyle=col('--dim');x.font='8px sans-serif';x.textAlign='left';x.fillText('volume (mock)',padL+2,10);}
+function drawDelta(plot){const o=ctx('replayDelta');if(!o)return;const{x,w,h}=o;x.fillStyle='#03081a';x.fillRect(0,0,w,h);const padL=8,padR=54,N=CANDLES.length,cw=(w-padL-padR)/N;const zero=h/2;
+  let seed=curT*131+5;const rnd=()=>{seed=(seed*1103515245+12345)&0x7fffffff;return seed/0x7fffffff;};
+  for(let i=0;i<N;i++){if(i>plot)continue;const k=CANDLES[i];const up=k.c>=k.o;const d=(up?1:-1)*(0.3+rnd()*0.7);const bh=d*(h/2-5);x.fillStyle=up?'rgba(157,123,255,.6)':'rgba(255,84,112,.5)';x.fillRect(padL+i*cw+cw*.12,zero-(d>0?bh:0),cw*.66,Math.abs(bh));}
+  x.strokeStyle='rgba(255,255,255,.12)';x.beginPath();x.moveTo(padL,zero);x.lineTo(w-padR,zero);x.stroke();x.fillStyle=col('--violet2');x.font='8px sans-serif';x.textAlign='left';x.fillText('delta / CVD (mock)',padL+2,10);}
+function drawReplayEq(){const o=ctx('replayEquity');if(!o)return;const{x,w,h}=o;let cum=0;const cs=TRADES.map(t=>cum+=t.r);const mn=Math.min(0,...cs),mx=Math.max(...cs,1);x.strokeStyle=col('--cyan');x.lineWidth=2;x.beginPath();cs.forEach((v,i)=>{const px=8+i*(w-16)/(cs.length-1),py=h-10-(v-mn)/(mx-mn)*(h-18);i?x.lineTo(px,py):x.moveTo(px,py);});x.stroke();}
+function drawReplayDD(){const o=ctx('replayDD');if(!o)return;const{x,w,h}=o;let cum=0,pk=0;const dd=TRADES.map(t=>{cum+=t.r;pk=Math.max(pk,cum);return cum-pk;});const mn=Math.min(...dd,-1);x.fillStyle='rgba(255,84,112,.32)';x.strokeStyle=col('--red');x.lineWidth=1.5;x.beginPath();dd.forEach((v,i)=>{const px=8+i*(w-16)/(dd.length-1),py=10-(v/mn)*(h-20);i?x.lineTo(px,py):x.moveTo(px,py);});x.stroke();x.lineTo(w-8,10);x.lineTo(8,10);x.fill();}
+$('#scrub').oninput=e=>{scrubVal=+e.target.value;drawReplay();};
+// crosshair on SEPARATE overlay canvas — never touches the chart (fix: chart blanc au survol)
+(function(){const cv=$('#replayChart'),ov=$('#replayCross'),tip=$('#replayTip');if(!cv||!ov)return;
+  function sizeOverlay(){const dpr=window.devicePixelRatio||1;const w=cv.clientWidth,hh=cv.clientHeight;ov.style.height=hh+'px';ov.width=w*dpr;ov.height=hh*dpr;const x=ov.getContext('2d');x.setTransform(dpr,0,0,dpr,0,0);return {x,w,h:hh};}
+  cv.addEventListener('mousemove',ev=>{const r=cv.getBoundingClientRect();const mx=ev.clientX-r.left,my=ev.clientY-r.top;const {padL,padR,cw,N}=RGEO;if(!N){return;}
+    let i=Math.round((mx-padL)/cw);i=Math.max(0,Math.min((CANDLES.length||1)-1,i));const k=CANDLES[i];if(!k){return;}
+    const {x,w,h}=sizeOverlay();x.clearRect(0,0,w,h);x.strokeStyle='rgba(0,185,255,.45)';x.lineWidth=1;x.setLineDash([3,3]);
+    const cx0=padL+i*cw+cw*.45;x.beginPath();x.moveTo(cx0,6);x.lineTo(cx0,h-14);x.moveTo(padL,my);x.lineTo(w-padR,my);x.stroke();x.setLineDash([]);
+    tip.style.display='block';tip.style.left=Math.min(mx+12,w-132)+'px';tip.style.top=Math.max(4,my-34)+'px';tip.innerHTML=`O ${k.o.toFixed(1)} · H ${k.hi.toFixed(1)}<br>L ${k.lo.toFixed(1)} · C ${k.c.toFixed(1)}<br>vol ${(k.v*100|0)} · #${i+1}`;});
+  cv.addEventListener('mouseleave',()=>{tip.style.display='none';const dpr=window.devicePixelRatio||1;const c=ov.getContext('2d');c.clearRect(0,0,ov.width/dpr,ov.height/dpr);});})();
+
+/* ===== tables ===== */
+let varFilter='all',varSort=null,varAsc=false;
+function renderVar(){let rows=VARIANTS.slice();
+  if(varFilter==='17')rows=rows.filter(v=>v.s.includes('17'));else if(varFilter==='18')rows=rows.filter(v=>v.s.includes('18'));else if(varFilter==='promote')rows=rows.filter(v=>v.v==='promote');else if(varFilter==='reject')rows=rows.filter(v=>v.v!=='promote');
+  if(varSort)rows.sort((a,b)=>{const x=a[varSort]==null?-1:a[varSort],y=b[varSort]==null?-1:b[varSort];return (varAsc?1:-1)*((typeof x==='number'?x-y:String(x).localeCompare(String(y))));});
+  const VLABEL={promote:'PAPER TEST CANDIDATE',reject:'REJECT',insuf:'INSUFFICIENT N'};
+  const WHY={promote:'OOS paper négatif · fat-tail',reject:'edge coupé / DD pire',insuf:'n trop faible (&lt;30)'};
+  const PROOF={promote:'100+ paper trades positifs + PBO/DSR',reject:'—',insuf:'collecter n≥100'};
+  $('#varTable').innerHTML=rows.map(v=>{const slip=v.v==='promote'?'~95%':'—';
+    const vi=v.n.includes('vNext')?1:v.n.includes('rejected')||v.v==='reject'?2:0;const si=v.s.includes('18')?'STRAT-18':'STRAT-17';
+    return `<tr class="clk" onclick="loadVariant('${si}',${vi},'${v.n.replace(/'/g,'')}')"><td>${v.s}</td><td>${v.n}</td><td class="num">${v.pf??'—'}</td><td class="num">${v.pnl}</td><td class="num">${v.dd}</td><td class="num">${v.nn||'—'}</td><td class="num">${v.kept}</td><td class="num" style="color:var(--mute)">${v.oos}</td><td class="num" style="color:var(--mute)">${slip}</td><td class="num" style="color:var(--amber)">${v.pbo}</td><td style="font-size:10px;color:var(--mute)">${v.tail}</td><td style="font-size:10px;color:#ffc1cd">${WHY[v.v]}</td><td style="font-size:10px;color:var(--mute)">${PROOF[v.v]}</td><td><span class="pill ${v.v}">${VLABEL[v.v]}</span></td></tr>`;}).join('');}
+function filterVar(f){varFilter=f;renderVar();}
+function sortVar(k){if(varSort===k)varAsc=!varAsc;else{varSort=k;varAsc=false;}renderVar();}
+function loadVariant(s,vi,name){$('#btStrat').value=s;$('#btVar').selectedIndex=vi;STATE.strategy=s;STATE.variant=$('#btVar').value;flowSync();go('backtest');$('#cfgFrom').innerHTML='⬅ from Variant Leaderboard · '+name;setTimeout(()=>runBacktest(),60);}
+function buildTables(){
+  $('#rfTable').innerHTML=REDFLAGS.map(r=>`<tr><td style="color:var(--mute)">${r[0]}</td><td>${r[1]}</td><td style="font-size:9px;color:var(--dim)">${r[2]}</td><td><span class="pill ${r[3]==='CRITICAL'?'reject':r[3]==='HIGH'?'insuf':'promote'}">${r[3]}</span></td><td style="font-size:10px;color:var(--mute)">${r[4]}</td></tr>`).join('');
+  $('#scorecard').innerHTML=SCORE.map(s=>{const c=s[1]<=3?col('--red'):s[1]<=5?col('--amber'):col('--green');return `<div class="scorebar"><span class="n">${s[0]}</span><span class="t"><i style="width:${s[1]*10}%;background:${c}"></i></span><span class="x">${s[1]}/10</span></div>`;}).join('');
+  $('#dataTable').innerHTML=DATA.map(d=>`<tr><td>${d[0]}</td><td style="color:var(--mute)">${d[1]}</td><td class="num">${d[2]}</td><td style="font-size:10px;color:${d[3].includes('absent')||d[3].includes('trade-list')?'var(--red)':'var(--dim)'}">${d[3]}</td><td style="font-size:10.5px">${d[4]}</td><td style="font-size:10px;color:var(--mute)">${d[5]}</td><td><span class="badge b-${d[6]}">${d[6]==='np'?'NOT PROVEN':d[6].toUpperCase()}</span></td><td style="font-size:10px;color:${d[7]==='—'||d[7]==='aucun'?'var(--dim)':'var(--amber)'}">${d[7]}</td></tr>`).join('');
+  $('#feed').innerHTML=FEED.map(f=>`<div class="it"><span class="dotv" style="background:${cmap[f[2]]}"></span><div><span class="d" style="display:inline;color:var(--dim)">${f[0]}</span> ${f[1]}</div></div>`).join('');
+  renderVar();
+}
+
+/* ===== templates ===== */
+let curTpl=0;
+function buildTpl(){$('#tplList').innerHTML=TEMPLATES.map((t,i)=>`<div class="tpl ${i===curTpl?'on':''}" onclick="selTpl(${i})"><span>${t.n}</span><span class="st ${t.st}">${t.st==='safe'?'VIP-safe':t.st==='draft'?'draft-only':'blocked-safe'}</span></div>`).join('');selTpl(curTpl,true);}
+function selTpl(i,noList){curTpl=i;if(!noList)$$('.tpl').forEach((e,j)=>e.classList.toggle('on',j===i));const t=TEMPLATES[i];const tr=TRADES[0];
+  $('#tplTitle').innerHTML=t.n+' <span class="r"><span class="st '+t.st+'">'+(t.st==='safe'?'VIP-safe':t.st==='draft'?'draft-only':'blocked-safe')+'</span></span>';
+  const vars=[['strategy','STRAT-17'],['side',tr.side],['entry',tr.entry],['stop',tr.stop],['tp1',tr.tp1],['tp2',tr.tp2],['tp3',tr.tp3],['risk_warning','ON'],['paper_status','PAPER']];
+  $('#tplVars').innerHTML=vars.map(v=>`<span class="tg" style="border-color:rgba(0,185,255,.3);color:#7af0ff;background:rgba(0,185,255,.06)">{${v[0]}}=<b>${v[1]}</b></span>`).join('');
+  $('#tplPreview').innerHTML=t.txt.replace(/\n/g,'<br>')+'<div class="foot-disc">Performances passées (backtest) ≠ futur · aucun % / $ live · research/paper only.</div>';
+  $('#tplData').innerHTML='<div class="kv" style="padding:4px 0"><span class="k">Source</span><span class="v">'+t.data+'</span></div>';
+  $('#tplCheck').innerHTML=t.ck.map(c=>`<li><span class="${c[0]}">${c[0]==='ok'?'✓':'✕'}</span> ${c[1]}</li>`).join('');}
+
+/* ===== boot ===== */
+function redrawAll(){try{drawEquity();drawMC();drawSlip();drawScatter();drawRollWR();drawReplay();drawBtEquity([11.43,40,5728,215,'−0.44'],MNQ?.1:1);}catch(e){console.warn(e);}}
+function init(){flowSync();buildRules('STRAT-17');buildTradeBar();fillRail();buildTables();buildTpl();runBacktest(true);redrawAll();}
+window.addEventListener('resize',()=>setTimeout(redrawAll,80));
+init();
+</script>
+</body>
+</html>

@@ -1,0 +1,117 @@
+/* CofiaTrading World Map — scoped animations & SVG helpers.
+   Tailwind handles layout/colour; this module owns keyframes so we stay
+   Framer-Motion-free (the host project has none). All motion respects
+   prefers-reduced-motion. */
+
+.svgRoot {
+  width: 100%;
+  height: 100%;
+  display: block;
+  touch-action: none;
+}
+
+.viewport {
+  transition: transform 420ms cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+.viewportDragging {
+  transition: none;
+  cursor: grabbing;
+}
+
+/* Centre transforms on the element itself (SVG needs fill-box). */
+.float,
+.pulse,
+.glow,
+.shake,
+.appear,
+.ring {
+  transform-box: fill-box;
+  transform-origin: center;
+}
+
+.float {
+  animation: wm-float var(--wm-float-dur, 4s) ease-in-out infinite;
+}
+
+.pulse {
+  animation: wm-pulse var(--wm-pulse-dur, 2.4s) ease-in-out infinite;
+}
+
+.glow {
+  animation: wm-glow var(--wm-pulse-dur, 2.4s) ease-in-out infinite;
+}
+
+.shake {
+  animation: wm-shake 0.9s ease-in-out infinite;
+}
+
+.appear {
+  animation: wm-appear 560ms cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+.ring {
+  animation: wm-ring var(--wm-pulse-dur, 2.4s) ease-out infinite;
+}
+
+.dash {
+  animation: wm-dash var(--wm-flow-dur, 3s) linear infinite;
+}
+
+.interactive {
+  cursor: pointer;
+  outline: none;
+}
+
+.interactive:focus-visible .focusRing {
+  opacity: 1;
+}
+
+@keyframes wm-float {
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(-3px); }
+}
+
+@keyframes wm-pulse {
+  0%, 100% { opacity: 0.85; transform: scale(1); }
+  50% { opacity: 1; transform: scale(1.08); }
+}
+
+@keyframes wm-glow {
+  0%, 100% { opacity: 0.35; }
+  50% { opacity: 0.85; }
+}
+
+@keyframes wm-shake {
+  0%, 100% { transform: translateX(0); }
+  25% { transform: translateX(-1.5px); }
+  75% { transform: translateX(1.5px); }
+}
+
+@keyframes wm-appear {
+  from { opacity: 0; transform: scale(0.6); }
+  to { opacity: 1; transform: scale(1); }
+}
+
+@keyframes wm-ring {
+  0% { transform: scale(1); opacity: 0.55; }
+  100% { transform: scale(2.1); opacity: 0; }
+}
+
+@keyframes wm-dash {
+  to { stroke-dashoffset: -240; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .float,
+  .pulse,
+  .glow,
+  .shake,
+  .appear,
+  .ring,
+  .dash,
+  .viewport {
+    animation: none !important;
+    transition: none !important;
+  }
+}
